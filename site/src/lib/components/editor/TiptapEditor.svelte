@@ -28,12 +28,14 @@
 	export let placeholder = 'Start writing...';
 	export let diaryDate: string | undefined = undefined;
 	export let selectedContent: string = '';
+	export let emptyStatePrompt: string = '';
 
 	let editorElement: HTMLDivElement;
 	let editor: Editor | null = null;
 	let fileInput: HTMLInputElement;
 	let uploadError = '';
 	let showMediaPicker = false;
+	let isFocused = false;
 
 	// Add button state
 	let showAddButton = false;
@@ -293,6 +295,12 @@
 				updateAddButton();
 				selectedContent = getSelectionHtml();
 			},
+			onFocus: () => {
+				isFocused = true;
+			},
+			onBlur: () => {
+				isFocused = false;
+			},
 		});
 
 		// When the user deselects outside the editor, Tiptap's onTransaction
@@ -330,6 +338,18 @@
 
 <div class="tiptap-editor">
 	<div bind:this={editorElement} class="editor-container"></div>
+	{#if emptyStatePrompt && !content && !isFocused}
+		<button
+			type="button"
+			class="empty-state-overlay"
+			on:click={() => editor?.commands.focus()}
+			aria-label="Focus editor"
+		>
+			<div class="text-center text-muted-foreground">
+				<p class="text-sm">{emptyStatePrompt}</p>
+			</div>
+		</button>
+	{/if}
 	{#if showAddButton}
 		<button
 			bind:this={addButtonEl}
@@ -416,5 +436,19 @@
 			transform: translateX(0);
 			opacity: 1;
 		}
+	}
+
+	.empty-state-overlay {
+		position: absolute;
+		inset: 0;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		background: transparent;
+		border: 0;
+		padding: 0;
+		cursor: text;
+		pointer-events: auto;
 	}
 </style>

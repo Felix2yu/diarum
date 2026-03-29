@@ -335,10 +335,10 @@
 			</div>
 
 	<!-- Main Content -->
-	<div class="max-w-6xl mx-auto px-4 py-6">
-		<div class="flex gap-6">
+	<div class="px-4 py-6">
+		<div class="diary-layout flex gap-6 mx-auto transition-all duration-300" class:with-desktop-sidebar={showDesktopToc}>
 			<!-- Editor -->
-			<main class="flex-1 min-w-0">
+			<main class="diary-main w-full min-w-0">
 				{#if loading}
 					<div class="flex flex-col items-center justify-center py-20 gap-3 animate-fade-in">
 						<svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
@@ -354,6 +354,7 @@
 							bind:selectedContent
 							onChange={handleContentChange}
 							placeholder="What's on your mind today?"
+							emptyStatePrompt="✨ Reflect on today... What will you remember from this day?"
 							diaryDate={date}
 						/>
 					</div>
@@ -361,76 +362,76 @@
 			</main>
 
 			<!-- Desktop Right Sidebar -->
-			<aside class="hidden lg:block w-[19rem] flex-shrink-0">
-				<div class="sticky top-11 space-y-3 animate-slide-in-right">
-					<div class="bg-card/50 rounded-xl border border-border/50 p-4 shadow-sm">
-						<div class="flex items-center justify-between mb-2">
-							<div>
-								<div class="text-sm font-semibold text-foreground">Mood</div>
+			{#if showDesktopToc}
+				<aside class="hidden lg:block w-[19rem] flex-shrink-0">
+					<div class="sticky top-11 space-y-3 animate-slide-in-right">
+						<div class="bg-card/50 rounded-xl border border-border/50 p-4 shadow-sm">
+							<div class="flex items-center justify-between mb-2">
+								<div>
+									<div class="text-sm font-semibold text-foreground">Mood</div>
+								</div>
+								{#if selectedMood}
+									<button
+										on:click={() => handleMoodSelect(selectedMood)}
+										class="text-[11px] px-2 py-1 rounded-full bg-background/70 hover:bg-background border border-border/70 transition-colors"
+									>
+										Clear
+									</button>
+								{/if}
 							</div>
-							{#if selectedMood}
-								<button
-									on:click={() => handleMoodSelect(selectedMood)}
-									class="text-[11px] px-2 py-1 rounded-full bg-background/70 hover:bg-background border border-border/70 transition-colors"
-								>
-									Clear
-								</button>
-							{/if}
-						</div>
-						<div class="grid grid-cols-4 gap-2">
-							{#each moodPresets as option}
-								<button
-									on:click={() => handleMoodSelect(option)}
-									class="emoji-option {selectedMood === option ? 'emoji-option-active' : ''}"
-									title={option}
-									aria-label={`Mood ${option}`}
-								>
-									<span class="text-xl leading-none">{option}</span>
-								</button>
-							{/each}
-						</div>
-					</div>
-
-					<div class="bg-card/50 rounded-xl border border-border/50 p-4 shadow-sm">
-						<div class="flex items-center justify-between mb-2">
-							<div>
-								<div class="text-sm font-semibold text-foreground">Weather</div>
+							<div class="grid grid-cols-4 gap-2">
+								{#each moodPresets as option}
+									<button
+										on:click={() => handleMoodSelect(option)}
+										class="emoji-option {selectedMood === option ? 'emoji-option-active' : ''}"
+										title={option}
+										aria-label={`Mood ${option}`}
+									>
+										<span class="text-xl leading-none">{option}</span>
+									</button>
+								{/each}
 							</div>
-							{#if selectedWeather}
-								<button
-									on:click={() => handleWeatherSelect(selectedWeather)}
-									class="text-[11px] px-2 py-1 rounded-full bg-background/70 hover:bg-background border border-border/70 transition-colors"
-								>
-									Clear
-								</button>
-							{/if}
 						</div>
-						<div class="grid grid-cols-4 gap-2">
-							{#each weatherPresets as option}
-								<button
-									on:click={() => handleWeatherSelect(option)}
-									class="emoji-option {selectedWeather === option ? 'emoji-option-active' : ''}"
-									title={option}
-									aria-label={`Weather ${option}`}
-								>
-									<span class="text-xl leading-none">{option}</span>
-								</button>
-							{/each}
-						</div>
-					</div>
 
-					{#if showDesktopToc}
+						<div class="bg-card/50 rounded-xl border border-border/50 p-4 shadow-sm">
+							<div class="flex items-center justify-between mb-2">
+								<div>
+									<div class="text-sm font-semibold text-foreground">Weather</div>
+								</div>
+								{#if selectedWeather}
+									<button
+										on:click={() => handleWeatherSelect(selectedWeather)}
+										class="text-[11px] px-2 py-1 rounded-full bg-background/70 hover:bg-background border border-border/70 transition-colors"
+									>
+										Clear
+									</button>
+								{/if}
+							</div>
+							<div class="grid grid-cols-4 gap-2">
+								{#each weatherPresets as option}
+									<button
+										on:click={() => handleWeatherSelect(option)}
+										class="emoji-option {selectedWeather === option ? 'emoji-option-active' : ''}"
+										title={option}
+										aria-label={`Weather ${option}`}
+									>
+										<span class="text-xl leading-none">{option}</span>
+									</button>
+								{/each}
+							</div>
+						</div>
+
 						<div class="bg-card/50 rounded-xl border border-border/50 p-4">
 							<TableOfContents {content} />
 						</div>
-					{/if}
-				</div>
-			</aside>
+					</div>
+				</aside>
+			{/if}
 		</div>
 	</div>
 
 	<!-- Footer -->
-	<Footer maxWidth="6xl" tagline="Ctrl+S or ⌘S to save" />
+	<Footer tagline="Ctrl+S or ⌘S to save" dynamicMaxWidth="48rem" dynamicMaxWidthDesktop={showDesktopToc ? 'calc(48rem + 19rem + 1.5rem)' : '48rem'} />
 </div>
 
 <!-- Left Drawer -->
@@ -616,6 +617,23 @@
 		border-color: hsl(var(--primary) / 0.65);
 		background: hsl(var(--primary) / 0.12);
 		box-shadow: 0 8px 16px hsl(var(--primary) / 0.12);
+	}
+
+	.diary-layout {
+		max-width: 48rem;
+	}
+
+	@media (min-width: 1024px) {
+		.diary-main {
+			flex: 1 1 auto;
+			max-width: 48rem;
+		}
+	}
+
+	@media (min-width: 1024px) {
+		.diary-layout.with-desktop-sidebar {
+			max-width: calc(48rem + 19rem + 1.5rem);
+		}
 	}
 </style>
 
