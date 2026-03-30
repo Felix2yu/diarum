@@ -4,6 +4,10 @@
   <img src="site/static/logo.png" alt="Diarum Logo" width="120" />
 </p>
 
+<p align="center">
+  <em>One entry a day. Open, write, done. &nbsp;|&nbsp; 一天一篇，打开即写，刚刚好。</em>
+</p>
+
 [English](#english) | [中文](#中文)
 
 ---
@@ -12,7 +16,7 @@
 
 ### About
 
-**Diarum** (Chinese: 吾身) - A simple, elegant, and self-hosted diary application built with PocketBase and modern web technologies.
+**Diarum** (Chinese: 吾身) - One entry a day. Open, write, done. A simple, elegant, and self-hosted diary application built with PocketBase and modern web technologies. One diary per day — no more, no less — so you can write freely without anxiety.
 
 ### Online Demo
 
@@ -181,7 +185,7 @@ Access the PocketBase admin panel at `http://localhost:8090/_/` to:
 
 ### 关于
 
-**吾身** (Diarum) - 取自"吾日三省吾身"，一款零负担、快记录、怡复盘的日记应用，记录独一无二的人生。
+**吾身** (Diarum) - 一天一篇，打开即写，刚刚好。中文名取自"吾日三省吾身"，特点是每天有且仅有一篇日记，告别选择焦虑，致力于打造一款零负担、快记录、怡复盘的日记应用，记录独一无二的人生。
 
 零负担，软件使用非常简单，登陆后打开首页即跳转到今日日记。快记录，打开立刻开始记录，自动保存。怡复盘，可以愉快的完成复盘、总结分析。轻松实现现代化 AI 加持的“吾日三省吾身”。
 
