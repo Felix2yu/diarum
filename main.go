@@ -225,6 +225,7 @@ func main() {
 		})
 
 		// Register API routes
+		api.RegisterAuthRoutes(app, e)
 		api.RegisterDiaryRoutes(app, e)
 		api.RegisterSettingsRoutes(app, e)
 		api.RegisterAIRoutes(app, e, embeddingService)
@@ -232,6 +233,10 @@ func main() {
 		api.RegisterCheveretoRoutes(app, e)
 		api.RegisterPublicRoutes(app, e)
 		api.RegisterVersionRoutes(e, Version, Name)
+		if logger.GetLevel() <= logger.LevelDebug {
+			api.RegisterOpenAPIRoutes(e, Version, Name)
+			logger.Info("[Docs] OpenAPI docs enabled in debug mode at /api/docs and /api/v1/docs")
+		}
 
 		// Serve embedded frontend static files with SPA fallback
 		staticFS, err := static.GetFS()
