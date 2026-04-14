@@ -18,6 +18,8 @@
 	let mounted = false;
 	let prevYear = currentYear;
 	let prevMonth = currentMonth;
+	let yearViewActive = false;
+	let yearDiaryMeta: CalendarDiaryMeta[] = [];
 
 	async function loadDatesWithDiaries() {
 		loading = true;
@@ -64,7 +66,9 @@
 		if (mounted && (currentYear !== prevYear || currentMonth !== prevMonth)) {
 			prevYear = currentYear;
 			prevMonth = currentMonth;
-			loadDatesWithDiaries();
+			if (!yearViewActive) {
+				loadDatesWithDiaries();
+			}
 		}
 	}
 </script>
@@ -141,7 +145,7 @@
 						</div>
 					{:else}
 						<div class="animate-fade-in-only">
-							<Calendar bind:currentYear bind:currentMonth {diaryMeta} />
+							<Calendar bind:currentYear bind:currentMonth bind:yearViewActive bind:yearDiaryMeta {diaryMeta} on:monthchange={loadDatesWithDiaries} />
 						</div>
 					{/if}
 				</div>
@@ -152,9 +156,11 @@
 				<!-- Stats -->
 				<div class="grid grid-cols-3 gap-4">
 					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
-						<div class="text-xs text-muted-foreground">This month</div>
+						<div class="text-xs text-muted-foreground">{yearViewActive ? 'This year' : 'This month'}</div>
 						<div class="text-xl font-bold text-foreground mt-1 h-7 flex items-center">
-							{#if loading}
+							{#if yearViewActive}
+								<span class="animate-fade-in-only">{yearDiaryMeta.length}</span>
+							{:else if loading}
 								<span class="inline-block w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></span>
 							{:else}
 								<span class="animate-fade-in-only">{datesWithDiaries.length}</span>
