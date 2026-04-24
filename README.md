@@ -349,7 +349,11 @@ make dev-backend
 - 查看日志
 - 自定义设置
 
----
+## 加入交流群
+
+如果你在使用 Diarum 过程中有任何问题，欢迎扫描下方二维码，或微信搜索 `frytea26` 添加开发者好友，备注 `diarum`，我会拉你进交流群，大家一起讨论、互相解答。
+
+<img src="docs/assets/wechat-tls2.JPG" alt="Diarum 微信二维码" width="260" />
 
 ## Contributing
 
@@ -366,3 +370,4 @@ If you encounter any issues or have questions, please [open an issue](https://gi
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=songtianlun/diarum&type=timeline&legend=top-left)](https://www.star-history.com/#songtianlun/diarum&type=timeline&legend=top-left)
+
