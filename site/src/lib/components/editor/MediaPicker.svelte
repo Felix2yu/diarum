@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { getAllMedia, getMediaFileUrl, type MediaWithDiary } from '$lib/api/media';
+	import { formatShortDate } from '$lib/utils/date';
 
 	export let onSelect: (media: MediaWithDiary) => void;
 	export let onClose: () => void;
@@ -37,11 +38,7 @@
 	}
 
 	function formatDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('zh-CN', {
-			month: 'short',
-			day: 'numeric'
-		});
+		return formatShortDate(dateStr);
 	}
 
 	$: filteredMedia = searchQuery
@@ -71,8 +68,8 @@
 	>
 		<!-- Header -->
 		<div class="media-picker-header">
-			<h3>Select from Gallery</h3>
-			<button class="close-btn" on:click={onClose} title="Close">
+			<h3>从图库选择</h3>
+			<button class="close-btn" on:click={onClose} title="关闭">
 				<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
 				</svg>
@@ -83,7 +80,7 @@
 		<div class="media-picker-search">
 			<input
 				type="text"
-				placeholder="Search images..."
+				placeholder="搜索图片..."
 				bind:value={searchQuery}
 			/>
 		</div>
@@ -96,14 +93,14 @@
 						<circle class="spinner-bg" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 						<path class="spinner-fg" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 					</svg>
-					<span>Loading...</span>
+					<span>加载中...</span>
 				</div>
 			{:else if filteredMedia.length === 0}
 				<div class="empty-state">
 					<svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
 					</svg>
-					<p>{searchQuery ? 'No matching images' : 'No images in gallery'}</p>
+					<p>{searchQuery ? '未找到匹配的图片' : '图库中暂无图片'}</p>
 				</div>
 			{:else}
 				<div class="media-grid">
@@ -111,11 +108,11 @@
 						<button
 							class="media-item"
 							on:click={() => handleSelect(media)}
-							title={media.name || 'Select image'}
+							title={media.name || '选择图片'}
 						>
 							<img
 								src={getMediaFileUrl(media, '200x200')}
-								alt={media.alt || media.name || 'Media'}
+								alt={media.alt || media.name || '媒体'}
 								loading="lazy"
 							/>
 							<div class="media-item-overlay">
@@ -134,14 +131,14 @@
 					disabled={currentPage === 1}
 					on:click={() => { currentPage--; loadMedia(); }}
 				>
-					Previous
+					上一页
 				</button>
 				<span>{currentPage} / {totalPages}</span>
 				<button
 					disabled={currentPage === totalPages}
 					on:click={() => { currentPage++; loadMedia(); }}
 				>
-					Next
+					下一页
 				</button>
 			</div>
 		{/if}

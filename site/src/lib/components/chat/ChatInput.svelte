@@ -2,7 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 
 	export let disabled = false;
-	export let placeholder = 'Type your message...';
+	export let placeholder = '输入您的消息...';
 
 	let content = '';
 	const dispatch = createEventDispatcher<{ send: string }>();
@@ -43,7 +43,7 @@
 		<button
 			type="submit"
 			disabled={disabled || !content.trim()}
-			title="Send message"
+			title="发送消息"
 			class="h-[44px] w-[44px] sm:h-[48px] sm:w-[48px] rounded-xl sm:rounded-2xl
 				bg-primary text-primary-foreground
 				hover:bg-primary/90 active:scale-95 transition-all duration-150

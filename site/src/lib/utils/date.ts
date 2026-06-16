@@ -41,34 +41,58 @@ export function getNextDay(dateStr: string): string {
 }
 
 /**
- * Format date for display (e.g., "January 28, 2024")
+ * Format date for display in Chinese format (e.g., "2026年6月16日")
  */
 export function formatDisplayDate(dateStr: string): string {
 	const date = parseDate(dateStr);
-	return date.toLocaleDateString('en-US', {
-		year: 'numeric',
-		month: 'long',
-		day: 'numeric'
-	});
+	const year = date.getFullYear();
+	const month = date.getMonth() + 1;
+	const day = date.getDate();
+	return `${year}年${month}月${day}日`;
 }
 
 /**
- * Format short date for mobile display (e.g., "Jan 28")
+ * Format short date for mobile display in Chinese format (e.g., "6月16日")
  */
 export function formatShortDate(dateStr: string): string {
 	const date = parseDate(dateStr);
-	return date.toLocaleDateString('en-US', {
-		month: 'short',
-		day: 'numeric'
-	});
+	const month = date.getMonth() + 1;
+	const day = date.getDate();
+	return `${month}月${day}日`;
 }
 
 /**
- * Get day of week (e.g., "Mon")
+ * Get day of week in Chinese short format (e.g., "周二")
  */
 export function getDayOfWeek(dateStr: string): string {
+	const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
 	const date = parseDate(dateStr);
-	return date.toLocaleDateString('en-US', { weekday: 'short' });
+	return days[date.getDay()];
+}
+
+/**
+ * Format month and year in Chinese (e.g., "2026年6月")
+ */
+export function formatMonthYear(year: number, month: number): string {
+	return `${year}年${month}月`;
+}
+
+/**
+ * Get Chinese month name (e.g., "六月" for month 6)
+ */
+export function getMonthName(month: number): string {
+	const months = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
+	return months[month - 1];
+}
+
+/**
+ * Format time in Chinese (e.g., "15:30")
+ */
+export function formatTime(dateStr: string): string {
+	const date = parseDate(dateStr);
+	const hour = String(date.getHours()).padStart(2, '0');
+	const minute = String(date.getMinutes()).padStart(2, '0');
+	return `${hour}:${minute}`;
 }
 
 /**
@@ -101,12 +125,13 @@ export function getYearRange(year: number): { start: string; end: string } {
 }
 
 /**
- * Get calendar days for a month (including padding days)
+ * Get calendar days for a month (including padding days), week starts on Monday
  */
 export function getCalendarDays(year: number, month: number): Date[] {
 	const firstDay = new Date(year, month - 1, 1);
 	const lastDay = new Date(year, month, 0);
-	const startDay = firstDay.getDay(); // 0 = Sunday
+	// 0 = Sunday -> shift to Monday-first: Monday=0, Sunday=6
+	const startDay = (firstDay.getDay() + 6) % 7;
 	const daysInMonth = lastDay.getDate();
 
 	const days: Date[] = [];
@@ -123,7 +148,7 @@ export function getCalendarDays(year: number, month: number): Date[] {
 	}
 
 	// Add padding days from next month
-	const endDay = lastDay.getDay();
+	const endDay = (lastDay.getDay() + 6) % 7;
 	const remainingDays = 6 - endDay;
 	for (let i = 1; i <= remainingDays; i++) {
 		days.push(new Date(year, month, i));

@@ -4,6 +4,7 @@
 	import { getDiariesByIds } from '$lib/api/diaries';
 	import { goto } from '$app/navigation';
 	import { marked } from 'marked';
+	import { formatDisplayDate, formatTime } from '$lib/utils/date';
 
 	export let message: Message;
 	export let isStreaming = false;
@@ -25,13 +26,11 @@
 	let loaded = false;
 
 	function formatDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+		return formatTime(dateStr);
 	}
 
 	function formatDiaryDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+		return formatDisplayDate(dateStr);
 	}
 
 	function truncateContent(content: string, maxLength: number = 80): string {
@@ -81,7 +80,7 @@
 								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"></circle>
 								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 							</svg>
-							<span>Thinking...</span>
+							<span>正在思考...</span>
 						</div>
 					</div>
 				{/if}
@@ -107,7 +106,7 @@
 					>
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
 					</svg>
-					Referenced {message.referenced_diaries.length} {message.referenced_diaries.length === 1 ? 'diary' : 'diaries'}
+					已引用 {message.referenced_diaries.length} 篇日记
 				</button>
 			{/if}
 		</div>
@@ -115,7 +114,7 @@
 		{#if expanded && message.referenced_diaries && message.referenced_diaries.length > 0}
 			<div class="mt-2 px-1 space-y-2">
 				{#if loading}
-					<div class="text-xs text-muted-foreground">Loading...</div>
+					<div class="text-xs text-muted-foreground">加载中...</div>
 				{:else}
 					{#each diaries as diary}
 						<button

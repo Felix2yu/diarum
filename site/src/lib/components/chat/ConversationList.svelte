@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import type { Conversation } from '$lib/api/chat';
+	import { formatDisplayDate } from '$lib/utils/date';
 
 	export let conversations: Conversation[] = [];
 	export let selectedId: string | null = null;
@@ -23,7 +24,7 @@
 		if (days === 0) return '今天';
 		if (days === 1) return '昨天';
 		if (days < 7) return `${days} 天前`;
-		return date.toLocaleDateString();
+		return formatDisplayDate(dateStr);
 	}
 
 	function getTitle(conv: Conversation): string {
@@ -135,7 +136,7 @@
 									<button
 										on:click={(e) => handleDelete(e, conv.id)}
 										class="p-1.5 rounded-lg bg-destructive text-destructive-foreground text-xs font-medium hover:opacity-90 transition-all"
-										title="Confirm delete"
+										title="确认删除"
 									>
 										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -144,7 +145,7 @@
 									<button
 										on:click={cancelDelete}
 										class="p-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-all"
-										title="Cancel"
+										title="取消"
 									>
 										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -155,7 +156,7 @@
 								<button
 									on:click={(e) => handleDelete(e, conv.id)}
 									class="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-destructive/10 transition-all"
-									title="Delete"
+									title="删除"
 								>
 									<svg class="w-4 h-4 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

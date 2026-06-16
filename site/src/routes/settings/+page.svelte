@@ -706,7 +706,7 @@
 					</div>
 
 					<!-- Center: Title -->
-					<div class="text-sm font-medium text-foreground text-center">Settings</div>
+					<div class="text-sm font-medium text-foreground text-center">设置</div>
 
 					<!-- Right: Actions -->
 					<a
@@ -806,7 +806,7 @@
 									on:click={copyToken}
 									class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
 								>
-									{copied ? 'Copied!' : 'Copy'}
+									{copied ? '已复制！' : '复制'}
 								</button>
 							</div>
 							<p class="text-xs text-muted-foreground mt-2">
@@ -826,7 +826,7 @@
 									disabled={resetting}
 									class="px-4 py-2 text-sm bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-lg transition-colors duration-200 disabled:opacity-50"
 								>
-									{resetting ? 'Resetting...' : 'Reset Token'}
+									{resetting ? '重置中...' : '重置 Token'}
 								</button>
 							</div>
 						</div>
@@ -919,8 +919,8 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 
 					<div class="flex items-center justify-between py-4 border-b border-border/50">
 						<div>
-							<div class="font-medium text-foreground">Enable Memos Webhook</div>
-							<div class="text-sm text-muted-foreground">Generate and accept a private webhook URL for Memos</div>
+							<div class="font-medium text-foreground">启用 Memos Webhook</div>
+							<div class="text-sm text-muted-foreground">为 Memos 生成专用的 Webhook URL 用于接收同步消息</div>
 						</div>
 						<button
 							on:click={() => memosSettings.enabled = !memosSettings.enabled}
@@ -934,7 +934,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 					</div>
 
 					<div class="py-4 border-b border-border/50">
-						<label for="memos-base-url" class="block font-medium text-foreground mb-2">Memos Base URL</label>
+						<label for="memos-base-url" class="block font-medium text-foreground mb-2">Memos 基础 URL</label>
 						<input
 							id="memos-base-url"
 							type="url"
@@ -956,7 +956,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									on:click={copyMemosWebhookURL}
 									class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
 								>
-									{memosCopied ? 'Copied!' : 'Copy'}
+									{memosCopied ? '已复制！' : '复制'}
 								</button>
 							</div>
 							<p class="text-xs text-muted-foreground mt-2">将此 URL 粘贴到 Memos webhook 设置中。请妥善保密，因为它可以向您的日记写入同步的 memo 块。</p>
@@ -966,14 +966,14 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							<div class="flex items-center justify-between gap-4">
 								<div>
 									<div class="font-medium text-foreground">重置 Webhook URL</div>
-									<div class="text-sm text-muted-foreground">Generate a new private URL if the old one is exposed</div>
+									<div class="text-sm text-muted-foreground">如果旧 URL 已泄露，请重新生成专用的 Webhook URL</div>
 								</div>
 								<button
 									on:click={handleResetMemosWebhookToken}
 									disabled={memosResetting}
 									class="px-4 py-2 text-sm bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-lg transition-colors duration-200 disabled:opacity-50"
 								>
-									{memosResetting ? 'Resetting...' : 'Reset URL'}
+									{memosResetting ? '重置中...' : '重置 URL'}
 								</button>
 							</div>
 						</div>
@@ -985,7 +985,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							disabled={memosSaving || !memosSettingsChanged}
 							class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
 						>
-							{memosSaving ? 'Saving...' : 'Save Memos Settings'}
+							{memosSaving ? '保存中...' : '保存 Memos 设置'}
 						</button>
 					</div>
 				</div>
@@ -1022,7 +1022,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4 border-b border-border/50">
 						<div class="rounded-xl border border-border/50 p-4">
 							<div class="flex items-center justify-between gap-3 mb-2">
-								<div class="font-medium text-foreground">Mood options</div>
+								<div class="font-medium text-foreground">心情选项</div>
 								<button
 									on:click={restoreMoodDefaults}
 									class="px-2.5 py-1 text-xs bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
@@ -1051,10 +1051,10 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									添加
 								</button>
 							</div>
-							<div class="text-xs text-muted-foreground mb-3">Maximum {MAX_DIARY_EMOJI_OPTION_LENGTH} characters per option, up to {MAX_DIARY_EMOJI_OPTION_COUNT} mood options total. Keep at least one. Drag chips to reorder.</div>
+							<div class="text-xs text-muted-foreground mb-3">每个选项最多 {MAX_DIARY_EMOJI_OPTION_LENGTH} 个字符，总计最多 {MAX_DIARY_EMOJI_OPTION_COUNT} 个心情选项。请保留至少一个。拖动可重新排序。</div>
 							<div class="flex flex-wrap gap-2">
 								{#if moodOptions.length === 0}
-									<div class="text-sm text-muted-foreground">No mood options yet</div>
+									<div class="text-sm text-muted-foreground">暂无心情选项</div>
 								{:else}
 									{#each moodOptions as option, index}
 										<div
@@ -1093,7 +1093,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 
 						<div class="rounded-xl border border-border/50 p-4">
 							<div class="flex items-center justify-between gap-3 mb-2">
-								<div class="font-medium text-foreground">Weather options</div>
+								<div class="font-medium text-foreground">天气选项</div>
 								<button
 									on:click={restoreWeatherDefaults}
 									class="px-2.5 py-1 text-xs bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
@@ -1122,10 +1122,10 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									添加
 								</button>
 							</div>
-							<div class="text-xs text-muted-foreground mb-3">Maximum {MAX_DIARY_EMOJI_OPTION_LENGTH} characters per option, up to {MAX_DIARY_EMOJI_OPTION_COUNT} weather options total. Keep at least one. Drag chips to reorder.</div>
+							<div class="text-xs text-muted-foreground mb-3">每个选项最多 {MAX_DIARY_EMOJI_OPTION_LENGTH} 个字符，总计最多 {MAX_DIARY_EMOJI_OPTION_COUNT} 个天气选项。请保留至少一个。拖动可重新排序。</div>
 							<div class="flex flex-wrap gap-2">
 								{#if weatherOptions.length === 0}
-									<div class="text-sm text-muted-foreground">No weather options yet</div>
+									<div class="text-sm text-muted-foreground">暂无天气选项</div>
 								{:else}
 									{#each weatherOptions as option, index}
 										<div
@@ -1184,7 +1184,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
 								</svg>
-								Saved
+								已保存
 							</span>
 						{/if}
 					</div>
@@ -1213,7 +1213,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 
 					<!-- API Key -->
 					<div class="py-4 border-b border-border/50">
-						<label for="ai-api-key" class="block font-medium text-foreground mb-2">API Key</label>
+						<label for="ai-api-key" class="block font-medium text-foreground mb-2">API 密钥</label>
 						<input
 							id="ai-api-key"
 							type="password"
@@ -1253,7 +1253,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									bind:value={aiSettings.chat_model}
 									class="w-full pl-3 pr-9 py-2 bg-muted rounded-lg text-sm text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
 								>
-									<option value="">Select a model</option>
+									<option value="">选择一个模型</option>
 									{#each chatModels as model}
 										<option value={model.id}>{model.id}</option>
 									{/each}
@@ -1266,7 +1266,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								on:click={handleFetchModels}
 								disabled={fetchingModels}
 								class="p-2 bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 disabled:opacity-50"
-								title="Refresh models"
+								title="刷新模型列表"
 							>
 								<svg class="w-5 h-5 {fetchingModels ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1286,7 +1286,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									bind:value={aiSettings.embedding_model}
 									class="w-full pl-3 pr-9 py-2 bg-muted rounded-lg text-sm text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
 								>
-									<option value="">Select a model</option>
+									<option value="">选择一个模型</option>
 									{#each embeddingModels as model}
 										<option value={model.id}>{model.id}</option>
 									{/each}
@@ -1299,7 +1299,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								on:click={handleFetchModels}
 								disabled={fetchingModels}
 								class="p-2 bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 disabled:opacity-50"
-								title="Refresh models"
+								title="刷新模型列表"
 							>
 								<svg class="w-5 h-5 {fetchingModels ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -1313,7 +1313,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 					<div class="py-4 border-b border-border/50">
 						<div class="flex items-center justify-between gap-4">
 							<div class="min-w-0 flex-1">
-								<div class="font-medium text-foreground">Enable AI Features</div>
+								<div class="font-medium text-foreground">启用 AI 功能</div>
 								<div class="text-sm text-muted-foreground">
 									{#if !canEnableAI}
 										请先填写以上所有字段以启用
@@ -1426,7 +1426,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									<!-- Segmented Progress Bar -->
 									<div class="space-y-2">
 										<div class="flex items-center justify-between text-sm">
-											<span class="text-muted-foreground">Total diaries</span>
+											<span class="text-muted-foreground">日记总数：</span>
 											<span class="font-medium text-foreground">{vectorStats.diary_count}</span>
 										</div>
 										<div class="w-full bg-muted rounded-full h-2 flex overflow-hidden">
@@ -1482,7 +1482,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 											<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
 											</svg>
-											{vectorStats.outdated_count + vectorStats.pending_count} diaries need indexing
+											{vectorStats.outdated_count + vectorStats.pending_count} 篇日记需要建立索引
 										</div>
 									{:else if vectorStats.diary_count === 0}
 										<div class="text-xs text-muted-foreground">
@@ -1520,7 +1520,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
 								</svg>
-								Saved
+								已保存
 							</span>
 						{/if}
 					</div>
@@ -1548,12 +1548,12 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 					{/if}
 
 					<div class="py-4 border-b border-border/50">
-						<div class="font-medium text-foreground mb-3">Storage Provider</div>
+						<div class="font-medium text-foreground mb-3">存储提供商</div>
 						<div class="grid gap-3 md:grid-cols-3">
 							{#each [
-								{ id: 'local', label: 'Local', description: 'Store images on disk and keep them in the built-in media library.' },
-								{ id: 's3', label: 'S3', description: 'Store media objects in S3-compatible object storage.' },
-								{ id: 'chevereto', label: 'Chevereto', description: 'Upload images to Chevereto and insert external URLs.' }
+								{ id: 'local', label: '本地存储', description: '将图片保存在磁盘上，并在内置媒体库中管理。' },
+								{ id: 's3', label: 'S3 对象存储', description: '将媒体对象存储在 S3 兼容的对象存储服务中。' },
+								{ id: 'chevereto', label: 'Chevereto', description: '上传图片到 Chevereto，并插入外部 URL。' }
 							] as option}
 								<button
 									type="button"
@@ -1585,11 +1585,11 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 						<div class="py-4 border-b border-border/50 space-y-4">
 							<div class="grid gap-4 md:grid-cols-2">
 								<div>
-									<label for="s3-bucket" class="block font-medium text-foreground mb-2">Bucket</label>
+									<label for="s3-bucket" class="block font-medium text-foreground mb-2">Bucket 名称</label>
 									<input id="s3-bucket" type="text" bind:value={imageUploadSettingsLocal.s3.bucket} class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
 								</div>
 								<div>
-									<label for="s3-region" class="block font-medium text-foreground mb-2">Region</label>
+									<label for="s3-region" class="block font-medium text-foreground mb-2">区域</label>
 									<input id="s3-region" type="text" bind:value={imageUploadSettingsLocal.s3.region} class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
 								</div>
 								<div>
@@ -1605,11 +1605,11 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							</div>
 							<div class="grid gap-4 md:grid-cols-2">
 								<div>
-									<label for="s3-access-key" class="block font-medium text-foreground mb-2">Access Key</label>
+									<label for="s3-access-key" class="block font-medium text-foreground mb-2">访问密钥</label>
 									<input id="s3-access-key" type="text" bind:value={imageUploadSettingsLocal.s3.access_key} class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
 								</div>
 								<div>
-									<label for="s3-secret" class="block font-medium text-foreground mb-2">Secret</label>
+									<label for="s3-secret" class="block font-medium text-foreground mb-2">秘密访问密钥</label>
 									<input id="s3-secret" type="password" bind:value={imageUploadSettingsLocal.s3.secret} class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
 								</div>
 							</div>
@@ -1618,7 +1618,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 					{:else}
 						<div class="py-4 border-b border-border/50 space-y-4">
 							<div>
-								<label for="chevereto-domain" class="block font-medium text-foreground mb-2">Domain</label>
+								<label for="chevereto-domain" class="block font-medium text-foreground mb-2">域名</label>
 								<input
 									id="chevereto-domain"
 									type="text"
@@ -1628,7 +1628,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								/>
 							</div>
 							<div>
-								<label for="chevereto-api-key" class="block font-medium text-foreground mb-2">API Key</label>
+								<label for="chevereto-api-key" class="block font-medium text-foreground mb-2">API 密钥</label>
 								<input
 									id="chevereto-api-key"
 									type="password"
@@ -1663,7 +1663,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 										</svg>
 										测试中...
 									{:else}
-										Test
+										测试
 									{/if}
 								</button>
 							</div>
@@ -1698,7 +1698,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
 								</svg>
-								Saved
+								已保存
 							</span>
 						{/if}
 					</div>
@@ -1721,7 +1721,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								on:click={() => showExportOptions = !showExportOptions}
 								class="text-xs text-primary hover:underline"
 							>
-								{showExportOptions ? 'Hide Options' : 'Show Options'}
+								{showExportOptions ? '隐藏选项' : '显示选项'}
 							</button>
 						</div>
 						<div class="text-sm text-muted-foreground mb-3">将您的日记数据下载为 ZIP 文件</div>
@@ -1745,8 +1745,8 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 											<option value="3m">过去 3 个月</option>
 											<option value="6m">过去 6 个月</option>
 											<option value="1y">过去 1 年</option>
-											<option value="all">All time</option>
-											<option value="custom">Custom range</option>
+											<option value="all">全部时间</option>
+											<option value="custom">自定义范围</option>
 										</select>
 										<svg class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -1777,21 +1777,21 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									</div>
 								{/if}
 
-								<!-- Content Types -->
+								<!-- 要导出的内容 -->
 								<div>
 									<div class="block text-sm font-medium text-foreground mb-2">要导出的内容</div>
 									<div class="space-y-2">
 										<label class="flex items-center gap-2 cursor-pointer">
 											<input type="checkbox" bind:checked={exportOptions.include_diaries} class="rounded" />
-											<span class="text-sm text-foreground">Diaries</span>
+											<span class="text-sm text-foreground">日记</span>
 										</label>
 										<label class="flex items-center gap-2 cursor-pointer">
 											<input type="checkbox" bind:checked={exportOptions.include_media} class="rounded" />
-											<span class="text-sm text-foreground">Media files</span>
+											<span class="text-sm text-foreground">媒体文件</span>
 										</label>
 										<label class="flex items-center gap-2 cursor-pointer">
 											<input type="checkbox" bind:checked={exportOptions.include_conversations} class="rounded" />
-											<span class="text-sm text-foreground">AI conversations</span>
+											<span class="text-sm text-foreground">AI 对话</span>
 										</label>
 									</div>
 								</div>
@@ -1827,29 +1827,29 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							<div class="mt-3 p-3 bg-muted rounded-lg text-sm">
 								<div class="font-medium text-foreground mb-2">导出完成</div>
 								<div class="text-xs text-muted-foreground mb-2">
-									时段： {exportStats.start_date} to {exportStats.end_date}
+									时段： {exportStats.start_date} 至 {exportStats.end_date}
 								</div>
 								<div class="space-y-2 text-muted-foreground">
 									<div class="flex justify-between">
 										<span>日记：</span>
 										<span>
 											<span class="text-foreground font-medium">{exportStats.diaries.actual_exported}</span>
-											<span class="text-xs">/ {exportStats.diaries.should_export} selected / {exportStats.diaries.total_in_system} total</span>
+											<span class="text-xs">/ {exportStats.diaries.should_export} 已选择 / {exportStats.diaries.total_in_system} 总计</span>
 										</span>
 									</div>
 									<div class="flex justify-between">
 										<span>媒体：</span>
 										<span>
 											<span class="text-foreground font-medium">{exportStats.media.actual_exported}</span>
-											<span class="text-xs">/ {exportStats.media.should_export} selected / {exportStats.media.total_in_system} total</span>
+											<span class="text-xs">/ {exportStats.media.should_export} 已选择 / {exportStats.media.total_in_system} 总计</span>
 										</span>
 									</div>
 									<div class="flex justify-between">
-										<span>Conversations:</span>
+										<span>对话：</span>
 										<span>
 											<span class="text-foreground font-medium">{exportStats.conversations.actual_exported}</span>
-											<span class="text-xs">/ {exportStats.conversations.should_export} selected / {exportStats.conversations.total_in_system} total</span>
-											<span class="text-xs">({exportStats.messages} messages)</span>
+											<span class="text-xs">/ {exportStats.conversations.should_export} 已选择 / {exportStats.conversations.total_in_system} 总计</span>
+											<span class="text-xs">（{exportStats.messages} 条消息）</span>
 										</span>
 									</div>
 								</div>
@@ -1882,7 +1882,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 
 						<div class="flex items-center gap-3 flex-wrap">
 							<label class="px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 cursor-pointer">
-								<span>{importFile ? importFile.name : 'Choose File'}</span>
+								<span>{importFile ? importFile.name : '选择文件'}</span>
 								<input
 									type="file"
 									accept=".zip"
@@ -1912,40 +1912,40 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 
 						{#if importStats}
 							<div class="mt-3 p-3 bg-muted rounded-lg text-sm">
-								<div class="font-medium text-foreground mb-2">导入 Complete</div>
+								<div class="font-medium text-foreground mb-2">导入完成</div>
 								<div class="space-y-1 text-muted-foreground">
 									<div>
 										日记：
-										<span class="text-green-600 font-medium">{importStats.diaries.imported} imported</span>
+										<span class="text-green-600 font-medium">{importStats.diaries.imported} 已导入</span>
 										{#if importStats.diaries.skipped > 0}
-											, <span class="text-amber-600 font-medium">{importStats.diaries.skipped} skipped</span>
+											, <span class="text-amber-600 font-medium">{importStats.diaries.skipped} 已跳过</span>
 										{/if}
 										{#if importStats.diaries.failed > 0}
-											, <span class="text-destructive font-medium">{importStats.diaries.failed} failed</span>
+											, <span class="text-destructive font-medium">{importStats.diaries.failed} 失败</span>
 										{/if}
-										<span class="text-muted-foreground">({importStats.diaries.total} total)</span>
+										<span class="text-muted-foreground">（共 {importStats.diaries.total} 条）</span>
 									</div>
 									<div>
 										媒体：
-										<span class="text-green-600 font-medium">{importStats.media.imported} imported</span>
+										<span class="text-green-600 font-medium">{importStats.media.imported} 已导入</span>
 										{#if importStats.media.skipped > 0}
-											, <span class="text-amber-600 font-medium">{importStats.media.skipped} skipped</span>
+											, <span class="text-amber-600 font-medium">{importStats.media.skipped} 已跳过</span>
 										{/if}
 										{#if importStats.media.failed > 0}
-											, <span class="text-destructive font-medium">{importStats.media.failed} failed</span>
+											, <span class="text-destructive font-medium">{importStats.media.failed} 失败</span>
 										{/if}
-										<span class="text-muted-foreground">({importStats.media.total} total)</span>
+										<span class="text-muted-foreground">（共 {importStats.media.total} 个）</span>
 									</div>
 									<div>
 										AI 对话：
-										<span class="text-green-600 font-medium">{importStats.conversations.imported} imported</span>
+										<span class="text-green-600 font-medium">{importStats.conversations.imported} 已导入</span>
 										{#if importStats.conversations.skipped > 0}
-											, <span class="text-orange-500 font-medium">{importStats.conversations.skipped} skipped</span>
+											, <span class="text-orange-500 font-medium">{importStats.conversations.skipped} 已跳过</span>
 										{/if}
 										{#if importStats.conversations.failed > 0}
-											, <span class="text-destructive font-medium">{importStats.conversations.failed} failed</span>
+											, <span class="text-destructive font-medium">{importStats.conversations.failed} 失败</span>
 										{/if}
-										<span class="text-muted-foreground">({importStats.conversations.total} total)</span>
+										<span class="text-muted-foreground">（共 {importStats.conversations.total} 条）</span>
 									</div>
 								</div>
 							</div>
