@@ -5,12 +5,12 @@ FROM node:24-alpine AS frontend-builder
 
 WORKDIR /app/site
 
-# Install only dependencies needed for build (omit devDependencies that aren't required)
+# Install only dependencies needed for build
 COPY site/package*.json ./
 
-# Cache npm downloads across builds
+# Cache npm downloads across builds (install since no lockfile is committed)
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --no-audit --no-fund
+    npm install --no-audit --no-fund --loglevel=error
 
 COPY site/ ./
 
