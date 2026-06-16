@@ -1,54 +1,75 @@
-# Build stage for frontend
-FROM node:20-alpine AS frontend-builder
-WORKDIR /app/site
-COPY site/package*.json ./
-RUN npm install
-COPY site/ ./
-RUN npm run build
+# syntax=docker/dockerfile:1.17
 
-# Build stage for backend
-FROM golang:1.23-alpine AS backend-builder
+# ---- Frontend build stage ----
+FROM node:24-alpine AS frontend-builder
+
+WORKDIR /app/site
+
+# Install only dependencies needed for build
+COPY site/package*.json ./
+
+# Cache npm downloads across builds (install since no lockfile is committed)
+RUN --mount=type=cache,target=/root/.npm \
+    npm install --no-audit --no-fund --loglevel=error
+
+COPY site/ ./
+
+# Cache vite build cache
+RUN --mount=type=cache,target=/app/site/.svelte-kit \
+    --mount=type=cache,target=/app/site/node_modules/.vite \
+    npm run build
+
+# ---- Backend build stage ----
+FROM golang:1.26-alpine AS backend-builder
+
 WORKDIR /app
 
-# Install git for version detection
-RUN apk add --no-cache git
+# Install git for version detection (cached apk cache)
+RUN --mount=type=cache,target=/var/cache/apk \
+    apk add --no-cache git
 
-# Copy go mod files
 COPY go.mod go.sum ./
-RUN go mod download
 
-# Copy source code
+# Cache Go module downloads
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    go mod download
+
 COPY . .
 
-# Copy frontend build from frontend builder stage to embed location
+# Bring in the built frontend (embedded via //go:embed)
 COPY --from=frontend-builder /app/site/build ./internal/static/build
 
-# Get version from build arg or git
 ARG VERSION
-RUN if [ -z "$VERSION" ]; then \
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    if [ -z "$VERSION" ]; then \
       VERSION=$(git describe --dirty --always --tags --abbrev=7 2>/dev/null || echo "docker"); \
     fi && \
     echo "Building version: $VERSION" && \
-    go build -ldflags "-X main.Version=$VERSION" -o diarum .
+    CGO_ENABLED=0 GOOS=linux go build \
+      -trimpath \
+      -ldflags "-s -w -X main.Version=$VERSION" \
+      -o diarum .
 
-# Final stage
-FROM alpine:3.23.3
+# ---- Final (runtime) stage ----
+FROM alpine:3.24
+
 WORKDIR /app
 
-# Install ca-certificates for HTTPS
-RUN apk --no-cache add ca-certificates tzdata
+RUN --mount=type=cache,target=/var/cache/apk \
+    apk add --no-cache ca-certificates tzdata && \
+    adduser -D -H -u 1000 diarum
 
-# Copy binary from backend builder (frontend is already embedded in the binary)
 COPY --from=backend-builder /app/diarum /app/diarum
 
-# Create data directory
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data && \
+    chown -R diarum:diarum /app
 
-# Set default data directory environment variable
 ENV DIARUM_DATA_PATH=/app/data
 
-# Expose port
+USER diarum
+
 EXPOSE 8090
 
-# Run the application
 CMD ["/app/diarum", "serve", "--http=0.0.0.0:8090"]
