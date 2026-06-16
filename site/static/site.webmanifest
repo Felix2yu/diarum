@@ -8,12 +8,26 @@
   "orientation": "portrait-primary",
   "theme_color": "#ffffff",
   "background_color": "#ffffff",
+  "dark_theme_color": "#1a1a1a",
+  "dark_background_color": "#1a1a1a",
   "lang": "zh-CN",
   "categories": [
     "productivity",
     "lifestyle"
   ],
   "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
     {
       "src": "/android-chrome-192x192.png",
       "sizes": "192x192",
