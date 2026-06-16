@@ -120,24 +120,6 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 		return c.JSON(http.StatusOK, diaryResponse(diary, store.DateOnly(diary.Date), true))
 	})
 
-	// Delete a diary by ID
-	e.DELETE("/api/v1/diaries/:id", func(c echo.Context) error {
-		userId, err := authenticatePublicRequest(configService, c)
-		if err != nil {
-			return err
-		}
-
-		id := c.PathParam("id")
-		existing, err := s.GetDiaryByID(id)
-		if err != nil || existing.Owner != userId {
-			return notFound("Diary not found")
-		}
-		if err := s.DeleteDiary(id, userId); err != nil {
-			return serverError("Failed to delete diary", err)
-		}
-		return c.JSON(http.StatusOK, map[string]any{"success": true})
-	})
-
 	// Delete a diary by date
 	e.DELETE("/api/v1/diaries", func(c echo.Context) error {
 		userId, err := authenticatePublicRequest(configService, c)
