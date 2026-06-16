@@ -84,8 +84,8 @@
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
 					d="M4 6h16M4 12h16M4 18h7" />
 			</svg>
-			<p>No headings yet</p>
-			<p class="text-xs mt-1">Use # for headings</p>
+			<p>暂无标题</p>
+			<p class="text-xs mt-1">使用 # 来创建标题</p>
 		</div>
 	</div>
 {/if}

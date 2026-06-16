@@ -60,7 +60,7 @@
 			const filename = `diary-${date}.png`;
 			downloadImage(dataUrl, filename);
 		} catch (e) {
-			error = 'Failed to generate image, please try again';
+			error = '图片生成失败，请重试';
 			console.error('Failed to generate image:', e);
 		} finally {
 			isGenerating = false;
@@ -77,10 +77,10 @@
 			const dataUrl = await generateImage(previewElement, options);
 			const success = await copyImageToClipboard(dataUrl);
 			if (!success) {
-				error = 'Copy failed, please try download';
+				error = '复制失败，请尝试下载';
 			}
 		} catch (e) {
-			error = 'Failed to generate image, please try again';
+			error = '图片生成失败，请重试';
 			console.error('Failed to copy image:', e);
 		} finally {
 			isGenerating = false;
@@ -97,10 +97,10 @@
 			const dataUrl = await generateImage(previewElement, options);
 			const success = await shareImage(dataUrl, `diary-${date}`);
 			if (!success) {
-				error = 'Share failed, please try download';
+				error = '分享失败，请尝试下载';
 			}
 		} catch (e) {
-			error = 'Failed to generate image, please try again';
+			error = '图片生成失败，请重试';
 			console.error('Failed to share image:', e);
 		} finally {
 			isGenerating = false;
@@ -127,12 +127,12 @@
 		>
 			<!-- Header -->
 			<div class="flex items-center justify-between px-4 py-3 border-b border-border/50">
-				<h2 class="text-lg font-semibold text-foreground">Share Diary</h2>
+				<h2 class="text-lg font-semibold text-foreground">分享日记</h2>
 				<div class="flex items-center gap-2">
 					<button
 						on:click={() => showOptions = !showOptions}
 						class="p-2 hover:bg-muted/50 rounded-lg transition-colors {showOptions ? 'bg-muted/50' : ''}"
-						title="Settings"
+						title="设置"
 					>
 						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -142,7 +142,7 @@
 					<button
 						on:click={handleClose}
 						class="p-2 hover:bg-muted/50 rounded-lg transition-colors"
-						title="Close"
+						title="关闭"
 					>
 						<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -190,11 +190,11 @@
 						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
 						</svg>
-						Exporting selected text
+						正在导出选中的文本
 					</div>
 				{:else}
 					<div class="text-sm text-muted-foreground">
-						Preview: {options.width}px × {options.scale}x
+						预览：{options.width}px × {options.scale}x
 					</div>
 				{/if}
 
@@ -215,7 +215,7 @@
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
 								</svg>
 							{/if}
-							Share
+							分享
 						</button>
 					{/if}
 
@@ -234,7 +234,7 @@
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
 							</svg>
 						{/if}
-						Copy
+						复制
 					</button>
 
 					<button
@@ -252,7 +252,7 @@
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
 							</svg>
 						{/if}
-						Download
+						下载
 					</button>
 				</div>
 			</div>

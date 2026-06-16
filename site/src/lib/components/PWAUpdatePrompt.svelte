@@ -42,9 +42,9 @@
 					</svg>
 				</div>
 				<div class="flex-1">
-					<h3 class="text-sm font-semibold text-blue-900 dark:text-blue-100">Update Available</h3>
+					<h3 class="text-sm font-semibold text-blue-900 dark:text-blue-100">发现新版本</h3>
 					<p class="mt-1 text-sm text-blue-700 dark:text-blue-200">
-						Click update to get the latest features and improvements
+						点击更新以获取最新功能和改进
 					</p>
 					<div class="mt-3 flex gap-2">
 						<button
@@ -52,14 +52,14 @@
 							on:click={handleUpdate}
 							class="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
 						>
-							Update Now
+							立即更新
 						</button>
 						<button
 							type="button"
 							on:click={dismiss}
 							class="px-4 py-2 bg-white dark:bg-blue-800 text-blue-700 dark:text-blue-200 text-sm font-medium rounded-md hover:bg-blue-50 dark:hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
 						>
-							Later
+							稍后
 						</button>
 					</div>
 				</div>

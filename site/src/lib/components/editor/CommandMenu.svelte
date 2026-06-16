@@ -50,7 +50,7 @@
 
 <div class="command-menu" class:is-above={isAbove} bind:this={container}>
 	{#if items.length === 0}
-		<div class="no-results">No results</div>
+		<div class="no-results">无结果</div>
 	{:else}
 		{#each Object.entries(groupedItems) as [group, groupItems]}
 			<div class="group">

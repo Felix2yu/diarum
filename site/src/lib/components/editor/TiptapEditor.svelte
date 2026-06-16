@@ -25,7 +25,7 @@
 
 	export let content = '';
 	export let onChange: (value: string) => void = () => {};
-	export let placeholder = 'Start writing...';
+	export let placeholder = '开始书写...';
 	export let diaryDate: string | undefined = undefined;
 	export let selectedContent: string = '';
 	export let emptyStatePrompt: string = '';
@@ -52,11 +52,11 @@
 	// Validate image file
 	function validateImageFile(file: File): string | null {
 		if (!IMAGE_CONFIG.allowedTypes.includes(file.type)) {
-			return `Unsupported image format. Please use JPG, PNG, GIF or WebP`;
+			return `不支持的图片格式。请使用 JPG、PNG、GIF 或 WebP`;
 		}
 		if (file.size > IMAGE_CONFIG.maxSize) {
 			const maxMB = IMAGE_CONFIG.maxSize / 1024 / 1024;
-			return `Image size cannot exceed ${maxMB}MB`;
+			return `图片大小不能超过 ${maxMB}MB`;
 		}
 		return null;
 	}
@@ -103,7 +103,7 @@
 			});
 		} catch (error) {
 			console.error('Image upload failed:', error);
-			uploadError = 'Image upload failed, please try again';
+			uploadError = '图片上传失败，请重试';
 			setTimeout(() => (uploadError = ''), 3000);
 
 			// Remove placeholder on error
@@ -242,7 +242,7 @@
 				Placeholder.configure({
 					placeholder: ({ node }) => {
 						if (node.type.name === 'paragraph') {
-							return 'Type / to browse options';
+							return '输入 / 以浏览选项';
 						}
 						return placeholder;
 					},
