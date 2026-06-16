@@ -19,8 +19,8 @@
 	let yearGridEl: HTMLDivElement;
 	let wheelCooldown = false;
 
-	const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
-	const weekDaysShort = ['日', '一', '二', '三', '四', '五', '六'];
+	const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+	const weekDaysShort = ['一', '二', '三', '四', '五', '六', '日'];
 	const monthNames = [
 		'一月', '二月', '三月', '四月', '五月', '六月',
 		'七月', '八月', '九月', '十月', '十一月', '十二月'
@@ -127,7 +127,8 @@
 	function getMiniCalendarDays(year: number, month: number): (number | null)[] {
 		const firstDay = new Date(year, month, 1);
 		const lastDay = new Date(year, month + 1, 0);
-		const startDay = firstDay.getDay();
+		// Monday-first: Monday=0, Sunday=6
+		const startDay = (firstDay.getDay() + 6) % 7;
 		const daysInMonth = lastDay.getDate();
 
 		const days: (number | null)[] = [];
