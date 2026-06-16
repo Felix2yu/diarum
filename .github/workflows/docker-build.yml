@@ -1,89 +1,60 @@
-name: Build and Push Docker Image
+name: Build Docker Image
 
 on:
   push:
-    branches:
-      - main
-      - 'release/**'
-      - 'devel/**'
-      - 'dev/**'
-    tags:
-      - 'v*'
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  release:
+    types: [ created ]
 
 env:
-  REGISTRY: docker.io
-  IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}
-  USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-  TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  docker:
+  build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Get Version
-        id: get_version
-        run: |
-          VERSION=$(make version | grep -oP 'Version: \K.*')
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "Building version: $VERSION"
-
-      - name: Determine Docker Tags
-        id: docker_tags
-        run: |
-          TAGS=""
-          KEEL_TAG=""
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
-            # For version tags (v*), push both the version and latest
-            TAG_VERSION=${GITHUB_REF#refs/tags/}
-            TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${TAG_VERSION},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
-            KEEL_TAG="${TAG_VERSION}"
-            echo "Building release: $TAG_VERSION"
-          else
-            # For branches (main, release/*, devel/*, dev/*), push as devel
-            TAGS="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:devel"
-            KEEL_TAG="devel"
-            echo "Building development version"
-          fi
-          echo "TAGS=$TAGS" >> $GITHUB_OUTPUT
-          echo "KEEL_TAG=$KEEL_TAG" >> $GITHUB_OUTPUT
-          echo "Docker tags: $TAGS"
-
-      - name: Login to Docker Hub
-        if: github.event_name != 'pull_request'
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ env.USERNAME }}
-          password: ${{ env.TOKEN }}
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build and push
-        uses: docker/build-push-action@v6
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
         with:
           context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
-          build-args: |
-            VERSION=${{ steps.get_version.outputs.VERSION }}
-          tags: ${{ steps.docker_tags.outputs.TAGS }}
-          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
-          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache,mode=max
-
-      - name: Notify Keel
-        if: ${{ github.event_name != 'pull_request' }}
-        uses: fjogeleit/http-request-action@master
-        with:
-          url: 'https://keel.skybyte.me/v1/webhooks/native'
-          method: 'POST'
-          contentType: 'application/json'
-          data: '{"name": "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}", "tag": "${{ steps.docker_tags.outputs.KEEL_TAG }}"}'
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
