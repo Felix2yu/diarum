@@ -1273,3 +1273,108 @@ func TestImageUploadRoutesStoreErrors(t *testing.T) {
 		t.Fatal("PUT image-upload settings should fail when store is closed")
 	}
 }
+
+func TestPublicRoutesWriteOperations(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	e := echo.New()
+	RegisterPublicRoutes(e, s)
+
+	configService := config.NewConfigService(s)
+	if err := configService.Set(user.ID, "api.token", "public-token"); err != nil {
+		t.Fatalf("Set api.token: %v", err)
+	}
+	if err := configService.Set(user.ID, "api.enabled", true); err != nil {
+		t.Fatalf("Set api.enabled: %v", err)
+	}
+
+	// Test POST /api/v1/diaries - Create new diary
+	rec := performRequest(t, e, http.MethodPost, "/api/v1/diaries?token=public-token",
+		strings.NewReader(`{"date":"2024-05-01","content":"Test diary content","mood":"happy","weather":"sunny"}`),
+		map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("POST /diaries create status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	created := decodeJSONBody(t, rec)
+	diaryID := created["id"].(string)
+
+	// Test POST /api/v1/diaries - Update existing diary (should return 200)
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/diaries?token=public-token",
+		strings.NewReader(`{"date":"2024-05-01","content":"Updated content","mood":"calm","weather":"cloudy"}`),
+		map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /diaries update status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Test POST /api/v1/diaries - Missing date
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/diaries?token=public-token",
+		strings.NewReader(`{"content":"No date"}`),
+		map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /diaries missing date status = %d", rec.Code)
+	}
+
+	// Test POST /api/v1/diaries - Unauthorized
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/diaries",
+		strings.NewReader(`{"date":"2024-05-02","content":"No token"}`),
+		map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("POST /diaries no token status = %d", rec.Code)
+	}
+
+	// Test POST /api/v1/diaries - Bearer token
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/diaries",
+		strings.NewReader(`{"date":"2024-05-02","content":"Bearer token test"}`),
+		map[string]string{"Content-Type": "application/json", "Authorization": "Bearer public-token"})
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("POST /diaries bearer token status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Test PUT /api/v1/diaries/:id - Update diary
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/diaries/"+diaryID+"?token=public-token",
+		strings.NewReader(`{"content":"Updated via PUT","mood":"excited"}`),
+		map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT /diaries/:id status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Test PUT /api/v1/diaries/:id - Partial update (only mood)
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/diaries/"+diaryID+"?token=public-token",
+		strings.NewReader(`{"mood":"peaceful"}`),
+		map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT /diaries/:id partial status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Test PUT /api/v1/diaries/:id - Not found
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/diaries/nonexistent?token=public-token",
+		strings.NewReader(`{"content":"test"}`),
+		map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("PUT /diaries/:id not found status = %d", rec.Code)
+	}
+
+	// Test DELETE /api/v1/diaries?date=... - Delete diary by date
+	rec = performRequest(t, e, http.MethodDelete, "/api/v1/diaries?token=public-token&date=2024-05-02", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("DELETE /diaries?date=... status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	// Test DELETE /api/v1/diaries?date=... - Missing date param
+	rec = performRequest(t, e, http.MethodDelete, "/api/v1/diaries?token=public-token", nil, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("DELETE /diaries missing date status = %d", rec.Code)
+	}
+
+	// Test DELETE /api/v1/diaries?date=... - Diary not found
+	rec = performRequest(t, e, http.MethodDelete, "/api/v1/diaries?token=public-token&date=2099-12-31", nil, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("DELETE /diaries not found status = %d", rec.Code)
+	}
+
+	// Test DELETE /api/v1/diaries?date=... - Unauthorized
+	rec = performRequest(t, e, http.MethodDelete, "/api/v1/diaries?date=2024-05-01", nil, nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("DELETE /diaries no token status = %d", rec.Code)
+	}
+}
