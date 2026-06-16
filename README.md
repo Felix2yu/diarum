@@ -5,182 +5,16 @@
 </p>
 
 <p align="center">
-  <em>One entry a day. Open, write, done. &nbsp;|&nbsp; 一天一篇，打开即写，刚刚好。</em>
+  <em>一天一篇，打开即写，刚刚好。</em>
 </p>
 
-[English](#english) | [中文](#中文)
-
 ---
-
-## English
-
-### About
-
-**Diarum** (Chinese: 吾身) - One entry a day. Open, write, done. A simple, elegant, and self-hosted diary application built with Go, SQLite, and modern web technologies. One diary per day — no more, no less — so you can write freely without anxiety.
-
-### Online Demo
-
-Try Diarum without installation:
-
-🌐 **Demo Site**: https://demo.diarum.app/
-
-📝 **Demo Account**:
-- Username: `demo`
-- Password: `demo@1234`
-
-### Screenshots
-
-| Desktop Light | Desktop Dark |
-|:---:|:---:|
-| ![Desktop Light](site/static/screenshots/desktop-light.png) | ![Desktop Dark](site/static/screenshots/desktop-dark.png) |
-
-| Mobile Light | Mobile Dark |
-|:---:|:---:|
-| ![Mobile Light](site/static/screenshots/mobile-light.png) | ![Mobile Dark](site/static/screenshots/mobile-dark.png) |
-
-### Features
-
-- 📝 **Markdown Support** - Write your daily thoughts with full Markdown formatting
-- 🖼️ **Media Upload** - Attach images and files to your diary entries, with Chevereto image hosting support for flexible switching between built-in media manager and external image hosting
-- 📱 **Progressive Web App** - Install on any device with offline support and app-like experience
-- 📤 **One-Click Share** - Share your diary entries instantly with a single tap
-- 🔄 **Offline & Auto Sync** - Work offline seamlessly with automatic cache synchronization and real-time sync status monitoring
-- 🔗 **Memos Webhook Sync** - Receive Memos create, update, and delete webhook events and sync them into the diary entry for the memo creation date
-- 🔒 **Self-Hosted** - Complete control over your personal data
-- 🚀 **Easy Deployment** - Single binary with embedded frontend, deploy anywhere
-- 💾 **Native SQLite Backend** - Built-in user system, local media storage, and automatic legacy data migration
-- 🔧 **Configurable** - Flexible data directory configuration via environment variables or CLI flags
-
-### Quick Start
-
-#### Using Docker
-
-```bash
-docker run -d \
-  --name diarum \
-  -p 8090:8090 \
-  songtianlun/diarum:latest
-```
-
-Access the application at `http://localhost:8090`
-
-#### Using Docker with Persistent Data
-
-To persist your diary data, mount a volume to the data directory:
-
-```bash
-docker run -d \
-  --name diarum \
-  -p 8090:8090 \
-  -v /path/to/your/data:/app/data \
-  songtianlun/diarum:latest
-```
-
-#### Using Docker Compose
-
-Create a `docker-compose.yml` file:
-
-```yaml
-version: '3.8'
-
-services:
-  diarum:
-    image: songtianlun/diarum:latest
-    container_name: diarum
-    ports:
-      - "8090:8090"
-    volumes:
-      - ./data:/app/data
-    environment:
-      - DIARUM_DATA_PATH=/app/data
-    restart: unless-stopped
-```
-
-Run with:
-
-```bash
-docker compose up -d
-```
-
-### Configuration
-
-#### Data Directory
-
-You can configure the data directory in three ways (in order of priority):
-
-1. **Command Line Flag**:
-   ```bash
-   ./diarum serve --data-dir=/custom/path
-   ```
-
-2. **Environment Variable**:
-   ```bash
-   export DIARUM_DATA_PATH=/custom/path
-   ./diarum serve
-   ```
-
-3. **Default**: `./pb_data` (current directory)
-
-#### Docker Environment Variables
-
-- `DIARUM_DATA_PATH`: Set the data directory path (default: `/app/data`)
-
-### Building from Source
-
-#### Prerequisites
-
-- Go 1.22 or higher
-- Node.js 20 or higher
-
-#### Build Steps
-
-```bash
-# Clone the repository
-git clone https://github.com/songtianlun/diarum.git
-cd diarum
-
-# Build frontend
-cd site
-npm install
-npm run build
-cd ..
-
-# Build backend
-go build -o diarum .
-
-# Run
-./diarum serve
-```
-
-Or use the Makefile:
-
-```bash
-make build
-./diarum serve
-```
-
-### Development
-
-```bash
-# Run with auto-reload (requires air)
-make dev
-
-# Build Docker image
-make docker-build
-
-# Run tests
-make test
-```
-
-### Data Storage
-
-Diarum stores application data in `diarum.db` under the configured data directory. On startup, if an older `data.db` exists and `diarum.db` does not, Diarum automatically creates the new database and migrates users, diaries, media metadata, settings, and AI conversation data while leaving the old database untouched.
-
-### Unit Tests
-
-[![codecov](https://codecov.io/gh/songtianlun/diarum/graph/badge.svg?token=S6DXR0YJH2)](https://codecov.io/gh/songtianlun/diarum)
-![codecov-graph](https://codecov.io/gh/songtianlun/diarum/graphs/icicle.svg?token=S6DXR0YJH2)
-
+相较于原版做了如下修改：
+1. 全界面汉化
+2. 所有界面符合中文用户习惯，如日期显示格式、星期起始等
+3. API新增修改及删除
+4. 新增favicon
+5. 非root用户，UID:1000
 ---
 
 ## 中文
@@ -247,7 +81,7 @@ Diarum stores application data in `diarum.db` under the configured data director
 docker run -d \
   --name diarum \
   -p 8090:8090 \
-  songtianlun/diarum:latest
+  ghcr.io/felix2yu/diarum:latest
 ```
 
 在浏览器访问 `http://localhost:8090`
@@ -261,7 +95,7 @@ docker run -d \
   --name diarum \
   -p 8090:8090 \
   -v /path/to/your/data:/app/data \
-  songtianlun/diarum:latest
+  ghcr.io/felix2yu/diarum:latest
 ```
 
 #### 使用 Docker Compose
@@ -269,11 +103,9 @@ docker run -d \
 创建 `docker-compose.yml` 文件：
 
 ```yaml
-version: '3.8'
-
 services:
   diarum:
-    image: songtianlun/diarum:latest
+    image: ghcr.io/felix2yu/diarum:latest
     container_name: diarum
     ports:
       - "8090:8090"
@@ -350,14 +182,8 @@ Diarum 会在配置的数据目录下使用 `diarum.db` 保存应用数据。启
 
 ### 单元测试
 
-[![codecov](https://codecov.io/gh/songtianlun/diarum/graph/badge.svg?token=S6DXR0YJH2)](https://codecov.io/gh/songtianlun/diarum)
-![codecov-graph](https://codecov.io/gh/songtianlun/diarum/graphs/icicle.svg?token=S6DXR0YJH2)
-
-## 加入交流群
-
-如果你在使用 Diarum 过程中有任何问题，欢迎扫描下方二维码，或微信搜索 `frytea26` 添加开发者好友，备注 `diarum`，我会拉你进交流群，大家一起讨论、互相解答。
-
-<img src="docs/assets/wechat-tls2.JPG" alt="Diarum 微信二维码" width="260" />
+[![codecov](https://codecov.io/github/Felix2yu/diarum/graph/badge.svg?token=YU69O21LXM)](https://codecov.io/github/Felix2yu/diarum)
+![codecov-graph](https://codecov.io/github/Felix2yu/diarum/graphs/tree.svg?token=YU69O21LXM)
 
 ## Contributing
 
