@@ -46,14 +46,6 @@
 		}
 	}
 
-	function formatDate(dateStr: string): string {
-		return formatDisplayDate(dateStr);
-	}
-
-	function formatTime(dateStr: string): string {
-		return formatTime(dateStr);
-	}
-
 	function groupByDate(items: MediaWithDiary[]): Map<string, MediaWithDiary[]> {
 		const groups = new Map<string, MediaWithDiary[]>();
 		for (const item of items) {
@@ -134,7 +126,7 @@
 					<div class="animate-fade-in">
 						<!-- Date Header -->
 						<div class="flex items-center gap-3 mb-4">
-							<div class="text-sm font-medium text-foreground">{formatDate(dateKey)}</div>
+							<div class="text-sm font-medium text-foreground">{formatDisplayDate(dateKey)}</div>
 							<div class="flex-1 h-px bg-border/50"></div>
 							<div class="text-xs text-muted-foreground">{items.length} 项</div>
 						</div>
@@ -240,7 +232,7 @@
 					<div class="flex items-center justify-between py-2 border-b border-border/30">
 						<span class="text-muted-foreground">上传时间</span>
 						<span class="text-foreground">
-							{formatDate(selectedMedia.created || '')} {formatTime(selectedMedia.created || '')}
+							{formatDisplayDate(selectedMedia.created || '')} {formatTime(selectedMedia.created || '')}
 						</span>
 					</div>
 
