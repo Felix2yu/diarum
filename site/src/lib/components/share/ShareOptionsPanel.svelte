@@ -23,7 +23,7 @@
 
 	const scaleOptions = [
 		{ value: 1, label: '1x' },
-		{ value: 2, label: '2x (Recommended)' },
+		{ value: 2, label: '2x（推荐）' },
 		{ value: 3, label: '3x' }
 	];
 </script>
@@ -31,13 +31,13 @@
 <div class="space-y-4">
 	<!-- Theme Selection -->
 	<div>
-		<h4 class="text-sm font-medium text-foreground mb-2">Theme</h4>
+		<h4 class="text-sm font-medium text-foreground mb-2">主题</h4>
 		<ThemeSelector selected={options.theme} onSelect={handleThemeSelect} />
 	</div>
 
 	<!-- Display Options -->
 	<div>
-		<h4 class="text-sm font-medium text-foreground mb-2">Display</h4>
+		<h4 class="text-sm font-medium text-foreground mb-2">显示</h4>
 		<div class="space-y-2">
 			<label class="flex items-center gap-2 cursor-pointer">
 				<input
@@ -46,7 +46,7 @@
 					on:change={(e) => updateOption('showDate', e.currentTarget.checked)}
 					class="w-4 h-4 rounded border-border text-primary focus:ring-primary"
 				/>
-				<span class="text-sm text-foreground">Show date</span>
+				<span class="text-sm text-foreground">显示日期</span>
 			</label>
 			<label class="flex items-center gap-2 cursor-pointer">
 				<input
@@ -55,7 +55,7 @@
 					on:change={(e) => updateOption('showImages', e.currentTarget.checked)}
 					class="w-4 h-4 rounded border-border text-primary focus:ring-primary"
 				/>
-				<span class="text-sm text-foreground">Show images</span>
+				<span class="text-sm text-foreground">显示图片</span>
 			</label>
 			<label class="flex items-center gap-2 cursor-pointer">
 				<input
@@ -64,7 +64,7 @@
 					on:change={(e) => updateOption('showBranding', e.currentTarget.checked)}
 					class="w-4 h-4 rounded border-border text-primary focus:ring-primary"
 				/>
-				<span class="text-sm text-foreground">Show Diarum branding</span>
+				<span class="text-sm text-foreground">显示吾身品牌标识</span>
 			</label>
 		</div>
 	</div>
@@ -72,7 +72,7 @@
 	<!-- Size Options -->
 	<div class="grid grid-cols-2 gap-4">
 		<div>
-			<h4 class="text-sm font-medium text-foreground mb-2">Width</h4>
+			<h4 class="text-sm font-medium text-foreground mb-2">宽度</h4>
 			<select
 				value={options.width}
 				on:change={(e) => updateOption('width', parseInt(e.currentTarget.value))}
@@ -84,7 +84,7 @@
 			</select>
 		</div>
 		<div>
-			<h4 class="text-sm font-medium text-foreground mb-2">Quality</h4>
+			<h4 class="text-sm font-medium text-foreground mb-2">质量</h4>
 			<select
 				value={options.scale}
 				on:change={(e) => updateOption('scale', parseInt(e.currentTarget.value))}

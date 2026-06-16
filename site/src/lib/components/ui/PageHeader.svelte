@@ -8,9 +8,9 @@
 	<div class="max-w-6xl mx-auto px-4 h-11">
 		<div class="grid grid-cols-[auto_1fr_auto] items-center gap-2 h-full">
 			<div class="flex items-center gap-2 min-w-0">
-				<a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity" title="Diarum Home">
-					<img src="/logo.png" alt="Diarum" class="w-6 h-6" />
-					<span class="hidden sm:inline text-lg font-semibold text-foreground hover:text-primary transition-colors">Diarum</span>
+				<a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity" title="吾身首页">
+					<img src="/logo.png" alt="吾身" class="w-6 h-6" />
+					<span class="hidden sm:inline text-lg font-semibold text-foreground hover:text-primary transition-colors">吾身</span>
 				</a>
 			</div>
 			<div class="flex items-center justify-center min-w-0">
@@ -21,7 +21,7 @@
 				<a
 					href={backHref}
 					class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200"
-					title="Diary"
+					title="日记"
 				>
 					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"

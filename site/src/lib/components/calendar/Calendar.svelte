@@ -19,15 +19,15 @@
 	let yearGridEl: HTMLDivElement;
 	let wheelCooldown = false;
 
-	const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-	const weekDaysShort = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+	const weekDays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+	const weekDaysShort = ['日', '一', '二', '三', '四', '五', '六'];
 	const monthNames = [
-		'January', 'February', 'March', 'April', 'May', 'June',
-		'July', 'August', 'September', 'October', 'November', 'December'
+		'一月', '二月', '三月', '四月', '五月', '六月',
+		'七月', '八月', '九月', '十月', '十一月', '十二月'
 	];
 	const monthNamesShort = [
-		'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-		'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+		'一', '二', '三', '四', '五', '六',
+		'七', '八', '九', '十', '十一', '十二'
 	];
 
 	$: calendarDays = getCalendarDays(currentYear, currentMonth);
@@ -206,7 +206,7 @@
 				<button
 					on:click={goToPreviousMonth}
 					class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
-					title="Previous month"
+					title="上一月"
 				>
 					<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -219,7 +219,7 @@
 						<button
 							on:click={enterYearView}
 							class="year-button"
-							title="Switch to year view"
+							title="切换到年视图"
 						>
 							{currentYear}
 						</button>
@@ -228,14 +228,14 @@
 						on:click={goToToday}
 						class="px-3 py-1 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-all duration-200"
 					>
-						Today
+						今天
 					</button>
 				</div>
 
 				<button
 					on:click={goToNextMonth}
 					class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
-					title="Next month"
+					title="下一月"
 				>
 					<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -270,10 +270,10 @@
 							{#if meta?.weather || meta?.mood}
 								<div class="absolute inset-x-0 top-1.5 flex items-center justify-center gap-1 text-[11px] leading-none">
 									{#if meta?.weather}
-										<span class="emoji-chip" title={`Weather: ${meta.weather}`}>{meta.weather}</span>
+										<span class="emoji-chip" title={`天气：${meta.weather}`}>{meta.weather}</span>
 									{/if}
 									{#if meta?.mood}
-										<span class="emoji-chip" title={`Mood: ${meta.mood}`}>{meta.mood}</span>
+										<span class="emoji-chip" title={`心情：${meta.mood}`}>{meta.mood}</span>
 									{/if}
 								</div>
 							{:else}
@@ -292,7 +292,7 @@
 				<button
 					on:click={goToPreviousYear}
 					class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
-					title="Previous year"
+					title="上一年"
 				>
 					<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -305,14 +305,14 @@
 						on:click={goToCurrentYear}
 						class="px-3 py-1 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-all duration-200"
 					>
-						This Year
+						本年
 					</button>
 				</div>
 
 				<button
 					on:click={goToNextYear}
 					class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
-					title="Next year"
+					title="下一年"
 				>
 					<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -374,7 +374,7 @@
 
 					<!-- Scroll hint -->
 					<div class="scroll-hint">
-						<span class="scroll-hint-text">Scroll to switch year</span>
+						<span class="scroll-hint-text">滚动切换年份</span>
 					</div>
 				{/if}
 			</div>

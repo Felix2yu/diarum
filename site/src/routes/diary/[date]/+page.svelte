@@ -200,7 +200,7 @@
 </script>
 
 <svelte:head>
-	<title>{formatDisplayDate(date)} - Diarum</title>
+	<title>{formatDisplayDate(date)} - 吾身</title>
 </svelte:head>
 
 <div class="min-h-screen bg-background">
@@ -212,8 +212,8 @@
 				<div class="flex items-center justify-between h-full">
 					<!-- Left: Brand -->
 					<a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-						<img src="/logo.png" alt="Diarum" class="w-6 h-6" />
-						<span class="hidden sm:inline text-lg font-semibold text-foreground hover:text-primary transition-colors">Diarum</span>
+						<img src="/logo.png" alt="吾身" class="w-6 h-6" />
+						<span class="hidden sm:inline text-lg font-semibold text-foreground hover:text-primary transition-colors">吾身</span>
 					</a>
 
 					<!-- Center: Date and Navigation -->
@@ -222,7 +222,7 @@
 							on:click={goToPreviousDay}
 							disabled={loading}
 							class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200 disabled:opacity-50"
-							title="Previous day"
+							title="前一天"
 						>
 							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -233,7 +233,7 @@
 							on:click={goToCalendar}
 							disabled={loading}
 							class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200 disabled:opacity-50"
-							title="Calendar"
+							title="日历"
 						>
 							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -246,7 +246,7 @@
 							<span class="sm:hidden">{formatShortDate(date)}</span>
 							<span class="hidden sm:inline text-xs text-muted-foreground font-normal ml-1">{getDayOfWeek(date)}</span>
 							{#if isToday(date)}
-								<span class="text-xs px-1.5 py-0.5 bg-primary/10 text-primary rounded-full ml-1">Today</span>
+								<span class="text-xs px-1.5 py-0.5 bg-primary/10 text-primary rounded-full ml-1">今天</span>
 							{/if}
 						</div>
 
@@ -254,7 +254,7 @@
 							on:click={goToNextDay}
 							disabled={loading || !canGoNext}
 							class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200 disabled:opacity-50"
-							title={canGoNext ? "Next day" : "Cannot go beyond today"}
+							title={canGoNext ? "后一天" : "不能超过今天"}
 						>
 							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -264,7 +264,7 @@
 
 					<!-- Right: Actions -->
 					<div class="flex items-center gap-2">
-						<a href="/assistant" class="hidden sm:block p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200" title="AI Assistant">
+						<a href="/assistant" class="hidden sm:block p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200" title="AI 助手">
 							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<rect x="4" y="6" width="16" height="12" rx="2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
 								<line x1="12" y1="6" x2="12" y2="2" stroke-width="2" stroke-linecap="round"/>
@@ -281,7 +281,7 @@
 							on:mousedown={captureShareSelection}
 							on:click={openShareModal}
 							class="hidden sm:block p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200"
-							title="Share as image"
+							title="分享为图片"
 						>
 							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -297,7 +297,7 @@
 								}
 							}}
 							class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200 {(showDesktopToc || showDrawer) ? 'bg-muted/50' : ''}"
-							title="Table of contents"
+							title="目录"
 						>
 							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
@@ -307,7 +307,7 @@
 						<button
 							on:click={handleManualSave}
 							class="flex items-center p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200"
-							title={!$onlineState.isOnline ? 'Offline - changes saved locally' : isAnySyncing ? 'Syncing...' : currentDateIsDirty ? 'Click to save now' : 'All changes saved'}
+							title={!$onlineState.isOnline ? '离线 - 更改已本地保存' : isAnySyncing ? '同步中...' : currentDateIsDirty ? '点击立即保存' : '所有更改已保存'}
 						>
 							{#if !$onlineState.isOnline}
 								<svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -345,7 +345,7 @@
 							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 						</svg>
-						<div class="text-muted-foreground text-sm">Loading...</div>
+						<div class="text-muted-foreground text-sm">加载中...</div>
 					</div>
 				{:else}
 					<div class="bg-card rounded-xl shadow-sm border border-border/50 overflow-hidden animate-fade-in">
@@ -353,8 +353,8 @@
 							{content}
 							bind:selectedContent
 							onChange={handleContentChange}
-							placeholder="What's on your mind today?"
-							emptyStatePrompt="✨ Reflect on today... What will you remember from this day?"
+							placeholder="今天有什么想说的？"
+							emptyStatePrompt="✨ 回顾今天... 这一天你会记住什么？"
 							diaryDate={date}
 						/>
 					</div>
@@ -368,14 +368,14 @@
 						<div class="bg-card/50 rounded-xl border border-border/50 p-4 shadow-sm">
 							<div class="flex items-center justify-between mb-2">
 								<div>
-									<div class="text-sm font-semibold text-foreground">Mood</div>
+									<div class="text-sm font-semibold text-foreground">心情</div>
 								</div>
 								{#if selectedMood}
 									<button
 										on:click={() => handleMoodSelect(selectedMood)}
 										class="text-[11px] px-2 py-1 rounded-full bg-background/70 hover:bg-background border border-border/70 transition-colors"
 									>
-										Clear
+										清除
 									</button>
 								{/if}
 							</div>
@@ -385,7 +385,7 @@
 										on:click={() => handleMoodSelect(option)}
 										class="emoji-option {selectedMood === option ? 'emoji-option-active' : ''}"
 										title={option}
-										aria-label={`Mood ${option}`}
+										aria-label={`心情 ${option}`}
 									>
 										<span class="text-xl leading-none">{option}</span>
 									</button>
@@ -396,14 +396,14 @@
 						<div class="bg-card/50 rounded-xl border border-border/50 p-4 shadow-sm">
 							<div class="flex items-center justify-between mb-2">
 								<div>
-									<div class="text-sm font-semibold text-foreground">Weather</div>
+									<div class="text-sm font-semibold text-foreground">天气</div>
 								</div>
 								{#if selectedWeather}
 									<button
 										on:click={() => handleWeatherSelect(selectedWeather)}
 										class="text-[11px] px-2 py-1 rounded-full bg-background/70 hover:bg-background border border-border/70 transition-colors"
 									>
-										Clear
+										清除
 									</button>
 								{/if}
 							</div>
@@ -413,7 +413,7 @@
 										on:click={() => handleWeatherSelect(option)}
 										class="emoji-option {selectedWeather === option ? 'emoji-option-active' : ''}"
 										title={option}
-										aria-label={`Weather ${option}`}
+										aria-label={`天气 ${option}`}
 									>
 										<span class="text-xl leading-none">{option}</span>
 									</button>
@@ -431,7 +431,7 @@
 	</div>
 
 	<!-- Footer -->
-	<Footer tagline="Ctrl+S or ⌘S to save" dynamicMaxWidth="48rem" dynamicMaxWidthDesktop={showDesktopToc ? 'calc(48rem + 19rem + 1.5rem)' : '48rem'} />
+	<Footer tagline="按 Ctrl+S 或 ⌘S 保存" dynamicMaxWidth="48rem" dynamicMaxWidthDesktop={showDesktopToc ? 'calc(48rem + 19rem + 1.5rem)' : '48rem'} />
 </div>
 
 <!-- Left Drawer -->
@@ -440,7 +440,7 @@
 	<button
 		class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
 		on:click={() => showDrawer = false}
-		aria-label="Close menu"
+		aria-label="关闭菜单"
 	></button>
 
 	<!-- Drawer Panel -->
@@ -448,13 +448,13 @@
 		<!-- Drawer Header -->
 		<div class="flex items-center justify-between px-5 py-4 border-b border-border/50">
 			<div class="flex items-center gap-2">
-				<img src="/logo.png" alt="Diarum" class="w-6 h-6" />
-				<span class="font-semibold text-foreground">Menu</span>
+				<img src="/logo.png" alt="吾身" class="w-6 h-6" />
+				<span class="font-semibold text-foreground">菜单</span>
 			</div>
 			<button
 				on:click={() => showDrawer = false}
 				class="p-2 hover:bg-muted rounded-lg transition-colors"
-				aria-label="Close"
+				aria-label="关闭"
 			>
 				<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -467,7 +467,7 @@
 			<!-- Actions Section -->
 			<div class="px-3 py-3">
 				<div class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">
-					Quick Actions
+					快捷操作
 				</div>
 				<div class="space-y-0.5">
 					<a
@@ -483,8 +483,8 @@
 							</svg>
 						</div>
 						<div class="min-w-0">
-							<div class="text-xs font-medium text-foreground">AI Assistant</div>
-							<div class="text-[10px] text-muted-foreground truncate">Chat with AI about your diary</div>
+							<div class="text-xs font-medium text-foreground">AI 助手</div>
+							<div class="text-[10px] text-muted-foreground truncate">与 AI 聊聊你的日记</div>
 						</div>
 					</a>
 
@@ -499,8 +499,8 @@
 							</svg>
 						</div>
 						<div class="min-w-0 text-left">
-							<div class="text-xs font-medium text-foreground">Share</div>
-							<div class="text-[10px] text-muted-foreground truncate">Export as beautiful image</div>
+							<div class="text-xs font-medium text-foreground">分享</div>
+							<div class="text-[10px] text-muted-foreground truncate">导出为精美图片</div>
 						</div>
 					</button>
 
@@ -516,8 +516,8 @@
 							</svg>
 						</div>
 						<div class="min-w-0">
-							<div class="text-xs font-medium text-foreground">Calendar</div>
-							<div class="text-[10px] text-muted-foreground truncate">View all diary entries</div>
+							<div class="text-xs font-medium text-foreground">日历</div>
+							<div class="text-[10px] text-muted-foreground truncate">查看所有日记条目</div>
 						</div>
 					</a>
 
@@ -533,8 +533,8 @@
 							</svg>
 						</div>
 						<div class="min-w-0">
-							<div class="text-xs font-medium text-foreground">Settings</div>
-							<div class="text-[10px] text-muted-foreground truncate">Preferences & sync</div>
+							<div class="text-xs font-medium text-foreground">设置</div>
+							<div class="text-[10px] text-muted-foreground truncate">偏好与同步</div>
 						</div>
 					</a>
 				</div>
@@ -546,14 +546,14 @@
 			<!-- Mood & Weather -->
 			<div class="px-3 py-3 space-y-3 border-b border-border/50">
 				<div>
-					<div class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Mood</div>
+					<div class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">心情</div>
 					<div class="grid grid-cols-4 gap-1.5">
 						{#each moodPresets as option}
 							<button
 								on:click={() => handleMoodSelect(option)}
 								class="emoji-option {selectedMood === option ? 'emoji-option-active' : ''}"
 								title={option}
-								aria-label={`Mood ${option}`}
+								aria-label={`心情 ${option}`}
 							>
 								<span class="text-lg">{option}</span>
 							</button>
@@ -562,14 +562,14 @@
 				</div>
 
 				<div>
-					<div class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">Weather</div>
+					<div class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">天气</div>
 					<div class="grid grid-cols-4 gap-1.5">
 						{#each weatherPresets as option}
 							<button
 								on:click={() => handleWeatherSelect(option)}
 								class="emoji-option {selectedWeather === option ? 'emoji-option-active' : ''}"
 								title={option}
-								aria-label={`Weather ${option}`}
+								aria-label={`天气 ${option}`}
 							>
 								<span class="text-lg">{option}</span>
 							</button>
@@ -636,4 +636,3 @@
 		}
 	}
 </style>
-

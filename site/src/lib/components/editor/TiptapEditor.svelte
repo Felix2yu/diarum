@@ -343,7 +343,7 @@
 			type="button"
 			class="empty-state-overlay"
 			on:click={() => editor?.commands.focus()}
-			aria-label="Focus editor"
+			aria-label="编辑器焦点"
 		>
 			<div class="text-center text-muted-foreground">
 				<p class="text-sm">{emptyStatePrompt}</p>

@@ -137,8 +137,8 @@
 				border-bottom: 1px solid {theme.border};
 			"
 		>
-			<img src="/logo.png" alt="Diarum" style="width: 24px; height: 24px;" />
-			<span style="font-size: 18px; font-weight: 600;">Diarum</span>
+			<img src="/logo.png" alt="吾身" style="width: 24px; height: 24px;" />
+			<span style="font-size: 18px; font-weight: 600;">吾身</span>
 		</div>
 	{/if}
 
