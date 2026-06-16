@@ -1,0 +1,54 @@
+# Build artifacts
+diarum
+diaria
+journitalia
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+dist/
+build/
+.tmp/
+
+# Frontend deps & build (rebuilt in container)
+site/node_modules/
+site/build/
+site/.svelte-kit/
+site/package-lock.json
+site/pnpm-lock.yaml
+yarn.lock
+
+# IDE / Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git / CI / Docs
+.git/
+.github/
+.gitignore
+docs/
+README.md
+LICENSE
+Makefile
+.air.toml
+
+# Logs / data
+*.log
+logs/
+pb_data/
+diarum_data/
+journitalia_data/
+diaria_data/
+
+# Environment
+.env
+.env.*
