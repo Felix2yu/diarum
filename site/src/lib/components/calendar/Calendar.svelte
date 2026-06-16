@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { tick } from 'svelte';
-	import { formatDate, getCalendarDays, getToday, getYearRange } from '$lib/utils/date';
+	import { formatDate, getCalendarDays, getToday, getYearRange, formatMonthYear } from '$lib/utils/date';
 	import { getDatesWithDiaries, type CalendarDiaryMeta } from '$lib/api/diaries';
 
 	export let currentYear: number;
@@ -21,10 +21,6 @@
 
 	const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 	const weekDaysShort = ['一', '二', '三', '四', '五', '六', '日'];
-	const monthNames = [
-		'一月', '二月', '三月', '四月', '五月', '六月',
-		'七月', '八月', '九月', '十月', '十一月', '十二月'
-	];
 	const monthNamesShort = [
 		'一', '二', '三', '四', '五', '六',
 		'七', '八', '九', '十', '十一', '十二'
@@ -216,13 +212,13 @@
 
 				<div class="flex items-center gap-3">
 					<h2 class="text-lg font-semibold text-foreground flex items-center gap-1.5">
-						<span>{monthNames[currentMonth - 1]}</span>
+						<span>{formatMonthYear(currentYear, currentMonth)}</span>
 						<button
 							on:click={enterYearView}
 							class="year-button"
 							title="切换到年视图"
 						>
-							{currentYear}
+							查看全年
 						</button>
 					</h2>
 					<button

@@ -4,6 +4,7 @@
 	import { getDiariesByIds } from '$lib/api/diaries';
 	import { goto } from '$app/navigation';
 	import { marked } from 'marked';
+	import { formatDisplayDate, formatTime } from '$lib/utils/date';
 
 	export let message: Message;
 	export let isStreaming = false;
@@ -25,13 +26,11 @@
 	let loaded = false;
 
 	function formatDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+		return formatTime(dateStr);
 	}
 
 	function formatDiaryDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' });
+		return formatDisplayDate(dateStr);
 	}
 
 	function truncateContent(content: string, maxLength: number = 80): string {

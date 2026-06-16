@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
 	import type { Conversation } from '$lib/api/chat';
+	import { formatDisplayDate } from '$lib/utils/date';
 
 	export let conversations: Conversation[] = [];
 	export let selectedId: string | null = null;
@@ -23,7 +24,7 @@
 		if (days === 0) return '今天';
 		if (days === 1) return '昨天';
 		if (days < 7) return `${days} 天前`;
-		return date.toLocaleDateString();
+		return formatDisplayDate(dateStr);
 	}
 
 	function getTitle(conv: Conversation): string {

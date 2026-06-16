@@ -71,6 +71,31 @@ export function getDayOfWeek(dateStr: string): string {
 }
 
 /**
+ * Format month and year in Chinese (e.g., "2026年6月")
+ */
+export function formatMonthYear(year: number, month: number): string {
+	return `${year}年${month}月`;
+}
+
+/**
+ * Get Chinese month name (e.g., "六月" for month 6)
+ */
+export function getMonthName(month: number): string {
+	const months = ['一月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '十一月', '十二月'];
+	return months[month - 1];
+}
+
+/**
+ * Format time in Chinese (e.g., "15:30")
+ */
+export function formatTime(dateStr: string): string {
+	const date = parseDate(dateStr);
+	const hour = String(date.getHours()).padStart(2, '0');
+	const minute = String(date.getMinutes()).padStart(2, '0');
+	return `${hour}:${minute}`;
+}
+
+/**
  * Check if date is today
  */
 export function isToday(dateStr: string): boolean {

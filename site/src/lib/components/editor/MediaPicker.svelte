@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { getAllMedia, getMediaFileUrl, type MediaWithDiary } from '$lib/api/media';
+	import { formatShortDate } from '$lib/utils/date';
 
 	export let onSelect: (media: MediaWithDiary) => void;
 	export let onClose: () => void;
@@ -37,11 +38,7 @@
 	}
 
 	function formatDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('zh-CN', {
-			month: 'short',
-			day: 'numeric'
-		});
+		return formatShortDate(dateStr);
 	}
 
 	$: filteredMedia = searchQuery

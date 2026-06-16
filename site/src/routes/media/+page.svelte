@@ -5,6 +5,7 @@
 	import { getAllMedia, getMediaFileUrl, deleteMediaById, type MediaWithDiary } from '$lib/api/media';
 	import Footer from '$lib/components/ui/Footer.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import { formatDisplayDate, formatTime } from '$lib/utils/date';
 
 	let mediaList: MediaWithDiary[] = [];
 	let loading = true;
@@ -46,20 +47,11 @@
 	}
 
 	function formatDate(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleDateString('zh-CN', {
-			year: 'numeric',
-			month: 'long',
-			day: 'numeric'
-		});
+		return formatDisplayDate(dateStr);
 	}
 
 	function formatTime(dateStr: string): string {
-		const date = new Date(dateStr);
-		return date.toLocaleTimeString('zh-CN', {
-			hour: '2-digit',
-			minute: '2-digit'
-		});
+		return formatTime(dateStr);
 	}
 
 	function groupByDate(items: MediaWithDiary[]): Map<string, MediaWithDiary[]> {
