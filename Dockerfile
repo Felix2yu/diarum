@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.17
 
 # ---- Frontend build stage ----
-FROM node:22-alpine AS frontend-builder
+FROM node:24-alpine AS frontend-builder
 
 WORKDIR /app/site
 
@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/app/site/.svelte-kit \
     npm run build
 
 # ---- Backend build stage ----
-FROM golang:1.24-alpine AS backend-builder
+FROM golang:1.26-alpine AS backend-builder
 
 WORKDIR /app
 
@@ -59,7 +59,7 @@ WORKDIR /app
 
 RUN --mount=type=cache,target=/var/cache/apk \
     apk add --no-cache ca-certificates tzdata && \
-    adduser -D -H -u 10001 diarum
+    adduser -D -H -u 1000 diarum
 
 COPY --from=backend-builder /app/diarum /app/diarum
 
