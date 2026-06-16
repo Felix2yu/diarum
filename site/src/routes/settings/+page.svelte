@@ -773,14 +773,14 @@
 				<div id="api-access" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
 					<h2 class="text-lg font-semibold text-foreground mb-4">API 访问</h2>
 					<p class="text-sm text-muted-foreground mb-6">
-						Enable API access to retrieve your diary entries programmatically. Use your API token to authenticate requests.
+						Enable API access to read and write your diary entries programmatically. Use your API token to authenticate requests.
 					</p>
 
 					<!-- Enable/Disable Toggle -->
 					<div class="flex items-center justify-between py-4 border-b border-border/50">
 						<div>
 							<div class="font-medium text-foreground">启用 API</div>
-							<div class="text-sm text-muted-foreground">允许外部访问您的日记数据</div>
+							<div class="text-sm text-muted-foreground">允许外部读取和写入您的日记数据</div>
 						</div>
 						<button
 							on:click={handleToggle}
@@ -810,7 +810,7 @@
 								</button>
 							</div>
 							<p class="text-xs text-muted-foreground mt-2">
-								请妥善保管此 token。任何持有此 token 的人都可以读取您的日记内容。
+								请妥善保管此 token。任何持有此 token 的人都可以读取、修改或删除您的日记内容。
 							</p>
 						</div>
 
@@ -836,21 +836,59 @@
 							<div class="font-medium text-foreground mb-3">API 使用说明</div>
 							<div class="space-y-4 text-sm">
 								<div>
-									<div class="text-muted-foreground mb-1">按日期获取日记：</div>
+									<div class="text-muted-foreground mb-1">按日期获取日记（GET）：</div>
 									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
 										GET {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}&date=YYYY-MM-DD
 									</code>
 								</div>
 								<div>
-									<div class="text-muted-foreground mb-1">按日期范围获取日记：</div>
+									<div class="text-muted-foreground mb-1">按日期范围获取日记（GET）：</div>
 									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
 										GET {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}&start=YYYY-MM-DD&end=YYYY-MM-DD
 									</code>
 								</div>
 								<div>
-									<div class="text-muted-foreground mb-1">curl 示例：</div>
+									<div class="text-muted-foreground mb-1">创建或更新日记（POST）：</div>
+									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
+POST {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}
+Content-Type: application/json
+
+{"{"}"date":"2025-01-15","content":"今天是个好日子","mood":"开心","weather":"晴"{"}"}
+									</code>
+								</div>
+								<div>
+									<div class="text-muted-foreground mb-1">按 ID 更新日记（PUT）：</div>
+									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
+PUT {getBaseUrl()}/api/v1/diaries/&lt;diary-id&gt;?token={tokenStatus.token}
+Content-Type: application/json
+
+{"{"}"content":"更新后的内容","mood":"平静"{"}"}
+									</code>
+								</div>
+								<div>
+									<div class="text-muted-foreground mb-1">按 ID 删除日记（DELETE）：</div>
+									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
+										DELETE {getBaseUrl()}/api/v1/diaries/&lt;diary-id&gt;?token={tokenStatus.token}
+									</code>
+								</div>
+								<div>
+									<div class="text-muted-foreground mb-1">按日期删除日记（DELETE）：</div>
+									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
+										DELETE {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}&date=YYYY-MM-DD
+									</code>
+								</div>
+								<div>
+									<div class="text-muted-foreground mb-1">curl 读取示例：</div>
 									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
 curl "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}&date={new Date().toISOString().split('T')[0]}"
+									</code>
+								</div>
+								<div>
+									<div class="text-muted-foreground mb-1">curl 写入示例：</div>
+									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
+curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
+  -H "Content-Type: application/json" \
+  -d '{"{"}"date":"{new Date().toISOString().split('T')[0]}","content":"API 测试写入","mood":"","weather":""{"}"}'
 									</code>
 								</div>
 							</div>
