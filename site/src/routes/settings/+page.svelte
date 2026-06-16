@@ -773,7 +773,7 @@
 				<div id="api-access" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
 					<h2 class="text-lg font-semibold text-foreground mb-4">API 访问</h2>
 					<p class="text-sm text-muted-foreground mb-6">
-						启用 API 访问以便以编程方式获取您的日记内容。使用您的 API token 对请求进行身份验证。
+						Enable API access to read and write your diary entries programmatically. Use your API token to authenticate requests.
 					</p>
 
 					<!-- Enable/Disable Toggle -->
