@@ -24,6 +24,18 @@ export default defineConfig({
 				orientation: 'portrait-primary',
 				icons: [
 					{
+						src: '/favicon.svg',
+						sizes: 'any',
+						type: 'image/svg+xml',
+						purpose: 'any'
+					},
+					{
+						src: '/favicon.svg',
+						sizes: 'any',
+						type: 'image/svg+xml',
+						purpose: 'maskable'
+					},
+					{
 						src: '/android-chrome-192x192.png',
 						sizes: '192x192',
 						type: 'image/png',
