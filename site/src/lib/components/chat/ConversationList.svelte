@@ -20,14 +20,14 @@
 		const diff = now.getTime() - date.getTime();
 		const days = Math.floor(diff / (1000 * 60 * 60 * 24));
 
-		if (days === 0) return 'Today';
-		if (days === 1) return 'Yesterday';
-		if (days < 7) return `${days} days ago`;
+		if (days === 0) return '今天';
+		if (days === 1) return '昨天';
+		if (days < 7) return `${days} 天前`;
 		return date.toLocaleDateString();
 	}
 
 	function getTitle(conv: Conversation): string {
-		const title = conv.title || 'New conversation';
+		const title = conv.title || '新对话';
 		// Limit title length
 		return title.length > 28 ? title.slice(0, 28) + '...' : title;
 	}
@@ -58,7 +58,7 @@
 	<!-- Header with title and New Chat button -->
 	<div class="p-4 border-b border-border/50 flex-shrink-0">
 		<div class="flex items-center justify-between mb-3">
-			<h2 class="text-sm font-semibold text-foreground">Conversations</h2>
+			<h2 class="text-sm font-semibold text-foreground">对话</h2>
 			<span class="text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded-full">
 				{conversations.length}
 			</span>
@@ -72,7 +72,7 @@
 			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
 			</svg>
-			New Chat
+			新建对话
 		</button>
 	</div>
 
@@ -93,7 +93,7 @@
 							d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
 					</svg>
 				</div>
-				<p class="text-muted-foreground text-sm">No conversations yet</p>
+				<p class="text-muted-foreground text-sm">暂无对话</p>
 			</div>
 		{:else}
 			<div class="p-2 space-y-1">

@@ -105,11 +105,11 @@
 </script>
 
 <svelte:head>
-	<title>Media Library - Diarum</title>
+	<title>媒体库 - 吾身</title>
 </svelte:head>
 
 <div class="min-h-screen bg-background">
-	<PageHeader title="Media Library">
+	<PageHeader title="媒体库">
 		<span slot="subtitle" class="text-sm text-muted-foreground">
 			{#if !loading}({totalItems}){/if}
 		</span>
@@ -123,7 +123,7 @@
 					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 					<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 				</svg>
-				<div class="text-muted-foreground text-sm">Loading...</div>
+				<div class="text-muted-foreground text-sm">正在加载...</div>
 			</div>
 		{:else if mediaList.length === 0}
 			<div class="flex flex-col items-center justify-center py-20 gap-4">
@@ -131,8 +131,8 @@
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
 				</svg>
 				<div class="text-muted-foreground text-center">
-					<p class="text-lg font-medium">No media yet</p>
-					<p class="text-sm mt-1">Upload images in your diary entries</p>
+					<p class="text-lg font-medium">暂无媒体</p>
+					<p class="text-sm mt-1">在你的日记条目中上传图片</p>
 				</div>
 			</div>
 		{:else}
@@ -144,7 +144,7 @@
 						<div class="flex items-center gap-3 mb-4">
 							<div class="text-sm font-medium text-foreground">{formatDate(dateKey)}</div>
 							<div class="flex-1 h-px bg-border/50"></div>
-							<div class="text-xs text-muted-foreground">{items.length} items</div>
+							<div class="text-xs text-muted-foreground">{items.length} 项</div>
 						</div>
 
 						<!-- Media Grid -->
@@ -156,7 +156,7 @@
 								>
 									<img
 										src={getMediaFileUrl(media, '300x300')}
-										alt={media.alt || media.name || 'Media'}
+										alt={media.alt || media.name || '媒体'}
 										class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
 										loading="lazy"
 									/>
@@ -183,7 +183,7 @@
 						on:click={() => { currentPage--; loadMedia(); }}
 						class="px-3 py-1.5 text-sm rounded-lg border border-border/50 hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 					>
-						Previous
+						上一页
 					</button>
 					<span class="px-3 py-1.5 text-sm text-muted-foreground">
 						{currentPage} / {totalPages}
@@ -193,14 +193,14 @@
 						on:click={() => { currentPage++; loadMedia(); }}
 						class="px-3 py-1.5 text-sm rounded-lg border border-border/50 hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 					>
-						Next
+						下一页
 					</button>
 				</div>
 			{/if}
 		{/if}
 	</main>
 
-	<Footer maxWidth="4xl" tagline="Your media library" />
+	<Footer maxWidth="4xl" tagline="你的媒体库" />
 </div>
 
 <!-- Media Detail Modal -->
@@ -219,12 +219,12 @@
 			<!-- Modal Header -->
 			<div class="flex items-center justify-between p-4 border-b border-border/50">
 				<h3 class="font-medium text-foreground">
-					{selectedMedia.name || 'Media'}
+					{selectedMedia.name || '媒体'}
 				</h3>
 				<button
 					on:click={closeModal}
 					class="p-1.5 hover:bg-muted/50 rounded-lg transition-colors"
-					title="Close"
+					title="关闭"
 				>
 					<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -238,7 +238,7 @@
 				<div class="rounded-lg overflow-hidden bg-muted/30 mb-4">
 					<img
 						src={getMediaFileUrl(selectedMedia)}
-						alt={selectedMedia.alt || selectedMedia.name || 'Media'}
+						alt={selectedMedia.alt || selectedMedia.name || '媒体'}
 						class="w-full h-auto max-h-[50vh] object-contain"
 					/>
 				</div>
@@ -246,7 +246,7 @@
 				<!-- Info -->
 				<div class="space-y-3 text-sm">
 					<div class="flex items-center justify-between py-2 border-b border-border/30">
-						<span class="text-muted-foreground">Uploaded</span>
+						<span class="text-muted-foreground">上传时间</span>
 						<span class="text-foreground">
 							{formatDate(selectedMedia.created || '')} {formatTime(selectedMedia.created || '')}
 						</span>
@@ -254,7 +254,7 @@
 
 					{#if selectedMedia.expand?.diary && selectedMedia.expand.diary.length > 0}
 						<div class="py-2 border-b border-border/30">
-							<span class="text-muted-foreground">Linked Diaries</span>
+							<span class="text-muted-foreground">关联日记</span>
 							<div class="flex flex-wrap gap-2 mt-2">
 								{#each selectedMedia.expand.diary as diary}
 									<button
@@ -268,8 +268,8 @@
 						</div>
 					{:else}
 						<div class="flex items-center justify-between py-2 border-b border-border/30">
-							<span class="text-muted-foreground">Linked Diary</span>
-							<span class="text-muted-foreground/60">Not linked</span>
+							<span class="text-muted-foreground">关联日记</span>
+							<span class="text-muted-foreground/60">未关联</span>
 						</div>
 					{/if}
 				</div>
@@ -282,27 +282,27 @@
 						on:click={() => showDeleteConfirm = true}
 						class="px-4 py-2 text-sm text-red-600 border border-red-500 hover:bg-red-50 rounded-lg transition-colors font-medium"
 					>
-						Delete
+						删除
 					</button>
 				{:else}
 					<div class="flex items-center gap-3">
 						{#if selectedMedia.expand?.diary && selectedMedia.expand.diary.length > 0}
-							<span class="text-sm text-red-600 font-medium">This media is linked to {selectedMedia.expand.diary.length} diary(s). Delete anyway?</span>
+							<span class="text-sm text-red-600 font-medium">此媒体关联了 {selectedMedia.expand.diary.length} 篇日记。确定删除吗？</span>
 						{:else}
-							<span class="text-sm text-red-600 font-medium">Confirm delete?</span>
+							<span class="text-sm text-red-600 font-medium">确定删除吗？</span>
 						{/if}
 						<button
 							on:click={handleDelete}
 							disabled={deleting}
 							class="px-4 py-2 text-sm text-red-600 border border-red-500 hover:bg-red-50 disabled:opacity-50 rounded-lg transition-colors font-medium"
 						>
-							{deleting ? 'Deleting...' : 'Confirm'}
+							{deleting ? '删除中...' : '确认'}
 						</button>
 						<button
 							on:click={() => showDeleteConfirm = false}
 							class="px-4 py-2 text-sm border border-border hover:bg-muted/50 rounded-lg transition-colors font-medium"
 						>
-							Cancel
+							取消
 						</button>
 					</div>
 				{/if}
@@ -310,7 +310,7 @@
 					on:click={closeModal}
 					class="px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors border border-border/50"
 				>
-					Close
+					关闭
 				</button>
 			</div>
 		</div>

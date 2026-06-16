@@ -32,12 +32,12 @@
 	type SettingsTab = 'api-access' | 'mood-weather' | 'ai-assistant' | 'image-upload' | 'memos-sync' | 'data-management';
 
 	const settingsTabs: { id: SettingsTab; label: string }[] = [
-		{ id: 'ai-assistant', label: 'AI Assistant' },
-		{ id: 'mood-weather', label: 'Mood & Weather' },
-		{ id: 'api-access', label: 'API Access' },
-		{ id: 'memos-sync', label: 'Memos Sync' },
-		{ id: 'image-upload', label: 'Image Upload' },
-		{ id: 'data-management', label: 'Data Management' }
+		{ id: 'ai-assistant', label: 'AI 助手' },
+		{ id: 'mood-weather', label: '心情与天气' },
+		{ id: 'api-access', label: 'API 访问' },
+		{ id: 'memos-sync', label: 'Memos 同步' },
+		{ id: 'image-upload', label: '图片上传' },
+		{ id: 'data-management', label: '数据管理' }
 	];
 
 	let activeTab: SettingsTab = 'ai-assistant';
@@ -166,15 +166,15 @@
 		const value = moodInput.trim();
 		if (!value) return;
 		if (moodOptions.length >= MAX_DIARY_EMOJI_OPTION_COUNT) {
-			emojiSettingsError = `You can add up to ${MAX_DIARY_EMOJI_OPTION_COUNT} mood options`;
+			emojiSettingsError = `最多可添加 ${MAX_DIARY_EMOJI_OPTION_COUNT} 个心情选项`;
 			return;
 		}
 		if (countDisplayChars(value) > MAX_DIARY_EMOJI_OPTION_LENGTH) {
-			emojiSettingsError = `Mood entry must be at most ${MAX_DIARY_EMOJI_OPTION_LENGTH} characters`;
+			emojiSettingsError = `心情选项最多 ${MAX_DIARY_EMOJI_OPTION_LENGTH} 个字符`;
 			return;
 		}
 		if (moodOptions.includes(value)) {
-			emojiSettingsError = 'Mood entry already exists';
+			emojiSettingsError = '心情选项已存在';
 			return;
 		}
 		moodOptions = [...moodOptions, value];
@@ -184,7 +184,7 @@
 	function removeMoodOption(value: string) {
 		emojiSettingsError = '';
 		if (moodOptions.length <= 1) {
-			emojiSettingsError = 'Keep at least one mood option';
+			emojiSettingsError = '至少保留一个心情选项';
 			return;
 		}
 		moodOptions = moodOptions.filter((item) => item !== value);
@@ -195,15 +195,15 @@
 		const value = weatherInput.trim();
 		if (!value) return;
 		if (weatherOptions.length >= MAX_DIARY_EMOJI_OPTION_COUNT) {
-			emojiSettingsError = `You can add up to ${MAX_DIARY_EMOJI_OPTION_COUNT} weather options`;
+			emojiSettingsError = `最多可添加 ${MAX_DIARY_EMOJI_OPTION_COUNT} 个天气选项`;
 			return;
 		}
 		if (countDisplayChars(value) > MAX_DIARY_EMOJI_OPTION_LENGTH) {
-			emojiSettingsError = `Weather entry must be at most ${MAX_DIARY_EMOJI_OPTION_LENGTH} characters`;
+			emojiSettingsError = `天气选项最多 ${MAX_DIARY_EMOJI_OPTION_LENGTH} 个字符`;
 			return;
 		}
 		if (weatherOptions.includes(value)) {
-			emojiSettingsError = 'Weather entry already exists';
+			emojiSettingsError = '天气选项已存在';
 			return;
 		}
 		weatherOptions = [...weatherOptions, value];
@@ -213,7 +213,7 @@
 	function removeWeatherOption(value: string) {
 		emojiSettingsError = '';
 		if (weatherOptions.length <= 1) {
-			emojiSettingsError = 'Keep at least one weather option';
+			emojiSettingsError = '至少保留一个天气选项';
 			return;
 		}
 		weatherOptions = weatherOptions.filter((item) => item !== value);
@@ -306,7 +306,7 @@
 		emojiSettingsSuccess = '';
 
 		if (moodOptions.length < 1 || weatherOptions.length < 1) {
-			emojiSettingsError = 'Mood and weather must each keep at least one option';
+			emojiSettingsError = '心情和天气至少各保留一个选项';
 			return;
 		}
 
@@ -324,10 +324,10 @@
 			weatherOptions = [...sanitizedWeatherOptions];
 			originalMoodOptions = [...sanitizedMoodOptions];
 			originalWeatherOptions = [...sanitizedWeatherOptions];
-			emojiSettingsSuccess = 'Mood and weather options saved successfully';
+			emojiSettingsSuccess = '心情与天气选项已成功保存';
 			setTimeout(() => emojiSettingsSuccess = '', 3000);
 		} catch (e) {
-			emojiSettingsError = e instanceof Error ? e.message : 'Failed to save mood/weather options';
+			emojiSettingsError = e instanceof Error ? e.message : '保存心情与天气选项失败';
 		}
 		emojiSettingsSaving = false;
 	}
@@ -337,20 +337,20 @@
 		try {
 			tokenStatus = await toggleApiToken();
 		} catch (e) {
-			console.error('Failed to toggle API token');
+			console.error('切换 API token 失败');
 		}
 		toggling = false;
 	}
 
 	async function handleReset() {
-		if (!confirm('Are you sure you want to reset your API token? Any existing integrations will stop working.')) {
+		if (!confirm('确定要重置 API token 吗？任何现有的集成将停止工作。')) {
 			return;
 		}
 		resetting = true;
 		try {
 			tokenStatus = await resetApiToken();
 		} catch (e) {
-			console.error('Failed to reset API token');
+			console.error('重置 API token 失败');
 		}
 		resetting = false;
 	}
@@ -378,16 +378,16 @@
 				base_url: memosSettings.base_url
 			});
 			originalMemosSettings = JSON.parse(JSON.stringify(memosSettings));
-			memosSuccess = 'Memos sync settings saved successfully';
+			memosSuccess = 'Memos 同步设置已成功保存';
 			setTimeout(() => memosSuccess = '', 3000);
 		} catch (e) {
-			memosError = e instanceof Error ? e.message : 'Failed to save Memos settings';
+			memosError = e instanceof Error ? e.message : '保存 Memos 设置失败';
 		}
 		memosSaving = false;
 	}
 
 	async function handleResetMemosWebhookToken() {
-		if (!confirm('Reset the Memos webhook URL? The old URL configured in Memos will stop working.')) {
+		if (!confirm('重置 Memos Webhook URL？之前在 Memos 中配置的 URL 将停止工作。')) {
 			return;
 		}
 		memosResetting = true;
@@ -395,10 +395,10 @@
 		try {
 			memosSettings = await resetMemosWebhookToken();
 			originalMemosSettings = JSON.parse(JSON.stringify(memosSettings));
-			memosSuccess = 'Memos webhook URL reset successfully';
+			memosSuccess = 'Memos Webhook URL 已成功重置';
 			setTimeout(() => memosSuccess = '', 3000);
 		} catch (e) {
-			memosError = e instanceof Error ? e.message : 'Failed to reset Memos webhook URL';
+			memosError = e instanceof Error ? e.message : '重置 Memos Webhook URL 失败';
 		}
 		memosResetting = false;
 	}
@@ -435,7 +435,7 @@
 
 	async function handleFetchModels() {
 		if (!aiSettings.api_key || !aiSettings.base_url) {
-			modelsError = 'Please enter API Key and Base URL first';
+			modelsError = '请先输入 API Key 和 Base URL';
 			return;
 		}
 
@@ -444,7 +444,7 @@
 		try {
 			models = await fetchModels(aiSettings.api_key, aiSettings.base_url);
 		} catch (e) {
-			modelsError = e instanceof Error ? e.message : 'Failed to fetch models';
+			modelsError = e instanceof Error ? e.message : '获取模型列表失败';
 		}
 		fetchingModels = false;
 	}
@@ -456,7 +456,7 @@
 		// Validate: if enabling, all fields must be filled
 		if (aiSettings.enabled) {
 			if (!aiSettings.api_key || !aiSettings.base_url || !aiSettings.chat_model || !aiSettings.embedding_model) {
-				aiError = 'All fields must be filled before enabling AI features';
+				aiError = '启用 AI 功能前请填写所有字段';
 				return;
 			}
 		}
@@ -465,17 +465,17 @@
 		try {
 			await saveAISettings(aiSettings);
 			originalAISettings = JSON.parse(JSON.stringify(aiSettings));
-			aiSuccess = 'AI settings saved successfully';
+			aiSuccess = 'AI 设置已成功保存';
 			setTimeout(() => aiSuccess = '', 3000);
 		} catch (e) {
-			aiError = e instanceof Error ? e.message : 'Failed to save AI settings';
+			aiError = e instanceof Error ? e.message : '保存 AI 设置失败';
 		}
 		aiSaving = false;
 	}
 
 	async function handleBuildVectors(incremental: boolean = false) {
 		if (!aiSettings.enabled) {
-			buildError = 'Please enable AI features first';
+			buildError = '请先启用 AI 功能';
 			return;
 		}
 
@@ -492,7 +492,7 @@
 			// Refresh stats after building
 			await loadVectorStats();
 		} catch (e) {
-			buildError = e instanceof Error ? e.message : 'Failed to build vectors';
+			buildError = e instanceof Error ? e.message : '构建向量失败';
 		}
 		buildingVectors = false;
 	}
@@ -504,7 +504,7 @@
 		try {
 			vectorStats = await getVectorStats();
 		} catch (e) {
-			console.error('Failed to load vector stats:', e);
+			console.error('加载向量统计失败：', e);
 			vectorStats = null;
 		}
 		loadingStats = false;
@@ -571,7 +571,7 @@
 
 	async function handleTestChevereto() {
 		if (!imageUploadSettingsLocal.chevereto.domain || !imageUploadSettingsLocal.chevereto.api_key) {
-			imageUploadError = 'Please enter Domain and API Key first';
+			imageUploadError = '请先输入域名和 API Key';
 			return;
 		}
 		cheveretoTesting = true;
@@ -583,7 +583,7 @@
 				imageUploadSettingsLocal.chevereto.api_key
 			);
 		} catch (e) {
-			imageUploadError = e instanceof Error ? e.message : 'Connection test failed';
+			imageUploadError = e instanceof Error ? e.message : '连接测试失败';
 		}
 		cheveretoTesting = false;
 	}
@@ -594,13 +594,13 @@
 
 		if (imageUploadSettingsLocal.provider === 's3') {
 			if (!imageUploadSettingsLocal.s3.bucket || !imageUploadSettingsLocal.s3.region || !imageUploadSettingsLocal.s3.access_key || !imageUploadSettingsLocal.s3.secret) {
-				imageUploadError = 'Bucket, region, access key and secret are required for S3';
+				imageUploadError = 'S3 需要填写 Bucket、region、access key 和 secret';
 				return;
 			}
 		}
 		if (imageUploadSettingsLocal.provider === 'chevereto') {
 			if (!imageUploadSettingsLocal.chevereto.domain || !imageUploadSettingsLocal.chevereto.api_key) {
-				imageUploadError = 'Domain and API Key are required for Chevereto';
+				imageUploadError = 'Chevereto 需要填写域名和 API Key';
 				return;
 			}
 		}
@@ -611,10 +611,10 @@
 			imageUploadSettingsLocal = result.settings ?? imageUploadSettingsLocal;
 			originalImageUploadSettings = JSON.parse(JSON.stringify(imageUploadSettingsLocal));
 			await loadImageUploadSettings();
-			imageUploadSuccess = 'Image upload settings saved successfully';
+			imageUploadSuccess = '图片上传设置已成功保存';
 			setTimeout(() => imageUploadSuccess = '', 3000);
 		} catch (e) {
-			imageUploadError = e instanceof Error ? e.message : 'Failed to save image upload settings';
+			imageUploadError = e instanceof Error ? e.message : '保存图片上传设置失败';
 		}
 		imageUploadSaving = false;
 	}
@@ -632,7 +632,7 @@
 			}
 			exportStats = await exportDiaries(options);
 		} catch (e) {
-			exportError = e instanceof Error ? e.message : 'Export failed';
+			exportError = e instanceof Error ? e.message : '导出失败';
 		}
 		exporting = false;
 	}
@@ -650,7 +650,7 @@
 		try {
 			importStats = await importDiaries(importFile);
 		} catch (e) {
-			importError = e instanceof Error ? e.message : 'Import failed';
+			importError = e instanceof Error ? e.message : '导入失败';
 		}
 		importing = false;
 	}
@@ -665,18 +665,18 @@
 		window.addEventListener('hashchange', handleHashChange);
 
 		const initialize = async () => {
-		if (!$isAuthenticated) {
-			goto('/login');
-			return;
-		}
+			if (!$isAuthenticated) {
+				goto('/login');
+				return;
+			}
 
-		loading = true;
-		await Promise.all([loadTokenStatus(), loadDiaryEmojiSettingsLocal(), loadMemosSettingsLocal(), loadAISettings(), loadImageUploadSettingsLocal()]);
-		loading = false;
-		// Load vector stats if AI is enabled
-		if (aiSettings.enabled) {
-			await loadVectorStats();
-		}
+			loading = true;
+			await Promise.all([loadTokenStatus(), loadDiaryEmojiSettingsLocal(), loadMemosSettingsLocal(), loadAISettings(), loadImageUploadSettingsLocal()]);
+			loading = false;
+			// Load vector stats if AI is enabled
+			if (aiSettings.enabled) {
+				await loadVectorStats();
+			}
 		};
 
 		void initialize();
@@ -688,7 +688,7 @@
 </script>
 
 <svelte:head>
-	<title>Settings - Diarum</title>
+	<title>设置 - 吾身</title>
 </svelte:head>
 
 <div class="min-h-screen bg-background">
@@ -699,20 +699,20 @@
 			<div class="max-w-6xl mx-auto px-4 h-11">
 				<div class="grid grid-cols-[auto_1fr_auto] items-center gap-2 h-full">
 					<div class="flex items-center gap-2 min-w-0">
-						<a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity" title="Diarum Home">
-							<img src="/logo.png" alt="Diarum" class="w-6 h-6" />
-							<span class="hidden sm:inline text-lg font-semibold text-foreground hover:text-primary transition-colors">Diarum</span>
+						<a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity" title="吾身首页">
+							<img src="/logo.png" alt="吾身" class="w-6 h-6" />
+							<span class="hidden sm:inline text-lg font-semibold text-foreground hover:text-primary transition-colors">吾身</span>
 						</a>
 					</div>
 
 					<!-- Center: Title -->
-					<div class="text-sm font-medium text-foreground text-center">Settings</div>
+					<div class="text-sm font-medium text-foreground text-center">设置</div>
 
 					<!-- Right: Actions -->
 					<a
 						href="/diary"
 						class="justify-self-end p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200"
-						title="Diary"
+						title="日记"
 					>
 						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -730,7 +730,7 @@
 			<main class="w-full max-w-4xl">
 				<div class="mb-4 space-y-3">
 					<div class="sm:hidden">
-						<label for="settings-tab-select" class="sr-only">Choose settings section</label>
+						<label for="settings-tab-select" class="sr-only">选择设置分区</label>
 						<div class="relative">
 							<select
 								id="settings-tab-select"
@@ -759,1167 +759,1168 @@
 					</div>
 				</div>
 				{#if loading}
-			<div class="flex flex-col items-center justify-center py-20 gap-3">
-				<svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
-					<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-					<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-				</svg>
-				<div class="text-muted-foreground text-sm">Loading...</div>
-			</div>
-		{:else}
-			<div class="space-y-6">
-				{#if activeTab === 'api-access'}
-				<!-- API Settings Section -->
-				<div id="api-access" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
-					<h2 class="text-lg font-semibold text-foreground mb-4">API Access</h2>
-					<p class="text-sm text-muted-foreground mb-6">
-						Enable API access to retrieve your diary entries programmatically. Use your API token to authenticate requests.
-					</p>
-
-					<!-- Enable/Disable Toggle -->
-					<div class="flex items-center justify-between py-4 border-b border-border/50">
-						<div>
-							<div class="font-medium text-foreground">Enable API</div>
-							<div class="text-sm text-muted-foreground">Allow external access to your diary data</div>
-						</div>
-						<button
-							on:click={handleToggle}
-							disabled={toggling}
-							aria-label="Toggle API access"
-							class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {tokenStatus.enabled ? 'bg-primary' : 'bg-muted'}"
-						>
-							<span
-								class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {tokenStatus.enabled ? 'translate-x-6' : 'translate-x-1'}"
-							></span>
-						</button>
+					<div class="flex flex-col items-center justify-center py-20 gap-3">
+						<svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
+							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+						</svg>
+						<div class="text-muted-foreground text-sm">加载中...</div>
 					</div>
-
-					{#if tokenStatus.enabled && tokenStatus.token}
-						<!-- API Token Display -->
-						<div class="py-4 border-b border-border/50">
-							<div class="font-medium text-foreground mb-2">Your API Token</div>
-							<div class="flex items-center gap-2">
-								<code class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm font-mono text-foreground overflow-x-auto">
-									{tokenStatus.token}
-								</code>
-								<button
-									on:click={copyToken}
-									class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
-								>
-									{copied ? 'Copied!' : 'Copy'}
-								</button>
-							</div>
-							<p class="text-xs text-muted-foreground mt-2">
-								Keep this token secret. Anyone with this token can read your diary entries.
+				{:else}
+					<div class="space-y-6">
+						{#if activeTab === 'api-access'}
+						<!-- API Settings Section -->
+						<div id="api-access" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
+							<h2 class="text-lg font-semibold text-foreground mb-4">API 访问</h2>
+							<p class="text-sm text-muted-foreground mb-6">
+								启用 API 访问以便编程方式获取您的日记内容。使用您的 API token 对请求进行身份验证。
 							</p>
-						</div>
 
-						<!-- Reset Token -->
-						<div class="py-4 border-b border-border/50">
-							<div class="flex items-center justify-between">
+							<!-- Enable/Disable Toggle -->
+							<div class="flex items-center justify-between py-4 border-b border-border/50">
 								<div>
-									<div class="font-medium text-foreground">Reset Token</div>
-									<div class="text-sm text-muted-foreground">Generate a new API token</div>
+									<div class="font-medium text-foreground">启用 API</div>
+									<div class="text-sm text-muted-foreground">允许外部访问您的日记数据</div>
 								</div>
 								<button
-									on:click={handleReset}
-									disabled={resetting}
-									class="px-4 py-2 text-sm bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-lg transition-colors duration-200 disabled:opacity-50"
+									on:click={handleToggle}
+									disabled={toggling}
+									aria-label="切换 API 访问"
+									class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {tokenStatus.enabled ? 'bg-primary' : 'bg-muted'}"
 								>
-									{resetting ? 'Resetting...' : 'Reset Token'}
+									<span
+										class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {tokenStatus.enabled ? 'translate-x-6' : 'translate-x-1'}"
+									></span>
 								</button>
 							</div>
-						</div>
 
-						<!-- API Documentation -->
-						<div class="py-4">
-							<div class="font-medium text-foreground mb-3">API Usage</div>
-							<div class="space-y-4 text-sm">
-								<div>
-									<div class="text-muted-foreground mb-1">Get diary by date:</div>
-									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
-										GET {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}&date=YYYY-MM-DD
-									</code>
+							{#if tokenStatus.enabled && tokenStatus.token}
+								<!-- API Token Display -->
+								<div class="py-4 border-b border-border/50">
+									<div class="font-medium text-foreground mb-2">您的 API Token</div>
+									<div class="flex items-center gap-2">
+										<code class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm font-mono text-foreground overflow-x-auto">
+											{tokenStatus.token}
+										</code>
+										<button
+											on:click={copyToken}
+											class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
+										>
+											{copied ? '已复制！' : '复制'}
+										</button>
+									</div>
+									<p class="text-xs text-muted-foreground mt-2">
+										请妥善保管此 token。任何持有此 token 的人都可以读取您的日记内容。
+									</p>
 								</div>
-								<div>
-									<div class="text-muted-foreground mb-1">Get diaries in date range:</div>
-									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
-										GET {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}&start=YYYY-MM-DD&end=YYYY-MM-DD
-									</code>
+
+								<!-- Reset Token -->
+								<div class="py-4 border-b border-border/50">
+									<div class="flex items-center justify-between">
+										<div>
+											<div class="font-medium text-foreground">重置 Token</div>
+											<div class="text-sm text-muted-foreground">生成新的 API token</div>
+										</div>
+										<button
+											on:click={handleReset}
+											disabled={resetting}
+											class="px-4 py-2 text-sm bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-lg transition-colors duration-200 disabled:opacity-50"
+										>
+											{resetting ? '重置中...' : '重置 Token'}
+										</button>
+									</div>
 								</div>
-								<div>
-									<div class="text-muted-foreground mb-1">Example with curl:</div>
-									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
+
+								<!-- API Documentation -->
+								<div class="py-4">
+									<div class="font-medium text-foreground mb-3">API 使用说明</div>
+									<div class="space-y-4 text-sm">
+										<div>
+											<div class="text-muted-foreground mb-1">按日期获取日记：</div>
+											<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
+												GET {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}&date=YYYY-MM-DD
+											</code>
+										</div>
+										<div>
+											<div class="text-muted-foreground mb-1">按日期范围获取日记：</div>
+											<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
+												GET {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}&start=YYYY-MM-DD&end=YYYY-MM-DD
+											</code>
+										</div>
+										<div>
+											<div class="text-muted-foreground mb-1">curl 示例：</div>
+											<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
 curl "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}&date={new Date().toISOString().split('T')[0]}"
-									</code>
-								</div>
-							</div>
-						</div>
-					{/if}
-				</div>
-				{/if}
-
-				{#if activeTab === 'memos-sync'}
-				<!-- Memos Sync Section -->
-				<div id="memos-sync" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
-					<h2 class="text-lg font-semibold text-foreground mb-4">Memos Sync</h2>
-					<p class="text-sm text-muted-foreground mb-6">
-						Receive Memos webhook events and append synced memo blocks into the diary for each memo creation date. Updates replace the matching block by memo ID, and deletes remove it.
-					</p>
-
-					{#if memosError}
-						<div class="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-							{memosError}
-						</div>
-					{/if}
-
-					{#if memosSuccess}
-						<div class="mb-4 p-3 bg-green-500/10 text-green-600 rounded-lg text-sm">
-							{memosSuccess}
-						</div>
-					{/if}
-
-					<div class="flex items-center justify-between py-4 border-b border-border/50">
-						<div>
-							<div class="font-medium text-foreground">Enable Memos Webhook</div>
-							<div class="text-sm text-muted-foreground">Generate and accept a private webhook URL for Memos</div>
-						</div>
-						<button
-							on:click={() => memosSettings.enabled = !memosSettings.enabled}
-							aria-label="Toggle Memos sync"
-							class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {memosSettings.enabled ? 'bg-primary' : 'bg-muted'}"
-						>
-							<span
-								class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {memosSettings.enabled ? 'translate-x-6' : 'translate-x-1'}"
-							></span>
-						</button>
-					</div>
-
-					<div class="py-4 border-b border-border/50">
-						<label for="memos-base-url" class="block font-medium text-foreground mb-2">Memos Base URL</label>
-						<input
-							id="memos-base-url"
-							type="url"
-							bind:value={memosSettings.base_url}
-							placeholder="https://memos.example.com"
-							class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-						/>
-						<p class="text-xs text-muted-foreground mt-1">Optional. Used to record a memo URL in each synced block, for example https://memos.example.com/m/123.</p>
-					</div>
-
-					{#if memosSettings.enabled && memosSettings.webhook_url}
-						<div class="py-4 border-b border-border/50">
-							<div class="font-medium text-foreground mb-2">Webhook URL</div>
-							<div class="flex items-center gap-2">
-								<code class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm font-mono text-foreground overflow-x-auto">
-									{memosSettings.webhook_url}
-								</code>
-								<button
-									on:click={copyMemosWebhookURL}
-									class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
-								>
-									{memosCopied ? 'Copied!' : 'Copy'}
-								</button>
-							</div>
-							<p class="text-xs text-muted-foreground mt-2">Paste this URL into Memos webhook settings. Keep it secret because it can write synced memo blocks into your diary.</p>
-						</div>
-
-						<div class="py-4 border-b border-border/50">
-							<div class="flex items-center justify-between gap-4">
-								<div>
-									<div class="font-medium text-foreground">Reset Webhook URL</div>
-									<div class="text-sm text-muted-foreground">Generate a new private URL if the old one is exposed</div>
-								</div>
-								<button
-									on:click={handleResetMemosWebhookToken}
-									disabled={memosResetting}
-									class="px-4 py-2 text-sm bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-lg transition-colors duration-200 disabled:opacity-50"
-								>
-									{memosResetting ? 'Resetting...' : 'Reset URL'}
-								</button>
-							</div>
-						</div>
-					{/if}
-
-					<div class="pt-4 flex items-center gap-3">
-						<button
-							on:click={handleSaveMemosSettings}
-							disabled={memosSaving || !memosSettingsChanged}
-							class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-						>
-							{memosSaving ? 'Saving...' : 'Save Memos Settings'}
-						</button>
-					</div>
-				</div>
-				{/if}
-
-				{#if activeTab === 'mood-weather'}
-				<!-- Mood & Weather Section -->
-				<div id="mood-weather" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
-					<div class="flex items-center justify-between gap-3 mb-4">
-						<h2 class="text-lg font-semibold text-foreground">Mood & Weather</h2>
-						<button
-							on:click={restoreAllDefaults}
-							class="px-3 py-1.5 text-xs bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
-						>
-							Restore All Defaults
-						</button>
-					</div>
-					<p class="text-sm text-muted-foreground mb-6">
-						Customize the options shown in the diary editor. Add any emoji or short text up to {MAX_DIARY_EMOJI_OPTION_LENGTH} characters, keep at least 1 and at most {MAX_DIARY_EMOJI_OPTION_COUNT} items in each list, then drag to reorder and save.
-					</p>
-
-					{#if emojiSettingsError}
-						<div class="mb-4 p-3 bg-red-500/10 text-red-600 rounded-lg text-sm">
-							{emojiSettingsError}
-						</div>
-					{/if}
-
-					{#if emojiSettingsSuccess}
-						<div class="mb-4 p-3 bg-green-500/10 text-green-600 rounded-lg text-sm">
-							{emojiSettingsSuccess}
-						</div>
-					{/if}
-
-					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4 border-b border-border/50">
-						<div class="rounded-xl border border-border/50 p-4">
-							<div class="flex items-center justify-between gap-3 mb-2">
-								<div class="font-medium text-foreground">Mood options</div>
-								<button
-									on:click={restoreMoodDefaults}
-									class="px-2.5 py-1 text-xs bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
-								>
-									Restore Defaults
-								</button>
-							</div>
-							<div class="flex items-center gap-2 mb-3">
-								<input
-									type="text"
-									bind:value={moodInput}
-									maxlength={MAX_DIARY_EMOJI_OPTION_LENGTH}
-									placeholder="e.g. 😊"
-									class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-									on:keydown={(event) => {
-										if (event.key === 'Enter') {
-											event.preventDefault();
-											addMoodOption();
-										}
-									}}
-								/>
-								<button
-									on:click={addMoodOption}
-									class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
-								>
-									Add
-								</button>
-							</div>
-							<div class="text-xs text-muted-foreground mb-3">Maximum {MAX_DIARY_EMOJI_OPTION_LENGTH} characters per option, up to {MAX_DIARY_EMOJI_OPTION_COUNT} mood options total. Keep at least one. Drag chips to reorder.</div>
-							<div class="flex flex-wrap gap-2">
-								{#if moodOptions.length === 0}
-									<div class="text-sm text-muted-foreground">No mood options yet</div>
-								{:else}
-									{#each moodOptions as option, index}
-										<div
-											draggable="true"
-											role="listitem"
-											on:dragstart={() => handleDragStart('mood', index)}
-											on:dragover={(event) => handleDragOver(event, 'mood', index)}
-											on:drop={() => handleDrop('mood', index)}
-											on:dragend={clearDragState}
-											class="relative w-14 h-14 rounded-xl border transition-colors flex items-center justify-center cursor-grab select-none {dragOverType === 'mood' && dragOverIndex === index ? 'border-primary bg-primary/10' : 'bg-muted/70 border-border/60'}"
-											title={option}
-										>
-											<button
-												on:click|stopPropagation={() => removeMoodOption(option)}
-												class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-background border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors flex items-center justify-center"
-												aria-label={`Remove mood option ${option}`}
-											>
-												<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.25" d="M6 6l12 12M18 6l-12 12" />
-												</svg>
-											</button>
-											<span class="text-xl leading-none">{option}</span>
+											</code>
 										</div>
-									{/each}
-									<div
-										role="status"
-										on:dragover={(event) => handleDragOver(event, 'mood', moodOptions.length - 1)}
-										on:drop={() => handleDropToEnd('mood')}
-										class="h-14 px-3 rounded-xl border border-dashed text-xs text-muted-foreground flex items-center {dragOverType === 'mood' ? 'border-primary bg-primary/5' : 'border-border/60'}"
-									>
-										Drop to end
 									</div>
-								{/if}
-							</div>
-						</div>
-
-						<div class="rounded-xl border border-border/50 p-4">
-							<div class="flex items-center justify-between gap-3 mb-2">
-								<div class="font-medium text-foreground">Weather options</div>
-								<button
-									on:click={restoreWeatherDefaults}
-									class="px-2.5 py-1 text-xs bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
-								>
-									Restore Defaults
-								</button>
-							</div>
-							<div class="flex items-center gap-2 mb-3">
-								<input
-									type="text"
-									bind:value={weatherInput}
-									maxlength={MAX_DIARY_EMOJI_OPTION_LENGTH}
-									placeholder="e.g. ☀️"
-									class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-									on:keydown={(event) => {
-										if (event.key === 'Enter') {
-											event.preventDefault();
-											addWeatherOption();
-										}
-									}}
-								/>
-								<button
-									on:click={addWeatherOption}
-									class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
-								>
-									Add
-								</button>
-							</div>
-							<div class="text-xs text-muted-foreground mb-3">Maximum {MAX_DIARY_EMOJI_OPTION_LENGTH} characters per option, up to {MAX_DIARY_EMOJI_OPTION_COUNT} weather options total. Keep at least one. Drag chips to reorder.</div>
-							<div class="flex flex-wrap gap-2">
-								{#if weatherOptions.length === 0}
-									<div class="text-sm text-muted-foreground">No weather options yet</div>
-								{:else}
-									{#each weatherOptions as option, index}
-										<div
-											draggable="true"
-											role="listitem"
-											on:dragstart={() => handleDragStart('weather', index)}
-											on:dragover={(event) => handleDragOver(event, 'weather', index)}
-											on:drop={() => handleDrop('weather', index)}
-											on:dragend={clearDragState}
-											class="relative w-14 h-14 rounded-xl border transition-colors flex items-center justify-center cursor-grab select-none {dragOverType === 'weather' && dragOverIndex === index ? 'border-primary bg-primary/10' : 'bg-muted/70 border-border/60'}"
-											title={option}
-										>
-											<button
-												on:click|stopPropagation={() => removeWeatherOption(option)}
-												class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-background border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors flex items-center justify-center"
-												aria-label={`Remove weather option ${option}`}
-											>
-												<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.25" d="M6 6l12 12M18 6l-12 12" />
-												</svg>
-											</button>
-											<span class="text-xl leading-none">{option}</span>
-										</div>
-									{/each}
-									<div
-										role="status"
-										on:dragover={(event) => handleDragOver(event, 'weather', weatherOptions.length - 1)}
-										on:drop={() => handleDropToEnd('weather')}
-										class="h-14 px-3 rounded-xl border border-dashed text-xs text-muted-foreground flex items-center {dragOverType === 'weather' ? 'border-primary bg-primary/5' : 'border-border/60'}"
-									>
-										Drop to end
-									</div>
-								{/if}
-							</div>
-						</div>
-					</div>
-
-					<div class="pt-4 flex items-center gap-3">
-						<button
-							on:click={handleSaveEmojiSettings}
-							disabled={emojiSettingsSaving || !emojiSettingsChanged}
-							class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-						>
-							{#if emojiSettingsSaving}
-								<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-								</svg>
-								Saving...
-							{:else}
-								Save Mood & Weather Settings
+								</div>
 							{/if}
-						</button>
-						{#if emojiSettingsSuccess}
-							<span class="text-sm text-green-600 flex items-center gap-1 animate-fade-in">
-								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-								</svg>
-								Saved
-							</span>
+						</div>
 						{/if}
-					</div>
-				</div>
-				{/if}
 
-				{#if activeTab === 'ai-assistant'}
-				<!-- AI Settings Section -->
-				<div id="ai-assistant" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
-					<h2 class="text-lg font-semibold text-foreground mb-4">AI Assistant</h2>
-					<p class="text-sm text-muted-foreground mb-6">
-						Configure AI services for intelligent diary analysis and conversation. Supports OpenAI-compatible APIs.
-					</p>
+						{#if activeTab === 'memos-sync'}
+						<!-- Memos Sync Section -->
+						<div id="memos-sync" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
+							<h2 class="text-lg font-semibold text-foreground mb-4">Memos 同步</h2>
+							<p class="text-sm text-muted-foreground mb-6">
+								接收 Memos Webhook 事件，并将同步的 memo 内容追加到对应创建日期的日记中。已有相同 memo ID 的内容会被更新覆盖，删除时会移除相应内容。
+							</p>
 
-					{#if aiError}
-						<div class="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-							{aiError}
-						</div>
-					{/if}
-
-					{#if aiSuccess}
-						<div class="mb-4 p-3 bg-green-500/10 text-green-600 rounded-lg text-sm">
-							{aiSuccess}
-						</div>
-					{/if}
-
-					<!-- API Key -->
-					<div class="py-4 border-b border-border/50">
-						<label for="ai-api-key" class="block font-medium text-foreground mb-2">API Key</label>
-						<input
-							id="ai-api-key"
-							type="password"
-							bind:value={aiSettings.api_key}
-							placeholder="sk-..."
-							class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-						/>
-						<p class="text-xs text-muted-foreground mt-1">Your API key for the AI service. OpenAI keys start with sk-, e.g. sk-xxx...</p>
-					</div>
-
-					<!-- Base URL -->
-					<div class="py-4 border-b border-border/50">
-						<label for="ai-base-url" class="block font-medium text-foreground mb-2">API Base URL</label>
-						<input
-							id="ai-base-url"
-							type="text"
-							bind:value={aiSettings.base_url}
-							placeholder="https://api.openai.com"
-							class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-						/>
-						<p class="text-xs text-muted-foreground mt-1">Base URL for the OpenAI-compatible API, e.g. https://api.openai.com</p>
-					</div>
-
-					{#if modelsError}
-						<div class="mt-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-							{modelsError}
-						</div>
-					{/if}
-
-					<!-- Chat Model -->
-					<div class="py-4 border-b border-border/50">
-						<label for="ai-chat-model" class="block font-medium text-foreground mb-2">Chat Model</label>
-						<div class="flex items-center gap-2">
-							<div class="relative flex-1">
-								<select
-									id="ai-chat-model"
-									bind:value={aiSettings.chat_model}
-									class="w-full pl-3 pr-9 py-2 bg-muted rounded-lg text-sm text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
-								>
-									<option value="">Select a model</option>
-									{#each chatModels as model}
-										<option value={model.id}>{model.id}</option>
-									{/each}
-								</select>
-								<svg class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-								</svg>
-							</div>
-							<button
-								on:click={handleFetchModels}
-								disabled={fetchingModels}
-								class="p-2 bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 disabled:opacity-50"
-								title="Refresh models"
-							>
-								<svg class="w-5 h-5 {fetchingModels ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-								</svg>
-							</button>
-						</div>
-						<p class="text-xs text-muted-foreground mt-1">Model for AI conversations, e.g. gpt-4o, deepseek-chat</p>
-					</div>
-
-					<!-- Embedding Model -->
-					<div class="py-4 border-b border-border/50">
-						<label for="ai-embedding-model" class="block font-medium text-foreground mb-2">Embedding Model</label>
-						<div class="flex items-center gap-2">
-							<div class="relative flex-1">
-								<select
-									id="ai-embedding-model"
-									bind:value={aiSettings.embedding_model}
-									class="w-full pl-3 pr-9 py-2 bg-muted rounded-lg text-sm text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
-								>
-									<option value="">Select a model</option>
-									{#each embeddingModels as model}
-										<option value={model.id}>{model.id}</option>
-									{/each}
-								</select>
-								<svg class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-								</svg>
-							</div>
-							<button
-								on:click={handleFetchModels}
-								disabled={fetchingModels}
-								class="p-2 bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 disabled:opacity-50"
-								title="Refresh models"
-							>
-								<svg class="w-5 h-5 {fetchingModels ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-								</svg>
-							</button>
-						</div>
-						<p class="text-xs text-muted-foreground mt-1">Model for text vectorization, e.g. text-embedding-3-small</p>
-					</div>
-
-					<!-- Enable AI Toggle -->
-					<div class="py-4 border-b border-border/50">
-						<div class="flex items-center justify-between gap-4">
-							<div class="min-w-0 flex-1">
-								<div class="font-medium text-foreground">Enable AI Features</div>
-								<div class="text-sm text-muted-foreground">
-									{#if !canEnableAI}
-										Fill all fields above to enable
-									{:else if aiSettings.enabled}
-										AI assistant is active. Vector data is automatically built when you save diary entries.
-									{:else}
-										Enable to use AI assistant. Vector data will be automatically built in the background when you save diary entries.
-									{/if}
+							{#if memosError}
+								<div class="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+									{memosError}
 								</div>
-							</div>
-							<button
-								on:click={() => { if (canEnableAI) aiSettings.enabled = !aiSettings.enabled; }}
-								disabled={!canEnableAI && !aiSettings.enabled}
-								aria-label="Toggle AI features"
-								class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {aiSettings.enabled ? 'bg-primary' : 'bg-muted'} {!canEnableAI && !aiSettings.enabled ? 'opacity-50 cursor-not-allowed' : ''}"
-							>
-								<span
-									class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {aiSettings.enabled ? 'translate-x-6' : 'translate-x-1'}"
-								></span>
-							</button>
-						</div>
-					</div>
+							{/if}
 
-					<!-- Build Vectors -->
-					{#if aiSettings.enabled}
-						<div class="py-4 border-b border-border/50">
-							<div class="flex items-center justify-between">
+							{#if memosSuccess}
+								<div class="mb-4 p-3 bg-green-500/10 text-green-600 rounded-lg text-sm">
+									{memosSuccess}
+								</div>
+							{/if}
+
+							<div class="flex items-center justify-between py-4 border-b border-border/50">
 								<div>
-									<div class="font-medium text-foreground">Build Vector Index</div>
-									<div class="text-sm text-muted-foreground">
-										Generate embeddings for diary entries
+									<div class="font-medium text-foreground">启用 Memos Webhook</div>
+									<div class="text-sm text-muted-foreground">为 Memos 生成并接受一个私有的 Webhook URL</div>
+								</div>
+								<button
+									on:click={() => memosSettings.enabled = !memosSettings.enabled}
+									aria-label="切换 Memos 同步"
+									class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {memosSettings.enabled ? 'bg-primary' : 'bg-muted'}"
+								>
+									<span
+										class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {memosSettings.enabled ? 'translate-x-6' : 'translate-x-1'}"
+									></span>
+								</button>
+							</div>
+
+							<div class="py-4 border-b border-border/50">
+								<label for="memos-base-url" class="block font-medium text-foreground mb-2">Memos Base URL</label>
+								<input
+									id="memos-base-url"
+									type="url"
+									bind:value={memosSettings.base_url}
+									placeholder="https://memos.example.com"
+									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+								<p class="text-xs text-muted-foreground mt-1">可选。用于在每个同步内容中记录 memo 的链接，例如 https://memos.example.com/m/123。</p>
+							</div>
+
+							{#if memosSettings.enabled && memosSettings.webhook_url}
+								<div class="py-4 border-b border-border/50">
+									<div class="font-medium text-foreground mb-2">Webhook URL</div>
+									<div class="flex items-center gap-2">
+										<code class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm font-mono text-foreground overflow-x-auto">
+											{memosSettings.webhook_url}
+										</code>
+										<button
+											on:click={copyMemosWebhookURL}
+											class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
+										>
+											{memosCopied ? '已复制！' : '复制'}
+										</button>
+									</div>
+									<p class="text-xs text-muted-foreground mt-2">将此 URL 粘贴到 Memos 的 Webhook 设置中。请保密此 URL，因为它可以将同步的 memo 内容写入您的日记。</p>
+								</div>
+
+								<div class="py-4 border-b border-border/50">
+									<div class="flex items-center justify-between gap-4">
+										<div>
+											<div class="font-medium text-foreground">重置 Webhook URL</div>
+											<div class="text-sm text-muted-foreground">在旧 URL 泄露时生成新的私有 URL</div>
+										</div>
+										<button
+											on:click={handleResetMemosWebhookToken}
+											disabled={memosResetting}
+											class="px-4 py-2 text-sm bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-lg transition-colors duration-200 disabled:opacity-50"
+										>
+											{memosResetting ? '重置中...' : '重置 URL'}
+										</button>
 									</div>
 								</div>
-								<div class="flex items-center gap-2">
-									<button
-										on:click={() => handleBuildVectors(true)}
-										disabled={buildingVectors}
-										class="px-3 py-1.5 text-sm bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors duration-200 disabled:opacity-50 flex items-center gap-1.5"
-										title="Only build new and outdated entries"
-									>
-										{#if buildingVectors}
-											<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-											</svg>
+							{/if}
+
+							<div class="pt-4 flex items-center gap-3">
+								<button
+									on:click={handleSaveMemosSettings}
+									disabled={memosSaving || !memosSettingsChanged}
+									class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+								>
+									{memosSaving ? '保存中...' : '保存 Memos 设置'}
+								</button>
+							</div>
+						</div>
+						{/if}
+
+						{#if activeTab === 'mood-weather'}
+						<!-- Mood & Weather Section -->
+						<div id="mood-weather" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
+							<div class="flex items-center justify-between gap-3 mb-4">
+								<h2 class="text-lg font-semibold text-foreground">心情与天气</h2>
+								<button
+									on:click={restoreAllDefaults}
+									class="px-3 py-1.5 text-xs bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
+								>
+									恢复全部默认值
+								</button>
+							</div>
+							<p class="text-sm text-muted-foreground mb-6">
+								自定义在日记编辑器中显示的选项。您可以添加任何 emoji 或短文本，最多 ${MAX_DIARY_EMOJI_OPTION_LENGTH} 个字符，每个列表至少保留 1 项、最多 ${MAX_DIARY_EMOJI_OPTION_COUNT} 项，然后拖动排序并保存。
+							</p>
+
+							{#if emojiSettingsError}
+								<div class="mb-4 p-3 bg-red-500/10 text-red-600 rounded-lg text-sm">
+									{emojiSettingsError}
+								</div>
+							{/if}
+
+							{#if emojiSettingsSuccess}
+								<div class="mb-4 p-3 bg-green-500/10 text-green-600 rounded-lg text-sm">
+									{emojiSettingsSuccess}
+								</div>
+							{/if}
+
+							<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4 border-b border-border/50">
+								<div class="rounded-xl border border-border/50 p-4">
+									<div class="flex items-center justify-between gap-3 mb-2">
+										<div class="font-medium text-foreground">心情选项</div>
+										<button
+											on:click={restoreMoodDefaults}
+											class="px-2.5 py-1 text-xs bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
+										>
+											恢复默认值
+										</button>
+									</div>
+									<div class="flex items-center gap-2 mb-3">
+										<input
+											type="text"
+											bind:value={moodInput}
+											maxlength={MAX_DIARY_EMOJI_OPTION_LENGTH}
+											placeholder="例如 😊"
+											class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+											on:keydown={(event) => {
+												if (event.key === 'Enter') {
+													event.preventDefault();
+													addMoodOption();
+												}
+											}}
+										/>
+										<button
+											on:click={addMoodOption}
+											class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
+										>
+											添加
+										</button>
+									</div>
+									<div class="text-xs text-muted-foreground mb-3">每个选项最多 {MAX_DIARY_EMOJI_OPTION_LENGTH} 个字符，最多 {MAX_DIARY_EMOJI_OPTION_COUNT} 个心情选项，至少保留一个。拖动图标进行排序。</div>
+									<div class="flex flex-wrap gap-2">
+										{#if moodOptions.length === 0}
+											<div class="text-sm text-muted-foreground">暂无心情选项</div>
 										{:else}
-											<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-											</svg>
-										{/if}
-										Update
-									</button>
-									<button
-										on:click={() => handleBuildVectors(false)}
-										disabled={buildingVectors}
-										class="px-3 py-1.5 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 disabled:opacity-50 flex items-center gap-1.5"
-										title="Rebuild all entries from scratch"
-									>
-										<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-										</svg>
-										Rebuild All
-									</button>
-								</div>
-							</div>
-
-							{#if buildError}
-								<div class="mt-3 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-									{buildError}
-								</div>
-							{/if}
-
-							{#if buildResult}
-								<div class="mt-3 p-3 bg-muted rounded-lg text-sm">
-									<div class="font-medium text-foreground mb-2">Build Result</div>
-									<div class="space-y-1 text-muted-foreground">
-										<div>Total diaries: {buildResult.total}</div>
-										<div class="text-green-600">Success: {buildResult.success}</div>
-										{#if buildResult.failed > 0}
-											<div class="text-destructive">Failed: {buildResult.failed}</div>
-										{/if}
-									</div>
-									{#if buildResult.error_details && buildResult.error_details.length > 0}
-										<div class="mt-2 pt-2 border-t border-border/50">
-											<div class="font-medium text-destructive mb-1">Errors:</div>
-											<div class="text-xs text-muted-foreground space-y-1 max-h-32 overflow-y-auto">
-												{#each buildResult.error_details as error}
-													<div>{error}</div>
-												{/each}
+											{#each moodOptions as option, index}
+												<div
+													draggable="true"
+													role="listitem"
+													on:dragstart={() => handleDragStart('mood', index)}
+													on:dragover={(event) => handleDragOver(event, 'mood', index)}
+													on:drop={() => handleDrop('mood', index)}
+													on:dragend={clearDragState}
+													class="relative w-14 h-14 rounded-xl border transition-colors flex items-center justify-center cursor-grab select-none {dragOverType === 'mood' && dragOverIndex === index ? 'border-primary bg-primary/10' : 'bg-muted/70 border-border/60'}"
+													title={option}
+												>
+													<button
+														on:click|stopPropagation={() => removeMoodOption(option)}
+														class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-background border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors flex items-center justify-center"
+														aria-label={`移除心情选项 ${option}`}
+													>
+														<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+															<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.25" d="M6 6l12 12M18 6l-12 12" />
+														</svg>
+													</button>
+													<span class="text-xl leading-none">{option}</span>
+												</div>
+											{/each}
+											<div
+												role="status"
+												on:dragover={(event) => handleDragOver(event, 'mood', moodOptions.length - 1)}
+												on:drop={() => handleDropToEnd('mood')}
+												class="h-14 px-3 rounded-xl border border-dashed text-xs text-muted-foreground flex items-center {dragOverType === 'mood' ? 'border-primary bg-primary/5' : 'border-border/60'}"
+											>
+												拖到末尾
 											</div>
-										</div>
-									{/if}
-								</div>
-							{/if}
-						</div>
-
-						<!-- Vector Index Status -->
-						<div class="py-4 border-b border-border/50">
-							<div class="font-medium text-foreground mb-2">Vector Index Status</div>
-							{#if loadingStats}
-								<div class="flex items-center gap-2 text-sm text-muted-foreground">
-									<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-									</svg>
-									Loading...
-								</div>
-							{:else if vectorStats}
-								<div class="space-y-3">
-									<!-- Segmented Progress Bar -->
-									<div class="space-y-2">
-										<div class="flex items-center justify-between text-sm">
-											<span class="text-muted-foreground">Total diaries</span>
-											<span class="font-medium text-foreground">{vectorStats.diary_count}</span>
-										</div>
-										<div class="w-full bg-muted rounded-full h-2 flex overflow-hidden">
-											{#if vectorStats.diary_count > 0}
-												{#if vectorStats.indexed_count > 0}
-													<div
-														class="h-2 bg-green-500 transition-all duration-300"
-														style="width: {(vectorStats.indexed_count / vectorStats.diary_count * 100)}%"
-													></div>
-												{/if}
-												{#if vectorStats.outdated_count > 0}
-													<div
-														class="h-2 bg-amber-500 transition-all duration-300"
-														style="width: {(vectorStats.outdated_count / vectorStats.diary_count * 100)}%"
-													></div>
-												{/if}
-												{#if vectorStats.pending_count > 0}
-													<div
-														class="h-2 bg-gray-400 transition-all duration-300"
-														style="width: {(vectorStats.pending_count / vectorStats.diary_count * 100)}%"
-													></div>
-												{/if}
-											{/if}
-										</div>
+										{/if}
 									</div>
+								</div>
 
-									<!-- Stats Legend -->
-									<div class="flex flex-wrap gap-4 text-xs">
-										<div class="flex items-center gap-1.5">
-											<div class="w-2.5 h-2.5 rounded-full bg-green-500"></div>
-											<span class="text-muted-foreground">Indexed: <span class="font-medium text-foreground">{vectorStats.indexed_count}</span></span>
-										</div>
-										<div class="flex items-center gap-1.5">
-											<div class="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
-											<span class="text-muted-foreground">Outdated: <span class="font-medium text-foreground">{vectorStats.outdated_count}</span></span>
-										</div>
-										<div class="flex items-center gap-1.5">
-											<div class="w-2.5 h-2.5 rounded-full bg-gray-400"></div>
-											<span class="text-muted-foreground">Pending: <span class="font-medium text-foreground">{vectorStats.pending_count}</span></span>
-										</div>
+								<div class="rounded-xl border border-border/50 p-4">
+									<div class="flex items-center justify-between gap-3 mb-2">
+										<div class="font-medium text-foreground">天气选项</div>
+										<button
+											on:click={restoreWeatherDefaults}
+											class="px-2.5 py-1 text-xs bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
+										>
+											恢复默认值
+										</button>
 									</div>
-
-									<!-- Status Message -->
-									{#if vectorStats.indexed_count === vectorStats.diary_count && vectorStats.diary_count > 0}
-										<div class="text-xs text-green-600 flex items-center gap-1">
-											<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-											</svg>
-											All diaries indexed and up to date
-										</div>
-									{:else if vectorStats.outdated_count > 0 || vectorStats.pending_count > 0}
-										<div class="text-xs text-amber-600 flex items-center gap-1">
-											<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-											</svg>
-											{vectorStats.outdated_count + vectorStats.pending_count} diaries need indexing
-										</div>
-									{:else if vectorStats.diary_count === 0}
-										<div class="text-xs text-muted-foreground">
-											No diaries to index
-										</div>
-									{/if}
+									<div class="flex items-center gap-2 mb-3">
+										<input
+											type="text"
+											bind:value={weatherInput}
+											maxlength={MAX_DIARY_EMOJI_OPTION_LENGTH}
+											placeholder="例如 ☀️"
+											class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+											on:keydown={(event) => {
+												if (event.key === 'Enter') {
+													event.preventDefault();
+													addWeatherOption();
+												}
+											}}
+										/>
+										<button
+											on:click={addWeatherOption}
+											class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
+										>
+											添加
+										</button>
+									</div>
+									<div class="text-xs text-muted-foreground mb-3">每个选项最多 {MAX_DIARY_EMOJI_OPTION_LENGTH} 个字符，最多 {MAX_DIARY_EMOJI_OPTION_COUNT} 个天气选项，至少保留一个。拖动图标进行排序。</div>
+									<div class="flex flex-wrap gap-2">
+										{#if weatherOptions.length === 0}
+											<div class="text-sm text-muted-foreground">暂无天气选项</div>
+										{:else}
+											{#each weatherOptions as option, index}
+												<div
+													draggable="true"
+													role="listitem"
+													on:dragstart={() => handleDragStart('weather', index)}
+													on:dragover={(event) => handleDragOver(event, 'weather', index)}
+													on:drop={() => handleDrop('weather', index)}
+													on:dragend={clearDragState}
+													class="relative w-14 h-14 rounded-xl border transition-colors flex items-center justify-center cursor-grab select-none {dragOverType === 'weather' && dragOverIndex === index ? 'border-primary bg-primary/10' : 'bg-muted/70 border-border/60'}"
+													title={option}
+												>
+													<button
+														on:click|stopPropagation={() => removeWeatherOption(option)}
+														class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-background border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors flex items-center justify-center"
+														aria-label={`移除天气选项 ${option}`}
+													>
+														<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+															<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.25" d="M6 6l12 12M18 6l-12 12" />
+														</svg>
+													</button>
+													<span class="text-xl leading-none">{option}</span>
+												</div>
+											{/each}
+											<div
+												role="status"
+												on:dragover={(event) => handleDragOver(event, 'weather', weatherOptions.length - 1)}
+												on:drop={() => handleDropToEnd('weather')}
+												class="h-14 px-3 rounded-xl border border-dashed text-xs text-muted-foreground flex items-center {dragOverType === 'weather' ? 'border-primary bg-primary/5' : 'border-border/60'}"
+											>
+												拖到末尾
+											</div>
+										{/if}
+									</div>
 								</div>
-							{:else}
-								<div class="text-sm text-muted-foreground">
-									No index data available
-								</div>
-							{/if}
-						</div>
-					{/if}
+							</div>
 
-					<!-- Save Button -->
-					<div class="pt-4 flex items-center gap-3">
-						<button
-							on:click={handleSaveAISettings}
-							disabled={aiSaving || !aiSettingsChanged}
-							class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-						>
-							{#if aiSaving}
-								<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-								</svg>
-								Saving...
-							{:else}
-								Save AI Settings
-							{/if}
-						</button>
-						{#if aiSuccess}
-							<span class="text-sm text-green-600 flex items-center gap-1 animate-fade-in">
-								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-								</svg>
-								Saved
-							</span>
-						{/if}
-					</div>
-				</div>
-				{/if}
-
-				{#if activeTab === 'image-upload'}
-				<!-- Image Upload Section -->
-				<div id="image-upload" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
-					<h2 class="text-lg font-semibold text-foreground mb-4">Image Upload</h2>
-					<p class="text-sm text-muted-foreground mb-6">
-						Choose where diary images are stored. Existing local, S3, and Chevereto settings are preserved when you switch providers, so older media can still be resolved after migration.
-					</p>
-
-					{#if imageUploadError}
-						<div class="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-							{imageUploadError}
-						</div>
-					{/if}
-
-					{#if imageUploadSuccess}
-						<div class="mb-4 p-3 bg-green-500/10 text-green-600 rounded-lg text-sm">
-							{imageUploadSuccess}
-						</div>
-					{/if}
-
-					<div class="py-4 border-b border-border/50">
-						<div class="font-medium text-foreground mb-3">Storage Provider</div>
-						<div class="grid gap-3 md:grid-cols-3">
-							{#each [
-								{ id: 'local', label: 'Local', description: 'Store images on disk and keep them in the built-in media library.' },
-								{ id: 's3', label: 'S3', description: 'Store media objects in S3-compatible object storage.' },
-								{ id: 'chevereto', label: 'Chevereto', description: 'Upload images to Chevereto and insert external URLs.' }
-							] as option}
+							<div class="pt-4 flex items-center gap-3">
 								<button
-									type="button"
-									on:click={() => imageUploadSettingsLocal.provider = option.id as ImageUploadProvider}
-									class="text-left rounded-xl border p-4 transition-colors duration-200 {imageUploadSettingsLocal.provider === option.id ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border'}"
+									on:click={handleSaveEmojiSettings}
+									disabled={emojiSettingsSaving || !emojiSettingsChanged}
+									class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
 								>
-									<div class="font-medium text-foreground">{option.label}</div>
-									<div class="text-sm text-muted-foreground mt-1">{option.description}</div>
-								</button>
-							{/each}
-						</div>
-					</div>
-
-					{#if imageUploadSettingsLocal.provider === 'local'}
-						<div class="py-4 border-b border-border/50 space-y-4">
-							<div>
-								<label for="local-media-path" class="block font-medium text-foreground mb-2">Local Storage Path</label>
-								<input
-									id="local-media-path"
-									type="text"
-									bind:value={imageUploadSettingsLocal.local.path}
-									placeholder="./diarum_data/storage/media"
-									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-								/>
-								<p class="text-xs text-muted-foreground mt-1">Default migrated path points to the existing Diarum media storage directory.</p>
-							</div>
-						</div>
-					{:else if imageUploadSettingsLocal.provider === 's3'}
-						<div class="py-4 border-b border-border/50 space-y-4">
-							<div class="grid gap-4 md:grid-cols-2">
-								<div>
-									<label for="s3-bucket" class="block font-medium text-foreground mb-2">Bucket</label>
-									<input id="s3-bucket" type="text" bind:value={imageUploadSettingsLocal.s3.bucket} class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
-								</div>
-								<div>
-									<label for="s3-region" class="block font-medium text-foreground mb-2">Region</label>
-									<input id="s3-region" type="text" bind:value={imageUploadSettingsLocal.s3.region} class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
-								</div>
-								<div>
-									<label for="s3-endpoint" class="block font-medium text-foreground mb-2">Endpoint (optional)</label>
-									<input id="s3-endpoint" type="text" bind:value={imageUploadSettingsLocal.s3.endpoint} placeholder="https://s3.amazonaws.com" class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
-								</div>
-								<div class="flex items-end">
-									<label class="inline-flex items-center gap-2 text-sm text-foreground">
-										<input type="checkbox" bind:checked={imageUploadSettingsLocal.s3.force_path_style} class="rounded border-border text-primary focus:ring-primary" />
-										Use path-style requests
-									</label>
-								</div>
-							</div>
-							<div class="grid gap-4 md:grid-cols-2">
-								<div>
-									<label for="s3-access-key" class="block font-medium text-foreground mb-2">Access Key</label>
-									<input id="s3-access-key" type="text" bind:value={imageUploadSettingsLocal.s3.access_key} class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
-								</div>
-								<div>
-									<label for="s3-secret" class="block font-medium text-foreground mb-2">Secret</label>
-									<input id="s3-secret" type="password" bind:value={imageUploadSettingsLocal.s3.secret} class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
-								</div>
-							</div>
-							<p class="text-xs text-muted-foreground">If you migrated from PocketBase S3 storage, these credentials are also used to keep older gallery images accessible.</p>
-						</div>
-					{:else}
-						<div class="py-4 border-b border-border/50 space-y-4">
-							<div>
-								<label for="chevereto-domain" class="block font-medium text-foreground mb-2">Domain</label>
-								<input
-									id="chevereto-domain"
-									type="text"
-									bind:value={imageUploadSettingsLocal.chevereto.domain}
-									placeholder="https://img.example.com"
-									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-								/>
-							</div>
-							<div>
-								<label for="chevereto-api-key" class="block font-medium text-foreground mb-2">API Key</label>
-								<input
-									id="chevereto-api-key"
-									type="password"
-									bind:value={imageUploadSettingsLocal.chevereto.api_key}
-									placeholder="chv-key-..."
-									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-								/>
-							</div>
-							<div>
-								<label for="chevereto-album-id" class="block font-medium text-foreground mb-2">Album ID (optional)</label>
-								<input
-									id="chevereto-album-id"
-									type="text"
-									bind:value={imageUploadSettingsLocal.chevereto.album_id}
-									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-								/>
-							</div>
-							<div class="flex items-center justify-between gap-4 rounded-lg bg-muted/40 p-4">
-								<div>
-									<div class="font-medium text-foreground">Test Connection</div>
-									<div class="text-sm text-muted-foreground">Verify your Chevereto server is reachable before saving.</div>
-								</div>
-								<button
-									on:click={handleTestChevereto}
-									disabled={cheveretoTesting || !canTestChevereto}
-									class="px-4 py-2 text-sm bg-background hover:bg-background/80 rounded-lg transition-colors duration-200 disabled:opacity-50 flex items-center gap-2"
-								>
-									{#if cheveretoTesting}
+									{#if emojiSettingsSaving}
 										<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
 											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 										</svg>
-										Testing...
+										保存中...
 									{:else}
-										Test
+										保存心情与天气设置
 									{/if}
 								</button>
+								{#if emojiSettingsSuccess}
+									<span class="text-sm text-green-600 flex items-center gap-1 animate-fade-in">
+										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+										</svg>
+										已保存
+									</span>
+								{/if}
 							</div>
-							{#if cheveretoTestResult}
-								<div class="p-3 rounded-lg text-sm {cheveretoTestResult.success ? 'bg-green-500/10 text-green-600' : 'bg-destructive/10 text-destructive'}">
-									{cheveretoTestResult.message}
-								</div>
-							{/if}
-							<p class="text-xs text-muted-foreground">Chevereto uploads insert external image URLs into diary content. They are not tracked by the built-in media library or included in exports.</p>
 						</div>
-					{/if}
-
-					<!-- Save Button -->
-					<div class="pt-4 flex items-center gap-3">
-						<button
-							on:click={handleSaveImageUploadSettings}
-							disabled={imageUploadSaving || !imageUploadSettingsChanged}
-							class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-						>
-							{#if imageUploadSaving}
-								<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-								</svg>
-								Saving...
-							{:else}
-								Save Image Upload Settings
-							{/if}
-						</button>
-						{#if imageUploadSuccess}
-							<span class="text-sm text-green-600 flex items-center gap-1 animate-fade-in">
-								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-								</svg>
-								Saved
-							</span>
 						{/if}
-					</div>
-				</div>
-				{/if}
 
-				{#if activeTab === 'data-management'}
-				<!-- Data Management Section -->
-				<div id="data-management" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
-					<h2 class="text-lg font-semibold text-foreground mb-4">Data Management</h2>
-					<p class="text-sm text-muted-foreground mb-6">
-						Import and export your diary data. To avoid large export files, you can export data in segments by date range.
-					</p>
+						{#if activeTab === 'ai-assistant'}
+						<!-- AI Settings Section -->
+						<div id="ai-assistant" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
+							<h2 class="text-lg font-semibold text-foreground mb-4">AI 助手</h2>
+							<p class="text-sm text-muted-foreground mb-6">
+								配置 AI 服务以实现智能日记分析和对话。支持 OpenAI 兼容的 API。
+							</p>
 
-					<!-- Export -->
-					<div class="py-4 border-b border-border/50">
-						<div class="flex items-center justify-between mb-1">
-							<div class="font-medium text-foreground">Export</div>
-							<button
-								on:click={() => showExportOptions = !showExportOptions}
-								class="text-xs text-primary hover:underline"
-							>
-								{showExportOptions ? 'Hide Options' : 'Show Options'}
-							</button>
-						</div>
-						<div class="text-sm text-muted-foreground mb-3">Download your diary data as a ZIP file</div>
-
-						{#if showExportOptions}
-							<div class="mb-4 p-4 bg-muted/50 rounded-lg space-y-4">
-								<div class="text-xs text-amber-600 bg-amber-500/10 p-2 rounded">
-									To avoid large export files, consider exporting data in segments by selecting a specific date range.
+							{#if aiError}
+								<div class="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+									{aiError}
 								</div>
+							{/if}
 
-								<!-- Date Range -->
-								<div>
-									<label for="export-date-range" class="block text-sm font-medium text-foreground mb-2">Date Range</label>
-									<div class="relative">
+							{#if aiSuccess}
+								<div class="mb-4 p-3 bg-green-500/10 text-green-600 rounded-lg text-sm">
+									{aiSuccess}
+								</div>
+							{/if}
+
+							<!-- API Key -->
+							<div class="py-4 border-b border-border/50">
+								<label for="ai-api-key" class="block font-medium text-foreground mb-2">API Key</label>
+								<input
+									id="ai-api-key"
+									type="password"
+									bind:value={aiSettings.api_key}
+									placeholder="sk-..."
+									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+								<p class="text-xs text-muted-foreground mt-1">您的 AI 服务 API Key。OpenAI 的 key 以 sk- 开头，例如 sk-xxx...</p>
+							</div>
+
+							<!-- Base URL -->
+							<div class="py-4 border-b border-border/50">
+								<label for="ai-base-url" class="block font-medium text-foreground mb-2">API Base URL</label>
+								<input
+									id="ai-base-url"
+									type="text"
+									bind:value={aiSettings.base_url}
+									placeholder="https://api.openai.com"
+									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+								<p class="text-xs text-muted-foreground mt-1">OpenAI 兼容 API 的 Base URL，例如 https://api.openai.com</p>
+							</div>
+
+							{#if modelsError}
+								<div class="mt-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+									{modelsError}
+								</div>
+							{/if}
+
+							<!-- Chat Model -->
+							<div class="py-4 border-b border-border/50">
+								<label for="ai-chat-model" class="block font-medium text-foreground mb-2">聊天模型</label>
+								<div class="flex items-center gap-2">
+									<div class="relative flex-1">
 										<select
-											id="export-date-range"
-											bind:value={exportOptions.date_range}
-											class="w-full pl-3 pr-9 py-2 bg-background rounded-lg text-sm text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
+											id="ai-chat-model"
+											bind:value={aiSettings.chat_model}
+											class="w-full pl-3 pr-9 py-2 bg-muted rounded-lg text-sm text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
 										>
-											<option value="1m">Past 1 month</option>
-											<option value="3m">Past 3 months</option>
-											<option value="6m">Past 6 months</option>
-											<option value="1y">Past 1 year</option>
-											<option value="all">All time</option>
-											<option value="custom">Custom range</option>
+											<option value="">请选择模型</option>
+											{#each chatModels as model}
+												<option value={model.id}>{model.id}</option>
+											{/each}
 										</select>
 										<svg class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
 											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
 										</svg>
 									</div>
+									<button
+										on:click={handleFetchModels}
+										disabled={fetchingModels}
+										class="p-2 bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 disabled:opacity-50"
+										title="刷新模型列表"
+									>
+										<svg class="w-5 h-5 {fetchingModels ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+										</svg>
+									</button>
 								</div>
-
-								{#if exportOptions.date_range === 'custom'}
-									<div class="grid grid-cols-2 gap-3">
-										<div>
-											<label for="export-start-date" class="block text-xs text-muted-foreground mb-1">Start Date</label>
-											<input
-												id="export-start-date"
-												type="date"
-												bind:value={customStartDate}
-												class="w-full px-3 py-2 bg-background rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
-											/>
-										</div>
-										<div>
-											<label for="export-end-date" class="block text-xs text-muted-foreground mb-1">End Date</label>
-											<input
-												id="export-end-date"
-												type="date"
-												bind:value={customEndDate}
-												class="w-full px-3 py-2 bg-background rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
-											/>
-										</div>
-									</div>
-								{/if}
-
-								<!-- Content Types -->
-								<div>
-									<div class="block text-sm font-medium text-foreground mb-2">Content to Export</div>
-									<div class="space-y-2">
-										<label class="flex items-center gap-2 cursor-pointer">
-											<input type="checkbox" bind:checked={exportOptions.include_diaries} class="rounded" />
-											<span class="text-sm text-foreground">Diaries</span>
-										</label>
-										<label class="flex items-center gap-2 cursor-pointer">
-											<input type="checkbox" bind:checked={exportOptions.include_media} class="rounded" />
-											<span class="text-sm text-foreground">Media files</span>
-										</label>
-										<label class="flex items-center gap-2 cursor-pointer">
-											<input type="checkbox" bind:checked={exportOptions.include_conversations} class="rounded" />
-											<span class="text-sm text-foreground">AI conversations</span>
-										</label>
-									</div>
-								</div>
+								<p class="text-xs text-muted-foreground mt-1">用于 AI 对话的模型，例如 gpt-4o、deepseek-chat</p>
 							</div>
-						{/if}
 
-						{#if exportError}
-							<div class="mb-3 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-								{exportError}
-							</div>
-						{/if}
-
-						<button
-							on:click={handleExport}
-							disabled={exporting}
-							class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 flex items-center gap-2"
-						>
-							{#if exporting}
-								<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-								</svg>
-								Exporting...
-							{:else}
-								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-								</svg>
-								Export Data
-							{/if}
-						</button>
-
-						{#if exportStats}
-							<div class="mt-3 p-3 bg-muted rounded-lg text-sm">
-								<div class="font-medium text-foreground mb-2">Export Complete</div>
-								<div class="text-xs text-muted-foreground mb-2">
-									Period: {exportStats.start_date} to {exportStats.end_date}
-								</div>
-								<div class="space-y-2 text-muted-foreground">
-									<div class="flex justify-between">
-										<span>Diaries:</span>
-										<span>
-											<span class="text-foreground font-medium">{exportStats.diaries.actual_exported}</span>
-											<span class="text-xs">/ {exportStats.diaries.should_export} selected / {exportStats.diaries.total_in_system} total</span>
-										</span>
-									</div>
-									<div class="flex justify-between">
-										<span>Media:</span>
-										<span>
-											<span class="text-foreground font-medium">{exportStats.media.actual_exported}</span>
-											<span class="text-xs">/ {exportStats.media.should_export} selected / {exportStats.media.total_in_system} total</span>
-										</span>
-									</div>
-									<div class="flex justify-between">
-										<span>Conversations:</span>
-										<span>
-											<span class="text-foreground font-medium">{exportStats.conversations.actual_exported}</span>
-											<span class="text-xs">/ {exportStats.conversations.should_export} selected / {exportStats.conversations.total_in_system} total</span>
-											<span class="text-xs">({exportStats.messages} messages)</span>
-										</span>
-									</div>
-								</div>
-								{#if exportStats.failed_items && exportStats.failed_items.length > 0}
-									<div class="mt-3 pt-2 border-t border-border/50">
-										<div class="font-medium text-destructive mb-1">Failed Items:</div>
-										<div class="text-xs space-y-1 max-h-24 overflow-y-auto">
-											{#each exportStats.failed_items as item}
-												<div class="text-muted-foreground">
-													<span class="text-destructive">[{item.type}]</span> {item.id}: {item.reason}
-												</div>
+							<!-- Embedding Model -->
+							<div class="py-4 border-b border-border/50">
+								<label for="ai-embedding-model" class="block font-medium text-foreground mb-2">嵌入模型</label>
+								<div class="flex items-center gap-2">
+									<div class="relative flex-1">
+										<select
+											id="ai-embedding-model"
+											bind:value={aiSettings.embedding_model}
+											class="w-full pl-3 pr-9 py-2 bg-muted rounded-lg text-sm text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
+										>
+											<option value="">请选择模型</option>
+											{#each embeddingModels as model}
+												<option value={model.id}>{model.id}</option>
 											{/each}
+										</select>
+										<svg class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+										</svg>
+									</div>
+									<button
+										on:click={handleFetchModels}
+										disabled={fetchingModels}
+										class="p-2 bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 disabled:opacity-50"
+										title="刷新模型列表"
+									>
+										<svg class="w-5 h-5 {fetchingModels ? 'animate-spin' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+										</svg>
+									</button>
+								</div>
+								<p class="text-xs text-muted-foreground mt-1">用于文本向量化的模型，例如 text-embedding-3-small</p>
+							</div>
+
+							<!-- Enable AI Toggle -->
+							<div class="py-4 border-b border-border/50">
+								<div class="flex items-center justify-between gap-4">
+									<div class="min-w-0 flex-1">
+										<div class="font-medium text-foreground">启用 AI 功能</div>
+										<div class="text-sm text-muted-foreground">
+											{#if !canEnableAI}
+												请先填写上方所有字段以启用
+											{:else if aiSettings.enabled}
+												AI 助手已激活。保存日记时将自动构建向量数据。
+											{:else}
+												启用后可使用 AI 助手。保存日记时将在后台自动构建向量数据。
+											{/if}
+										</div>
+									</div>
+									<button
+										on:click={() => { if (canEnableAI) aiSettings.enabled = !aiSettings.enabled; }}
+										disabled={!canEnableAI && !aiSettings.enabled}
+										aria-label="切换 AI 功能"
+										class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {aiSettings.enabled ? 'bg-primary' : 'bg-muted'} {!canEnableAI && !aiSettings.enabled ? 'opacity-50 cursor-not-allowed' : ''}"
+									>
+										<span
+											class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {aiSettings.enabled ? 'translate-x-6' : 'translate-x-1'}"
+										></span>
+									</button>
+								</div>
+							</div>
+
+							<!-- Build Vectors -->
+							{#if aiSettings.enabled}
+								<div class="py-4 border-b border-border/50">
+									<div class="flex items-center justify-between">
+										<div>
+											<div class="font-medium text-foreground">构建向量索引</div>
+											<div class="text-sm text-muted-foreground">
+												为日记内容生成向量嵌入
+											</div>
+										</div>
+										<div class="flex items-center gap-2">
+											<button
+												on:click={() => handleBuildVectors(true)}
+												disabled={buildingVectors}
+												class="px-3 py-1.5 text-sm bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors duration-200 disabled:opacity-50 flex items-center gap-1.5"
+												title="仅构建新增和过时的条目"
+											>
+												{#if buildingVectors}
+													<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
+														<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+														<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+													</svg>
+												{:else}
+													<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+													</svg>
+												{/if}
+												更新
+											</button>
+											<button
+												on:click={() => handleBuildVectors(false)}
+												disabled={buildingVectors}
+												class="px-3 py-1.5 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 disabled:opacity-50 flex items-center gap-1.5"
+												title="从头重新构建所有条目"
+											>
+												<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+												</svg>
+												全部重建
+											</button>
+										</div>
+									</div>
+
+									{#if buildError}
+										<div class="mt-3 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+											{buildError}
+										</div>
+									{/if}
+
+									{#if buildResult}
+										<div class="mt-3 p-3 bg-muted rounded-lg text-sm">
+											<div class="font-medium text-foreground mb-2">构建结果</div>
+											<div class="space-y-1 text-muted-foreground">
+												<div>日记总数：{buildResult.total}</div>
+												<div class="text-green-600">成功：{buildResult.success}</div>
+												{#if buildResult.failed > 0}
+													<div class="text-destructive">失败：{buildResult.failed}</div>
+												{/if}
+											</div>
+											{#if buildResult.error_details && buildResult.error_details.length > 0}
+												<div class="mt-2 pt-2 border-t border-border/50">
+													<div class="font-medium text-destructive mb-1">错误：</div>
+													<div class="text-xs text-muted-foreground space-y-1 max-h-32 overflow-y-auto">
+														{#each buildResult.error_details as error}
+															<div>{error}</div>
+														{/each}
+													</div>
+												</div>
+											{/if}
+										</div>
+									{/if}
+								</div>
+
+								<!-- Vector Index Status -->
+								<div class="py-4 border-b border-border/50">
+									<div class="font-medium text-foreground mb-2">向量索引状态</div>
+									{#if loadingStats}
+										<div class="flex items-center gap-2 text-sm text-muted-foreground">
+											<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+											</svg>
+											加载中...
+										</div>
+									{:else if vectorStats}
+										<div class="space-y-3">
+											<!-- Segmented Progress Bar -->
+											<div class="space-y-2">
+												<div class="flex items-center justify-between text-sm">
+													<span class="text-muted-foreground">日记总数</span>
+													<span class="font-medium text-foreground">{vectorStats.diary_count}</span>
+												</div>
+												<div class="w-full bg-muted rounded-full h-2 flex overflow-hidden">
+													{#if vectorStats.diary_count > 0}
+														{#if vectorStats.indexed_count > 0}
+															<div
+																class="h-2 bg-green-500 transition-all duration-300"
+																style="width: {(vectorStats.indexed_count / vectorStats.diary_count * 100)}%"
+															></div>
+														{/if}
+														{#if vectorStats.outdated_count > 0}
+															<div
+																class="h-2 bg-amber-500 transition-all duration-300"
+																style="width: {(vectorStats.outdated_count / vectorStats.diary_count * 100)}%"
+															></div>
+														{/if}
+														{#if vectorStats.pending_count > 0}
+															<div
+																class="h-2 bg-gray-400 transition-all duration-300"
+																style="width: {(vectorStats.pending_count / vectorStats.diary_count * 100)}%"
+															></div>
+														{/if}
+													{/if}
+												</div>
+											</div>
+
+											<!-- Stats Legend -->
+											<div class="flex flex-wrap gap-4 text-xs">
+												<div class="flex items-center gap-1.5">
+													<div class="w-2.5 h-2.5 rounded-full bg-green-500"></div>
+													<span class="text-muted-foreground">已索引：<span class="font-medium text-foreground">{vectorStats.indexed_count}</span></span>
+												</div>
+												<div class="flex items-center gap-1.5">
+													<div class="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+													<span class="text-muted-foreground">已过时：<span class="font-medium text-foreground">{vectorStats.outdated_count}</span></span>
+												</div>
+												<div class="flex items-center gap-1.5">
+													<div class="w-2.5 h-2.5 rounded-full bg-gray-400"></div>
+													<span class="text-muted-foreground">待处理：<span class="font-medium text-foreground">{vectorStats.pending_count}</span></span>
+												</div>
+											</div>
+
+											<!-- Status Message -->
+											{#if vectorStats.indexed_count === vectorStats.diary_count && vectorStats.diary_count > 0}
+												<div class="text-xs text-green-600 flex items-center gap-1">
+													<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+													</svg>
+													所有日记均已索引且为最新
+												</div>
+											{:else if vectorStats.outdated_count > 0 || vectorStats.pending_count > 0}
+												<div class="text-xs text-amber-600 flex items-center gap-1">
+													<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+													</svg>
+													{vectorStats.outdated_count + vectorStats.pending_count} 篇日记需要索引
+												</div>
+											{:else if vectorStats.diary_count === 0}
+												<div class="text-xs text-muted-foreground">
+													暂无日记可索引
+												</div>
+											{/if}
+										</div>
+									{:else}
+										<div class="text-sm text-muted-foreground">
+											暂无索引数据
+										</div>
+									{/if}
+								</div>
+							{/if}
+
+							<!-- Save Button -->
+							<div class="pt-4 flex items-center gap-3">
+								<button
+									on:click={handleSaveAISettings}
+									disabled={aiSaving || !aiSettingsChanged}
+									class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+								>
+									{#if aiSaving}
+										<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+										</svg>
+										保存中...
+									{:else}
+										保存 AI 设置
+									{/if}
+								</button>
+								{#if aiSuccess}
+									<span class="text-sm text-green-600 flex items-center gap-1 animate-fade-in">
+										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+										</svg>
+										已保存
+									</span>
+								{/if}
+							</div>
+						</div>
+						{/if}
+
+						{#if activeTab === 'image-upload'}
+						<!-- Image Upload Section -->
+						<div id="image-upload" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
+							<h2 class="text-lg font-semibold text-foreground mb-4">图片上传</h2>
+							<p class="text-sm text-muted-foreground mb-6">
+								选择日记图片的存储位置。切换提供商时，现有的本地、S3 和 Chevereto 设置会保留，因此迁移后仍可解析之前的媒体文件。
+							</p>
+
+							{#if imageUploadError}
+								<div class="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+									{imageUploadError}
+								</div>
+							{/if}
+
+							{#if imageUploadSuccess}
+								<div class="mb-4 p-3 bg-green-500/10 text-green-600 rounded-lg text-sm">
+									{imageUploadSuccess}
+								</div>
+							{/if}
+
+							<div class="py-4 border-b border-border/50">
+								<div class="font-medium text-foreground mb-3">存储提供商</div>
+								<div class="grid gap-3 md:grid-cols-3">
+									{#each [
+										{ id: 'local', label: '本地', description: '将图片存储在磁盘上，并保留在内置媒体库中。' },
+										{ id: 's3', label: 'S3', description: '将媒体对象存储在 S3 兼容的对象存储中。' },
+										{ id: 'chevereto', label: 'Chevereto', description: '将图片上传到 Chevereto，并插入外部 URL。' }
+									] as option}
+										<button
+											type="button"
+											on:click={() => imageUploadSettingsLocal.provider = option.id as ImageUploadProvider}
+											class="text-left rounded-xl border p-4 transition-colors duration-200 {imageUploadSettingsLocal.provider === option.id ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border'}"
+										>
+											<div class="font-medium text-foreground">{option.label}</div>
+											<div class="text-sm text-muted-foreground mt-1">{option.description}</div>
+										</button>
+									{/each}
+								</div>
+							</div>
+
+							{#if imageUploadSettingsLocal.provider === 'local'}
+								<div class="py-4 border-b border-border/50 space-y-4">
+									<div>
+										<label for="local-media-path" class="block font-medium text-foreground mb-2">本地存储路径</label>
+										<input
+											id="local-media-path"
+											type="text"
+											bind:value={imageUploadSettingsLocal.local.path}
+											placeholder="./wushen_data/storage/media"
+											class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+										/>
+										<p class="text-xs text-muted-foreground mt-1">默认迁移路径指向现有的吾身媒体存储目录。</p>
+									</div>
+								</div>
+							{:else if imageUploadSettingsLocal.provider === 's3'}
+								<div class="py-4 border-b border-border/50 space-y-4">
+									<div class="grid gap-4 md:grid-cols-2">
+										<div>
+											<label for="s3-bucket" class="block font-medium text-foreground mb-2">Bucket</label>
+											<input id="s3-bucket" type="text" bind:value={imageUploadSettingsLocal.s3.bucket} class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+										</div>
+										<div>
+											<label for="s3-region" class="block font-medium text-foreground mb-2">Region</label>
+											<input id="s3-region" type="text" bind:value={imageUploadSettingsLocal.s3.region} class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+										</div>
+										<div>
+											<label for="s3-endpoint" class="block font-medium text-foreground mb-2">Endpoint（可选）</label>
+											<input id="s3-endpoint" type="text" bind:value={imageUploadSettingsLocal.s3.endpoint} placeholder="https://s3.amazonaws.com" class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+										</div>
+										<div class="flex items-end">
+											<label class="inline-flex items-center gap-2 text-sm text-foreground">
+												<input type="checkbox" bind:checked={imageUploadSettingsLocal.s3.force_path_style} class="rounded border-border text-primary focus:ring-primary" />
+												使用路径样式请求
+											</label>
+										</div>
+									</div>
+									<div class="grid gap-4 md:grid-cols-2">
+										<div>
+											<label for="s3-access-key" class="block font-medium text-foreground mb-2">Access Key</label>
+											<input id="s3-access-key" type="text" bind:value={imageUploadSettingsLocal.s3.access_key} class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+										</div>
+										<div>
+											<label for="s3-secret" class="block font-medium text-foreground mb-2">Secret</label>
+											<input id="s3-secret" type="password" bind:value={imageUploadSettingsLocal.s3.secret} class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+										</div>
+									</div>
+									<p class="text-xs text-muted-foreground">如果您从 PocketBase S3 存储迁移，这些凭据也将用于保留旧图库图片的访问权限。</p>
+								</div>
+							{:else}
+								<div class="py-4 border-b border-border/50 space-y-4">
+									<div>
+										<label for="chevereto-domain" class="block font-medium text-foreground mb-2">域名</label>
+										<input
+											id="chevereto-domain"
+											type="text"
+											bind:value={imageUploadSettingsLocal.chevereto.domain}
+											placeholder="https://img.example.com"
+											class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+										/>
+									</div>
+									<div>
+										<label for="chevereto-api-key" class="block font-medium text-foreground mb-2">API Key</label>
+										<input
+											id="chevereto-api-key"
+											type="password"
+											bind:value={imageUploadSettingsLocal.chevereto.api_key}
+											placeholder="chv-key-..."
+											class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+										/>
+									</div>
+									<div>
+										<label for="chevereto-album-id" class="block font-medium text-foreground mb-2">相册 ID（可选）</label>
+										<input
+											id="chevereto-album-id"
+											type="text"
+											bind:value={imageUploadSettingsLocal.chevereto.album_id}
+											class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+										/>
+									</div>
+									<div class="flex items-center justify-between gap-4 rounded-lg bg-muted/40 p-4">
+										<div>
+											<div class="font-medium text-foreground">测试连接</div>
+											<div class="text-sm text-muted-foreground">保存前验证 Chevereto 服务器是否可达。</div>
+										</div>
+										<button
+											on:click={handleTestChevereto}
+											disabled={cheveretoTesting || !canTestChevereto}
+											class="px-4 py-2 text-sm bg-background hover:bg-background/80 rounded-lg transition-colors duration-200 disabled:opacity-50 flex items-center gap-2"
+										>
+											{#if cheveretoTesting}
+												<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+													<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+													<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+												</svg>
+												测试中...
+											{:else}
+												测试
+											{/if}
+										</button>
+									</div>
+									{#if cheveretoTestResult}
+										<div class="p-3 rounded-lg text-sm {cheveretoTestResult.success ? 'bg-green-500/10 text-green-600' : 'bg-destructive/10 text-destructive'}">
+											{cheveretoTestResult.message}
+										</div>
+									{/if}
+									<p class="text-xs text-muted-foreground">Chevereto 上传将外部图片 URL 插入日记内容。它们不会被内置媒体库追踪，也不会包含在导出中。</p>
+								</div>
+							{/if}
+
+							<!-- Save Button -->
+							<div class="pt-4 flex items-center gap-3">
+								<button
+									on:click={handleSaveImageUploadSettings}
+									disabled={imageUploadSaving || !imageUploadSettingsChanged}
+									class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+								>
+									{#if imageUploadSaving}
+										<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+										</svg>
+										保存中...
+									{:else}
+										保存图片上传设置
+									{/if}
+								</button>
+								{#if imageUploadSuccess}
+									<span class="text-sm text-green-600 flex items-center gap-1 animate-fade-in">
+										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+										</svg>
+										已保存
+									</span>
+								{/if}
+							</div>
+						</div>
+						{/if}
+
+						{#if activeTab === 'data-management'}
+						<!-- Data Management Section -->
+						<div id="data-management" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
+							<h2 class="text-lg font-semibold text-foreground mb-4">数据管理</h2>
+							<p class="text-sm text-muted-foreground mb-6">
+								导入和导出您的日记数据。为避免导出文件过大，您可以按日期范围分段导出数据。
+							</p>
+
+							<!-- Export -->
+							<div class="py-4 border-b border-border/50">
+								<div class="flex items-center justify-between mb-1">
+									<div class="font-medium text-foreground">导出</div>
+									<button
+										on:click={() => showExportOptions = !showExportOptions}
+										class="text-xs text-primary hover:underline"
+									>
+										{showExportOptions ? '隐藏选项' : '显示选项'}
+									</button>
+								</div>
+								<div class="text-sm text-muted-foreground mb-3">将您的日记数据下载为 ZIP 文件</div>
+
+								{#if showExportOptions}
+									<div class="mb-4 p-4 bg-muted/50 rounded-lg space-y-4">
+										<div class="text-xs text-amber-600 bg-amber-500/10 p-2 rounded">
+											为避免导出文件过大，建议通过选择特定日期范围分段导出数据。
+										</div>
+
+										<!-- Date Range -->
+										<div>
+											<label for="export-date-range" class="block text-sm font-medium text-foreground mb-2">日期范围</label>
+											<div class="relative">
+												<select
+													id="export-date-range"
+													bind:value={exportOptions.date_range}
+													class="w-full pl-3 pr-9 py-2 bg-background rounded-lg text-sm text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
+												>
+													<option value="1m">过去 1 个月</option>
+													<option value="3m">过去 3 个月</option>
+													<option value="6m">过去 6 个月</option>
+													<option value="1y">过去 1 年</option>
+													<option value="all">全部时间</option>
+													<option value="custom">自定义范围</option>
+												</select>
+												<svg class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+												</svg>
+											</div>
+										</div>
+
+										{#if exportOptions.date_range === 'custom'}
+											<div class="grid grid-cols-2 gap-3">
+												<div>
+													<label for="export-start-date" class="block text-xs text-muted-foreground mb-1">开始日期</label>
+													<input
+														id="export-start-date"
+														type="date"
+														bind:value={customStartDate}
+														class="w-full px-3 py-2 bg-background rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
+													/>
+												</div>
+												<div>
+													<label for="export-end-date" class="block text-xs text-muted-foreground mb-1">结束日期</label>
+													<input
+														id="export-end-date"
+														type="date"
+														bind:value={customEndDate}
+														class="w-full px-3 py-2 bg-background rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
+													/>
+												</div>
+											</div>
+										{/if}
+
+										<!-- Content Types -->
+										<div>
+											<div class="block text-sm font-medium text-foreground mb-2">要导出的内容</div>
+											<div class="space-y-2">
+												<label class="flex items-center gap-2 cursor-pointer">
+													<input type="checkbox" bind:checked={exportOptions.include_diaries} class="rounded" />
+													<span class="text-sm text-foreground">日记</span>
+												</label>
+												<label class="flex items-center gap-2 cursor-pointer">
+													<input type="checkbox" bind:checked={exportOptions.include_media} class="rounded" />
+													<span class="text-sm text-foreground">媒体文件</span>
+												</label>
+												<label class="flex items-center gap-2 cursor-pointer">
+													<input type="checkbox" bind:checked={exportOptions.include_conversations} class="rounded" />
+													<span class="text-sm text-foreground">AI 对话</span>
+												</label>
+											</div>
+										</div>
+									</div>
+								{/if}
+
+								{#if exportError}
+									<div class="mb-3 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+										{exportError}
+									</div>
+								{/if}
+
+								<button
+									on:click={handleExport}
+									disabled={exporting}
+									class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 flex items-center gap-2"
+								>
+									{#if exporting}
+										<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+										</svg>
+										导出中...
+									{:else}
+										<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+										</svg>
+										导出数据
+									{/if}
+								</button>
+
+								{#if exportStats}
+									<div class="mt-3 p-3 bg-muted rounded-lg text-sm">
+										<div class="font-medium text-foreground mb-2">导出完成</div>
+										<div class="text-xs text-muted-foreground mb-2">
+											周期：{exportStats.start_date} 至 {exportStats.end_date}
+										</div>
+										<div class="space-y-2 text-muted-foreground">
+											<div class="flex justify-between">
+												<span>日记：</span>
+												<span>
+													<span class="text-foreground font-medium">{exportStats.diaries.actual_exported}</span>
+													<span class="text-xs">/ {exportStats.diaries.should_export} 已选 / {exportStats.diaries.total_in_system} 总计</span>
+												</span>
+											</div>
+											<div class="flex justify-between">
+												<span>媒体：</span>
+												<span>
+													<span class="text-foreground font-medium">{exportStats.media.actual_exported}</span>
+													<span class="text-xs">/ {exportStats.media.should_export} 已选 / {exportStats.media.total_in_system} 总计</span>
+												</span>
+											</div>
+											<div class="flex justify-between">
+												<span>对话：</span>
+												<span>
+													<span class="text-foreground font-medium">{exportStats.conversations.actual_exported}</span>
+													<span class="text-xs">/ {exportStats.conversations.should_export} 已选 / {exportStats.conversations.total_in_system} 总计</span>
+													<span class="text-xs">（{exportStats.messages} 条消息）</span>
+												</span>
+											</div>
+										</div>
+										{#if exportStats.failed_items && exportStats.failed_items.length > 0}
+											<div class="mt-3 pt-2 border-t border-border/50">
+												<div class="font-medium text-destructive mb-1">失败项目：</div>
+												<div class="text-xs space-y-1 max-h-24 overflow-y-auto">
+													{#each exportStats.failed_items as item}
+														<div class="text-muted-foreground">
+															<span class="text-destructive">[{item.type}]</span> {item.id}：{item.reason}
+														</div>
+													{/each}
+												</div>
+											</div>
+										{/if}
+									</div>
+								{/if}
+							</div>
+
+							<!-- Import -->
+							<div class="py-4">
+								<div class="font-medium text-foreground mb-1">导入</div>
+								<div class="text-sm text-muted-foreground mb-3">从先前导出的 ZIP 文件恢复日记数据。相同日期的日记将被跳过。</div>
+
+								{#if importError}
+									<div class="mb-3 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+										{importError}
+									</div>
+								{/if}
+
+								<div class="flex items-center gap-3 flex-wrap">
+									<label class="px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 cursor-pointer">
+										<span>{importFile ? importFile.name : '选择文件'}</span>
+										<input
+											type="file"
+											accept=".zip"
+											class="hidden"
+											on:change={handleImportFileChange}
+										/>
+									</label>
+									<button
+										on:click={handleImport}
+										disabled={importing || !importFile}
+										class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 flex items-center gap-2"
+									>
+										{#if importing}
+											<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+											</svg>
+											导入中...
+										{:else}
+											<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L4 8m4-4v12" />
+											</svg>
+											导入
+										{/if}
+									</button>
+								</div>
+
+								{#if importStats}
+									<div class="mt-3 p-3 bg-muted rounded-lg text-sm">
+										<div class="font-medium text-foreground mb-2">导入完成</div>
+										<div class="space-y-1 text-muted-foreground">
+											<div>
+												日记：
+												<span class="text-green-600 font-medium">{importStats.diaries.imported} 已导入</span>
+												{#if importStats.diaries.skipped > 0}
+													, <span class="text-amber-600 font-medium">{importStats.diaries.skipped} 已跳过</span>
+												{/if}
+												{#if importStats.diaries.failed > 0}
+													, <span class="text-destructive font-medium">{importStats.diaries.failed} 失败</span>
+												{/if}
+												<span class="text-muted-foreground">（{importStats.diaries.total} 总计）</span>
+											</div>
+											<div>
+												媒体：
+												<span class="text-green-600 font-medium">{importStats.media.imported} 已导入</span>
+												{#if importStats.media.skipped > 0}
+													, <span class="text-amber-600 font-medium">{importStats.media.skipped} 已跳过</span>
+												{/if}
+												{#if importStats.media.failed > 0}
+													, <span class="text-destructive font-medium">{importStats.media.failed} 失败</span>
+												{/if}
+												<span class="text-muted-foreground">（{importStats.media.total} 总计）</span>
+											</div>
+											<div>
+												AI 对话：
+												<span class="text-green-600 font-medium">{importStats.conversations.imported} 已导入</span>
+												{#if importStats.conversations.skipped > 0}
+													, <span class="text-orange-500 font-medium">{importStats.conversations.skipped} 已跳过</span>
+												{/if}
+												{#if importStats.conversations.failed > 0}
+													, <span class="text-destructive font-medium">{importStats.conversations.failed} 失败</span>
+												{/if}
+												<span class="text-muted-foreground">（{importStats.conversations.total} 总计）</span>
+											</div>
 										</div>
 									</div>
 								{/if}
 							</div>
-						{/if}
-					</div>
-
-					<!-- Import -->
-					<div class="py-4">
-						<div class="font-medium text-foreground mb-1">Import</div>
-						<div class="text-sm text-muted-foreground mb-3">Restore diary data from a previously exported ZIP file. Diaries with an existing date will be skipped.</div>
-
-						{#if importError}
-							<div class="mb-3 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-								{importError}
-							</div>
-						{/if}
-
-						<div class="flex items-center gap-3 flex-wrap">
-							<label class="px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 cursor-pointer">
-								<span>{importFile ? importFile.name : 'Choose File'}</span>
-								<input
-									type="file"
-									accept=".zip"
-									class="hidden"
-									on:change={handleImportFileChange}
-								/>
-							</label>
-							<button
-								on:click={handleImport}
-								disabled={importing || !importFile}
-								class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 flex items-center gap-2"
-							>
-								{#if importing}
-									<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-									</svg>
-									Importing...
-								{:else}
-									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0l-4 4m4-4v12" />
-									</svg>
-									Import
-								{/if}
-							</button>
 						</div>
-
-						{#if importStats}
-							<div class="mt-3 p-3 bg-muted rounded-lg text-sm">
-								<div class="font-medium text-foreground mb-2">Import Complete</div>
-								<div class="space-y-1 text-muted-foreground">
-									<div>
-										Diaries:
-										<span class="text-green-600 font-medium">{importStats.diaries.imported} imported</span>
-										{#if importStats.diaries.skipped > 0}
-											, <span class="text-amber-600 font-medium">{importStats.diaries.skipped} skipped</span>
-										{/if}
-										{#if importStats.diaries.failed > 0}
-											, <span class="text-destructive font-medium">{importStats.diaries.failed} failed</span>
-										{/if}
-										<span class="text-muted-foreground">({importStats.diaries.total} total)</span>
-									</div>
-									<div>
-										Media:
-										<span class="text-green-600 font-medium">{importStats.media.imported} imported</span>
-										{#if importStats.media.skipped > 0}
-											, <span class="text-amber-600 font-medium">{importStats.media.skipped} skipped</span>
-										{/if}
-										{#if importStats.media.failed > 0}
-											, <span class="text-destructive font-medium">{importStats.media.failed} failed</span>
-										{/if}
-										<span class="text-muted-foreground">({importStats.media.total} total)</span>
-									</div>
-									<div>
-										AI conversations:
-										<span class="text-green-600 font-medium">{importStats.conversations.imported} imported</span>
-										{#if importStats.conversations.skipped > 0}
-											, <span class="text-orange-500 font-medium">{importStats.conversations.skipped} skipped</span>
-										{/if}
-										{#if importStats.conversations.failed > 0}
-											, <span class="text-destructive font-medium">{importStats.conversations.failed} failed</span>
-										{/if}
-										<span class="text-muted-foreground">({importStats.conversations.total} total)</span>
-									</div>
-								</div>
-							</div>
 						{/if}
 					</div>
-				</div>
 				{/if}
+			</main>
 			</div>
-		{/if}
-	</main>
 		</div>
 	</div>
 
-	<Footer maxWidth="6xl" tagline="Manage your settings" />
+	<Footer maxWidth="6xl" tagline="管理您的设置" />
 </div>

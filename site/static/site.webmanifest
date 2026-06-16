@@ -1,14 +1,14 @@
 {
-  "name": "Diarum - Personal Diary",
-  "short_name": "Diarum",
-  "description": "A simple, elegant, and self-hosted diary application with AI-powered insights.",
+  "name": "吾身 - 个人日记",
+  "short_name": "吾身",
+  "description": "一款简洁优雅、可自托管的日记应用，具备 AI 洞察能力。",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "theme_color": "#ffffff",
   "background_color": "#ffffff",
-  "lang": "en",
+  "lang": "zh-CN",
   "categories": [
     "productivity",
     "lifestyle"
@@ -45,35 +45,35 @@
       "sizes": "920x1730",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Mobile view - Light theme"
+      "label": "移动视图 - 浅色主题"
     },
     {
       "src": "/screenshots/mobile-dark.png",
       "sizes": "920x1730",
       "type": "image/png",
       "form_factor": "narrow",
-      "label": "Mobile view - Dark theme"
+      "label": "移动视图 - 深色主题"
     },
     {
       "src": "/screenshots/desktop-light.png",
       "sizes": "2522x2012",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Desktop view - Light theme"
+      "label": "桌面视图 - 浅色主题"
     },
     {
       "src": "/screenshots/desktop-dark.png",
       "sizes": "2522x2012",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "Desktop view - Dark theme"
+      "label": "桌面视图 - 深色主题"
     }
   ],
   "shortcuts": [
     {
-      "name": "Today's Diary",
-      "short_name": "Today",
-      "description": "Open today's diary entry",
+      "name": "今日日记",
+      "short_name": "今日",
+      "description": "打开今日的日记条目",
       "url": "/",
       "icons": [
         {

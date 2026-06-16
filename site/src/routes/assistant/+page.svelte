@@ -76,7 +76,7 @@
 			goto(`/assistant/${conv.id}?message=${encodeURIComponent(content)}`);
 		} catch (e) {
 			console.error('Failed to create conversation:', e);
-			chatError = e instanceof Error ? e.message : 'Failed to create conversation';
+			chatError = e instanceof Error ? e.message : '创建对话失败';
 		}
 		isCreating = false;
 	}
@@ -103,13 +103,13 @@
 </script>
 
 <svelte:head>
-	<title>AI Assistant - Diarum</title>
+	<title>AI 助手 - 吾身</title>
 </svelte:head>
 
 <div class="h-screen bg-background flex flex-col overflow-hidden">
-	<PageHeader title="AI Assistant" sticky={false}>
+	<PageHeader title="AI 助手" sticky={false}>
 		<div slot="actions" class="flex items-center gap-2">
-			<a href="/settings" class="hidden lg:block p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200" title="Settings">
+			<a href="/settings" class="hidden lg:block p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200" title="设置">
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
 						d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -119,7 +119,7 @@
 			<button
 				on:click={() => sidebarOpen = !sidebarOpen}
 				class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200 lg:hidden"
-				aria-label="Toggle sidebar"
+				aria-label="切换侧边栏"
 			>
 				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
@@ -143,12 +143,12 @@
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
 						d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
 				</svg>
-				<h2 class="text-xl font-semibold mb-2">AI Features Not Enabled</h2>
+				<h2 class="text-xl font-semibold mb-2">AI 功能未启用</h2>
 				<p class="text-muted-foreground mb-4">
-					Enable AI features in settings to use the AI assistant.
+					请在设置中启用 AI 功能以使用 AI 助手。
 				</p>
 				<a href="/settings" class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90">
-					Go to Settings
+					前往设置
 				</a>
 			</div>
 		</div>
@@ -159,7 +159,7 @@
 				<button
 					class="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 lg:hidden"
 					on:click={() => sidebarOpen = false}
-					aria-label="Close sidebar"
+					aria-label="关闭侧边栏"
 				></button>
 			{/if}
 
@@ -182,13 +182,13 @@
 					<!-- Drawer Header -->
 					<div class="flex items-center justify-between px-5 py-4 border-b border-border/50">
 						<div class="flex items-center gap-2">
-							<img src="/logo.png" alt="Diarum" class="w-6 h-6" />
-							<span class="font-semibold text-foreground">AI Assistant</span>
+							<img src="/logo.png" alt="吾身" class="w-6 h-6" />
+							<span class="font-semibold text-foreground">AI 助手</span>
 						</div>
 						<button
 							on:click={() => sidebarOpen = false}
 							class="p-2 hover:bg-muted rounded-lg transition-colors"
-							aria-label="Close"
+							aria-label="关闭"
 						>
 							<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -201,7 +201,7 @@
 						<!-- Actions Section -->
 						<div class="px-3 py-3">
 							<div class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">
-								Quick Actions
+								快捷操作
 							</div>
 							<div class="space-y-0.5">
 								<a
@@ -216,8 +216,8 @@
 										</svg>
 									</div>
 									<div class="min-w-0">
-										<div class="text-xs font-medium text-foreground">Calendar</div>
-										<div class="text-[10px] text-muted-foreground truncate">View all diary entries</div>
+										<div class="text-xs font-medium text-foreground">日历</div>
+										<div class="text-[10px] text-muted-foreground truncate">查看所有日记条目</div>
 									</div>
 								</a>
 
@@ -232,8 +232,8 @@
 										</svg>
 									</div>
 									<div class="min-w-0">
-										<div class="text-xs font-medium text-foreground">Search</div>
-										<div class="text-[10px] text-muted-foreground truncate">Find diary entries</div>
+										<div class="text-xs font-medium text-foreground">搜索</div>
+										<div class="text-[10px] text-muted-foreground truncate">查找日记条目</div>
 									</div>
 								</a>
 
@@ -248,8 +248,8 @@
 										</svg>
 									</div>
 									<div class="min-w-0">
-										<div class="text-xs font-medium text-foreground">Media</div>
-										<div class="text-[10px] text-muted-foreground truncate">Browse photos & files</div>
+										<div class="text-xs font-medium text-foreground">媒体</div>
+										<div class="text-[10px] text-muted-foreground truncate">浏览照片和文件</div>
 									</div>
 								</a>
 
@@ -265,8 +265,8 @@
 										</svg>
 									</div>
 									<div class="min-w-0">
-										<div class="text-xs font-medium text-foreground">Settings</div>
-										<div class="text-[10px] text-muted-foreground truncate">Preferences & AI config</div>
+										<div class="text-xs font-medium text-foreground">设置</div>
+										<div class="text-[10px] text-muted-foreground truncate">偏好设置和 AI 配置</div>
 									</div>
 								</a>
 							</div>
@@ -302,7 +302,7 @@
 							</svg>
 						</div>
 						<p class="text-muted-foreground text-sm">
-							Start the conversation by sending a message below.
+							在下方发送消息以开始对话。
 						</p>
 					</div>
 				</div>
@@ -316,7 +316,7 @@
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 								</svg>
 								<span>{chatError}</span>
-								<button on:click={() => chatError = ''} class="ml-auto p-0.5 hover:bg-destructive/20 rounded" aria-label="Dismiss error">
+								<button on:click={() => chatError = ''} class="ml-auto p-0.5 hover:bg-destructive/20 rounded" aria-label="关闭错误">
 									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
 									</svg>
@@ -325,12 +325,12 @@
 						{/if}
 						<ChatInput
 							disabled={isCreating}
-							placeholder="Ask about your diary..."
+							placeholder="询问关于你的日记..."
 							on:send={(e) => handleSendMessage(e.detail)}
 						/>
 						<div class="flex items-center justify-center gap-2 mt-3 text-xs text-muted-foreground/60">
-							<span class="hidden sm:inline">Press Enter to send, Shift+Enter for new line ·</span>
-							<span>Diarum</span>
+							<span class="hidden sm:inline">按 Enter 发送,Shift+Enter 换行 ·</span>
+							<span>吾身</span>
 							{#if version}
 								<a href="https://github.com/songtianlun/diarum" target="_blank" rel="noopener noreferrer" class="font-mono text-[10px] hover:text-foreground transition-colors">{version}</a>
 							{/if}

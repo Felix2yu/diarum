@@ -2,9 +2,9 @@
 	import { theme, type Theme } from '$lib/stores/theme';
 
 	const themes: { value: Theme; label: string; icon: string }[] = [
-		{ value: 'light', label: 'Light', icon: 'sun' },
-		{ value: 'dark', label: 'Dark', icon: 'moon' },
-		{ value: 'system', label: 'System', icon: 'monitor' }
+		{ value: 'light', label: '浅色', icon: 'sun' },
+		{ value: 'dark', label: '深色', icon: 'moon' },
+		{ value: 'system', label: '跟随系统', icon: 'monitor' }
 	];
 
 	let isOpen = false;
@@ -30,7 +30,7 @@
 		class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm
 			   text-muted-foreground hover:text-foreground hover:bg-muted/50
 			   transition-all duration-200"
-		aria-label="Toggle theme"
+		aria-label="切换主题"
 	>
 		{#if $theme === 'light'}
 			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

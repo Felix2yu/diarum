@@ -74,7 +74,7 @@
 </script>
 
 <svelte:head>
-	<title>Calendar - Diarum</title>
+	<title>日历 - 吾身</title>
 </svelte:head>
 
 <div class="min-h-screen bg-background">
@@ -83,24 +83,24 @@
 		<div class="max-w-6xl mx-auto px-4 h-11">
 			<div class="flex items-center justify-between h-full">
 				<a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-					<img src="/logo.png" alt="Diarum" class="w-6 h-6" />
-					<span class="text-lg font-semibold text-foreground hover:text-primary transition-colors">Diarum</span>
+					<img src="/logo.png" alt="吾身" class="w-6 h-6" />
+					<span class="text-lg font-semibold text-foreground hover:text-primary transition-colors">吾身</span>
 				</a>
 
 				<div class="flex items-center gap-2">
-					<a href="/media" class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200" title="Media Library">
+					<a href="/media" class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200" title="媒体库">
 						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
 								d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
 						</svg>
 					</a>
-					<a href="/search" class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200" title="Search">
+					<a href="/search" class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200" title="搜索">
 						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
 								d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
 						</svg>
 					</a>
-					<a href="/assistant" class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200" title="AI Assistant">
+					<a href="/assistant" class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200" title="AI 助手">
 						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<!-- 机器人头部 -->
 							<rect x="4" y="6" width="16" height="12" rx="2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -117,7 +117,7 @@
 							<rect x="21" y="10" width="2" height="4" rx="1" fill="currentColor"/>
 						</svg>
 					</a>
-					<a href="/settings" class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200" title="Settings">
+					<a href="/settings" class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200" title="设置">
 						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
 								d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -141,7 +141,7 @@
 								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 							</svg>
-							<div class="text-muted-foreground text-sm">Loading...</div>
+							<div class="text-muted-foreground text-sm">加载中...</div>
 						</div>
 					{:else}
 						<div class="animate-fade-in-only">
@@ -156,7 +156,7 @@
 				<!-- Stats -->
 				<div class="grid grid-cols-3 gap-4">
 					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
-						<div class="text-xs text-muted-foreground">{yearViewActive ? 'This year' : 'This month'}</div>
+						<div class="text-xs text-muted-foreground">{yearViewActive ? '今年' : '本月'}</div>
 						<div class="text-xl font-bold text-foreground mt-1 h-7 flex items-center">
 							{#if yearViewActive}
 								<span class="animate-fade-in-only">{yearDiaryMeta.length}</span>
@@ -169,7 +169,7 @@
 					</div>
 
 					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
-						<div class="text-xs text-muted-foreground">Streak</div>
+						<div class="text-xs text-muted-foreground">连续天数</div>
 						<div class="text-xl font-bold text-foreground mt-1 h-7 flex items-center">
 							{#if statsLoading}
 								<span class="inline-block w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></span>
@@ -180,7 +180,7 @@
 					</div>
 
 					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
-						<div class="text-xs text-muted-foreground">Total</div>
+						<div class="text-xs text-muted-foreground">总计</div>
 						<div class="text-xl font-bold text-foreground mt-1 h-7 flex items-center">
 							{#if statsLoading}
 								<span class="inline-block w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></span>
@@ -193,14 +193,14 @@
 
 				<!-- Recent Entries -->
 				<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4 flex-1 min-h-0 flex flex-col overflow-hidden">
-					<h3 class="text-sm font-medium text-foreground mb-3">Recent Entries</h3>
+					<h3 class="text-sm font-medium text-foreground mb-3">最近条目</h3>
 					{#if recentLoading}
 						<div class="flex-1 flex flex-col items-center justify-center gap-3">
 							<svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
 								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 							</svg>
-							<div class="text-muted-foreground text-sm">Loading...</div>
+							<div class="text-muted-foreground text-sm">加载中...</div>
 						</div>
 					{:else if recentDiaries.length > 0}
 						<div class="space-y-2 overflow-y-auto flex-1 animate-fade-in-only">
@@ -221,7 +221,7 @@
 					{:else}
 						<div class="flex-1 flex items-center justify-center animate-fade-in-only">
 							<div class="text-sm text-muted-foreground text-center">
-								No entries yet. Start writing today!
+								还没有条目。今天就开始记录吧！
 							</div>
 						</div>
 					{/if}
@@ -231,5 +231,5 @@
 	</main>
 
 	<!-- Footer -->
-	<Footer maxWidth="6xl" tagline="Your personal diary" />
+	<Footer maxWidth="6xl" tagline="记录生活的点滴" />
 </div>

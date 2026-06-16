@@ -36,7 +36,7 @@
 			const today = new Date().toISOString().split('T')[0];
 			goto(`/diary/${today}`);
 		} else {
-			error = result.error || 'Login failed';
+			error = result.error || '登录失败';
 		}
 		loading = false;
 	}
@@ -45,7 +45,7 @@
 		loading = true;
 		error = '';
 		if (registerForm.password !== registerForm.passwordConfirm) {
-			error = 'Passwords do not match';
+			error = '两次输入的密码不一致';
 			loading = false;
 			return;
 		}
@@ -54,7 +54,7 @@
 			const today = new Date().toISOString().split('T')[0];
 			goto(`/diary/${today}`);
 		} else {
-			error = result.error || 'Registration failed';
+			error = result.error || '注册失败';
 		}
 		loading = false;
 	}
@@ -64,9 +64,9 @@
 	<div class="flex-1 flex items-center justify-center p-4">
 		<div class="w-full max-w-md animate-fade-in">
 			<div class="text-center mb-8">
-				<img src="/logo.png" alt="Diarum" class="w-16 h-16 mx-auto mb-4" />
-				<h1 class="text-3xl font-bold text-foreground mb-2">Diarum</h1>
-				<p class="text-muted-foreground text-sm">Your personal diary</p>
+				<img src="/logo.png" alt="吾身" class="w-16 h-16 mx-auto mb-4" />
+				<h1 class="text-3xl font-bold text-foreground mb-2">吾身</h1>
+				<p class="text-muted-foreground text-sm">你的个人日记</p>
 			</div>
 
 			<div class="bg-card rounded-xl shadow-lg border border-border/50 p-6">
@@ -79,7 +79,7 @@
 							: 'text-muted-foreground hover:text-foreground'}"
 						on:click={() => { activeTab = 'login'; error = ''; }}
 					>
-						Login
+						登录
 					</button>
 					<button
 						class="flex-1 py-2 px-4 text-center text-sm font-medium transition-all duration-200
@@ -88,7 +88,7 @@
 							: 'text-muted-foreground hover:text-foreground'}"
 						on:click={() => { activeTab = 'register'; error = ''; }}
 					>
-						Register
+						注册
 					</button>
 				</div>
 
@@ -102,7 +102,7 @@
 					<form on:submit|preventDefault={handleLogin} class="space-y-4">
 						<div>
 							<label for="usernameOrEmail" class="block text-sm font-medium text-foreground mb-1.5">
-								Username or Email
+								用户名或邮箱
 							</label>
 							<input
 								id="usernameOrEmail"
@@ -112,13 +112,13 @@
 								class="w-full px-3 py-2 bg-background border border-border rounded-lg
 									   focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
 									   text-foreground placeholder:text-muted-foreground transition-all duration-200"
-								placeholder="Enter your username or email"
+								placeholder="输入你的用户名或邮箱"
 							/>
 						</div>
 
 						<div>
 							<label for="password" class="block text-sm font-medium text-foreground mb-1.5">
-								Password
+								密码
 							</label>
 							<input
 								id="password"
@@ -128,7 +128,7 @@
 								class="w-full px-3 py-2 bg-background border border-border rounded-lg
 									   focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
 									   text-foreground placeholder:text-muted-foreground transition-all duration-200"
-								placeholder="Enter your password"
+								placeholder="输入你的密码"
 							/>
 						</div>
 
@@ -138,14 +138,14 @@
 							class="w-full py-2.5 px-4 bg-primary text-primary-foreground rounded-lg font-medium
 								   hover:opacity-90 transition-all duration-200 disabled:opacity-50"
 						>
-							{loading ? 'Logging in...' : 'Login'}
+							{loading ? '登录中...' : '登录'}
 						</button>
 					</form>
 				{:else}
 					<form on:submit|preventDefault={handleRegister} class="space-y-4">
 						<div>
 							<label for="username" class="block text-sm font-medium text-foreground mb-1.5">
-								Username
+								用户名
 							</label>
 							<input
 								id="username"
@@ -156,13 +156,13 @@
 								class="w-full px-3 py-2 bg-background border border-border rounded-lg
 									   focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
 									   text-foreground placeholder:text-muted-foreground transition-all duration-200"
-								placeholder="Choose a username"
+								placeholder="选择一个用户名"
 							/>
 						</div>
 
 						<div>
 							<label for="email" class="block text-sm font-medium text-foreground mb-1.5">
-								Email
+								邮箱
 							</label>
 							<input
 								id="email"
@@ -172,13 +172,13 @@
 								class="w-full px-3 py-2 bg-background border border-border rounded-lg
 									   focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
 									   text-foreground placeholder:text-muted-foreground transition-all duration-200"
-								placeholder="Enter your email"
+								placeholder="输入你的邮箱"
 							/>
 						</div>
 
 						<div>
 							<label for="registerPassword" class="block text-sm font-medium text-foreground mb-1.5">
-								Password
+								密码
 							</label>
 							<input
 								id="registerPassword"
@@ -189,13 +189,13 @@
 								class="w-full px-3 py-2 bg-background border border-border rounded-lg
 									   focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
 									   text-foreground placeholder:text-muted-foreground transition-all duration-200"
-								placeholder="Choose a password (min 8 chars)"
+								placeholder="选择一个密码（至少 8 个字符）"
 							/>
 						</div>
 
 						<div>
 							<label for="passwordConfirm" class="block text-sm font-medium text-foreground mb-1.5">
-								Confirm Password
+								确认密码
 							</label>
 							<input
 								id="passwordConfirm"
@@ -205,7 +205,7 @@
 								class="w-full px-3 py-2 bg-background border border-border rounded-lg
 									   focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
 									   text-foreground placeholder:text-muted-foreground transition-all duration-200"
-								placeholder="Confirm your password"
+								placeholder="再次输入密码"
 							/>
 						</div>
 
@@ -215,7 +215,7 @@
 							class="w-full py-2.5 px-4 bg-primary text-primary-foreground rounded-lg font-medium
 								   hover:opacity-90 transition-all duration-200 disabled:opacity-50"
 						>
-							{loading ? 'Creating account...' : 'Create Account'}
+							{loading ? '创建账户中...' : '创建账户'}
 						</button>
 					</form>
 				{/if}
