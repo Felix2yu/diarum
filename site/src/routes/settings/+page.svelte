@@ -14,7 +14,7 @@
 		type MemosSettings,
 		type ApiTokenStatus
 	} from '$lib/api/settings';
-	import { getAISettings, saveAISettings, fetchModels, buildVectors, buildVectorsIncremental, getVectorStats, type AISettings, type ModelInfo, type BuildVectorsResult, type VectorStats } from '$lib/api/ai';
+	import { getAISettings, saveAISettings, fetchModels, buildVectors, buildVectorsIncremental, getVectorStats, DEFAULT_ANALYSIS_SYSTEM_PROMPT, type AISettings, type ModelInfo, type BuildVectorsResult, type VectorStats } from '$lib/api/ai';
 	import { exportDiaries, importDiaries, type ExportStats, type ImportStats, type ExportOptions } from '$lib/api/exportImport';
 	import { defaultImageUploadSettings, getImageUploadSettings, saveImageUploadSettings, testCheveretoConnection, type ImageUploadProvider, type ImageUploadSettings } from '$lib/api/imageUpload';
 	import { loadImageUploadSettings } from '$lib/stores/imageUpload';
@@ -424,6 +424,10 @@
 	// AI Settings functions
 	async function loadAISettings() {
 		aiSettings = await getAISettings();
+		// 若后端未保存自定义提示词，则预填充系统默认值，方便在默认基础上修改
+		if (!aiSettings.analysis_system_prompt) {
+			aiSettings.analysis_system_prompt = DEFAULT_ANALYSIS_SYSTEM_PROMPT;
+		}
 		originalAISettings = JSON.parse(JSON.stringify(aiSettings));
 		// Initialize models array with configured models so they display before refresh
 		const initialModels: ModelInfo[] = [];
@@ -1481,7 +1485,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								<label for="analysis-system-prompt" class="text-sm text-muted-foreground">系统提示词 (System Prompt)</label>
 								<button
 									type="button"
-									on:click={() => { aiSettings.analysis_system_prompt = '你是一个贴心的日记分析助手，基于用户提供的日记内容进行深入分析。你需要：\n1) 归纳总结日记的主要内容；\n2) 分析用户的情绪变化、生活模式；\n3) 找出亮点和值得改进的地方；\n4) 给出具体、可操作的建议。\n请用温暖、鼓励且理性的语气，分段输出，便于阅读。使用中文回答。'; }}
+									on:click={() => { aiSettings.analysis_system_prompt = DEFAULT_ANALYSIS_SYSTEM_PROMPT; }}
 									class="text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-0.5 rounded hover:bg-primary/10"
 								>
 									恢复默认
