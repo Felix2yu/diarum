@@ -43,18 +43,30 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		baseUrl, _ := configService.GetString(userId, "ai.base_url")
 		chatModel, _ := configService.GetString(userId, "ai.chat_model")
 		embeddingModel, _ := configService.GetString(userId, "ai.embedding_model")
+		analysisSystemPrompt, _ := configService.GetString(userId, "ai.analysis_system_prompt")
+		analysisUserPrefix, _ := configService.GetString(userId, "ai.analysis_user_prefix")
 		enabled, _ := configService.GetBool(userId, "ai.enabled")
-		return c.JSON(http.StatusOK, map[string]any{"api_key": apiKey, "base_url": baseUrl, "chat_model": chatModel, "embedding_model": embeddingModel, "enabled": enabled})
+		return c.JSON(http.StatusOK, map[string]any{
+			"api_key":                 apiKey,
+			"base_url":                baseUrl,
+			"chat_model":              chatModel,
+			"embedding_model":         embeddingModel,
+			"analysis_system_prompt":  analysisSystemPrompt,
+			"analysis_user_prefix":    analysisUserPrefix,
+			"enabled":                 enabled,
+		})
 	})
 
 	group.PUT("/settings", func(c echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		var body struct {
-			APIKey         string `json:"api_key"`
-			BaseURL        string `json:"base_url"`
-			ChatModel      string `json:"chat_model"`
-			EmbeddingModel string `json:"embedding_model"`
-			Enabled        bool   `json:"enabled"`
+			APIKey                string `json:"api_key"`
+			BaseURL               string `json:"base_url"`
+			ChatModel             string `json:"chat_model"`
+			EmbeddingModel        string `json:"embedding_model"`
+			AnalysisSystemPrompt  string `json:"analysis_system_prompt"`
+			AnalysisUserPrefix    string `json:"analysis_user_prefix"`
+			Enabled               bool   `json:"enabled"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
@@ -62,7 +74,15 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		if body.Enabled && (body.APIKey == "" || body.BaseURL == "" || body.ChatModel == "" || body.EmbeddingModel == "") {
 			return badRequest("All AI settings must be configured before enabling AI features", nil)
 		}
-		settings := map[string]any{"ai.api_key": body.APIKey, "ai.base_url": body.BaseURL, "ai.chat_model": body.ChatModel, "ai.embedding_model": body.EmbeddingModel, "ai.enabled": body.Enabled}
+		settings := map[string]any{
+			"ai.api_key":               body.APIKey,
+			"ai.base_url":              body.BaseURL,
+			"ai.chat_model":            body.ChatModel,
+			"ai.embedding_model":       body.EmbeddingModel,
+			"ai.analysis_system_prompt": body.AnalysisSystemPrompt,
+			"ai.analysis_user_prefix":  body.AnalysisUserPrefix,
+			"ai.enabled":               body.Enabled,
+		}
 		if err := configService.SetBatch(userId, settings); err != nil {
 			return badRequest("Failed to save AI settings", err)
 		}
@@ -266,9 +286,11 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	group.POST("/analysis", func(c echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		var body struct {
-			Period string `json:"period"`
-			Start  string `json:"start"`
-			End    string `json:"end"`
+			Period            string `json:"period"`
+			Start             string `json:"start"`
+			End               string `json:"end"`
+			SystemPrompt      string `json:"system_prompt"`
+			UserPrefix        string `json:"user_prefix"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
@@ -314,13 +336,40 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			return badRequest("AI settings are not configured", nil)
 		}
 
-		// Build prompt with diary content
-		var sb strings.Builder
+		// Resolve prompts: request override → saved config → default
+		savedSystemPrompt, _ := cfgService.GetString(userId, "ai.analysis_system_prompt")
+		savedUserPrefix, _ := cfgService.GetString(userId, "ai.analysis_user_prefix")
+		defaultSystemPrompt := "你是一个贴心的日记分析助手，基于用户提供的日记内容进行深入分析。你需要：\n1) 归纳总结日记的主要内容；\n2) 分析用户的情绪变化、生活模式；\n3) 找出亮点和值得改进的地方；\n4) 给出具体、可操作的建议。\n请用温暖、鼓励且理性的语气，分段输出，便于阅读。使用中文回答。"
+		defaultUserPrefix := ""
+
 		periodLabel := "本周"
 		if period == "month" {
 			periodLabel = "本月"
 		}
-		sb.WriteString(fmt.Sprintf("以下是%s（%s 至 %s）的日记记录，共 %d 篇。请根据内容进行重组、分析，并给出建议。\n\n", periodLabel, start, end, len(diaries)))
+		defaultUserPrefix = fmt.Sprintf("以下是%s（%s 至 %s）的日记记录，共 %d 篇。请根据内容进行重组、分析，并给出建议。\n\n", periodLabel, start, end, len(diaries))
+
+		systemPrompt := strings.TrimSpace(body.SystemPrompt)
+		if systemPrompt == "" {
+			systemPrompt = strings.TrimSpace(savedSystemPrompt)
+		}
+		if systemPrompt == "" {
+			systemPrompt = defaultSystemPrompt
+		}
+
+		userPrefix := strings.TrimSpace(body.UserPrefix)
+		if userPrefix == "" {
+			userPrefix = strings.TrimSpace(savedUserPrefix)
+		}
+		if userPrefix == "" {
+			userPrefix = defaultUserPrefix
+		}
+
+		// Build user content with diary entries
+		var sb strings.Builder
+		sb.WriteString(userPrefix)
+		if !strings.HasSuffix(userPrefix, "\n") {
+			sb.WriteString("\n\n")
+		}
 		for i, d := range diaries {
 			sb.WriteString(fmt.Sprintf("--- 第 %d 篇 - %s ---\n", i+1, store.DateOnly(d.Date)))
 			if d.Mood != "" {
@@ -331,8 +380,6 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			}
 			sb.WriteString(fmt.Sprintf("内容：\n%s\n\n", d.Content))
 		}
-
-		systemPrompt := "你是一个贴心的日记分析助手，基于用户提供的日记内容进行深入分析。你需要：\n1) 归纳总结日记的主要内容；\n2) 分析用户的情绪变化、生活模式；\n3) 找出亮点和值得改进的地方；\n4) 给出具体、可操作的建议。\n请用温暖、鼓励且理性的语气，分段输出，便于阅读。使用中文回答。"
 
 		ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Minute)
 		defer cancel()
@@ -390,11 +437,13 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		}
 
 		return c.JSON(http.StatusOK, map[string]any{
-			"start":   start,
-			"end":     end,
-			"period":  period,
-			"count":   len(diaries),
-			"summary": summary,
+			"start":         start,
+			"end":           end,
+			"period":        period,
+			"count":         len(diaries),
+			"summary":       summary,
+			"system_prompt": systemPrompt,
+			"user_prefix":   userPrefix,
 		})
 	})
 }

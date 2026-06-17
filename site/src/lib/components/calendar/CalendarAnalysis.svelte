@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { analyzePeriod, type PeriodAnalysisResult } from '$lib/api/ai';
+	import { analyzePeriod, DEFAULT_ANALYSIS_SYSTEM_PROMPT, type PeriodAnalysisResult } from '$lib/api/ai';
 
 	let {
 		period,
@@ -16,13 +16,19 @@
 	let loading = $state(false);
 	let error: string | null = $state(null);
 	let result: PeriodAnalysisResult | null = $state(null);
+	let showPromptEditor = $state(false);
+	let systemPrompt = $state('');
+	let userPrefix = $state('');
 
 	async function runAnalysis() {
 		loading = true;
 		error = null;
 		result = null;
 		try {
-			result = await analyzePeriod(period, start, end);
+			result = await analyzePeriod(period, start, end, {
+				system_prompt: systemPrompt,
+				user_prefix: userPrefix
+			});
 		} catch (e: unknown) {
 			if (e instanceof Error) {
 				error = e.message;
@@ -35,6 +41,11 @@
 	}
 
 	const label = period === 'week' ? '本周分析' : '本月分析';
+
+	function useDefaultPrompt() {
+		systemPrompt = DEFAULT_ANALYSIS_SYSTEM_PROMPT;
+		userPrefix = '';
+	}
 
 	$effect(() => {
 		runAnalysis();
@@ -52,6 +63,41 @@
 			<span class="analysis-range">{start} ~ {end}</span>
 			<button class="analysis-close" onclick={onClose} aria-label="关闭">×</button>
 		</div>
+
+		<div class="analysis-toolbar">
+			<button
+				onclick={() => (showPromptEditor = !showPromptEditor)}
+				class="analysis-toggle"
+			>
+				{showPromptEditor ? '收起提示词' : '编辑提示词'}
+			</button>
+			<button onclick={useDefaultPrompt} class="analysis-toggle">恢复默认</button>
+			<button onclick={runAnalysis} disabled={loading} class="analysis-reanalyze">
+				{loading ? '分析中…' : '重新分析'}
+			</button>
+		</div>
+
+		{#if showPromptEditor}
+			<div class="analysis-prompt">
+				<label for="cas-system-prompt" class="analysis-prompt-label">系统提示词</label>
+				<textarea
+					id="cas-system-prompt"
+					rows={5}
+					bind:value={systemPrompt}
+					placeholder="留空则使用系统默认提示词"
+					class="analysis-prompt-textarea"
+				/>
+				<label for="cas-user-prefix" class="analysis-prompt-label analysis-prompt-label--indented">内容引导语 (可选)</label>
+				<textarea
+					id="cas-user-prefix"
+					rows={3}
+					bind:value={userPrefix}
+					placeholder="留空则使用默认的周/月格式化提示语"
+					class="analysis-prompt-textarea"
+				/>
+				<p class="analysis-prompt-hint">修改后点击"重新分析"以应用提示词；保存为持久默认请前往设置 → AI 助手。</p>
+			</div>
+		{/if}
 
 		<div class="analysis-body">
 			{#if loading}
@@ -97,7 +143,7 @@
 		border: 1px solid hsl(var(--border) / 0.6);
 		border-radius: 1rem;
 		width: 100%;
-		max-width: 640px;
+		max-width: 680px;
 		max-height: 80vh;
 		display: flex;
 		flex-direction: column;
@@ -142,6 +188,95 @@
 	.analysis-close:hover {
 		background: hsl(var(--muted) / 0.6);
 		color: hsl(var(--foreground));
+	}
+
+	.analysis-toolbar {
+		padding: 0.75rem 1.25rem;
+		display: flex;
+		gap: 0.5rem;
+		flex-wrap: wrap;
+		border-bottom: 1px solid hsl(var(--border) / 0.4);
+	}
+
+	.analysis-toggle {
+		padding: 0.4rem 0.75rem;
+		font-size: 0.8rem;
+		border: 1px solid hsl(var(--border) / 0.7);
+		background: hsl(var(--muted) / 0.3);
+		color: hsl(var(--foreground) / 0.85);
+		border-radius: 0.5rem;
+		cursor: pointer;
+		transition: background 0.15s ease, color 0.15s ease;
+	}
+
+	.analysis-toggle:hover {
+		background: hsl(var(--muted) / 0.7);
+		color: hsl(var(--foreground));
+	}
+
+	.analysis-reanalyze {
+		padding: 0.4rem 0.85rem;
+		font-size: 0.8rem;
+		margin-left: auto;
+		border: 1px solid hsl(var(--primary) / 0.3);
+		background: hsl(var(--primary) / 0.1);
+		color: hsl(var(--primary));
+		border-radius: 0.5rem;
+		cursor: pointer;
+		font-weight: 500;
+		transition: background 0.15s ease;
+	}
+
+	.analysis-reanalyze:hover:not(:disabled) {
+		background: hsl(var(--primary) / 0.2);
+	}
+
+	.analysis-reanalyze:disabled {
+		opacity: 0.5;
+		cursor: not-allowed;
+	}
+
+	.analysis-prompt {
+		padding: 0.85rem 1.25rem 1rem;
+		background: hsl(var(--muted) / 0.25);
+		border-bottom: 1px solid hsl(var(--border) / 0.4);
+	}
+
+	.analysis-prompt-label {
+		display: block;
+		font-size: 0.78rem;
+		color: hsl(var(--muted-foreground));
+		margin-bottom: 0.35rem;
+	}
+
+	.analysis-prompt-label--indented {
+		margin-top: 0.75rem;
+	}
+
+	.analysis-prompt-textarea {
+		width: 100%;
+		padding: 0.5rem 0.65rem;
+		font-size: 0.82rem;
+		line-height: 1.6;
+		background: hsl(var(--background));
+		border: 1px solid hsl(var(--border) / 0.7);
+		color: hsl(var(--foreground));
+		border-radius: 0.5rem;
+		resize: vertical;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		outline: none;
+		transition: border-color 0.15s ease, box-shadow 0.15s ease;
+	}
+
+	.analysis-prompt-textarea:focus {
+		border-color: hsl(var(--primary) / 0.8);
+		box-shadow: 0 0 0 2px hsl(var(--primary) / 0.15);
+	}
+
+	.analysis-prompt-hint {
+		font-size: 0.72rem;
+		color: hsl(var(--muted-foreground));
+		margin: 0.6rem 0 0;
 	}
 
 	.analysis-body {
