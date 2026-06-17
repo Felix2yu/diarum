@@ -184,7 +184,7 @@
 		{/if}
 	</main>
 
-	<Footer dynamicMaxWidth="100%" tagline="你的媒体库" />
+	<Footer tagline="你的媒体库" />
 </div>
 
 <!-- Media Detail Modal -->

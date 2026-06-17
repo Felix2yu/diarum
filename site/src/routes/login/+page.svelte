@@ -224,5 +224,5 @@
 	</div>
 
 	<!-- Footer -->
-	<Footer dynamicMaxWidth="100%" />
+	<Footer />
 </div>

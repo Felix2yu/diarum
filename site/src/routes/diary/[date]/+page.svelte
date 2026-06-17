@@ -206,10 +206,10 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	<title>{formatDisplayDate(date)} - 吾身</title>
 </svelte:head>
 
-<div class="min-h-screen bg-background">
+<div class="flex flex-col min-h-screen bg-background">
 	<PageHeader title="日记" />
 <!-- Main Content -->
-	<div class="container-responsive py-6 px-0">
+	<div class="container-responsive py-6 flex-1">
 		<!-- 日期导航 -->
 		<div class="diary-layout flex gap-6 mx-auto transition-all duration-300 mb-4" class:with-desktop-sidebar={showDesktopToc}>
 			<main class="diary-main w-full min-w-0">
@@ -357,7 +357,7 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	</div>
 
 	<!-- Footer -->
-	<Footer tagline="按 Ctrl+S 或 ⌘S 保存" dynamicMaxWidth="48rem" dynamicMaxWidthDesktop={showDesktopToc ? 'calc(48rem + 19rem + 1.5rem)' : '48rem'} />
+	<Footer tagline="按 Ctrl+S 或 ⌘S 保存" />
 </div>
 
 <!-- Left Drawer -->

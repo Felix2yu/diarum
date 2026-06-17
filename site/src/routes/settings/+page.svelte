@@ -1976,5 +1976,5 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 		</div>
 	</div>
 
-	<Footer maxWidth="6xl" tagline="Manage your settings" />
+	<Footer tagline="Manage your settings" />
 </div>

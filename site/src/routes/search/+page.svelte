@@ -230,7 +230,7 @@
 	</main>
 
 	<!-- Footer -->
-	<Footer dynamicMaxWidth="100%" tagline="穿越你的记忆" />
+	<Footer tagline="穿越你的记忆" />
 </div>
 
 <style>

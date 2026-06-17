@@ -95,11 +95,11 @@
 	<title>日历 - 吾身</title>
 </svelte:head>
 
-<div class="min-h-screen bg-background">
+<div class="flex flex-col min-h-screen bg-background">
 	<PageHeader title="日历" />
 
 	<!-- Calendar -->
-	<main class="container-responsive py-6">
+	<main class="container-responsive py-6 flex-1">
 		<div class="flex flex-col lg:flex-row gap-6 lg:min-h-[540px]">
 			<!-- Left: Calendar -->
 			<div class="lg:flex-1 lg:min-w-0">
