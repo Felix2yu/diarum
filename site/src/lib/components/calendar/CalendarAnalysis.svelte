@@ -21,6 +21,34 @@
 	let systemPrompt = $state(DEFAULT_ANALYSIS_SYSTEM_PROMPT);
 	let userPrefix = $state('');
 
+	let overlayEl: HTMLDivElement | null = $state(null);
+	let hostEl: HTMLDivElement | null = null;
+
+	// Portal: 将弹窗挂载到 document.body，脱离日历容器的堆叠上下文
+	$effect(() => {
+		if (!overlayEl) return;
+		if (!hostEl) {
+			hostEl = document.createElement('div');
+			hostEl.style.position = 'static';
+		}
+		document.body.appendChild(hostEl);
+		hostEl.appendChild(overlayEl);
+		return () => {
+			if (hostEl && hostEl.parentNode) {
+				hostEl.parentNode.removeChild(hostEl);
+			}
+			if (overlayEl && overlayEl.parentNode) {
+				overlayEl.parentNode.removeChild(overlayEl);
+			}
+			hostEl = null;
+		};
+	});
+
+	// ESC 关闭
+	function onKey(e: KeyboardEvent) {
+		if (e.key === 'Escape') onClose();
+	}
+
 	async function runAnalysis() {
 		stage = 'loading';
 		errorMsg = null;
@@ -47,10 +75,22 @@
 	function formatSummary(text: string): string {
 		return text.trim();
 	}
+
+	// 绑定到根元素引用
+	function setRef(node: HTMLDivElement | null) {
+		overlayEl = node;
+	}
 </script>
 
-<div class="analysis-overlay" role="dialog" aria-label={label} onclick={onClose}>
-	<div class="analysis-panel" onclick={(e) => e.stopPropagation()} onkeydown={(e) => e.key === 'Escape' && onClose()}>
+<div
+	use:setRef
+	role="dialog"
+	aria-label={label}
+	class="analysis-overlay"
+	onclick={onClose}
+	onkeydown={onKey}
+>
+	<div class="analysis-panel" onclick={(e) => e.stopPropagation()}>
 		<div class="analysis-header">
 			<h3>{label}</h3>
 			<span class="analysis-range">{start} ~ {end}</span>
@@ -80,7 +120,7 @@
 					placeholder="留空则使用系统默认提示词"
 					class="analysis-prompt-textarea"
 				/>
-				<label for="cas-user-prefix" class="analysis-prompt-label analysis-prompt-label--indented">内容引导语 (可选)</label>
+				<label for="cas-user-prefix" class="analysis-prompt-label analysis-prompt-label--indented">内容引导语（可选）</label>
 				<textarea
 					id="cas-user-prefix"
 					rows={3}
@@ -88,7 +128,7 @@
 					placeholder="留空则使用默认的周/月格式化提示语"
 					class="analysis-prompt-textarea"
 				/>
-				<p class="analysis-prompt-hint">修改后点击"重新分析"以应用提示词；保存为持久默认请前往设置 → AI 助手。</p>
+				<p class="analysis-prompt-hint">修改后点击"开始分析"以应用提示词；保存为持久默认请前往设置 → AI 助手。</p>
 			</div>
 		{/if}
 
@@ -97,7 +137,7 @@
 				<div class="analysis-idle">
 					<p class="analysis-idle-title">准备开始 AI 分析</p>
 					<p class="analysis-idle-sub">
-						系统将基于此时间段的日记内容生成一份结构化的总结与建议。你可先点击上方
+						系统将基于此时间段的日记内容生成一份结构化的总结与建议。可先点击上方
 						"编辑提示词" 自定义分析风格，然后点击"开始分析"。
 					</p>
 				</div>
@@ -129,8 +169,8 @@
 	.analysis-overlay {
 		position: fixed;
 		inset: 0;
-		background: hsl(var(--background) / 0.7);
-		backdrop-filter: blur(6px);
+		background: hsl(var(--background) / 0.72);
+		backdrop-filter: blur(8px);
 		display: flex;
 		align-items: center;
 		justify-content: center;
@@ -148,8 +188,11 @@
 		max-height: 80vh;
 		display: flex;
 		flex-direction: column;
-		box-shadow: 0 20px 50px hsl(0 0% 0% / 0.15);
+		box-shadow: 0 20px 60px hsl(0 0% 0% / 0.25);
 		animation: panel-in 0.2s ease-out;
+		/* 确保弹窗本身在 body 下依然覆盖其他元素 */
+		position: relative;
+		z-index: 1;
 	}
 
 	.analysis-header {
@@ -158,7 +201,6 @@
 		display: flex;
 		align-items: center;
 		gap: 0.75rem;
-		position: relative;
 	}
 
 	.analysis-header h3 {
