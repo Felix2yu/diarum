@@ -83,10 +83,10 @@
 
 	<!-- Calendar -->
 	<main class="container-responsive py-6">
-		<div class="flex flex-col lg:flex-row gap-6 lg:h-[540px]">
+		<div class="flex flex-col lg:flex-row gap-6 lg:min-h-[540px]">
 			<!-- Left: Calendar -->
 			<div class="lg:flex-1 lg:min-w-0">
-				<div class="bg-card rounded-xl shadow-sm border border-border/50 p-5 h-full relative overflow-hidden">
+				<div class="bg-card rounded-xl shadow-sm border border-border/50 p-5 relative">
 					{#if loading}
 						<div class="absolute inset-0 flex flex-col items-center justify-center gap-3">
 							<svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
