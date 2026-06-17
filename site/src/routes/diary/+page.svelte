@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import Calendar from '$lib/components/calendar/Calendar.svelte';
 	import Footer from '$lib/components/ui/Footer.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import { getDatesWithDiaries, getRecentDiaries, getDiaryStats, type CalendarDiaryMeta } from '$lib/api/diaries';
 	import { isAuthenticated } from '$lib/api/client';
-	import { getMonthRange, formatDisplayDate } from '$lib/utils/date';
+	import { getMonthRange, formatDisplayDate, parseDate } from '$lib/utils/date';
 
 	let currentYear = new Date().getFullYear();
 	let currentMonth = new Date().getMonth() + 1;
@@ -57,6 +58,22 @@
 			goto('/login');
 			return;
 		}
+
+		const dateParam = $page.url.searchParams.get('date');
+		if (dateParam) {
+			try {
+				const parsed = parseDate(dateParam);
+				if (!isNaN(parsed.getTime())) {
+					currentYear = parsed.getFullYear();
+					currentMonth = parsed.getMonth() + 1;
+					prevYear = currentYear;
+					prevMonth = currentMonth;
+				}
+			} catch (e) {
+				// 忽略解析错误，使用当前日期
+			}
+		}
+
 		loadDatesWithDiaries();
 		loadRecentDiaries();
 		loadStats();

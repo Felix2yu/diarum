@@ -83,7 +83,9 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	}
 
 	function goToCalendar() {
-		goto('/diary');
+		const url = new URL('/diary', window.location.origin);
+		if (date) url.searchParams.set('date', date);
+		goto(url.pathname + url.search);
 	}
 
 	async function loadDiary(targetDate: string) {
