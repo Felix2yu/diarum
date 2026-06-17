@@ -118,23 +118,21 @@
 							<button
 								type="button"
 								onclick={() => loadDiariesForTag(t.tag)}
-								class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all duration-200"
-								class:bg-primary={selectedTag === t.tag}
-								class:text-primary-foreground={selectedTag === t.tag}
-								class:border-primary={selectedTag === t.tag}
-								class:bg-primary/5={selectedTag !== t.tag}
-								class:text-primary={selectedTag !== t.tag}
-								class:border-primary/20={selectedTag !== t.tag}
-								class:hover:scale-105={selectedTag !== t.tag}
+								class={
+									selectedTag === t.tag
+										? 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all duration-200 bg-primary text-primary-foreground border-primary'
+										: 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all duration-200 bg-primary/5 text-primary border-primary/20 hover:scale-105'
+								}
 								style="font-size: {fontSizeFor(t.count, maxCount)}"
 								title={`${t.tag} · ${t.count} 篇日记`}
 							>
 								<span class="font-medium">{t.tag}</span>
 								<span
-									class="text-[0.65em] font-semibold px-1.5 py-0.5 rounded-full"
-									class:bg-white/20={selectedTag === t.tag}
-									class:bg-primary/15={selectedTag !== t.tag}
-									class:text-primary={selectedTag !== t.tag}
+									class={
+										selectedTag === t.tag
+											? 'text-[0.65em] font-semibold px-1.5 py-0.5 rounded-full bg-white/20'
+											: 'text-[0.65em] font-semibold px-1.5 py-0.5 rounded-full bg-primary/15 text-primary'
+									}
 								>
 									{t.count}
 								</span>
