@@ -14,7 +14,7 @@
 		type MemosSettings,
 		type ApiTokenStatus
 	} from '$lib/api/settings';
-	import { getAISettings, saveAISettings, fetchModels, buildVectors, buildVectorsIncremental, getVectorStats, type AISettings, type ModelInfo, type BuildVectorsResult, type VectorStats } from '$lib/api/ai';
+	import { getAISettings, saveAISettings, fetchModels, buildVectors, buildVectorsIncremental, getVectorStats, DEFAULT_ANALYSIS_SYSTEM_PROMPT, type AISettings, type ModelInfo, type BuildVectorsResult, type VectorStats } from '$lib/api/ai';
 	import { exportDiaries, importDiaries, type ExportStats, type ImportStats, type ExportOptions } from '$lib/api/exportImport';
 	import { defaultImageUploadSettings, getImageUploadSettings, saveImageUploadSettings, testCheveretoConnection, type ImageUploadProvider, type ImageUploadSettings } from '$lib/api/imageUpload';
 	import { loadImageUploadSettings } from '$lib/stores/imageUpload';
@@ -102,6 +102,8 @@
 		base_url: '',
 		chat_model: '',
 		embedding_model: '',
+		analysis_system_prompt: '',
+		analysis_user_prefix: '',
 		enabled: false
 	};
 	let originalAISettings: AISettings = { ...aiSettings };
@@ -422,6 +424,10 @@
 	// AI Settings functions
 	async function loadAISettings() {
 		aiSettings = await getAISettings();
+		// 若后端未保存自定义提示词，则预填充系统默认值，方便在默认基础上修改
+		if (!aiSettings.analysis_system_prompt) {
+			aiSettings.analysis_system_prompt = DEFAULT_ANALYSIS_SYSTEM_PROMPT;
+		}
 		originalAISettings = JSON.parse(JSON.stringify(aiSettings));
 		// Initialize models array with configured models so they display before refresh
 		const initialModels: ModelInfo[] = [];
@@ -526,6 +532,8 @@
 		aiSettings.base_url !== originalAISettings.base_url ||
 		aiSettings.chat_model !== originalAISettings.chat_model ||
 		aiSettings.embedding_model !== originalAISettings.embedding_model ||
+		(aiSettings.analysis_system_prompt ?? '') !== (originalAISettings.analysis_system_prompt ?? '') ||
+		(aiSettings.analysis_user_prefix ?? '') !== (originalAISettings.analysis_user_prefix ?? '') ||
 		aiSettings.enabled !== originalAISettings.enabled;
 
 	// Embedding model keywords for sorting
@@ -1468,6 +1476,44 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							{/if}
 						</div>
 					{/if}
+
+					<!-- 周/月分析提示词 -->
+					<div class="py-4 border-b border-border/50">
+						<div class="font-medium text-foreground mb-3">周/月分析提示词</div>
+						<div class="mb-4">
+							<div class="flex items-center justify-between mb-1.5">
+								<label for="analysis-system-prompt" class="text-sm text-muted-foreground">系统提示词 (System Prompt)</label>
+								<button
+									type="button"
+									on:click={() => { aiSettings.analysis_system_prompt = DEFAULT_ANALYSIS_SYSTEM_PROMPT; }}
+									class="text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-0.5 rounded hover:bg-primary/10"
+								>
+									恢复默认
+								</button>
+							</div>
+							<textarea
+								id="analysis-system-prompt"
+								rows={6}
+								bind:value={aiSettings.analysis_system_prompt}
+								placeholder="你是一个贴心的日记分析助手……使用中文回答。"
+								class="w-full px-3 py-2 bg-muted/50 border border-border/70 rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary resize-y font-mono leading-relaxed"
+							/>
+							<p class="text-xs text-muted-foreground mt-1">用于 AI 分析日记的系统角色与行为指令；留空时使用系统默认提示词。</p>
+						</div>
+						<div>
+							<label for="analysis-user-prefix" class="text-sm text-muted-foreground block mb-1.5">内容引导语 (User Prefix，可选)</label>
+							<textarea
+								id="analysis-user-prefix"
+								rows={3}
+								bind:value={aiSettings.analysis_user_prefix}
+								placeholder="以下是本周（起始日期 ~ 结束日期）的日记……"
+								class="w-full px-3 py-2 bg-muted/50 border border-border/70 rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary resize-y font-mono leading-relaxed"
+							/>
+							<p class="text-xs text-muted-foreground mt-1">
+								出现在每篇日记内容之前的引导语；留空时使用默认的"周/月"格式化提示。可在其中加入自己的强调重点。
+							</p>
+						</div>
+					</div>
 
 					<!-- Save Button -->
 					<div class="pt-4 flex items-center gap-3">

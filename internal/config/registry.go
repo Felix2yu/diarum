@@ -22,12 +22,14 @@ var ConfigRegistry = map[string]ConfigMeta{
 	"memos.base_url":      {Type: "string", Default: "", Encrypted: false},
 
 	// AI settings (unified API key and base URL)
-	"ai.enabled":          {Type: "bool", Default: false, Encrypted: false},
-	"ai.api_key":          {Type: "string", Default: "", Encrypted: true},
-	"ai.base_url":         {Type: "string", Default: "", Encrypted: false},
-	"ai.chat_model":       {Type: "string", Default: "", Encrypted: false},
-	"ai.embedding_model":  {Type: "string", Default: "", Encrypted: false},
-	"ai.vectors_built_at": {Type: "string", Default: "", Encrypted: false},
+	"ai.enabled":               {Type: "bool", Default: false, Encrypted: false},
+	"ai.api_key":               {Type: "string", Default: "", Encrypted: true},
+	"ai.base_url":              {Type: "string", Default: "", Encrypted: false},
+	"ai.chat_model":            {Type: "string", Default: "", Encrypted: false},
+	"ai.embedding_model":       {Type: "string", Default: "", Encrypted: false},
+	"ai.vectors_built_at":      {Type: "string", Default: "", Encrypted: false},
+	"ai.analysis_system_prompt": {Type: "string", Default: "", Encrypted: false},
+	"ai.analysis_user_prefix":  {Type: "string", Default: "", Encrypted: false},
 
 	// Chevereto image hosting settings
 	"chevereto.enabled":  {Type: "bool", Default: false, Encrypted: false},

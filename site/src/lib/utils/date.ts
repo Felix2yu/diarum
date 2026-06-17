@@ -115,6 +115,24 @@ export function getMonthRange(year: number, month: number): { start: string; end
 }
 
 /**
+ * Get start (Monday) and end (Sunday) of the week containing the given date.
+ */
+export function getWeekRange(date: Date = new Date()): { start: string; end: string } {
+	const input = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+	const day = input.getDay(); // 0 = Sunday, 1 = Monday ...
+	// Monday = 0 adjustment
+	const offsetFromMonday = day === 0 ? 6 : day - 1;
+	const start = new Date(input);
+	start.setDate(input.getDate() - offsetFromMonday);
+	const end = new Date(start);
+	end.setDate(start.getDate() + 6);
+	return {
+		start: formatDate(start),
+		end: formatDate(end)
+	};
+}
+
+/**
  * Get start and end of year
  */
 export function getYearRange(year: number): { start: string; end: string } {

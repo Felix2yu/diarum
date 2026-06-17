@@ -1,8 +1,11 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -42,18 +45,30 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		baseUrl, _ := configService.GetString(userId, "ai.base_url")
 		chatModel, _ := configService.GetString(userId, "ai.chat_model")
 		embeddingModel, _ := configService.GetString(userId, "ai.embedding_model")
+		analysisSystemPrompt, _ := configService.GetString(userId, "ai.analysis_system_prompt")
+		analysisUserPrefix, _ := configService.GetString(userId, "ai.analysis_user_prefix")
 		enabled, _ := configService.GetBool(userId, "ai.enabled")
-		return c.JSON(http.StatusOK, map[string]any{"api_key": apiKey, "base_url": baseUrl, "chat_model": chatModel, "embedding_model": embeddingModel, "enabled": enabled})
+		return c.JSON(http.StatusOK, map[string]any{
+			"api_key":                 apiKey,
+			"base_url":                baseUrl,
+			"chat_model":              chatModel,
+			"embedding_model":         embeddingModel,
+			"analysis_system_prompt":  analysisSystemPrompt,
+			"analysis_user_prefix":    analysisUserPrefix,
+			"enabled":                 enabled,
+		})
 	})
 
 	group.PUT("/settings", func(c echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		var body struct {
-			APIKey         string `json:"api_key"`
-			BaseURL        string `json:"base_url"`
-			ChatModel      string `json:"chat_model"`
-			EmbeddingModel string `json:"embedding_model"`
-			Enabled        bool   `json:"enabled"`
+			APIKey                string `json:"api_key"`
+			BaseURL               string `json:"base_url"`
+			ChatModel             string `json:"chat_model"`
+			EmbeddingModel        string `json:"embedding_model"`
+			AnalysisSystemPrompt  string `json:"analysis_system_prompt"`
+			AnalysisUserPrefix    string `json:"analysis_user_prefix"`
+			Enabled               bool   `json:"enabled"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
@@ -61,7 +76,15 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		if body.Enabled && (body.APIKey == "" || body.BaseURL == "" || body.ChatModel == "" || body.EmbeddingModel == "") {
 			return badRequest("All AI settings must be configured before enabling AI features", nil)
 		}
-		settings := map[string]any{"ai.api_key": body.APIKey, "ai.base_url": body.BaseURL, "ai.chat_model": body.ChatModel, "ai.embedding_model": body.EmbeddingModel, "ai.enabled": body.Enabled}
+		settings := map[string]any{
+			"ai.api_key":               body.APIKey,
+			"ai.base_url":              body.BaseURL,
+			"ai.chat_model":            body.ChatModel,
+			"ai.embedding_model":       body.EmbeddingModel,
+			"ai.analysis_system_prompt": body.AnalysisSystemPrompt,
+			"ai.analysis_user_prefix":  body.AnalysisUserPrefix,
+			"ai.enabled":               body.Enabled,
+		}
 		if err := configService.SetBatch(userId, settings); err != nil {
 			return badRequest("Failed to save AI settings", err)
 		}
@@ -259,6 +282,249 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		writer.Write([]byte("data: " + string(doneData) + "\n\n"))
 		writer.Flush()
 		return nil
+	})
+
+	// Week / Month analysis - retrieve saved result
+	group.GET("/analysis", func(c echo.Context) error {
+		userId := auth.CurrentUser(c).ID
+		period := strings.ToLower(strings.TrimSpace(c.QueryParam("period")))
+		start := strings.TrimSpace(c.QueryParam("start"))
+		end := strings.TrimSpace(c.QueryParam("end"))
+		if period != "week" && period != "month" {
+			return badRequest("period must be 'week' or 'month'", nil)
+		}
+		if start == "" || end == "" {
+			return badRequest("start and end are required", nil)
+		}
+		a, err := s.GetPeriodAnalysis(userId, period, start, end)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return c.JSON(http.StatusOK, map[string]any{"found": false})
+			}
+			return serverError("Failed to load period analysis", err)
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"found":         true,
+			"id":            a.ID,
+			"period":        a.Period,
+			"start":         a.StartDate,
+			"end":           a.EndDate,
+			"count":         a.DiaryCount,
+			"summary":       a.Summary,
+			"system_prompt": a.SystemPrompt,
+			"user_prefix":   a.UserPrefix,
+			"created":       a.Created,
+			"updated":       a.Updated,
+		})
+	})
+
+	// Week / Month analysis - list all saved analyses (optionally filtered by period)
+	group.GET("/analyses", func(c echo.Context) error {
+		userId := auth.CurrentUser(c).ID
+		period := strings.ToLower(strings.TrimSpace(c.QueryParam("period")))
+		if period != "" && period != "week" && period != "month" && period != "all" {
+			return badRequest("period must be 'week', 'month', or 'all'", nil)
+		}
+		filter := period
+		if period == "all" {
+			filter = ""
+		}
+		items, err := s.ListSavedAnalyses(userId, filter, 200)
+		if err != nil {
+			return serverError("Failed to list period analyses", err)
+		}
+		out := make([]map[string]any, 0, len(items))
+		for _, a := range items {
+			out = append(out, map[string]any{
+				"id":            a.ID,
+				"period":        a.Period,
+				"start":         a.StartDate,
+				"end":           a.EndDate,
+				"count":         a.DiaryCount,
+				"summary":       a.Summary,
+				"system_prompt": a.SystemPrompt,
+				"user_prefix":   a.UserPrefix,
+				"created":       a.Created,
+				"updated":       a.Updated,
+			})
+		}
+		return c.JSON(http.StatusOK, map[string]any{"items": out})
+	})
+
+	// Week / Month analysis endpoint - generate and save
+	group.POST("/analysis", func(c echo.Context) error {
+		userId := auth.CurrentUser(c).ID
+		var body struct {
+			Period       string `json:"period"`
+			Start        string `json:"start"`
+			End          string `json:"end"`
+			SystemPrompt string `json:"system_prompt"`
+			UserPrefix   string `json:"user_prefix"`
+		}
+		if err := c.Bind(&body); err != nil {
+			return badRequest("Invalid request body", err)
+		}
+		period := strings.ToLower(strings.TrimSpace(body.Period))
+		if period != "week" && period != "month" {
+			return badRequest("period must be 'week' or 'month'", nil)
+		}
+		start := strings.TrimSpace(body.Start)
+		end := strings.TrimSpace(body.End)
+		if start == "" || end == "" {
+			return badRequest("start and end are required", nil)
+		}
+		if _, err := time.Parse("2006-01-02", start); err != nil {
+			return badRequest("start must be in YYYY-MM-DD format", err)
+		}
+		if _, err := time.Parse("2006-01-02", end); err != nil {
+			return badRequest("end must be in YYYY-MM-DD format", err)
+		}
+
+		// Fetch diaries in range
+		diaries, err := s.ListDiaries(userId, start+" 00:00:00.000Z", end+" 23:59:59.999Z", "-date", 0)
+		if err != nil {
+			return serverError("Failed to fetch diaries for analysis", err)
+		}
+		if len(diaries) == 0 {
+			return c.JSON(http.StatusOK, map[string]any{
+				"start":   start,
+				"end":     end,
+				"period":  period,
+				"count":   0,
+				"summary": "这个时间段内没有日记记录，无法进行分析。建议先记录一些日常内容，然后再尝试。",
+			})
+		}
+
+		// Load AI config
+		cfgService := config.NewConfigService(s)
+		apiKey, _ := cfgService.GetString(userId, "ai.api_key")
+		baseURL, _ := cfgService.GetString(userId, "ai.base_url")
+		model, _ := cfgService.GetString(userId, "ai.chat_model")
+		enabled, _ := cfgService.GetBool(userId, "ai.enabled")
+		if !enabled || apiKey == "" || baseURL == "" || model == "" {
+			return badRequest("AI settings are not configured", nil)
+		}
+
+		// Resolve prompts: request override → saved config → default
+		savedSystemPrompt, _ := cfgService.GetString(userId, "ai.analysis_system_prompt")
+		savedUserPrefix, _ := cfgService.GetString(userId, "ai.analysis_user_prefix")
+		defaultSystemPrompt := "你是一个贴心的日记分析助手，基于用户提供的日记内容进行深入分析。你需要：\n1) 归纳总结日记的主要内容；\n2) 分析用户的情绪变化、生活模式；\n3) 找出亮点和值得改进的地方；\n4) 给出具体、可操作的建议。\n请用温暖、鼓励且理性的语气，分段输出，便于阅读。使用中文回答。"
+		defaultUserPrefix := ""
+
+		periodLabel := "本周"
+		if period == "month" {
+			periodLabel = "本月"
+		}
+		defaultUserPrefix = fmt.Sprintf("以下是%s（%s 至 %s）的日记记录，共 %d 篇。请根据内容进行重组、分析，并给出建议。\n\n", periodLabel, start, end, len(diaries))
+
+		systemPrompt := strings.TrimSpace(body.SystemPrompt)
+		if systemPrompt == "" {
+			systemPrompt = strings.TrimSpace(savedSystemPrompt)
+		}
+		if systemPrompt == "" {
+			systemPrompt = defaultSystemPrompt
+		}
+
+		userPrefix := strings.TrimSpace(body.UserPrefix)
+		if userPrefix == "" {
+			userPrefix = strings.TrimSpace(savedUserPrefix)
+		}
+		if userPrefix == "" {
+			userPrefix = defaultUserPrefix
+		}
+
+		// Build user content with diary entries
+		var sb strings.Builder
+		sb.WriteString(userPrefix)
+		if !strings.HasSuffix(userPrefix, "\n") {
+			sb.WriteString("\n\n")
+		}
+		for i, d := range diaries {
+			sb.WriteString(fmt.Sprintf("--- 第 %d 篇 - %s ---\n", i+1, store.DateOnly(d.Date)))
+			if d.Mood != "" {
+				sb.WriteString(fmt.Sprintf("心情：%s\n", d.Mood))
+			}
+			if d.Weather != "" {
+				sb.WriteString(fmt.Sprintf("天气：%s\n", d.Weather))
+			}
+			sb.WriteString(fmt.Sprintf("内容：\n%s\n\n", d.Content))
+		}
+
+		ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Minute)
+		defer cancel()
+
+		baseURL = strings.TrimSuffix(baseURL, "/")
+		url := baseURL + "/v1/chat/completions"
+
+		reqBody := map[string]any{
+			"model": model,
+			"messages": []map[string]string{
+				{"role": "system", "content": systemPrompt},
+				{"role": "user", "content": sb.String()},
+			},
+			"stream": false,
+		}
+
+		jsonBytes, err := json.Marshal(reqBody)
+		if err != nil {
+			return serverError("Failed to build AI request", err)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBytes))
+		if err != nil {
+			return serverError("Failed to create AI request", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		req.Header.Set("Content-Type", "application/json")
+
+		client := &http.Client{Timeout: 5 * time.Minute}
+		resp, err := client.Do(req)
+		if err != nil {
+			return serverError("AI request failed: "+err.Error(), nil)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			bodyText, _ := io.ReadAll(resp.Body)
+			return serverError(fmt.Sprintf("AI returned status %d: %s", resp.StatusCode, string(bodyText)), nil)
+		}
+
+		var aiResp struct {
+			Choices []struct {
+				Message struct {
+					Content string `json:"content"`
+				} `json:"message"`
+			} `json:"choices"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&aiResp); err != nil {
+			return serverError("Failed to decode AI response", err)
+		}
+
+		summary := ""
+		if len(aiResp.Choices) > 0 {
+			summary = aiResp.Choices[0].Message.Content
+		}
+
+		// Persist the analysis for later retrieval
+		saved, saveErr := s.SavePeriodAnalysis(userId, period, start, end, len(diaries), summary, systemPrompt, userPrefix)
+
+		response := map[string]any{
+			"start":         start,
+			"end":           end,
+			"period":        period,
+			"count":         len(diaries),
+			"summary":       summary,
+			"system_prompt": systemPrompt,
+			"user_prefix":   userPrefix,
+		}
+		if saveErr == nil && saved != nil {
+			response["id"] = saved.ID
+			response["created"] = saved.Created
+			response["updated"] = saved.Updated
+		} else if saveErr != nil {
+			logger.Warn("[POST /api/v1/ai/analysis] failed to persist analysis: %v", saveErr)
+		}
+		return c.JSON(http.StatusOK, response)
 	})
 }
 

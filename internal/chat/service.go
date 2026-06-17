@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -255,13 +256,36 @@ func (s *ChatService) buildSystemPrompt(diaries []embedding.DiarySearchResult) s
 	return sb.String()
 }
 
+// resolveLocation returns the effective timezone for the current process.
+// It respects the TZ environment variable (e.g. "Asia/Shanghai"), falling back
+// to the system local timezone and ultimately UTC if neither is usable.
+func resolveLocation() *time.Location {
+	if name := os.Getenv("TZ"); name != "" {
+		if loc, err := time.LoadLocation(name); err == nil {
+			return loc
+		}
+	}
+	return time.Local
+}
+
+// todayInLocation returns the current date formatted as YYYY-MM-DD in the given location.
+func todayInLocation(loc *time.Location) string {
+	return time.Now().In(loc).Format("2006-01-02")
+}
+
 // buildAgentSystemPrompt creates the system prompt for the agent with tools
 func (s *ChatService) buildAgentSystemPrompt() string {
-	today := time.Now().Format("2006-01-02")
+	loc := resolveLocation()
+	today := todayInLocation(loc)
+	timezoneName := loc.String()
+	nowLocal := time.Now().In(loc).Format("15:04:05")
 	return fmt.Sprintf(`You are a helpful AI assistant for a personal diary application called Diarum.
 You help users reflect on their diary entries, summarize their experiences, and provide insights based on their personal journal.
 
 Today's date is: %s
+Current local time: %s (%s)
+Diary dates stored in this application are in the user's local date (YYYY-MM-DD), not UTC.
+When the user says "today", "yesterday", "this week", "this month", interpret those words in the above timezone.
 
 You have access to the search_diaries tool to find relevant diary entries. Use it when:
 - User asks about their diary content, memories, or experiences
@@ -273,7 +297,7 @@ When using search_diaries:
 - For topic-based queries (e.g., "about travel"), use the query parameter
 - Adjust limit based on the scope: use higher limits (30-50) for summaries, lower (5-10) for specific questions
 
-Always reference specific dates when discussing diary entries. Respond in the same language as the user.`, today)
+Always reference specific dates when discussing diary entries. Respond in the same language as the user.`, today, nowLocal, timezoneName)
 }
 
 // GetConversationHistory retrieves message history for a conversation

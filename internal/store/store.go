@@ -315,6 +315,22 @@ func createSchema(db *sql.DB) error {
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_ai_messages_conversation ON ai_messages(conversation)`,
 		`CREATE INDEX IF NOT EXISTS idx_ai_messages_owner ON ai_messages(owner)`,
+		`CREATE TABLE IF NOT EXISTS period_analyses (
+			id TEXT PRIMARY KEY NOT NULL,
+			owner TEXT DEFAULT '' NOT NULL,
+			period TEXT DEFAULT '' NOT NULL,
+			start_date TEXT DEFAULT '' NOT NULL,
+			end_date TEXT DEFAULT '' NOT NULL,
+			diary_count INTEGER DEFAULT 0 NOT NULL,
+			summary TEXT DEFAULT '' NOT NULL,
+			system_prompt TEXT DEFAULT '' NOT NULL,
+			user_prefix TEXT DEFAULT '' NOT NULL,
+			created TEXT NOT NULL,
+			updated TEXT NOT NULL,
+			FOREIGN KEY(owner) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_period_analyses_owner_period ON period_analyses(owner, period, start_date, end_date)`,
+		`CREATE INDEX IF NOT EXISTS idx_period_analyses_owner ON period_analyses(owner)`,
 		`INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(1, datetime('now'))`,
 	}
 	for _, statement := range statements {
@@ -966,6 +982,86 @@ func DateOnly(dateTime string) string {
 		return dateTime[:10]
 	}
 	return dateTime
+}
+
+// PeriodAnalysis represents a saved AI analysis for a given time period
+type PeriodAnalysis struct {
+	ID          string `json:"id"`
+	Owner       string `json:"owner"`
+	Period      string `json:"period"`
+	StartDate   string `json:"start_date"`
+	EndDate     string `json:"end_date"`
+	DiaryCount  int    `json:"diary_count"`
+	Summary     string `json:"summary"`
+	SystemPrompt string `json:"system_prompt"`
+	UserPrefix  string `json:"user_prefix"`
+	Created     string `json:"created"`
+	Updated     string `json:"updated"`
+}
+
+// GetPeriodAnalysis retrieves the saved analysis for a given period and date range.
+func (s *Store) GetPeriodAnalysis(owner, period, startDate, endDate string) (*PeriodAnalysis, error) {
+	row := s.DB.QueryRow(`SELECT id, owner, period, start_date, end_date, diary_count, summary, system_prompt, user_prefix, created, updated FROM period_analyses WHERE owner = ? AND period = ? AND start_date = ? AND end_date = ? LIMIT 1`, owner, period, startDate, endDate)
+	a := &PeriodAnalysis{}
+	err := row.Scan(&a.ID, &a.Owner, &a.Period, &a.StartDate, &a.EndDate, &a.DiaryCount, &a.Summary, &a.SystemPrompt, &a.UserPrefix, &a.Created, &a.Updated)
+	if err != nil {
+		return nil, err
+	}
+	return a, nil
+}
+
+// SavePeriodAnalysis creates or updates the analysis record for a given period and date range.
+func (s *Store) SavePeriodAnalysis(owner, period, startDate, endDate string, diaryCount int, summary, systemPrompt, userPrefix string) (*PeriodAnalysis, error) {
+	now := nowString()
+	// Try to update an existing record first
+	res, err := s.DB.Exec(`UPDATE period_analyses SET diary_count = ?, summary = ?, system_prompt = ?, user_prefix = ?, updated = ? WHERE owner = ? AND period = ? AND start_date = ? AND end_date = ?`, diaryCount, summary, systemPrompt, userPrefix, now, owner, period, startDate, endDate)
+	if err != nil {
+		return nil, err
+	}
+	affected, _ := res.RowsAffected()
+	if affected > 0 {
+		return s.GetPeriodAnalysis(owner, period, startDate, endDate)
+	}
+	// No existing row; create a new one
+	id, err := GenerateID()
+	if err != nil {
+		return nil, err
+	}
+	_, err = s.DB.Exec(`INSERT INTO period_analyses(id, owner, period, start_date, end_date, diary_count, summary, system_prompt, user_prefix, created, updated) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, id, owner, period, startDate, endDate, diaryCount, summary, systemPrompt, userPrefix, now, now)
+	if err != nil {
+		return nil, err
+	}
+	return s.GetPeriodAnalysis(owner, period, startDate, endDate)
+}
+
+// ListSavedAnalyses returns saved analyses for a user, filtered by period (week|month|empty).
+func (s *Store) ListSavedAnalyses(owner, period string, limit int) ([]*PeriodAnalysis, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	if period == "" || period == "all" {
+		rows, err = s.DB.Query(`SELECT id, owner, period, start_date, end_date, diary_count, summary, system_prompt, user_prefix, created, updated FROM period_analyses WHERE owner = ? ORDER BY start_date DESC LIMIT ?`, owner, limit)
+	} else {
+		rows, err = s.DB.Query(`SELECT id, owner, period, start_date, end_date, diary_count, summary, system_prompt, user_prefix, created, updated FROM period_analyses WHERE owner = ? AND period = ? ORDER BY start_date DESC LIMIT ?`, owner, period, limit)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]*PeriodAnalysis, 0)
+	for rows.Next() {
+		a := &PeriodAnalysis{}
+		if err := rows.Scan(&a.ID, &a.Owner, &a.Period, &a.StartDate, &a.EndDate, &a.DiaryCount, &a.Summary, &a.SystemPrompt, &a.UserPrefix, &a.Created, &a.Updated); err != nil {
+			return nil, err
+		}
+		items = append(items, a)
+	}
+	return items, rows.Err()
 }
 
 func (s *Store) GetSetting(userID, key string) (any, error) {

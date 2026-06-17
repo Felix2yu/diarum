@@ -97,7 +97,7 @@
 						</div>
 					{:else}
 						<div class="animate-fade-in-only">
-							<Calendar bind:currentYear bind:currentMonth bind:yearViewActive bind:yearDiaryMeta {diaryMeta} on:monthchange={loadDatesWithDiaries} />
+							<Calendar bind:currentYear bind:currentMonth bind:yearViewActive bind:yearDiaryMeta {diaryMeta} onmonthchange={loadDatesWithDiaries} />
 						</div>
 					{/if}
 				</div>

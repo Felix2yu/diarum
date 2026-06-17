@@ -1,23 +1,60 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { tick } from 'svelte';
-	import { formatDate, getCalendarDays, getToday, getYearRange, formatMonthYear } from '$lib/utils/date';
+	import { formatDate, getCalendarDays, getToday, getYearRange, getMonthRange, getWeekRange, formatMonthYear } from '$lib/utils/date';
 	import { getDatesWithDiaries, type CalendarDiaryMeta } from '$lib/api/diaries';
+	import CalendarAnalysis from './CalendarAnalysis.svelte';
+	import CalendarYearPicker from './CalendarYearPicker.svelte';
 
-	export let currentYear: number;
-	export let currentMonth: number;
-	export let diaryMeta: CalendarDiaryMeta[] = [];
+	let {
+		currentYear = $bindable(new Date().getFullYear()),
+		currentMonth = $bindable(new Date().getMonth() + 1),
+		diaryMeta = $bindable([] as CalendarDiaryMeta[]),
+		yearDiaryMeta = $bindable([] as CalendarDiaryMeta[]),
+		yearViewActive = $bindable(false),
+		onmonthchange = (() => {}) as () => void
+	} = $props();
 
 	type ViewMode = 'month' | 'year';
-	let viewMode: ViewMode = 'month';
-	export let yearViewActive = false;
-	$: yearViewActive = viewMode === 'year';
-	export let yearDiaryMeta: CalendarDiaryMeta[] = [];
-	let yearLoading = false;
-	let loadedYear: number | null = null;
-	let transitionDirection: 'forward' | 'backward' = 'forward';
-	let yearGridEl: HTMLDivElement;
-	let wheelCooldown = false;
+	let viewMode = $state<ViewMode>('month');
+	// 让 yearViewActive 与 viewMode 保持同步（父组件通过 bind 监控）
+	$effect(() => {
+		yearViewActive = viewMode === 'year';
+	});
+	let yearLoading = $state(false);
+	let loadedYear = $state<number | null>(null);
+	let transitionDirection = $state<'forward' | 'backward'>('forward');
+	let yearGridEl: $state<HTMLDivElement | null> = null;
+	let wheelCooldown = $state(false);
+	let yearPickerOpen = $state(false);
+
+	type AnalysisState = {
+		active: boolean;
+		mode?: 'single' | 'history';
+		period: 'week' | 'month';
+		start: string;
+		end: string;
+	} | null;
+	let analysis = $state<AnalysisState>(null);
+
+	function openWeekAnalysis() {
+		const { start, end } = getWeekRange(new Date());
+		analysis = { active: true, mode: 'single', period: 'week', start, end };
+	}
+
+	function openMonthAnalysis() {
+		const { start, end } = getMonthRange(currentYear, currentMonth);
+		analysis = { active: true, mode: 'single', period: 'month', start, end };
+	}
+
+	function openHistoryAnalysis() {
+		const { start, end } = getMonthRange(currentYear, currentMonth);
+		analysis = { active: true, mode: 'history', period: 'month', start, end };
+	}
+
+	function closeAnalysis() {
+		analysis = null;
+	}
 
 	const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 	const weekDaysShort = ['一', '二', '三', '四', '五', '六', '日'];
@@ -26,10 +63,10 @@
 		'七', '八', '九', '十', '十一', '十二'
 	];
 
-	$: calendarDays = getCalendarDays(currentYear, currentMonth);
-	$: todayStr = getToday();
-	$: metaByDate = new Map(diaryMeta.map(item => [item.date, item]));
-	$: yearMetaByDate = new Map(yearDiaryMeta.map(item => [item.date, item]));
+	const calendarDays = $derived(getCalendarDays(currentYear, currentMonth));
+	const todayStr = $derived(getToday());
+	const metaByDate = $derived(new Map(diaryMeta.map((item) => [item.date, item])));
+	const yearMetaByDate = $derived(new Map(yearDiaryMeta.map((item) => [item.date, item])));
 
 	function isCurrentMonth(date: Date): boolean {
 		return date.getMonth() === currentMonth - 1;
@@ -77,20 +114,24 @@
 		currentMonth = today.getMonth() + 1;
 	}
 
-	// Year view functions
+	function openYearPicker() {
+		yearPickerOpen = true;
+	}
+
+	function closeYearPicker() {
+		yearPickerOpen = false;
+	}
+
 	async function enterYearView() {
 		viewMode = 'year';
 		await loadYearData(currentYear);
 		scrollToCurrentMonth();
 	}
 
-	import { createEventDispatcher } from 'svelte';
-	const dispatch = createEventDispatcher();
-
 	function exitYearView(month: number) {
 		currentMonth = month;
 		viewMode = 'month';
-		dispatch('monthchange');
+		onmonthchange();
 	}
 
 	async function loadYearData(year: number) {
@@ -123,7 +164,6 @@
 	function getMiniCalendarDays(year: number, month: number): (number | null)[] {
 		const firstDay = new Date(year, month, 1);
 		const lastDay = new Date(year, month + 1, 0);
-		// Monday-first: Monday=0, Sunday=6
 		const startDay = (firstDay.getDay() + 6) % 7;
 		const daysInMonth = lastDay.getDate();
 
@@ -177,7 +217,9 @@
 			} else {
 				goToNextYear();
 			}
-			setTimeout(() => { wheelCooldown = false; }, 600);
+			setTimeout(() => {
+				wheelCooldown = false;
+			}, 600);
 		}
 	}
 
@@ -199,45 +241,97 @@
 		<!-- Month View -->
 		<div class="view-container animate-fade-in-only">
 			<!-- Calendar Header -->
-			<div class="flex items-center justify-between mb-6 px-2">
-				<button
-					on:click={goToPreviousMonth}
-					class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
-					title="上一月"
-				>
-					<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-					</svg>
-				</button>
-
-				<div class="flex items-center gap-3">
-					<h2 class="text-lg font-semibold text-foreground flex items-center gap-1.5">
-						<span>{formatMonthYear(currentYear, currentMonth)}</span>
-						<button
-							on:click={enterYearView}
-							class="year-button"
-							title="切换到年视图"
-						>
-							查看全年
-						</button>
-					</h2>
+			<div class="flex flex-col gap-3 mb-5 px-2">
+				<!-- 第一行：月份导航 -->
+				<div class="flex items-center justify-between">
 					<button
-						on:click={goToToday}
-						class="px-3 py-1 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-all duration-200"
+						onclick={goToPreviousMonth}
+						class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
+						title="上一月"
 					>
-						今天
+						<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+						</svg>
+					</button>
+
+					<div class="flex items-center gap-2">
+						<h2 class="text-lg font-semibold text-foreground flex items-center gap-1.5">
+							<button
+								onclick={openYearPicker}
+								class="hover:bg-muted/50 transition-all duration-200 rounded-md px-2 py-1 flex items-center gap-1"
+								title="点击选择年月"
+							>
+								<span>{formatMonthYear(currentYear, currentMonth)}</span>
+								<svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+								</svg>
+							</button>
+							<button
+								onclick={enterYearView}
+								class="year-button"
+								title="切换到年视图"
+							>
+								查看全年
+							</button>
+						</h2>
+						<button
+							onclick={goToToday}
+							class="px-3 py-1 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-all duration-200"
+						>
+							今天
+						</button>
+					</div>
+
+					<button
+						onclick={goToNextMonth}
+						class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
+						title="下一月"
+					>
+						<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+						</svg>
 					</button>
 				</div>
 
-				<button
-					on:click={goToNextMonth}
-					class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
-					title="下一月"
-				>
-					<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-					</svg>
-				</button>
+				<!-- 第二行：紧凑 AI 分析按钮 -->
+				<div class="flex items-center justify-center gap-1.5">
+					<button
+						onclick={openWeekAnalysis}
+						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+						title="本周 AI 分析"
+					>
+						<span class="inline-flex items-center gap-1">
+							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+							</svg>
+							周分析
+						</span>
+					</button>
+					<button
+						onclick={openMonthAnalysis}
+						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+						title="本月 AI 分析"
+					>
+						<span class="inline-flex items-center gap-1">
+							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
+							</svg>
+							月分析
+						</span>
+					</button>
+					<button
+						onclick={openHistoryAnalysis}
+						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+						title="查看历史分析"
+					>
+						<span class="inline-flex items-center gap-1">
+							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+							</svg>
+							历史分析
+						</span>
+					</button>
+				</div>
 			</div>
 
 			<!-- Week Days -->
@@ -251,7 +345,7 @@
 			<div class="grid grid-cols-7 gap-2">
 				{#each calendarDays as date, i}
 					<button
-						on:click={() => handleDateClick(date)}
+						onclick={() => handleDateClick(date)}
 						class="day aspect-square rounded-lg transition-all duration-200 flex flex-col items-center justify-center relative
 							   {isCurrentMonth(date) ? 'text-foreground' : 'text-muted-foreground/40'}
 							   {isToday(date) ? 'bg-primary/10 ring-2 ring-primary font-semibold' : ''}
@@ -267,10 +361,10 @@
 							{#if meta?.weather || meta?.mood}
 								<div class="absolute inset-x-0 top-1.5 flex items-center justify-center gap-1 text-[11px] leading-none">
 									{#if meta?.weather}
-										<span class="emoji-chip" title={`天气：${meta.weather}`}>{meta.weather}</span>
+										<span class="emoji-chip" title="天气：{meta.weather}">{meta.weather}</span>
 									{/if}
 									{#if meta?.mood}
-										<span class="emoji-chip" title={`心情：${meta.mood}`}>{meta.mood}</span>
+										<span class="emoji-chip" title="心情：{meta.mood}">{meta.mood}</span>
 									{/if}
 								</div>
 							{:else}
@@ -287,7 +381,7 @@
 			<!-- Year Header -->
 			<div class="flex items-center justify-between mb-5 px-2">
 				<button
-					on:click={goToPreviousYear}
+					onclick={goToPreviousYear}
 					class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
 					title="上一年"
 				>
@@ -299,7 +393,7 @@
 				<div class="flex items-center gap-3">
 					<h2 class="text-lg font-semibold text-foreground">{currentYear}</h2>
 					<button
-						on:click={goToCurrentYear}
+						onclick={goToCurrentYear}
 						class="px-3 py-1 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-all duration-200"
 					>
 						本年
@@ -307,7 +401,7 @@
 				</div>
 
 				<button
-					on:click={goToNextYear}
+					onclick={goToNextYear}
 					class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
 					title="下一年"
 				>
@@ -322,7 +416,7 @@
 			<div
 				class="year-scroll-container"
 				bind:this={yearGridEl}
-				on:wheel={handleYearWheel}
+				onwheel={handleYearWheel}
 			>
 				{#if yearLoading}
 					<div class="flex items-center justify-center py-12">
@@ -337,7 +431,7 @@
 							<button
 								class="mini-month"
 								class:mini-month-current={isCurrentMonthMini(monthIdx)}
-								on:click={() => exitYearView(monthIdx + 1)}
+								onclick={() => exitYearView(monthIdx + 1)}
 								style="animation-delay: {monthIdx * 30}ms"
 							>
 								<div class="mini-month-name" class:text-primary={isCurrentMonthMini(monthIdx)}>
@@ -356,7 +450,7 @@
 												class="mini-day"
 												class:mini-day-today={isTodayMini(monthIdx, day)}
 												class:mini-day-has-diary={yearHasDiary(monthIdx, day)}
-												on:click|stopPropagation={(e) => handleMiniDayClick(e, monthIdx, day)}
+												onclick={(e) => handleMiniDayClick(e, monthIdx, day)}
 												role="button"
 												tabindex="-1"
 											>
@@ -376,6 +470,31 @@
 				{/if}
 			</div>
 		</div>
+	{/if}
+
+	{#if analysis}
+		<CalendarAnalysis
+			mode={analysis.mode}
+			period={analysis.period}
+			start={analysis.start}
+			end={analysis.end}
+			onClose={closeAnalysis}
+		/>
+	{/if}
+
+	{#if yearPickerOpen}
+		<CalendarYearPicker
+			currentYear={{
+				set: (v: number) => { currentYear = v; },
+				value: currentYear
+			}}
+			currentMonth={{
+				set: (v: number) => { currentMonth = v; },
+				value: currentMonth
+			}}
+			onClose={closeYearPicker}
+			onMonthChange={onmonthchange}
+		/>
 	{/if}
 </div>
 
@@ -525,20 +644,14 @@
 	.mini-cal-grid {
 		display: grid;
 		grid-template-columns: repeat(7, 1fr);
-		gap: 0px;
+		gap: 1px;
 	}
 
 	.mini-weekday {
 		text-align: center;
-		font-size: 0.5625rem;
-		color: hsl(var(--muted-foreground) / 0.6);
-		padding: 0.0625rem 0;
-		font-weight: 500;
-		user-select: none;
-	}
-
-	.mini-day-empty {
-		aspect-ratio: 1;
+		font-size: 0.55rem;
+		color: hsl(var(--muted-foreground) / 0.7);
+		padding: 2px 0;
 	}
 
 	.mini-day {
@@ -546,102 +659,29 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		border-radius: 0.25rem;
-		transition: all 0.15s ease;
+		font-size: 0.7rem;
+		border-radius: 3px;
+		color: hsl(var(--foreground) / 0.85);
 		cursor: pointer;
-		position: relative;
+		transition: all 0.15s ease;
 	}
 
 	.mini-day:hover {
-		background: hsl(var(--muted) / 0.8);
-	}
-
-	.mini-day-number {
-		font-size: 0.5625rem;
-		line-height: 1;
-		color: hsl(var(--foreground) / 0.7);
-		user-select: none;
+		background: hsl(var(--primary) / 0.1);
+		color: hsl(var(--foreground));
 	}
 
 	.mini-day-today {
-		background: hsl(var(--primary) / 0.15);
-		border-radius: 50%;
-	}
-
-	.mini-day-today .mini-day-number {
+		background: hsl(var(--primary) / 0.2);
 		color: hsl(var(--primary));
-		font-weight: 700;
-	}
-
-	.mini-day-has-diary {
-		background: hsl(38 92% 50% / 0.15);
-	}
-
-	.mini-day-has-diary .mini-day-number {
-		color: hsl(38 92% 40%);
 		font-weight: 600;
 	}
 
-	.mini-day-has-diary:hover {
-		background: hsl(38 92% 50% / 0.25);
+	.mini-day-has-diary {
+		background: hsl(38, 100%, 50% / 0.15);
 	}
 
-	:global(.dark) .mini-day-has-diary {
-		background: hsl(38 92% 50% / 0.2);
-	}
-
-	:global(.dark) .mini-day-has-diary .mini-day-number {
-		color: hsl(38 92% 65%);
-	}
-
-	:global(.dark) .mini-day-has-diary:hover {
-		background: hsl(38 92% 50% / 0.3);
-	}
-
-	/* Today + has diary */
-	.mini-day-today.mini-day-has-diary {
-		background: hsl(var(--primary) / 0.15);
-		box-shadow: 0 0 0 1.5px hsl(38 92% 50% / 0.4);
-	}
-
-	.mini-day-today.mini-day-has-diary .mini-day-number {
-		color: hsl(var(--primary));
-	}
-
-	@media (max-width: 640px) {
-		.day {
-			font-size: 0.75rem;
-		}
-
-		.emoji-chip {
-			font-size: 0.56rem;
-			padding: 0.08rem 0.2rem;
-		}
-
-		.mini-month {
-			padding: 0.375rem;
-		}
-
-		.mini-month-name {
-			font-size: 0.75rem;
-		}
-
-		.mini-day-number {
-			font-size: 0.5rem;
-		}
-
-		.mini-weekday {
-			font-size: 0.5rem;
-		}
-	}
-
-	.emoji-chip {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		padding: 0.1rem 0.25rem;
-		border-radius: 999px;
-		background: color-mix(in srgb, var(--muted) 75%, transparent);
-		backdrop-filter: blur(2px);
+	.mini-day-empty {
+		aspect-ratio: 1;
 	}
 </style>

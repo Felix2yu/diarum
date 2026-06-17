@@ -66,6 +66,7 @@ COPY --from=backend-builder /app/diarum /app/diarum
 RUN mkdir -p /app/data && \
     chown -R diarum:diarum /app
 
+ENV TZ=Asia/Shanghai
 ENV DIARUM_DATA_PATH=/app/data
 
 USER diarum
