@@ -1,27 +1,6 @@
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
-	import { Editor } from '@tiptap/core';
-	import StarterKit from '@tiptap/starter-kit';
-	import Placeholder from '@tiptap/extension-placeholder';
-	import { ImageExtension } from './ImageNodeView';
-	import Link from '@tiptap/extension-link';
-	import Underline from '@tiptap/extension-underline';
-	import Highlight from '@tiptap/extension-highlight';
-	import TaskList from '@tiptap/extension-task-list';
-	import TaskItem from '@tiptap/extension-task-item';
-	import CharacterCount from '@tiptap/extension-character-count';
-	import Typography from '@tiptap/extension-typography';
-	import CodeBlockLowlight from '@tiptap/extension-code-block-lowlight';
-	import Focus from '@tiptap/extension-focus';
-	import { common, createLowlight } from 'lowlight';
-	import { DOMSerializer } from '@tiptap/pm/model';
-	import { uploadImage, getMediaUrl, isCheveretoResult } from '$lib/utils/uploadImage';
-	import { SlashCommands } from './SlashCommands';
-	import { getSuggestionItems, setImageUploadTrigger, setGalleryPickerTrigger } from './commands';
-	import { suggestionRenderer, showCommandMenu } from './suggestionRenderer';
-	import MediaPicker from './MediaPicker.svelte';
-	import { getMediaFileUrl, addMediaDiary } from '$lib/api/media';
-	import type { MediaWithDiary } from '$lib/api/media';
+	import { onMount, onDestroy, tick } from 'svelte';
+	import { marked } from 'marked';
 
 	export let content = '';
 	export let onChange: (value: string) => void = () => {};
@@ -30,319 +9,136 @@
 	export let selectedContent: string = '';
 	export let emptyStatePrompt: string = '';
 
-	let editorElement: HTMLDivElement;
-	let editor: Editor | null = null;
-	let fileInput: HTMLInputElement;
-	let uploadError = '';
-	let showMediaPicker = false;
+	let textareaEl: HTMLTextAreaElement | null = null;
 	let isFocused = false;
 
-	// Add button state
-	let showAddButton = false;
-	let addButtonTop = 0;
+	// Markdown 渲染配置：只在组件实例初始化一次
+	marked.setOptions({
+		breaks: true,
+		gfm: true,
+		mangle: false,
+		headerIds: false
+	});
 
-	const lowlight = createLowlight(common);
-
-	// Image upload config
-	const IMAGE_CONFIG = {
-		maxSize: 50 * 1024 * 1024, // 50MB
-		allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp'],
-	};
-
-	// Validate image file
-	function validateImageFile(file: File): string | null {
-		if (!IMAGE_CONFIG.allowedTypes.includes(file.type)) {
-			return `不支持的图片格式。请使用 JPG、PNG、GIF 或 WebP`;
-		}
-		if (file.size > IMAGE_CONFIG.maxSize) {
-			const maxMB = IMAGE_CONFIG.maxSize / 1024 / 1024;
-			return `图片大小不能超过 ${maxMB}MB`;
-		}
-		return null;
-	}
-
-	// Generate unique placeholder ID
-	function generatePlaceholderId(): string {
-		return `upload-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-	}
-
-	// Handle image upload with placeholder
-	async function handleImageUploadWithPlaceholder(file: File): Promise<void> {
-		if (!editor) return;
-
-		// Validate file
-		const validationError = validateImageFile(file);
-		if (validationError) {
-			uploadError = validationError;
-			setTimeout(() => (uploadError = ''), 3000);
-			return;
-		}
-
-		const placeholderId = generatePlaceholderId();
-
-		// Insert placeholder with preview
-		editor.chain().focus().setImagePlaceholder({ id: placeholderId, file }).run();
-
-		uploadError = '';
-
+	function renderMarkdown(text: string): string {
+		const trimmed = (text ?? '').trim();
+		if (!trimmed) return '';
 		try {
-			const result = await uploadImage(file, { diaryDate });
-			let url: string;
-
-			if (isCheveretoResult(result)) {
-				url = result.cheveretoUrl;
-			} else {
-				url = getMediaUrl(result);
-			}
-
-			// Replace placeholder with actual image
-			editor.commands.replacePlaceholderWithImage({
-				id: placeholderId,
-				src: url,
-				alt: file.name,
-			});
-		} catch (error) {
-			console.error('Image upload failed:', error);
-			uploadError = '图片上传失败，请重试';
-			setTimeout(() => (uploadError = ''), 3000);
-
-			// Remove placeholder on error
-			editor.commands.removePlaceholder(placeholderId);
+			return marked.parse(trimmed, { async: false }) as string;
+		} catch (e) {
+			// 回退：保留换行的纯文本
+			return (text ?? '')
+				.split('\n')
+				.map((line) => `<p>${line}</p>`)
+				.join('\n');
 		}
 	}
 
-	// Handle paste event
-	function handlePaste(view: any, event: ClipboardEvent) {
-		const items = event.clipboardData?.items;
-		if (!items) return false;
-
-		for (const item of items) {
-			if (item.type.startsWith('image/')) {
-				event.preventDefault();
-				const file = item.getAsFile();
-				if (file) {
-					handleImageUploadWithPlaceholder(file);
-				}
-				return true;
-			}
-		}
-		return false;
+	function handleInput() {
+		if (!textareaEl) return;
+		const val = textareaEl.value;
+		content = val;
+		onChange(val);
 	}
 
-	// Handle drop event
-	function handleDrop(view: any, event: DragEvent) {
-		const files = event.dataTransfer?.files;
-		if (!files || files.length === 0) return false;
-
-		const file = files[0];
-		if (file.type.startsWith('image/')) {
-			event.preventDefault();
-			handleImageUploadWithPlaceholder(file);
-			return true;
-		}
-		return false;
+	function handleFocus() {
+		isFocused = true;
 	}
 
-	// Handle slash command image trigger
-	function handleSlashImage() {
-		fileInput?.click();
+	function handleBlur() {
+		isFocused = false;
 	}
 
-	// Handle gallery picker trigger
-	function handleGalleryPicker() {
-		showMediaPicker = true;
-	}
-
-	// Handle media selection from gallery
-	async function handleMediaSelect(media: MediaWithDiary) {
-		if (!editor) return;
-
-		const url = getMediaFileUrl(media);
-		editor.chain().focus().setImage({ src: url }).run();
-
-		// Associate media with current diary
-		if (diaryDate && media.id) {
-			try {
-				const { getOrCreateDiaryId } = await import('$lib/utils/uploadImage');
-				const diaryId = await getOrCreateDiaryId(diaryDate);
-				if (diaryId) {
-					await addMediaDiary(media.id, diaryId);
-				}
-			} catch (error) {
-				console.error('Failed to associate media with diary:', error);
-			}
-		}
-	}
-
-	function handleFileSelect(event: Event) {
-		const input = event.target as HTMLInputElement;
-		const file = input.files?.[0];
-		if (file) {
-			handleImageUploadWithPlaceholder(file);
-			input.value = '';
-		}
-	}
-
-	// Get HTML of current selection
-	function getSelectionHtml(): string {
-		if (!editor) return '';
-		const { from, to, empty } = editor.state.selection;
-		if (empty) return '';
-		const { schema, doc } = editor.state;
-		const slice = doc.slice(from, to);
-		const div = document.createElement('div');
-		const serializer = DOMSerializer.fromSchema(schema);
-		const fragment = serializer.serializeFragment(slice.content);
-		div.appendChild(fragment);
-		return div.innerHTML;
-	}
-
-	// Update add button position based on cursor
-	function updateAddButton() {
-		if (!editor || !editorElement) {
-			showAddButton = false;
+	function handleSelect() {
+		if (!textareaEl) {
+			selectedContent = '';
 			return;
 		}
+		const start = textareaEl.selectionStart ?? 0;
+		const end = textareaEl.selectionEnd ?? 0;
+		if (start === end) {
+			selectedContent = '';
+			return;
+		}
+		selectedContent = textareaEl.value.substring(start, end);
+	}
 
-		const { selection } = editor.state;
-		const { $from } = selection;
-		const node = $from.parent;
-
-		// Show only on empty paragraph
-		if (node.type.name === 'paragraph' && node.content.size === 0) {
-			const coords = editor.view.coordsAtPos($from.pos);
-			const editorRect = editorElement.getBoundingClientRect();
-			addButtonTop = coords.top - editorRect.top;
-			showAddButton = true;
-		} else {
-			showAddButton = false;
+	// 当点击预览区域（非焦点状态），聚焦到 textarea 的末尾并移动光标
+	function handlePreviewClick() {
+		if (!textareaEl) return;
+		textareaEl.focus();
+		const len = textareaEl.value.length;
+		// 把光标放到末尾
+		try {
+			textareaEl.setSelectionRange(len, len);
+		} catch (e) {
+			// ignore
 		}
 	}
 
-	// Handle add button click
-	let addButtonEl: HTMLButtonElement;
-	function handleAddClick() {
-		if (!editor || !addButtonEl) return;
-		editor.commands.focus();
-		showCommandMenu(editor, addButtonEl);
-	}
-
-	onMount(() => {
-		// Register image upload trigger for slash commands
-		setImageUploadTrigger(handleSlashImage);
-		// Register gallery picker trigger for slash commands
-		setGalleryPickerTrigger(handleGalleryPicker);
-
-		editor = new Editor({
-			element: editorElement,
-			extensions: [
-				StarterKit.configure({
-					codeBlock: false,
-				}),
-				Placeholder.configure({
-					placeholder: ({ node }) => {
-						if (node.type.name === 'paragraph') {
-							return '输入 / 以浏览选项';
-						}
-						return placeholder;
-					},
-					showOnlyCurrent: true,
-				}),
-				ImageExtension.configure({
-					inline: false,
-					allowBase64: true,
-				}),
-				Focus.configure({
-					className: 'has-focus',
-					mode: 'all',
-				}),
-				Link.configure({
-					openOnClick: false,
-				}),
-				Underline,
-				Highlight.configure({
-					multicolor: true,
-				}),
-				TaskList,
-				TaskItem.configure({
-					nested: true,
-				}),
-				CharacterCount,
-				Typography,
-				CodeBlockLowlight.configure({
-					lowlight,
-				}),
-				SlashCommands.configure({
-					suggestion: {
-						items: ({ query }: { query: string }) => getSuggestionItems(query),
-						render: () => suggestionRenderer,
-					},
-				}),
-			],
-			content,
-			editorProps: {
-				handlePaste,
-				handleDrop,
-				attributes: {
-					class: 'tiptap-editor-content',
-				},
-			},
-			onUpdate: ({ editor }) => {
-				onChange(editor.getHTML());
-			},
-			onTransaction: () => {
-				editor = editor;
-				updateAddButton();
-				selectedContent = getSelectionHtml();
-			},
-			onFocus: () => {
-				isFocused = true;
-			},
-			onBlur: () => {
-				isFocused = false;
-			},
-		});
-
-		// When the user deselects outside the editor, Tiptap's onTransaction
-		// doesn't fire, so we rely on the native selectionchange event to clear.
-		function handleDocumentSelectionChange() {
-			if (!editorElement) return;
-			const sel = window.getSelection();
-			if (!sel || sel.isCollapsed || !editorElement.contains(sel.anchorNode)) {
-				selectedContent = '';
+	// 外部 content 变化时，同步 textarea 的值与滚动位置（避免光标跳动）
+	let internalContent = '';
+	$effect(() => {
+		if (textareaEl && textareaEl.value !== content) {
+			// 只有在非聚焦状态下才完全替换内容；聚焦时只替换非当前选择前后的内容，避免打断输入
+			if (!isFocused) {
+				textareaEl.value = content;
+			} else {
+				// 聚焦状态下不覆盖（输入由 handleInput 驱动）
+				// 但如果外部来源差异过大（例如清空），跟随更新并尽量保留光标位置
+				const cur = textareaEl.value;
+				if (content === '' || cur.length === 0 || Math.abs(cur.length - content.length) > 100) {
+					const pos = textareaEl.selectionStart ?? cur.length;
+					textareaEl.value = content;
+					const newPos = Math.min(pos, content.length);
+					try {
+						textareaEl.setSelectionRange(newPos, newPos);
+					} catch (e) {
+						// ignore
+					}
+				}
 			}
 		}
-		document.addEventListener('selectionchange', handleDocumentSelectionChange);
-
-		return () => {
-			document.removeEventListener('selectionchange', handleDocumentSelectionChange);
-		};
+		internalContent = content;
 	});
 
-	onDestroy(() => {
-		// Cleanup image upload trigger
-		setImageUploadTrigger(null);
-		// Cleanup gallery picker trigger
-		setGalleryPickerTrigger(null);
-		editor?.destroy();
-	});
-
-	// Watch for external content changes
-	$: if (editor) {
-		const isSame = editor.getHTML() === content;
-		if (!isSame) {
-			editor.commands.setContent(content, false);
+	$effect(() => {
+		// 初始加载：设置 textarea 的 value
+		if (textareaEl) {
+			textareaEl.value = content;
 		}
+	});
+
+	function toggleFocusFromClick() {
+		handlePreviewClick();
 	}
 </script>
 
-<div class="tiptap-editor">
-	<div bind:this={editorElement} class="editor-container"></div>
-	{#if emptyStatePrompt && !content && !isFocused}
+<div class="markdown-editor">
+	<!-- 编辑模式：聚焦时显示 textarea -->
+	<textarea
+		bind:this={textareaEl}
+		class="markdown-textarea {isFocused ? 'is-focused' : 'is-blurred'}"
+		placeholder={placeholder}
+		oninput={handleInput}
+		onfocus={handleFocus}
+		onblur={handleBlur}
+		onselect={handleSelect}
+		onclick={handleSelect}
+		spellcheck="false"
+	></textarea>
+
+	<!-- 预览模式：失焦时覆盖渲染 Markdown -->
+	{#if !isFocused && content}
+		<div class="markdown-preview" onclick={toggleFocusFromClick}>
+			{@html renderMarkdown(content)}
+		</div>
+	{:else if !isFocused && !content && emptyStatePrompt}
+		<!-- 空状态 -->
 		<button
 			type="button"
 			class="empty-state-overlay"
-			on:click={() => editor?.commands.focus()}
+			onclick={handlePreviewClick}
 			aria-label="编辑器焦点"
 		>
 			<div class="text-center text-muted-foreground">
@@ -350,92 +146,210 @@
 			</div>
 		</button>
 	{/if}
-	{#if showAddButton}
-		<button
-			bind:this={addButtonEl}
-			type="button"
-			class="add-button"
-			style="top: {addButtonTop}px;"
-			on:click={handleAddClick}
-		>
-			+
-		</button>
-	{/if}
-	<input
-		type="file"
-		accept="image/*"
-		bind:this={fileInput}
-		on:change={handleFileSelect}
-		style="display: none;"
-	/>
-	{#if uploadError}
-		<div class="upload-error">{uploadError}</div>
-	{/if}
 </div>
 
-{#if showMediaPicker}
-	<MediaPicker
-		onSelect={handleMediaSelect}
-		onClose={() => showMediaPicker = false}
-	/>
-{/if}
-
 <style>
-	.tiptap-editor {
+	.markdown-editor {
 		position: relative;
 		width: 100%;
 		min-height: 500px;
 	}
 
-	.editor-container {
+	.markdown-textarea {
+		display: block;
+		width: 100%;
 		min-height: 500px;
+		padding: 1.5rem 1.75rem;
+		border: none;
+		background: transparent;
+		color: hsl(var(--foreground) / 0.92);
+		font-size: 1rem;
+		line-height: 1.8;
+		font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+		outline: none;
+		resize: vertical;
+		white-space: pre-wrap;
+		word-break: break-word;
+		tab-size: 2;
+		box-sizing: border-box;
+		transition: opacity 0.15s ease;
+		/* 失焦时降低透明度并移到后方（由预览层覆盖可见） */
 	}
 
-	.add-button {
+	.markdown-textarea.is-blurred {
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.markdown-textarea.is-focused {
+		opacity: 1;
+	}
+
+	.markdown-preview {
 		position: absolute;
-		left: 0;
-		width: 24px;
-		height: 24px;
-		display: flex;
-		align-items: center;
-		justify-content: center;
+		inset: 0;
+		padding: 1.5rem 1.75rem;
+		overflow-y: auto;
+		cursor: text;
+		color: hsl(var(--foreground) / 0.92);
+		line-height: 1.8;
+		font-size: 1rem;
+		box-sizing: border-box;
+	}
+
+	.markdown-preview :global(> *:first-child) {
+		margin-top: 0;
+	}
+
+	.markdown-preview :global(> *:last-child) {
+		margin-bottom: 0;
+	}
+
+	.markdown-preview :global(p) {
+		margin: 0 0 0.9rem;
+	}
+
+	.markdown-preview :global(h1) {
+		font-size: 1.65rem;
+		font-weight: 600;
+		margin: 1.8rem 0 0.9rem;
+		padding-bottom: 0.35rem;
+		border-bottom: 1px solid hsl(var(--border) / 0.55);
+		color: hsl(var(--foreground));
+	}
+
+	.markdown-preview :global(h2) {
+		font-size: 1.35rem;
+		font-weight: 600;
+		margin: 1.4rem 0 0.7rem;
+		color: hsl(var(--foreground));
+	}
+
+	.markdown-preview :global(h3) {
+		font-size: 1.15rem;
+		font-weight: 600;
+		margin: 1.2rem 0 0.55rem;
+		color: hsl(var(--foreground));
+	}
+
+	.markdown-preview :global(h4),
+	.markdown-preview :global(h5),
+	.markdown-preview :global(h6) {
+		font-size: 1rem;
+		font-weight: 600;
+		margin: 1rem 0 0.5rem;
+		color: hsl(var(--foreground));
+	}
+
+	.markdown-preview :global(strong) {
+		font-weight: 600;
+		color: hsl(var(--foreground));
+	}
+
+	.markdown-preview :global(em) {
+		font-style: italic;
+	}
+
+	.markdown-preview :global(ul),
+	.markdown-preview :global(ol) {
+		margin: 0.25rem 0 0.9rem;
+		padding-left: 1.6rem;
+	}
+
+	.markdown-preview :global(li) {
+		margin: 0.15rem 0;
+	}
+
+	.markdown-preview :global(ul li) {
+		list-style: disc;
+	}
+
+	.markdown-preview :global(ol li) {
+		list-style: decimal;
+	}
+
+	.markdown-preview :global(blockquote) {
+		margin: 0.6rem 0 0.9rem;
+		padding: 0.3rem 0.9rem;
+		border-left: 3px solid hsl(var(--primary) / 0.55);
+		background: hsl(var(--muted) / 0.35);
+		color: hsl(var(--muted-foreground));
+		border-radius: 0 0.5rem 0.5rem 0;
+	}
+
+	.markdown-preview :global(blockquote p) {
+		margin: 0;
+	}
+
+	.markdown-preview :global(code) {
+		padding: 0.1rem 0.38rem;
+		background: hsl(var(--muted) / 0.55);
+		border-radius: 0.3rem;
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 0.86em;
+		color: hsl(var(--foreground) / 0.92);
+	}
+
+	.markdown-preview :global(pre) {
+		background: hsl(var(--muted) / 0.35);
+		border: 1px solid hsl(var(--border) / 0.45);
+		border-radius: 0.5rem;
+		padding: 0.85rem 1rem;
+		overflow-x: auto;
+		margin: 0.6rem 0 0.9rem;
+	}
+
+	.markdown-preview :global(pre code) {
 		background: transparent;
 		border: none;
-		color: hsl(var(--muted-foreground));
-		font-size: 18px;
-		font-weight: 300;
-		cursor: pointer;
-		opacity: 0.4;
-		transition: opacity 0.15s ease;
 		padding: 0;
+		font-size: 0.86rem;
 	}
 
-	.add-button:hover {
-		opacity: 0.8;
+	.markdown-preview :global(hr) {
+		border: none;
+		border-top: 1px solid hsl(var(--border) / 0.55);
+		margin: 1rem 0;
 	}
 
-	.upload-error {
-		position: fixed;
-		bottom: 20px;
-		right: 20px;
-		background: hsl(0 84% 60%);
-		color: white;
-		padding: 12px 16px;
-		border-radius: 8px;
-		font-size: 14px;
-		z-index: 1000;
-		animation: slideIn 0.2s ease;
+	.markdown-preview :global(a) {
+		color: hsl(var(--primary));
+		text-decoration: none;
 	}
 
-	@keyframes slideIn {
-		from {
-			transform: translateX(100%);
-			opacity: 0;
-		}
-		to {
-			transform: translateX(0);
-			opacity: 1;
-		}
+	.markdown-preview :global(a:hover) {
+		text-decoration: underline;
+	}
+
+	.markdown-preview :global(table) {
+		width: 100%;
+		border-collapse: collapse;
+		margin: 0.6rem 0 0.9rem;
+		font-size: 0.95rem;
+	}
+
+	.markdown-preview :global(th),
+	.markdown-preview :global(td) {
+		border: 1px solid hsl(var(--border) / 0.5);
+		padding: 0.45rem 0.6rem;
+		text-align: left;
+	}
+
+	.markdown-preview :global(th) {
+		background: hsl(var(--muted) / 0.5);
+		font-weight: 600;
+	}
+
+	.markdown-preview :global(tr:nth-child(even) td) {
+		background: hsl(var(--muted) / 0.15);
+	}
+
+	.markdown-preview :global(img) {
+		max-width: 100%;
+		height: auto;
+		border-radius: 0.5rem;
+		display: block;
+		margin: 0.6rem auto;
 	}
 
 	.empty-state-overlay {
@@ -449,6 +363,5 @@
 		border: 0;
 		padding: 0;
 		cursor: text;
-		pointer-events: auto;
 	}
 </style>

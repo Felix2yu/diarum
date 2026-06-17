@@ -11,20 +11,33 @@
 
 	$: headings = extractHeadings(content);
 
-	function extractHeadings(html: string): TocItem[] {
-		if (!html) return [];
+	function extractHeadings(text: string): TocItem[] {
+		if (!text) return [];
 
 		const items: TocItem[] = [];
-		// 匹配 HTML 标题标签
-		const regex = /<h([1-3])[^>]*>([^<]+)<\/h[1-3]>/gi;
+		// 匹配 Markdown 标题：行首 #/##/### + 空格 + 标题文本
+		// 同时兼顾 HTML 标题（向后兼容 Tiptap 时代的旧内容）
+		const mdRegex = /^(#{1,3})\s+(.+?)\s*#*\s*$/gm;
+		const htmlRegex = /<h([1-3])[^>]*>([^<]+)<\/h[1-3]>/gi;
+
 		let match;
 		let index = 0;
 
-		while ((match = regex.exec(html)) !== null) {
-			const level = parseInt(match[1]);
-			const text = match[2].trim();
-			const id = `heading-${index++}`;
-			items.push({ id, text, level });
+		while ((match = mdRegex.exec(text)) !== null) {
+			const level = match[1].length; // '#' 的数量
+			const headingText = match[2].trim();
+			if (!headingText) continue;
+			items.push({ id: `heading-${index++}`, text: headingText, level });
+		}
+
+		// 如果没有 Markdown 标题，尝试 HTML 标题（兼容旧内容）
+		if (items.length === 0) {
+			while ((match = htmlRegex.exec(text)) !== null) {
+				const level = parseInt(match[1]);
+				const headingText = match[2].trim();
+				if (!headingText) continue;
+				items.push({ id: `heading-${index++}`, text: headingText, level });
+			}
 		}
 
 		return items;
@@ -32,14 +45,15 @@
 
 	function scrollToHeading(id: string) {
 		const headingIndex = parseInt(id.replace('heading-', ''));
-		const editorEl = document.querySelector('.tiptap-editor-content');
+		// Markdown 预览区域的标题
+		const editorEl = document.querySelector('.markdown-preview');
 		if (!editorEl) return;
 
 		const headingEls = editorEl.querySelectorAll('h1, h2, h3');
 		const targetEl = headingEls[headingIndex];
 
 		if (targetEl) {
-			const headerOffset = 60; // Account for sticky header
+			const headerOffset = 60;
 			const elementPosition = targetEl.getBoundingClientRect().top;
 			const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
 
@@ -48,7 +62,6 @@
 				behavior: 'smooth'
 			});
 
-			// Notify parent to close drawer if needed
 			onNavigate?.();
 		}
 	}
