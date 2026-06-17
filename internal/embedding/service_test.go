@@ -230,11 +230,11 @@ func TestBuildQueryAndStats(t *testing.T) {
 	withMockTransport(t, newEmbeddingTransport(t, http.StatusOK, ""))
 	configureAISettings(t, s, user.ID, "https://mock.local")
 
-	diary1, err := s.InsertImportedDiary(user.ID, "d1", "2024-01-01", "happy sun walk", "happy", "sunny")
+	diary1, err := s.InsertImportedDiary(user.ID, "d1", "2024-01-01", "happy sun walk", "happy", "sunny", nil)
 	if err != nil {
 		t.Fatalf("InsertImportedDiary d1: %v", err)
 	}
-	_, err = s.InsertImportedDiary(user.ID, "d2", "2024-01-02", "sad rain day", "sad", "rainy")
+	_, err = s.InsertImportedDiary(user.ID, "d2", "2024-01-02", "sad rain day", "sad", "rainy", nil)
 	if err != nil {
 		t.Fatalf("InsertImportedDiary d2: %v", err)
 	}
@@ -283,7 +283,7 @@ func TestBuildQueryAndStats(t *testing.T) {
 		t.Fatalf("parse built_at: %v", err)
 	}
 
-	updatedDiary, _, err := s.UpsertDiary(user.ID, "2024-01-01", "happy sun walk updated", "happy", "sunny")
+	updatedDiary, _, err := s.UpsertDiary(user.ID, "2024-01-01", "happy sun walk updated", "happy", "sunny", nil)
 	if err != nil {
 		t.Fatalf("UpsertDiary update: %v", err)
 	}
@@ -475,10 +475,10 @@ func TestBuildFailuresAndPendingStats(t *testing.T) {
 	})
 	configureAISettings(t, s, user.ID, "https://mock.local")
 
-	if _, err := s.InsertImportedDiary(user.ID, "ok-diary", "2024-05-01", "happy day", "", ""); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "ok-diary", "2024-05-01", "happy day", "", "", nil); err != nil {
 		t.Fatalf("InsertImportedDiary ok: %v", err)
 	}
-	if _, err := s.InsertImportedDiary(user.ID, "fail-diary", "2024-05-02", "please fail", "", ""); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "fail-diary", "2024-05-02", "please fail", "", "", nil); err != nil {
 		t.Fatalf("InsertImportedDiary fail: %v", err)
 	}
 
@@ -492,7 +492,7 @@ func TestBuildFailuresAndPendingStats(t *testing.T) {
 
 	pendingUser := newTestUser(t, s)
 	configureAISettings(t, s, pendingUser.ID, "https://mock.local")
-	if _, err := s.InsertImportedDiary(pendingUser.ID, "pending-diary", "2024-05-03", "pending", "", ""); err != nil {
+	if _, err := s.InsertImportedDiary(pendingUser.ID, "pending-diary", "2024-05-03", "pending", "", "", nil); err != nil {
 		t.Fatalf("InsertImportedDiary pending: %v", err)
 	}
 	stats, err := service.GetVectorStats(context.Background(), pendingUser.ID)
@@ -529,10 +529,10 @@ func TestIncrementalBuildAndStatsEdges(t *testing.T) {
 	})
 	configureAISettings(t, s, user.ID, "https://mock.local")
 
-	if _, err := s.InsertImportedDiary(user.ID, "ok-incremental", "2024-06-01", "ok", "", ""); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "ok-incremental", "2024-06-01", "ok", "", "", nil); err != nil {
 		t.Fatalf("InsertImportedDiary ok: %v", err)
 	}
-	if _, err := s.InsertImportedDiary(user.ID, "fail-incremental", "2024-06-02", "please fail", "", ""); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "fail-incremental", "2024-06-02", "please fail", "", "", nil); err != nil {
 		t.Fatalf("InsertImportedDiary fail: %v", err)
 	}
 
@@ -546,15 +546,15 @@ func TestIncrementalBuildAndStatsEdges(t *testing.T) {
 
 	statsUser := newTestUser(t, s)
 	configureAISettings(t, s, statsUser.ID, "https://mock.local")
-	invalidUpdated, err := s.InsertImportedDiary(statsUser.ID, "invalid-updated", "2024-06-03", "indexed", "", "")
+	invalidUpdated, err := s.InsertImportedDiary(statsUser.ID, "invalid-updated", "2024-06-03", "indexed", "", "", nil)
 	if err != nil {
 		t.Fatalf("InsertImportedDiary invalid-updated: %v", err)
 	}
-	missingBuiltAt, err := s.InsertImportedDiary(statsUser.ID, "missing-built-at", "2024-06-04", "indexed", "", "")
+	missingBuiltAt, err := s.InsertImportedDiary(statsUser.ID, "missing-built-at", "2024-06-04", "indexed", "", "", nil)
 	if err != nil {
 		t.Fatalf("InsertImportedDiary missing-built-at: %v", err)
 	}
-	badBuiltAt, err := s.InsertImportedDiary(statsUser.ID, "bad-built-at", "2024-06-05", "indexed", "", "")
+	badBuiltAt, err := s.InsertImportedDiary(statsUser.ID, "bad-built-at", "2024-06-05", "indexed", "", "", nil)
 	if err != nil {
 		t.Fatalf("InsertImportedDiary bad-built-at: %v", err)
 	}
@@ -692,7 +692,7 @@ func TestGetVectorStatsMissingCollection(t *testing.T) {
 	vectorDB := newTestVectorDB(t)
 	service := NewEmbeddingService(s, vectorDB)
 
-	if _, err := s.InsertImportedDiary(user.ID, "pending-doc", "2024-08-01", "content", "", ""); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "pending-doc", "2024-08-01", "content", "", "", nil); err != nil {
 		t.Fatalf("InsertImportedDiary: %v", err)
 	}
 	stats, err := service.GetVectorStats(context.Background(), user.ID)

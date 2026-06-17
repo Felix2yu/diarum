@@ -4,13 +4,13 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -69,15 +69,15 @@ type User struct {
 }
 
 type Diary struct {
-	ID      string `json:"id"`
-	Date    string `json:"date"`
-	Content string `json:"content"`
-	Mood    string `json:"mood"`
-	Weather string `json:"weather"`
-	Owner   string `json:"owner"`
-	Tags    string `json:"-"`
-	Created string `json:"created"`
-	Updated string `json:"updated"`
+	ID      string   `json:"id"`
+	Date    string   `json:"date"`
+	Content string   `json:"content"`
+	Mood    string   `json:"mood"`
+	Weather string   `json:"weather"`
+	Owner   string   `json:"owner"`
+	Tags    []string `json:"tags"`
+	Created string   `json:"created"`
+	Updated string   `json:"updated"`
 }
 
 type Media struct {
@@ -856,12 +856,12 @@ func scanUser(row interface{ Scan(dest ...any) error }) (*User, error) {
 	return user, nil
 }
 
-func (s *Store) UpsertDiary(owner, date, content, mood, weather string) (*Diary, bool, error) {
+func (s *Store) UpsertDiary(owner, date, content, mood, weather string, tags []string) (*Diary, bool, error) {
 	start, end := dayRange(date)
 	existing, err := s.GetDiaryByDate(owner, start, end)
 	if err == nil && existing != nil {
 		now := nowString()
-		_, err := s.DB.Exec(`UPDATE diaries SET content = ?, mood = ?, weather = ?, updated = ? WHERE id = ? AND owner = ?`, content, mood, weather, now, existing.ID, owner)
+		_, err := s.DB.Exec(`UPDATE diaries SET content = ?, mood = ?, weather = ?, tags = ?, updated = ? WHERE id = ? AND owner = ?`, content, mood, weather, encodeJSON(normalizeTags(tags)), now, existing.ID, owner)
 		if err != nil {
 			return nil, false, err
 		}
@@ -876,7 +876,7 @@ func (s *Store) UpsertDiary(owner, date, content, mood, weather string) (*Diary,
 		return nil, false, err
 	}
 	now := nowString()
-	_, err = s.DB.Exec(`INSERT INTO diaries(content, created, date, id, mood, owner, updated, weather, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, '[]')`, content, now, date+" 00:00:00.000Z", id, mood, owner, now, weather)
+	_, err = s.DB.Exec(`INSERT INTO diaries(content, created, date, id, mood, owner, updated, weather, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`, content, now, date+" 00:00:00.000Z", id, mood, owner, now, weather, encodeJSON(normalizeTags(tags)))
 	if err != nil {
 		return nil, true, err
 	}
@@ -954,10 +954,12 @@ func (s *Store) CountDiaries(owner string) int {
 
 func scanDiary(row interface{ Scan(dest ...any) error }) (*Diary, error) {
 	diary := &Diary{}
-	err := row.Scan(&diary.Content, &diary.Created, &diary.Date, &diary.ID, &diary.Mood, &diary.Owner, &diary.Updated, &diary.Weather, &diary.Tags)
+	var tagsRaw string
+	err := row.Scan(&diary.Content, &diary.Created, &diary.Date, &diary.ID, &diary.Mood, &diary.Owner, &diary.Updated, &diary.Weather, &tagsRaw)
 	if err != nil {
 		return nil, err
 	}
+	diary.Tags = decodeStringSlice(tagsRaw)
 	return diary, nil
 }
 
@@ -965,12 +967,103 @@ func scanDiaries(rows *sql.Rows) ([]*Diary, error) {
 	items := make([]*Diary, 0)
 	for rows.Next() {
 		item := &Diary{}
-		if err := rows.Scan(&item.Content, &item.Created, &item.Date, &item.ID, &item.Mood, &item.Owner, &item.Updated, &item.Weather, &item.Tags); err != nil {
+		var tagsRaw string
+		if err := rows.Scan(&item.Content, &item.Created, &item.Date, &item.ID, &item.Mood, &item.Owner, &item.Updated, &item.Weather, &tagsRaw); err != nil {
 			return nil, err
 		}
+		item.Tags = decodeStringSlice(tagsRaw)
 		items = append(items, item)
 	}
 	return items, rows.Err()
+}
+
+// normalizeTags cleans tag input: trim whitespace, remove empty duplicates, lowercase optional (kept as-is for user freedom).
+func normalizeTags(tags []string) []string {
+	seen := make(map[string]struct{}, len(tags))
+	result := make([]string, 0, len(tags))
+	for _, t := range tags {
+		t = strings.TrimSpace(t)
+		if t == "" {
+			continue
+		}
+		if _, ok := seen[t]; ok {
+			continue
+		}
+		seen[t] = struct{}{}
+		result = append(result, t)
+	}
+	return result
+}
+
+// TagCount represents a distinct tag and how many times it appears in a user's diary collection.
+type TagCount struct {
+	Tag   string `json:"tag"`
+	Count int    `json:"count"`
+}
+
+// ListTagCounts returns tag frequency across all of a user's diaries.
+func (s *Store) ListTagCounts(owner string) ([]*TagCount, error) {
+	rows, err := s.DB.Query(`SELECT tags FROM diaries WHERE owner = ?`, owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	counts := map[string]int{}
+	for rows.Next() {
+		var raw string
+		if err := rows.Scan(&raw); err != nil {
+			return nil, err
+		}
+		for _, t := range decodeStringSlice(raw) {
+			counts[t]++
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	result := make([]*TagCount, 0, len(counts))
+	for tag, count := range counts {
+		result = append(result, &TagCount{Tag: tag, Count: count})
+	}
+	// Sort: higher count first, then alphabetical
+	sort.SliceStable(result, func(i, j int) bool {
+		if result[i].Count != result[j].Count {
+			return result[i].Count > result[j].Count
+		}
+		return result[i].Tag < result[j].Tag
+	})
+	return result, nil
+}
+
+// ListDiariesByTag returns all diaries containing a specific tag for a user.
+func (s *Store) ListDiariesByTag(owner, tag string) ([]*Diary, error) {
+	tag = strings.TrimSpace(tag)
+	if tag == "" {
+		return []*Diary{}, nil
+	}
+	// SQLite JSON_EXTRACT on JSON string column stored as TEXT; we use JSON1 like-condition by scanning.
+	rows, err := s.DB.Query(`SELECT content, created, date, id, mood, owner, updated, weather, tags FROM diaries WHERE owner = ? ORDER BY date DESC`, owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := make([]*Diary, 0)
+	for rows.Next() {
+		d := &Diary{}
+		var tagsRaw string
+		if err := rows.Scan(&d.Content, &d.Created, &d.Date, &d.ID, &d.Mood, &d.Owner, &d.Updated, &d.Weather, &tagsRaw); err != nil {
+			return nil, err
+		}
+		d.Tags = decodeStringSlice(tagsRaw)
+		for _, t := range d.Tags {
+			if t == tag {
+				result = append(result, d)
+				break
+			}
+		}
+	}
+	return result, rows.Err()
 }
 
 func dayRange(date string) (string, string) {
@@ -1574,7 +1667,7 @@ func scanMessageRow(rows *sql.Rows) (*Message, error) {
 	return scanMessage(rows)
 }
 
-func (s *Store) InsertImportedDiary(owner, id, date, content, mood, weather string) (*Diary, error) {
+func (s *Store) InsertImportedDiary(owner, id, date, content, mood, weather string, tags []string) (*Diary, error) {
 	if id == "" {
 		var err error
 		id, err = GenerateID()
@@ -1583,7 +1676,7 @@ func (s *Store) InsertImportedDiary(owner, id, date, content, mood, weather stri
 		}
 	}
 	now := nowString()
-	_, err := s.DB.Exec(`INSERT INTO diaries(content, created, date, id, mood, owner, updated, weather, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, '[]')`, content, now, date+" 00:00:00.000Z", id, mood, owner, now, weather)
+	_, err := s.DB.Exec(`INSERT INTO diaries(content, created, date, id, mood, owner, updated, weather, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`, content, now, date+" 00:00:00.000Z", id, mood, owner, now, weather, encodeJSON(normalizeTags(tags)))
 	if err != nil {
 		return nil, err
 	}

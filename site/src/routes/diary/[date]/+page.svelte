@@ -45,6 +45,8 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	let selectedContent = '';
 	let selectedMood = '';
 	let selectedWeather = '';
+	let tags: string[] = [];
+	let tagInput = '';
 	// Snapshot taken on mousedown (before blur clears selectedContent)
 	let shareSelectedContent = '';
 	let shareOpenedByMouse = false;
@@ -63,6 +65,39 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 		}
 		shareOpenedByMouse = false;
 		showShareModal = true;
+	}
+
+	function addTagFromInput() {
+		const raw = tagInput.trim();
+		if (!raw) return;
+		// Split by comma so users can enter multiple at once
+		const newTags = raw.split(/[,，]/).map(s => s.trim()).filter(Boolean);
+		const seen = new Set(tags);
+		const merged = [...tags];
+		for (const t of newTags) {
+			if (!seen.has(t)) {
+				seen.add(t);
+				merged.push(t);
+			}
+		}
+		tags = merged;
+		tagInput = '';
+		updateLocalCache(date, { content, mood: selectedMood, weather: selectedWeather, tags });
+	}
+
+	function removeTag(tag: string) {
+		tags = tags.filter(t => t !== tag);
+		updateLocalCache(date, { content, mood: selectedMood, weather: selectedWeather, tags });
+	}
+
+	function handleTagKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter' || e.key === ',') {
+			e.preventDefault();
+			addTagFromInput();
+		} else if (e.key === 'Backspace' && tagInput === '' && tags.length > 0) {
+			tags = tags.slice(0, -1);
+			updateLocalCache(date, { content, mood: selectedMood, weather: selectedWeather, tags });
+		}
 	}
 
 	$: date = $page.params.date ?? getToday();
@@ -97,6 +132,7 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 			content = cached.content;
 			selectedMood = cached.mood || '';
 			selectedWeather = cached.weather || '';
+			tags = cached.tags || [];
 			loading = false;
 			return;
 		}
@@ -104,6 +140,7 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 		content = '';
 		selectedMood = '';
 		selectedWeather = '';
+		tags = [];
 
 		// Browser cache is disabled; fetch current content from server.
 		loading = true;
@@ -115,6 +152,7 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 			content = diary?.content || '';
 			selectedMood = diary?.mood || '';
 			selectedWeather = diary?.weather || '';
+			tags = diary?.tags || [];
 		} catch (error) {
 			console.error('Failed to load diary:', error);
 			// Keep local draft on fetch failure if one exists.
@@ -122,6 +160,7 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 				content = cached.content;
 				selectedMood = cached.mood || '';
 				selectedWeather = cached.weather || '';
+				tags = cached.tags || [];
 			}
 		}
 		loading = false;
@@ -142,7 +181,8 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 		updateLocalCache(date, {
 			content,
 			mood: selectedMood,
-			weather: selectedWeather
+			weather: selectedWeather,
+			tags
 		});
 	}
 
@@ -151,7 +191,8 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 		updateLocalCache(date, {
 			content,
 			mood: selectedMood,
-			weather: selectedWeather
+			weather: selectedWeather,
+			tags
 		});
 	}
 
@@ -160,7 +201,8 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 		updateLocalCache(date, {
 			content,
 			mood: selectedMood,
-			weather: selectedWeather
+			weather: selectedWeather,
+			tags
 		});
 	}
 
@@ -345,7 +387,15 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 						</div>
 
 						<div class="bg-card/50 rounded-xl border border-border/50 p-4">
-							<TableOfContents {content} />
+							<TableOfContents
+								{content}
+								tags={tags}
+								tagInputValue={tagInput}
+								onTagInput={(v) => (tagInput = v)}
+								onTagAdd={addTagFromInput}
+								onTagRemove={removeTag}
+								onTagKeydown={handleTagKeydown}
+							/>
 						</div>
 					</div>
 				</aside>
@@ -445,6 +495,23 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 					</a>
 
 					<a
+						href="/tags"
+						class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
+						on:click={() => showDrawer = false}
+					>
+						<div class="p-1.5 rounded-md bg-purple-500/10 text-purple-500 group-hover:bg-purple-500/20 transition-colors">
+							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+									d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
+							</svg>
+						</div>
+						<div class="min-w-0">
+							<div class="text-xs font-medium text-foreground">标签云</div>
+							<div class="text-[10px] text-muted-foreground truncate">浏览你的全部标签</div>
+						</div>
+					</a>
+
+					<a
 						href="/settings"
 						class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
 						on:click={() => showDrawer = false}
@@ -503,7 +570,16 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 
 			<!-- TOC Section -->
 			<div class="flex-1 overflow-y-auto px-3 py-3">
-				<TableOfContents {content} onNavigate={() => showDrawer = false} />
+				<TableOfContents
+					{content}
+					tags={tags}
+					tagInputValue={tagInput}
+					onTagInput={(v) => (tagInput = v)}
+					onTagAdd={addTagFromInput}
+					onTagRemove={removeTag}
+					onTagKeydown={handleTagKeydown}
+					onNavigate={() => showDrawer = false}
+				/>
 			</div>
 		</div>
 	</div>

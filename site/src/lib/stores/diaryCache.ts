@@ -14,6 +14,7 @@ export interface CacheEntry {
 	content: string;
 	mood: string;
 	weather: string;
+	tags: string[];
 	localUpdatedAt: number;
 	serverUpdatedAt: string | null;
 	isDirty: boolean;
@@ -91,6 +92,7 @@ function reloadFromStorage(): void {
 			content: entry.content,
 			mood: entry.mood || '',
 			weather: entry.weather || '',
+			tags: Array.isArray(entry.tags) ? entry.tags : [],
 			localUpdatedAt: entry.localUpdatedAt,
 			serverUpdatedAt: entry.serverUpdatedAt,
 			isDirty: entry.isDirty
@@ -216,7 +218,7 @@ export function getCachedContent(date: string): CacheEntry | null {
  */
 export function updateLocalCache(
 	date: string,
-	updates: { content: string; mood?: string; weather?: string }
+	updates: { content: string; mood?: string; weather?: string; tags?: string[] }
 ): void {
 	const existing = getCachedContent(date);
 
@@ -224,6 +226,7 @@ export function updateLocalCache(
 		content: updates.content,
 		mood: updates.mood ?? existing?.mood ?? '',
 		weather: updates.weather ?? existing?.weather ?? '',
+		tags: Array.isArray(updates.tags) ? updates.tags : existing?.tags ?? [],
 		localUpdatedAt: Date.now(),
 		serverUpdatedAt: existing?.serverUpdatedAt || null,
 		isDirty: true
@@ -240,6 +243,7 @@ export function updateLocalCache(
 		content: entry.content,
 		mood: entry.mood,
 		weather: entry.weather,
+		tags: entry.tags,
 		localUpdatedAt: entry.localUpdatedAt,
 		serverUpdatedAt: entry.serverUpdatedAt,
 		isDirty: true
@@ -285,7 +289,13 @@ export function hasDirtyCache(date: string): boolean {
 /**
  * Get all dirty entries
  */
-export function getDirtyEntries(): { date: string; content: string; mood: string; weather: string }[] {
+export function getDirtyEntries(): {
+	date: string;
+	content: string;
+	mood: string;
+	weather: string;
+	tags: string[];
+}[] {
 	const cache = get(diaryCache);
 	return Object.entries(cache)
 		.filter(([_, entry]) => entry.isDirty)
@@ -293,7 +303,8 @@ export function getDirtyEntries(): { date: string; content: string; mood: string
 			date,
 			content: entry.content,
 			mood: entry.mood || '',
-			weather: entry.weather || ''
+			weather: entry.weather || '',
+			tags: entry.tags || []
 		}));
 }
 
@@ -380,7 +391,8 @@ async function syncDirtyEntries(): Promise<void> {
 				date: entry.date,
 				content: entry.content,
 				mood: entry.mood,
-				weather: entry.weather
+				weather: entry.weather,
+				tags: entry.tags
 			});
 
 			if (success) {
@@ -484,7 +496,8 @@ export async function forceSyncNow(): Promise<boolean> {
 				date: entry.date,
 				content: entry.content,
 				mood: entry.mood,
-				weather: entry.weather
+				weather: entry.weather,
+				tags: entry.tags
 			});
 
 			if (success) {

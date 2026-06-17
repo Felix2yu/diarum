@@ -299,7 +299,7 @@ func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.Em
 			diaryIDMap[d.ID] = ""
 			continue
 		}
-		diary, err := s.InsertImportedDiary(userID, "", d.Date, d.Content, d.Mood, d.Weather)
+		diary, err := s.InsertImportedDiary(userID, "", d.Date, d.Content, d.Mood, d.Weather, nil)
 		if err != nil {
 			stats.Diaries.Failed++
 			continue
