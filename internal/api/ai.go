@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -259,6 +260,142 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		writer.Write([]byte("data: " + string(doneData) + "\n\n"))
 		writer.Flush()
 		return nil
+	})
+
+	// Week / Month analysis endpoint
+	group.POST("/analysis", func(c echo.Context) error {
+		userId := auth.CurrentUser(c).ID
+		var body struct {
+			Period string `json:"period"`
+			Start  string `json:"start"`
+			End    string `json:"end"`
+		}
+		if err := c.Bind(&body); err != nil {
+			return badRequest("Invalid request body", err)
+		}
+		period := strings.ToLower(strings.TrimSpace(body.Period))
+		if period != "week" && period != "month" {
+			return badRequest("period must be 'week' or 'month'", nil)
+		}
+		start := strings.TrimSpace(body.Start)
+		end := strings.TrimSpace(body.End)
+		if start == "" || end == "" {
+			return badRequest("start and end are required", nil)
+		}
+		if _, err := time.Parse("2006-01-02", start); err != nil {
+			return badRequest("start must be in YYYY-MM-DD format", err)
+		}
+		if _, err := time.Parse("2006-01-02", end); err != nil {
+			return badRequest("end must be in YYYY-MM-DD format", err)
+		}
+
+		// Fetch diaries in range
+		diaries, err := s.ListDiaries(userId, start+" 00:00:00.000Z", end+" 23:59:59.999Z", "-date", 0)
+		if err != nil {
+			return serverError("Failed to fetch diaries for analysis", err)
+		}
+		if len(diaries) == 0 {
+			return c.JSON(http.StatusOK, map[string]any{
+				"start":   start,
+				"end":     end,
+				"period":  period,
+				"count":   0,
+				"summary": "这个时间段内没有日记记录，无法进行分析。建议先记录一些日常内容，然后再尝试。",
+			})
+		}
+
+		// Load AI config
+		cfgService := config.NewConfigService(s)
+		apiKey, _ := cfgService.GetString(userId, "ai.api_key")
+		baseURL, _ := cfgService.GetString(userId, "ai.base_url")
+		model, _ := cfgService.GetString(userId, "ai.chat_model")
+		enabled, _ := cfgService.GetBool(userId, "ai.enabled")
+		if !enabled || apiKey == "" || baseURL == "" || model == "" {
+			return badRequest("AI settings are not configured", nil)
+		}
+
+		// Build prompt with diary content
+		var sb strings.Builder
+		periodLabel := "本周"
+		if period == "month" {
+			periodLabel = "本月"
+		}
+		sb.WriteString(fmt.Sprintf("以下是%s（%s 至 %s）的日记记录，共 %d 篇。请根据内容进行重组、分析，并给出建议。\n\n", periodLabel, start, end, len(diaries)))
+		for i, d := range diaries {
+			sb.WriteString(fmt.Sprintf("--- 第 %d 篇 - %s ---\n", i+1, store.DateOnly(d.Date)))
+			if d.Mood != "" {
+				sb.WriteString(fmt.Sprintf("心情：%s\n", d.Mood))
+			}
+			if d.Weather != "" {
+				sb.WriteString(fmt.Sprintf("天气：%s\n", d.Weather))
+			}
+			sb.WriteString(fmt.Sprintf("内容：\n%s\n\n", d.Content))
+		}
+
+		systemPrompt := "你是一个贴心的日记分析助手，基于用户提供的日记内容进行深入分析。你需要：\n1) 归纳总结日记的主要内容；\n2) 分析用户的情绪变化、生活模式；\n3) 找出亮点和值得改进的地方；\n4) 给出具体、可操作的建议。\n请用温暖、鼓励且理性的语气，分段输出，便于阅读。使用中文回答。"
+
+		ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Minute)
+		defer cancel()
+
+		baseURL = strings.TrimSuffix(baseURL, "/")
+		url := baseURL + "/v1/chat/completions"
+
+		reqBody := map[string]any{
+			"model": model,
+			"messages": []map[string]string{
+				{"role": "system", "content": systemPrompt},
+				{"role": "user", "content": sb.String()},
+			},
+			"stream": false,
+		}
+
+		jsonBytes, err := json.Marshal(reqBody)
+		if err != nil {
+			return serverError("Failed to build AI request", err)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBytes))
+		if err != nil {
+			return serverError("Failed to create AI request", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		req.Header.Set("Content-Type", "application/json")
+
+		client := &http.Client{Timeout: 5 * time.Minute}
+		resp, err := client.Do(req)
+		if err != nil {
+			return serverError("AI request failed: "+err.Error(), nil)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			bodyText, _ := io.ReadAll(resp.Body)
+			return serverError(fmt.Sprintf("AI returned status %d: %s", resp.StatusCode, string(bodyText)), nil)
+		}
+
+		var aiResp struct {
+			Choices []struct {
+				Message struct {
+					Content string `json:"content"`
+				} `json:"message"`
+			} `json:"choices"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&aiResp); err != nil {
+			return serverError("Failed to decode AI response", err)
+		}
+
+		summary := ""
+		if len(aiResp.Choices) > 0 {
+			summary = aiResp.Choices[0].Message.Content
+		}
+
+		return c.JSON(http.StatusOK, map[string]any{
+			"start":   start,
+			"end":     end,
+			"period":  period,
+			"count":   len(diaries),
+			"summary": summary,
+		})
 	})
 }
 

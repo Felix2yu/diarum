@@ -30,6 +30,47 @@ export interface VectorStats {
 	pending_count: number;
 }
 
+export interface PeriodAnalysisResult {
+	period: 'week' | 'month';
+	start: string;
+	end: string;
+	count: number;
+	summary: string;
+}
+
+/**
+ * Request period (week / month) analysis for a given date range.
+ */
+export async function analyzePeriod(
+	period: 'week' | 'month',
+	start: string,
+	end: string
+): Promise<PeriodAnalysisResult> {
+	const response = await fetch('/api/v1/ai/analysis', {
+		method: 'POST',
+		headers: {
+			'Authorization': `Bearer ${pb.authStore.token}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({ period, start, end })
+	});
+
+	if (!response.ok) {
+		let message = 'AI 分析失败';
+		try {
+			const data = await response.json();
+			if (data && data.message) {
+				message = data.message;
+			}
+		} catch {
+			// ignore
+		}
+		throw new Error(message);
+	}
+
+	return await response.json();
+}
+
 /**
  * Get AI settings
  */

@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { tick } from 'svelte';
-	import { formatDate, getCalendarDays, getToday, getYearRange, formatMonthYear } from '$lib/utils/date';
+	import { formatDate, getCalendarDays, getToday, getYearRange, getMonthRange, getWeekRange, formatMonthYear } from '$lib/utils/date';
 	import { getDatesWithDiaries, type CalendarDiaryMeta } from '$lib/api/diaries';
+	import CalendarAnalysis from './CalendarAnalysis.svelte';
 
 	export let currentYear: number;
 	export let currentMonth: number;
@@ -18,6 +19,30 @@
 	let transitionDirection: 'forward' | 'backward' = 'forward';
 	let yearGridEl: HTMLDivElement;
 	let wheelCooldown = false;
+
+	// Period analysis
+	type AnalysisState = {
+		active: boolean;
+		period: 'week' | 'month';
+		start: string;
+		end: string;
+	} | null;
+	let analysis: AnalysisState = null;
+
+	function openWeekAnalysis() {
+		// Use today for the week reference (Monday to Sunday)
+		const { start, end } = getWeekRange(new Date());
+		analysis = { active: true, period: 'week', start, end };
+	}
+
+	function openMonthAnalysis() {
+		const { start, end } = getMonthRange(currentYear, currentMonth);
+		analysis = { active: true, period: 'month', start, end };
+	}
+
+	function closeAnalysis() {
+		analysis = null;
+	}
 
 	const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
 	const weekDaysShort = ['一', '二', '三', '四', '五', '六', '日'];
@@ -227,6 +252,22 @@
 					>
 						今天
 					</button>
+					<div class="flex items-center gap-1 ml-1">
+						<button
+							on:click={openWeekAnalysis}
+							class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/40 text-foreground hover:bg-muted/70 transition-all duration-200"
+							title="本周 AI 分析"
+						>
+							周分析
+						</button>
+						<button
+							on:click={openMonthAnalysis}
+							class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/40 text-foreground hover:bg-muted/70 transition-all duration-200"
+							title="本月 AI 分析"
+						>
+							月分析
+						</button>
+					</div>
 				</div>
 
 				<button
@@ -376,6 +417,15 @@
 				{/if}
 			</div>
 		</div>
+	{/if}
+
+	{#if analysis}
+		<CalendarAnalysis
+			period={analysis.period}
+			start={analysis.start}
+			end={analysis.end}
+			onClose={closeAnalysis}
+		/>
 	{/if}
 </div>
 
