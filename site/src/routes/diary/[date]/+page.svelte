@@ -546,19 +546,13 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	}
 
 	.diary-layout {
-		max-width: 48rem;
+		width: 100%;
 	}
 
 	@media (min-width: 1024px) {
 		.diary-main {
 			flex: 1 1 auto;
-			max-width: 48rem;
-		}
-	}
-
-	@media (min-width: 1024px) {
-		.diary-layout.with-desktop-sidebar {
-			max-width: calc(48rem + 19rem + 1.5rem);
+			min-width: 0;
 		}
 	}
 </style>
