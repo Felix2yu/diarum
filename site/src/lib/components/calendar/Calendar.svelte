@@ -6,11 +6,11 @@
 	import CalendarAnalysis from './CalendarAnalysis.svelte';
 
 	let {
-		currentYear: $bindable(new Date().getFullYear()),
-		currentMonth: $bindable(new Date().getMonth() + 1),
-		diaryMeta: $bindable([] as CalendarDiaryMeta[]),
-		yearDiaryMeta: $bindable([] as CalendarDiaryMeta[]),
-		yearViewActive: $bindable(false),
+		currentYear = $bindable(new Date().getFullYear()),
+		currentMonth = $bindable(new Date().getMonth() + 1),
+		diaryMeta = $bindable([] as CalendarDiaryMeta[]),
+		yearDiaryMeta = $bindable([] as CalendarDiaryMeta[]),
+		yearViewActive = $bindable(false),
 		onmonthchange = (() => {}) as () => void
 	} = $props();
 

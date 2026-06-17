@@ -2,12 +2,12 @@
 	import { marked } from 'marked';
 
 	let {
-		content: $bindable(''),
+		content = $bindable(''),
 		onChange = (value: string) => {},
 		placeholder = '开始书写...',
-		selectedContent: $bindable(''),
+		selectedContent = $bindable(''),
 		emptyStatePrompt = '',
-		diaryDate: $bindable(undefined as string | undefined)
+		diaryDate = $bindable(undefined as string | undefined)
 	} = $props();
 
 	let textareaEl: $state<HTMLTextAreaElement | null> = null;
