@@ -357,7 +357,7 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	</div>
 
 	<!-- Footer -->
-	<Footer tagline="按 Ctrl+S 或 ⌘S 保存" />
+	<Footer />
 </div>
 
 <!-- Left Drawer -->
