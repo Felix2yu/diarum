@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import ThemeToggle from './ThemeToggle.svelte';
 
 	let {
@@ -9,24 +8,6 @@
 		tagline?: string;
 		fullWidth?: boolean;
 	} = $props();
-
-	let version = $state('');
-
-	onMount(() => {
-		fetchVersion();
-	});
-
-	async function fetchVersion() {
-		try {
-			const res = await fetch('/api/version');
-			if (res.ok) {
-				const data = await res.json();
-				version = data.version;
-			}
-		} catch (e) {
-			// Silently fail
-		}
-	}
 </script>
 
 <footer class="border-t border-border/50 mt-auto">
@@ -37,9 +18,6 @@
 					<span class="whitespace-nowrap">{tagline}</span>
 				{/if}
 				<span class="whitespace-nowrap">© {new Date().getFullYear()} 吾身</span>
-				{#if version}
-					<a href="https://github.com/songtianlun/diarum" target="_blank" rel="noopener noreferrer" class="font-mono text-[10px] text-muted-foreground/70 whitespace-nowrap hover:text-foreground transition-colors">{version}</a>
-				{/if}
 			</div>
 			<ThemeToggle />
 		</div>
