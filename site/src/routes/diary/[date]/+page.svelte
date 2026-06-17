@@ -209,7 +209,7 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 <div class="flex flex-col min-h-screen bg-background">
 	<PageHeader title="日记" />
 <!-- Main Content -->
-	<div class="container-responsive py-6 flex-1">
+	<div class="container-responsive py-6 flex-1 flex flex-col">
 		<!-- 日期导航 -->
 		<div class="diary-layout flex gap-6 mx-auto transition-all duration-300 mb-4" class:with-desktop-sidebar={showDesktopToc}>
 			<main class="diary-main w-full min-w-0">
@@ -262,19 +262,16 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 		</div>
 
 		<!-- 原布局 -->
-		<div class="diary-layout flex gap-6 mx-auto transition-all duration-300" class:with-desktop-sidebar={showDesktopToc}>
+		<div class="diary-layout flex gap-6 mx-auto transition-all duration-300 flex-1 min-h-0" class:with-desktop-sidebar={showDesktopToc}>
 			<!-- Editor -->
-			<main class="diary-main w-full min-w-0">
+			<main class="diary-main w-full min-w-0 flex flex-col min-h-0">
 				{#if loading}
 					<div class="flex flex-col items-center justify-center py-20 gap-3 animate-fade-in">
-						<svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
-							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-						</svg>
+						<svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
 						<div class="text-muted-foreground text-sm">加载中...</div>
 					</div>
 				{:else}
-					<div class="bg-card rounded-xl shadow-sm border border-border/50 overflow-hidden animate-fade-in">
+					<div class="bg-card rounded-xl shadow-sm border border-border/50 overflow-hidden animate-fade-in flex flex-col flex-1 min-h-0">
 						<TiptapEditor
 							{content}
 							bind:selectedContent

@@ -131,12 +131,17 @@
 	.markdown-editor {
 		position: relative;
 		width: 100%;
+		flex: 1 1 auto;
+		height: 100%;
 		min-height: 500px;
+		display: flex;
+		flex-direction: column;
 	}
 
 	.markdown-textarea {
 		display: block;
 		width: 100%;
+		flex: 1 1 auto;
 		min-height: 500px;
 		padding: 1.5rem 1.75rem;
 		border: none;
@@ -146,7 +151,7 @@
 		line-height: 1.8;
 		font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 		outline: none;
-		resize: vertical;
+		resize: none;
 		white-space: pre-wrap;
 		word-break: break-word;
 		tab-size: 2;
