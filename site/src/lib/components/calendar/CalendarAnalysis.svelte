@@ -98,6 +98,7 @@
 		stage = 'list-loading';
 		errorMsg = null;
 		selected = null;
+		filter = per;
 		try {
 			const items = await getSavedAnalyses(per === 'all' ? undefined : per);
 			savedList = items;
@@ -108,19 +109,13 @@
 		}
 	}
 
-	// 根据 mode 初始化加载
+	// 根据 mode 初始化加载（组件挂载/切换 mode 时执行一次；避免监听 stage 以免循环）
 	$effect(() => {
 		if (mode === 'history') {
+			// 只在初次挂载且尚未加载过时调用，避免 effect 依赖追踪导致循环
 			loadList(filter);
 		} else {
 			tryLoadSingle(period, start, end);
-		}
-	});
-
-	// 切换筛选
-	$effect(() => {
-		if (mode === 'history' && (stage === 'list-ready' || stage === 'list-error')) {
-			loadList(filter);
 		}
 	});
 
@@ -181,8 +176,10 @@
 	}
 
 	function backToList() {
-		resetSingleState();
+		result = null;
+		savedLabel = null;
 		selected = null;
+		// 恢复列表状态，不重新请求网络，savedList 已在内存
 		stage = 'list-ready';
 	}
 
@@ -238,15 +235,15 @@
 				<div class="analysis-toolbar">
 					<button
 						class={filter === 'all' ? 'analysis-toggle analysis-toggle--active' : 'analysis-toggle'}
-						onclick={() => (filter = 'all')}
+						onclick={() => loadList('all')}
 					>全部</button>
 					<button
 						class={filter === 'week' ? 'analysis-toggle analysis-toggle--active' : 'analysis-toggle'}
-						onclick={() => (filter = 'week')}
+						onclick={() => loadList('week')}
 					>周分析</button>
 					<button
 						class={filter === 'month' ? 'analysis-toggle analysis-toggle--active' : 'analysis-toggle'}
-						onclick={() => (filter = 'month')}
+						onclick={() => loadList('month')}
 					>月分析</button>
 					<button onclick={() => loadList(filter)} class="analysis-toggle ml-auto" title="刷新">
 						刷新
