@@ -208,6 +208,58 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	<PageHeader title="日记" />
 <!-- Main Content -->
 	<div class="px-4 py-6">
+		<!-- 日期导航 -->
+		<div class="diary-layout flex gap-6 mx-auto transition-all duration-300 mb-4" class:with-desktop-sidebar={showDesktopToc}>
+			<main class="diary-main w-full min-w-0">
+				<div class="flex items-center justify-between bg-card rounded-xl border border-border/50 px-3 py-2.5 shadow-sm">
+					<button
+						type="button"
+						on:click={goToPreviousDay}
+						class="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-lg transition-all duration-200"
+						title="上一天"
+					>
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+						</svg>
+						<span>前一天</span>
+					</button>
+
+					<div class="flex items-center gap-2 text-center">
+						<button
+							type="button"
+							on:click={goToCalendar}
+							class="text-sm font-semibold text-foreground hover:opacity-80 transition-opacity"
+							title="返回日历"
+						>
+							{formatDisplayDate(date)}
+						</button>
+						{#if isToday(date)}
+							<span class="text-[10px] px-1.5 py-0.5 bg-primary/15 text-primary rounded-full font-medium">今天</span>
+						{/if}
+						<span class="text-[11px] text-muted-foreground hidden sm:inline">星期{getDayOfWeek(date)}</span>
+					</div>
+
+					<button
+						type="button"
+						on:click={goToNextDay}
+						class="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-lg transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+						disabled={!canGoNext}
+						title="下一天"
+					>
+						<span>后一天</span>
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+						</svg>
+					</button>
+				</div>
+			</main>
+			<!-- 占位保持右侧边栏对齐 -->
+			{#if showDesktopToc}
+				<div class="hidden lg:block w-[19rem] flex-shrink-0" aria-hidden="true"></div>
+			{/if}
+		</div>
+
+		<!-- 原布局 -->
 		<div class="diary-layout flex gap-6 mx-auto transition-all duration-300" class:with-desktop-sidebar={showDesktopToc}>
 			<!-- Editor -->
 			<main class="diary-main w-full min-w-0">

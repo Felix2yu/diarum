@@ -231,68 +231,88 @@
 		<!-- Month View -->
 		<div class="view-container animate-fade-in-only">
 			<!-- Calendar Header -->
-			<div class="flex items-center justify-between mb-6 px-2">
-				<button
-					onclick={goToPreviousMonth}
-					class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
-					title="上一月"
-				>
-					<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-					</svg>
-				</button>
-
-				<div class="flex items-center gap-3">
-					<h2 class="text-lg font-semibold text-foreground flex items-center gap-1.5">
-						<span>{formatMonthYear(currentYear, currentMonth)}</span>
-						<button
-							onclick={enterYearView}
-							class="year-button"
-							title="切换到年视图"
-						>
-							查看全年
-						</button>
-					</h2>
+			<div class="flex flex-col gap-3 mb-5 px-2">
+				<!-- 第一行：月份导航 -->
+				<div class="flex items-center justify-between">
 					<button
-						onclick={goToToday}
-						class="px-3 py-1 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-all duration-200"
+						onclick={goToPreviousMonth}
+						class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
+						title="上一月"
 					>
-						今天
+						<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+						</svg>
 					</button>
-					<div class="flex items-center gap-1 ml-1">
+
+					<div class="flex items-center gap-2">
+						<h2 class="text-lg font-semibold text-foreground flex items-center gap-1.5">
+							<span>{formatMonthYear(currentYear, currentMonth)}</span>
+							<button
+								onclick={enterYearView}
+								class="year-button"
+								title="切换到年视图"
+							>
+								查看全年
+							</button>
+						</h2>
 						<button
-							onclick={openWeekAnalysis}
-							class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/40 text-foreground hover:bg-muted/70 transition-all duration-200"
-							title="本周 AI 分析"
+							onclick={goToToday}
+							class="px-3 py-1 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-all duration-200"
 						>
-							周分析
-						</button>
-						<button
-							onclick={openMonthAnalysis}
-							class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/40 text-foreground hover:bg-muted/70 transition-all duration-200"
-							title="本月 AI 分析"
-						>
-							月分析
-						</button>
-						<button
-							onclick={openHistoryAnalysis}
-							class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/40 text-foreground hover:bg-muted/70 transition-all duration-200"
-							title="查看历史分析"
-						>
-							历史分析
+							今天
 						</button>
 					</div>
+
+					<button
+						onclick={goToNextMonth}
+						class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
+						title="下一月"
+					>
+						<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+						</svg>
+					</button>
 				</div>
 
-				<button
-					onclick={goToNextMonth}
-					class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
-					title="下一月"
-				>
-					<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-					</svg>
-				</button>
+				<!-- 第二行：紧凑 AI 分析按钮 -->
+				<div class="flex items-center justify-center gap-1.5">
+					<button
+						onclick={openWeekAnalysis}
+						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+						title="本周 AI 分析"
+					>
+						<span class="inline-flex items-center gap-1">
+							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+							</svg>
+							周分析
+						</span>
+					</button>
+					<button
+						onclick={openMonthAnalysis}
+						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+						title="本月 AI 分析"
+					>
+						<span class="inline-flex items-center gap-1">
+							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
+							</svg>
+							月分析
+						</span>
+					</button>
+					<button
+						onclick={openHistoryAnalysis}
+						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+						title="查看历史分析"
+					>
+						<span class="inline-flex items-center gap-1">
+							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+							</svg>
+							历史分析
+						</span>
+					</button>
+				</div>
 			</div>
 
 			<!-- Week Days -->
