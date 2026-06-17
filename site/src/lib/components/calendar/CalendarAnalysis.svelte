@@ -13,30 +13,27 @@
 		onClose: () => void;
 	} = $props();
 
-	let loading = $state(false);
-	let error: string | null = $state(null);
+	type Stage = 'idle' | 'loading' | 'ready' | 'error';
+	let stage: Stage = $state('idle');
 	let result: PeriodAnalysisResult | null = $state(null);
+	let errorMsg: string | null = $state(null);
 	let showPromptEditor = $state(false);
 	let systemPrompt = $state('');
 	let userPrefix = $state('');
 
 	async function runAnalysis() {
-		loading = true;
-		error = null;
+		stage = 'loading';
+		errorMsg = null;
 		result = null;
 		try {
 			result = await analyzePeriod(period, start, end, {
 				system_prompt: systemPrompt,
 				user_prefix: userPrefix
 			});
+			stage = 'ready';
 		} catch (e: unknown) {
-			if (e instanceof Error) {
-				error = e.message;
-			} else {
-				error = 'AI 分析失败';
-			}
-		} finally {
-			loading = false;
+			errorMsg = e instanceof Error ? e.message : 'AI 分析失败';
+			stage = 'error';
 		}
 	}
 
@@ -46,10 +43,6 @@
 		systemPrompt = DEFAULT_ANALYSIS_SYSTEM_PROMPT;
 		userPrefix = '';
 	}
-
-	$effect(() => {
-		runAnalysis();
-	});
 
 	function formatSummary(text: string): string {
 		return text.trim();
@@ -72,8 +65,8 @@
 				{showPromptEditor ? '收起提示词' : '编辑提示词'}
 			</button>
 			<button onclick={useDefaultPrompt} class="analysis-toggle">恢复默认</button>
-			<button onclick={runAnalysis} disabled={loading} class="analysis-reanalyze">
-				{loading ? '分析中…' : '重新分析'}
+			<button onclick={runAnalysis} disabled={stage === 'loading'} class="analysis-reanalyze">
+				{stage === 'loading' ? '分析中…' : '开始分析'}
 			</button>
 		</div>
 
@@ -100,17 +93,25 @@
 		{/if}
 
 		<div class="analysis-body">
-			{#if loading}
+			{#if stage === 'idle'}
+				<div class="analysis-idle">
+					<p class="analysis-idle-title">准备开始 AI 分析</p>
+					<p class="analysis-idle-sub">
+						系统将基于此时间段的日记内容生成一份结构化的总结与建议。你可先点击上方
+						"编辑提示词" 自定义分析风格，然后点击"开始分析"。
+					</p>
+				</div>
+			{:else if stage === 'loading'}
 				<div class="analysis-loading">
 					<div class="spinner" aria-hidden="true"></div>
 					<p>正在分析日记内容…</p>
 				</div>
-			{:else if error}
+			{:else if stage === 'error'}
 				<div class="analysis-error">
-					<p>{error}</p>
+					<p>{errorMsg}</p>
 					<button class="analysis-retry" onclick={runAnalysis}>重试</button>
 				</div>
-			{:else if result}
+			{:else if stage === 'ready' && result}
 				<div class="analysis-meta">共 {result.count} 篇日记</div>
 				<div class="analysis-summary">
 					{#each formatSummary(result.summary).split('\n') as line}
@@ -128,12 +129,12 @@
 	.analysis-overlay {
 		position: fixed;
 		inset: 0;
-		background: hsl(var(--background) / 0.6);
+		background: hsl(var(--background) / 0.7);
 		backdrop-filter: blur(6px);
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		z-index: 50;
+		z-index: 2147483647;
 		padding: 1rem;
 		animation: fade-in 0.15s ease-out;
 	}
@@ -286,10 +287,25 @@
 	}
 
 	.analysis-loading,
+	.analysis-idle,
 	.analysis-error {
 		padding: 2rem 1rem;
 		text-align: center;
 		color: hsl(var(--muted-foreground));
+	}
+
+	.analysis-idle-title {
+		margin: 0 0 0.5rem;
+		font-size: 1rem;
+		font-weight: 600;
+		color: hsl(var(--foreground));
+	}
+
+	.analysis-idle-sub {
+		margin: 0;
+		font-size: 0.9rem;
+		line-height: 1.6;
+		max-width: 36rem;
 	}
 
 	.analysis-loading p {
