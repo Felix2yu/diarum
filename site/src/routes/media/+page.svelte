@@ -100,7 +100,7 @@
 	</PageHeader>
 
 	<!-- Main Content -->
-	<main class="max-w-4xl mx-auto px-4 py-6">
+	<main class="container-responsive py-6">
 		{#if loading}
 			<div class="flex flex-col items-center justify-center py-20 gap-3">
 				<svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
@@ -184,7 +184,7 @@
 		{/if}
 	</main>
 
-	<Footer maxWidth="4xl" tagline="你的媒体库" />
+	<Footer dynamicMaxWidth="100%" tagline="你的媒体库" />
 </div>
 
 <!-- Media Detail Modal -->

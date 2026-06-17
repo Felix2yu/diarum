@@ -704,9 +704,9 @@
 	<PageHeader title="设置" />
 
 	<!-- Main Content -->
-	<div class="max-w-6xl mx-auto px-4 py-6">
+	<div class="container-responsive py-6">
 		<div class="flex justify-center">
-			<main class="w-full max-w-4xl">
+			<main class="w-full max-w-5xl">
 				<div class="mb-4 space-y-3">
 					<div class="sm:hidden">
 						<label for="settings-tab-select" class="sr-only">选择设置分区</label>

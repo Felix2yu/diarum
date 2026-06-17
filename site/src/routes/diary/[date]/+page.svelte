@@ -207,7 +207,7 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 <div class="min-h-screen bg-background">
 	<PageHeader title="日记" />
 <!-- Main Content -->
-	<div class="px-4 py-6">
+	<div class="container-responsive py-6 px-0">
 		<!-- 日期导航 -->
 		<div class="diary-layout flex gap-6 mx-auto transition-all duration-300 mb-4" class:with-desktop-sidebar={showDesktopToc}>
 			<main class="diary-main w-full min-w-0">

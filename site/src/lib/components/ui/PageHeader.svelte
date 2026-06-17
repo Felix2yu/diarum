@@ -40,11 +40,11 @@
 </script>
 
 <header class="glass border-b border-border/50 flex-shrink-0 z-20 {sticky ? 'sticky top-0' : ''}">
-	<div class="max-w-6xl mx-auto px-4 h-11">
+	<div class="container-responsive h-14">
 		<div class="grid grid-cols-[auto_1fr_auto] items-center gap-2 h-full">
 			<div class="flex items-center gap-2 min-w-0">
 				<a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity" title="吾身首页">
-					<img src="/logo.png" alt="吾身" class="w-6 h-6" />
+					<img src="/logo.png" alt="吾身" class="w-7 h-7" />
 					<span class="hidden sm:inline text-lg font-semibold text-foreground hover:text-primary transition-colors">吾身</span>
 				</a>
 			</div>
@@ -63,7 +63,7 @@
 					{@const active = item.match($page.url.pathname)}
 					<a
 						href={item.href}
-						class="p-1.5 rounded-lg transition-all duration-200 {active ? 'bg-primary/15 text-primary ring-1 ring-primary/30' : 'hover:bg-muted/50 text-foreground'}"
+						class="p-2 rounded-lg transition-all duration-200 {active ? 'bg-primary/15 text-primary ring-1 ring-primary/30' : 'hover:bg-muted/50 text-foreground'}"
 						title={item.label}
 						aria-label={item.label}
 						aria-current={active ? 'page' : null}

@@ -106,7 +106,7 @@
 	<PageHeader title="搜索" />
 
 	<!-- Main Content -->
-	<main class="max-w-4xl mx-auto px-4 py-8">
+	<main class="container-responsive py-8">
 		<!-- Search Header -->
 		<div class="mb-8 animate-fade-in">
 			<h1 class="text-2xl font-bold text-foreground mb-2">搜索日记</h1>
@@ -230,7 +230,7 @@
 	</main>
 
 	<!-- Footer -->
-	<Footer maxWidth="4xl" tagline="穿越你的记忆" />
+	<Footer dynamicMaxWidth="100%" tagline="穿越你的记忆" />
 </div>
 
 <style>

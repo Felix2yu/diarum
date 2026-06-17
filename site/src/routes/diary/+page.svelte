@@ -82,7 +82,7 @@
 	<PageHeader title="日历" />
 
 	<!-- Calendar -->
-	<main class="max-w-5xl mx-auto px-4 py-6">
+	<main class="container-responsive py-6">
 		<div class="flex flex-col lg:flex-row gap-6 lg:h-[540px]">
 			<!-- Left: Calendar -->
 			<div class="lg:flex-1 lg:min-w-0">
@@ -183,5 +183,5 @@
 	</main>
 
 	<!-- Footer -->
-	<Footer maxWidth="6xl" tagline="记录生活的点滴" />
+	<Footer tagline="记录生活的点滴" />
 </div>
