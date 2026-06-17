@@ -23,6 +23,7 @@
 	// Period analysis
 	type AnalysisState = {
 		active: boolean;
+		mode?: 'single' | 'history';
 		period: 'week' | 'month';
 		start: string;
 		end: string;
@@ -32,12 +33,17 @@
 	function openWeekAnalysis() {
 		// Use today for the week reference (Monday to Sunday)
 		const { start, end } = getWeekRange(new Date());
-		analysis = { active: true, period: 'week', start, end };
+		analysis = { active: true, mode: 'single', period: 'week', start, end };
 	}
 
 	function openMonthAnalysis() {
 		const { start, end } = getMonthRange(currentYear, currentMonth);
-		analysis = { active: true, period: 'month', start, end };
+		analysis = { active: true, mode: 'single', period: 'month', start, end };
+	}
+
+	function openHistoryAnalysis() {
+		const { start, end } = getMonthRange(currentYear, currentMonth);
+		analysis = { active: true, mode: 'history', period: 'month', start, end };
 	}
 
 	function closeAnalysis() {
@@ -267,6 +273,13 @@
 						>
 							月分析
 						</button>
+						<button
+							on:click={openHistoryAnalysis}
+							class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/40 text-foreground hover:bg-muted/70 transition-all duration-200"
+							title="查看历史分析"
+						>
+							历史分析
+						</button>
 					</div>
 				</div>
 
@@ -421,6 +434,7 @@
 
 	{#if analysis}
 		<CalendarAnalysis
+			mode={analysis.mode}
 			period={analysis.period}
 			start={analysis.start}
 			end={analysis.end}

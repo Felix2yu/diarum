@@ -1,26 +1,44 @@
 <script lang="ts">
-	import { analyzePeriod, getSavedAnalysis, DEFAULT_ANALYSIS_SYSTEM_PROMPT, type PeriodAnalysisResult } from '$lib/api/ai';
+	import {
+		analyzePeriod,
+		getSavedAnalysis,
+		getSavedAnalyses,
+		DEFAULT_ANALYSIS_SYSTEM_PROMPT,
+		type PeriodAnalysisResult,
+		type SavedPeriodAnalysisResult
+	} from '$lib/api/ai';
 
 	let {
+		mode = 'single',
 		period,
 		start,
 		end,
 		onClose
 	}: {
+		mode?: 'single' | 'history';
 		period: 'week' | 'month';
 		start: string;
 		end: string;
 		onClose: () => void;
 	} = $props();
 
-	type Stage = 'checking' | 'idle' | 'loading' | 'ready' | 'error';
+	// ------- 通用状态 -------
+	type Stage = 'checking' | 'idle' | 'loading' | 'ready' | 'error' | 'list-loading' | 'list-ready' | 'list-error';
 	let stage: Stage = $state('checking');
-	let result: PeriodAnalysisResult | null = $state(null);
 	let errorMsg: string | null = $state(null);
+
+	// ------- 单条分析视图 -------
+	let result: PeriodAnalysisResult | null = $state(null);
 	let savedLabel: string | null = $state(null);
 	let showPromptEditor = $state(false);
 	let systemPrompt = $state(DEFAULT_ANALYSIS_SYSTEM_PROMPT);
 	let userPrefix = $state('');
+
+	// ------- 历史列表视图 -------
+	type Filter = 'all' | 'week' | 'month';
+	let filter: Filter = $state('all');
+	let savedList: SavedPeriodAnalysisResult[] = $state([]);
+	let selected: SavedPeriodAnalysisResult | null = $state(null);
 
 	let overlayEl: HTMLDivElement | null = $state(null);
 	let hostEl: HTMLDivElement | null = null;
@@ -45,12 +63,21 @@
 		};
 	});
 
-	// 打开时：先尝试加载已保存的分析；若没有则进入 idle 等待用户点击"开始分析"
-	async function tryLoadSaved() {
+	function resetSingleState() {
+		result = null;
+		savedLabel = null;
+		systemPrompt = DEFAULT_ANALYSIS_SYSTEM_PROMPT;
+		userPrefix = '';
+		showPromptEditor = false;
+	}
+
+	// 打开时：根据 mode 决定加载什么内容
+	async function tryLoadSingle(per: 'week' | 'month', s: string, e: string) {
+		resetSingleState();
 		stage = 'checking';
 		errorMsg = null;
 		try {
-			const saved = await getSavedAnalysis(period, start, end);
+			const saved = await getSavedAnalysis(per, s, e);
 			if (saved) {
 				result = saved;
 				if (saved.system_prompt) systemPrompt = saved.system_prompt;
@@ -61,37 +88,68 @@
 				stage = 'ready';
 				return;
 			}
-			savedLabel = null;
-			result = null;
 			stage = 'idle';
 		} catch (e: unknown) {
-			// 获取失败时不要阻断用户；进入 idle 让用户重新发起分析
 			stage = 'idle';
 		}
 	}
 
+	async function loadList(per: Filter) {
+		stage = 'list-loading';
+		errorMsg = null;
+		selected = null;
+		try {
+			const items = await getSavedAnalyses(per === 'all' ? undefined : per);
+			savedList = items;
+			stage = 'list-ready';
+		} catch (e: unknown) {
+			errorMsg = e instanceof Error ? e.message : '获取历史分析失败';
+			stage = 'list-error';
+		}
+	}
+
+	// 根据 mode 初始化加载
 	$effect(() => {
-		tryLoadSaved();
+		if (mode === 'history') {
+			loadList(filter);
+		} else {
+			tryLoadSingle(period, start, end);
+		}
+	});
+
+	// 切换筛选
+	$effect(() => {
+		if (mode === 'history' && (stage === 'list-ready' || stage === 'list-error')) {
+			loadList(filter);
+		}
 	});
 
 	// ESC 关闭
 	function onKey(e: KeyboardEvent) {
-		if (e.key === 'Escape') onClose();
+		if (e.key === 'Escape') {
+			if (selected) {
+				selected = null;
+			} else {
+				onClose();
+			}
+		}
 	}
 
-	async function runAnalysis() {
+	// ------- 单条分析逻辑 -------
+	async function runAnalysis(per: 'week' | 'month', s: string, e: string) {
 		stage = 'loading';
 		errorMsg = null;
 		result = null;
 		savedLabel = null;
 		try {
-			result = await analyzePeriod(period, start, end, {
+			const r = await analyzePeriod(per, s, e, {
 				system_prompt: systemPrompt,
 				user_prefix: userPrefix
 			});
-			if (result?.id) {
-				savedLabel = result.updated
-					? `已保存 · ${result.updated.replace('T', ' ').slice(0, 19)}`
+			result = r;
+			if (r?.id) {
+				savedLabel = r.updated
+					? `已保存 · ${r.updated.replace('T', ' ').slice(0, 19)}`
 					: '已保存';
 			}
 			stage = 'ready';
@@ -100,8 +158,6 @@
 			stage = 'error';
 		}
 	}
-
-	const label = period === 'week' ? '本周分析' : '本月分析';
 
 	function useDefaultPrompt() {
 		systemPrompt = DEFAULT_ANALYSIS_SYSTEM_PROMPT;
@@ -112,6 +168,31 @@
 		return text.trim();
 	}
 
+	function openSaved(item: SavedPeriodAnalysisResult) {
+		// 在弹窗内切换到单条分析视图，展示已保存内容
+		result = item;
+		if (item.system_prompt) systemPrompt = item.system_prompt;
+		if (item.user_prefix) userPrefix = item.user_prefix;
+		savedLabel = item.updated
+			? `已保存 · ${item.updated.replace('T', ' ').slice(0, 19)}`
+			: '已保存';
+		selected = item;
+		stage = 'ready';
+	}
+
+	function backToList() {
+		resetSingleState();
+		selected = null;
+		stage = 'list-ready';
+	}
+
+	function periodTitle(per: string): string {
+		return per === 'week' ? '周分析' : per === 'month' ? '月分析' : '分析';
+	}
+
+	const mainLabel =
+		mode === 'history' ? '历史分析' : period === 'week' ? '本周分析' : '本月分析';
+
 	// 绑定到根元素引用
 	function setRef(node: HTMLDivElement | null) {
 		overlayEl = node;
@@ -121,94 +202,233 @@
 <div
 	use:setRef
 	role="dialog"
-	aria-label={label}
+	aria-label={mainLabel}
 	class="analysis-overlay"
 	onclick={onClose}
 	onkeydown={onKey}
 >
 	<div class="analysis-panel" onclick={(e) => e.stopPropagation()}>
 		<div class="analysis-header">
-			<h3>{label}</h3>
+			<h3>{mainLabel}</h3>
 			<span class="analysis-range">
-				{start} ~ {end}
-				{#if savedLabel}
-					<span class="analysis-saved-badge" title="该分析已保存">{savedLabel}</span>
+				{#if mode === 'history'}
+					{#if selected}
+						{selected.start} ~ {selected.end}
+						{#if selected.updated}
+							<span class="analysis-saved-badge" title="该分析已保存">
+								已保存 · {selected.updated.replace('T', ' ').slice(0, 19)}
+							</span>
+						{/if}
+					{:else}
+						共 {savedList.length} 份历史分析
+					{/if}
+				{:else}
+					{start} ~ {end}
+					{#if savedLabel}
+						<span class="analysis-saved-badge" title="该分析已保存">{savedLabel}</span>
+					{/if}
 				{/if}
 			</span>
 			<button class="analysis-close" onclick={onClose} aria-label="关闭">×</button>
 		</div>
 
-		<div class="analysis-toolbar">
-			<button
-				onclick={() => (showPromptEditor = !showPromptEditor)}
-				class="analysis-toggle"
-			>
-				{showPromptEditor ? '收起提示词' : '编辑提示词'}
-			</button>
-			<button onclick={useDefaultPrompt} class="analysis-toggle">恢复默认</button>
-			<button onclick={runAnalysis} disabled={stage === 'loading' || stage === 'checking'} class="analysis-reanalyze">
-				{stage === 'loading' ? '分析中…' : stage === 'checking' ? '加载中…' : result?.id ? '重新生成分析' : '开始分析'}
-			</button>
-		</div>
+		<!-- ---- 历史列表模式 ---- -->
+		{#if mode === 'history'}
+			{#if !selected}
+				<div class="analysis-toolbar">
+					<button
+						class={filter === 'all' ? 'analysis-toggle analysis-toggle--active' : 'analysis-toggle'}
+						onclick={() => (filter = 'all')}
+					>全部</button>
+					<button
+						class={filter === 'week' ? 'analysis-toggle analysis-toggle--active' : 'analysis-toggle'}
+						onclick={() => (filter = 'week')}
+					>周分析</button>
+					<button
+						class={filter === 'month' ? 'analysis-toggle analysis-toggle--active' : 'analysis-toggle'}
+						onclick={() => (filter = 'month')}
+					>月分析</button>
+					<button onclick={() => loadList(filter)} class="analysis-toggle ml-auto" title="刷新">
+						刷新
+					</button>
+				</div>
 
-		{#if showPromptEditor}
-			<div class="analysis-prompt">
-				<label for="cas-system-prompt" class="analysis-prompt-label">系统提示词</label>
-				<textarea
-					id="cas-system-prompt"
-					rows={5}
-					bind:value={systemPrompt}
-					placeholder="留空则使用系统默认提示词"
-					class="analysis-prompt-textarea"
-				/>
-				<label for="cas-user-prefix" class="analysis-prompt-label analysis-prompt-label--indented">内容引导语（可选）</label>
-				<textarea
-					id="cas-user-prefix"
-					rows={3}
-					bind:value={userPrefix}
-					placeholder="留空则使用默认的周/月格式化提示语"
-					class="analysis-prompt-textarea"
-				/>
-				<p class="analysis-prompt-hint">修改后点击"开始分析"以应用提示词；保存为持久默认请前往设置 → AI 助手。</p>
-			</div>
-		{/if}
+				<div class="analysis-body">
+					{#if stage === 'list-loading'}
+						<div class="analysis-loading">
+							<div class="spinner" aria-hidden="true"></div>
+							<p>正在加载历史分析…</p>
+						</div>
+					{:else if stage === 'list-error'}
+						<div class="analysis-error">
+							<p>{errorMsg}</p>
+							<button class="analysis-retry" onclick={() => loadList(filter)}>重试</button>
+						</div>
+					{:else if savedList.length === 0}
+						<div class="analysis-idle">
+							<p class="analysis-idle-title">暂无已保存的分析</p>
+							<p class="analysis-idle-sub">
+								返回日历界面点击"周分析"或"月分析"，生成分析后将自动保存到此处。
+							</p>
+						</div>
+					{:else}
+						<ul class="analysis-list">
+							{#each savedList as item (item.id)}
+								<li class="analysis-list-item" onclick={() => openSaved(item)}>
+									<div class="analysis-list-head">
+										<span class="analysis-list-tag" data-period={item.period}>
+											{periodTitle(item.period)}
+										</span>
+										<span class="analysis-list-range">{item.start} ~ {item.end}</span>
+										<span class="analysis-list-count">{item.count} 篇日记</span>
+									</div>
+									<p class="analysis-list-preview">{item.summary.slice(0, 120)}{item.summary.length > 120 ? '…' : ''}</p>
+									{#if item.updated}
+										<span class="analysis-list-date">更新于 {item.updated.replace('T', ' ').slice(0, 19)}</span>
+									{/if}
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+			{:else}
+				<!-- 选中某条历史：显示详细内容 + 可重新生成 -->
+				<div class="analysis-toolbar">
+					<button onclick={backToList} class="analysis-toggle">← 返回列表</button>
+					<button onclick={() => (showPromptEditor = !showPromptEditor)} class="analysis-toggle">
+						{showPromptEditor ? '收起提示词' : '编辑提示词'}
+					</button>
+					<button onclick={useDefaultPrompt} class="analysis-toggle">恢复默认</button>
+					<button
+						onclick={() => runAnalysis(selected.period, selected.start, selected.end)}
+						disabled={stage === 'loading' || stage === 'checking'}
+						class="analysis-reanalyze"
+					>
+						{stage === 'loading' ? '分析中…' : '重新生成分析'}
+					</button>
+				</div>
 
-		<div class="analysis-body">
-			{#if stage === 'checking'}
-				<div class="analysis-loading">
-					<div class="spinner" aria-hidden="true"></div>
-					<p>正在读取之前保存的分析…</p>
-				</div>
-			{:else if stage === 'idle'}
-				<div class="analysis-idle">
-					<p class="analysis-idle-title">准备开始 AI 分析</p>
-					<p class="analysis-idle-sub">
-						系统将基于此时间段的日记内容生成一份结构化的总结与建议。可先点击上方
-						"编辑提示词" 自定义分析风格，然后点击"开始分析"。
-						分析结果会自动保存，下次打开时可直接查看。
-					</p>
-				</div>
-			{:else if stage === 'loading'}
-				<div class="analysis-loading">
-					<div class="spinner" aria-hidden="true"></div>
-					<p>正在分析日记内容…</p>
-				</div>
-			{:else if stage === 'error'}
-				<div class="analysis-error">
-					<p>{errorMsg}</p>
-					<button class="analysis-retry" onclick={runAnalysis}>重试</button>
-				</div>
-			{:else if stage === 'ready' && result}
-				<div class="analysis-meta">共 {result.count} 篇日记</div>
-				<div class="analysis-summary">
-					{#each formatSummary(result.summary).split('\n') as line}
-						{#if line.trim() !== ''}
-							<p>{line}</p>
-						{/if}
-					{/each}
+				{#if showPromptEditor}
+					<div class="analysis-prompt">
+						<label for="cas-system-prompt" class="analysis-prompt-label">系统提示词</label>
+						<textarea
+							id="cas-system-prompt"
+							rows={5}
+							bind:value={systemPrompt}
+							placeholder="留空则使用系统默认提示词"
+							class="analysis-prompt-textarea"
+						/>
+						<label for="cas-user-prefix" class="analysis-prompt-label analysis-prompt-label--indented">内容引导语（可选）</label>
+						<textarea
+							id="cas-user-prefix"
+							rows={3}
+							bind:value={userPrefix}
+							placeholder="留空则使用默认的周/月格式化提示语"
+							class="analysis-prompt-textarea"
+						/>
+						<p class="analysis-prompt-hint">修改后点击"重新生成分析"以应用提示词。</p>
+					</div>
+				{/if}
+
+				<div class="analysis-body">
+					{#if stage === 'loading'}
+						<div class="analysis-loading">
+							<div class="spinner" aria-hidden="true"></div>
+							<p>正在分析日记内容…</p>
+						</div>
+					{:else if stage === 'error'}
+						<div class="analysis-error">
+							<p>{errorMsg}</p>
+							<button class="analysis-retry" onclick={() => runAnalysis(selected.period, selected.start, selected.end)}>重试</button>
+						</div>
+					{:else if result}
+						<div class="analysis-meta">共 {result.count} 篇日记</div>
+						<div class="analysis-summary">
+							{#each formatSummary(result.summary).split('\n') as line}
+								{#if line.trim() !== ''}
+									<p>{line}</p>
+								{/if}
+							{/each}
+						</div>
+					{/if}
 				</div>
 			{/if}
-		</div>
+
+		<!-- ---- 单条分析模式（原有逻辑） ---- -->
+		{:else}
+			<div class="analysis-toolbar">
+				<button onclick={() => (showPromptEditor = !showPromptEditor)} class="analysis-toggle">
+					{showPromptEditor ? '收起提示词' : '编辑提示词'}
+				</button>
+				<button onclick={useDefaultPrompt} class="analysis-toggle">恢复默认</button>
+				<button
+					onclick={() => runAnalysis(period, start, end)}
+					disabled={stage === 'loading' || stage === 'checking'}
+					class="analysis-reanalyze"
+				>
+					{stage === 'loading' ? '分析中…' : stage === 'checking' ? '加载中…' : result?.id ? '重新生成分析' : '开始分析'}
+				</button>
+			</div>
+
+			{#if showPromptEditor}
+				<div class="analysis-prompt">
+					<label for="cas-system-prompt" class="analysis-prompt-label">系统提示词</label>
+					<textarea
+						id="cas-system-prompt"
+						rows={5}
+						bind:value={systemPrompt}
+						placeholder="留空则使用系统默认提示词"
+						class="analysis-prompt-textarea"
+					/>
+					<label for="cas-user-prefix" class="analysis-prompt-label analysis-prompt-label--indented">内容引导语（可选）</label>
+					<textarea
+						id="cas-user-prefix"
+						rows={3}
+						bind:value={userPrefix}
+						placeholder="留空则使用默认的周/月格式化提示语"
+						class="analysis-prompt-textarea"
+					/>
+					<p class="analysis-prompt-hint">修改后点击"开始分析"以应用提示词；保存为持久默认请前往设置 → AI 助手。</p>
+				</div>
+			{/if}
+
+			<div class="analysis-body">
+				{#if stage === 'checking'}
+					<div class="analysis-loading">
+						<div class="spinner" aria-hidden="true"></div>
+						<p>正在读取之前保存的分析…</p>
+					</div>
+				{:else if stage === 'idle'}
+					<div class="analysis-idle">
+						<p class="analysis-idle-title">准备开始 AI 分析</p>
+						<p class="analysis-idle-sub">
+							系统将基于此时间段的日记内容生成一份结构化的总结与建议。可先点击上方
+							"编辑提示词" 自定义分析风格，然后点击"开始分析"。
+							分析结果会自动保存，下次打开时可直接查看。
+						</p>
+					</div>
+				{:else if stage === 'loading'}
+					<div class="analysis-loading">
+						<div class="spinner" aria-hidden="true"></div>
+						<p>正在分析日记内容…</p>
+					</div>
+				{:else if stage === 'error'}
+					<div class="analysis-error">
+						<p>{errorMsg}</p>
+						<button class="analysis-retry" onclick={() => runAnalysis(period, start, end)}>重试</button>
+					</div>
+				{:else if stage === 'ready' && result}
+					<div class="analysis-meta">共 {result.count} 篇日记</div>
+					<div class="analysis-summary">
+						{#each formatSummary(result.summary).split('\n') as line}
+							{#if line.trim() !== ''}
+								<p>{line}</p>
+							{/if}
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/if}
 	</div>
 </div>
 
@@ -314,6 +534,16 @@
 	.analysis-toggle:hover {
 		background: hsl(var(--muted) / 0.7);
 		color: hsl(var(--foreground));
+	}
+
+	.analysis-toggle--active {
+		background: hsl(var(--primary) / 0.15);
+		color: hsl(var(--primary));
+		border-color: hsl(var(--primary) / 0.4);
+	}
+
+	.ml-auto {
+		margin-left: auto;
 	}
 
 	.analysis-reanalyze {
@@ -456,6 +686,82 @@
 
 	.analysis-summary p {
 		margin: 0 0 0.75rem;
+	}
+
+	.analysis-list {
+		list-style: none;
+		padding: 0;
+		margin: 0;
+		display: flex;
+		flex-direction: column;
+		gap: 0.6rem;
+	}
+
+	.analysis-list-item {
+		padding: 0.85rem 1rem;
+		border: 1px solid hsl(var(--border) / 0.55);
+		border-radius: 0.65rem;
+		background: hsl(var(--muted) / 0.25);
+		cursor: pointer;
+		transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+	}
+
+	.analysis-list-item:hover {
+		background: hsl(var(--muted) / 0.5);
+		border-color: hsl(var(--primary) / 0.35);
+	}
+
+	.analysis-list-item:active {
+		transform: scale(0.997);
+	}
+
+	.analysis-list-head {
+		display: flex;
+		align-items: center;
+		gap: 0.6rem;
+		flex-wrap: wrap;
+		margin-bottom: 0.35rem;
+	}
+
+	.analysis-list-tag {
+		font-size: 0.72rem;
+		padding: 0.1rem 0.5rem;
+		border-radius: 9999px;
+		background: hsl(var(--primary) / 0.12);
+		color: hsl(var(--primary));
+		border: 1px solid hsl(var(--primary) / 0.25);
+	}
+
+	.analysis-list-tag[data-period='month'] {
+		background: hsl(var(--accent, 200 80% 60%) / 0.12);
+		color: hsl(var(--accent-foreground, 200 80% 30%));
+		border-color: hsl(var(--accent, 200 80% 60%) / 0.3);
+	}
+
+	.analysis-list-range {
+		font-size: 0.82rem;
+		color: hsl(var(--foreground) / 0.9);
+		font-weight: 500;
+	}
+
+	.analysis-list-count {
+		margin-left: auto;
+		font-size: 0.75rem;
+		color: hsl(var(--muted-foreground));
+	}
+
+	.analysis-list-preview {
+		margin: 0.15rem 0 0.4rem;
+		font-size: 0.85rem;
+		line-height: 1.55;
+		color: hsl(var(--foreground) / 0.75);
+		white-space: pre-wrap;
+	}
+
+	.analysis-list-date {
+		display: block;
+		font-size: 0.72rem;
+		color: hsl(var(--muted-foreground));
 	}
 
 	@keyframes fade-in {

@@ -1034,6 +1034,36 @@ func (s *Store) SavePeriodAnalysis(owner, period, startDate, endDate string, dia
 	return s.GetPeriodAnalysis(owner, period, startDate, endDate)
 }
 
+// ListSavedAnalyses returns saved analyses for a user, filtered by period (week|month|empty).
+func (s *Store) ListSavedAnalyses(owner, period string, limit int) ([]*PeriodAnalysis, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	if period == "" || period == "all" {
+		rows, err = s.DB.Query(`SELECT id, owner, period, start_date, end_date, diary_count, summary, system_prompt, user_prefix, created, updated FROM period_analyses WHERE owner = ? ORDER BY start_date DESC LIMIT ?`, owner, limit)
+	} else {
+		rows, err = s.DB.Query(`SELECT id, owner, period, start_date, end_date, diary_count, summary, system_prompt, user_prefix, created, updated FROM period_analyses WHERE owner = ? AND period = ? ORDER BY start_date DESC LIMIT ?`, owner, period, limit)
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	items := make([]*PeriodAnalysis, 0)
+	for rows.Next() {
+		a := &PeriodAnalysis{}
+		if err := rows.Scan(&a.ID, &a.Owner, &a.Period, &a.StartDate, &a.EndDate, &a.DiaryCount, &a.Summary, &a.SystemPrompt, &a.UserPrefix, &a.Created, &a.Updated); err != nil {
+			return nil, err
+		}
+		items = append(items, a)
+	}
+	return items, rows.Err()
+}
+
 func (s *Store) GetSetting(userID, key string) (any, error) {
 	var raw sql.NullString
 	err := s.DB.QueryRow(`SELECT value FROM user_settings WHERE user = ? AND key = ?`, userID, key).Scan(&raw)

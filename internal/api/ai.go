@@ -318,6 +318,39 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		})
 	})
 
+	// Week / Month analysis - list all saved analyses (optionally filtered by period)
+	group.GET("/analyses", func(c echo.Context) error {
+		userId := auth.CurrentUser(c).ID
+		period := strings.ToLower(strings.TrimSpace(c.QueryParam("period")))
+		if period != "" && period != "week" && period != "month" && period != "all" {
+			return badRequest("period must be 'week', 'month', or 'all'", nil)
+		}
+		filter := period
+		if period == "all" {
+			filter = ""
+		}
+		items, err := s.ListSavedAnalyses(userId, filter, 200)
+		if err != nil {
+			return serverError("Failed to list period analyses", err)
+		}
+		out := make([]map[string]any, 0, len(items))
+		for _, a := range items {
+			out = append(out, map[string]any{
+				"id":            a.ID,
+				"period":        a.Period,
+				"start":         a.StartDate,
+				"end":           a.EndDate,
+				"count":         a.DiaryCount,
+				"summary":       a.Summary,
+				"system_prompt": a.SystemPrompt,
+				"user_prefix":   a.UserPrefix,
+				"created":       a.Created,
+				"updated":       a.Updated,
+			})
+		}
+		return c.JSON(http.StatusOK, map[string]any{"items": out})
+	})
+
 	// Week / Month analysis endpoint - generate and save
 	group.POST("/analysis", func(c echo.Context) error {
 		userId := auth.CurrentUser(c).ID

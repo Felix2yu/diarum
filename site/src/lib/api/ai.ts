@@ -80,6 +80,36 @@ export async function getSavedAnalysis(
 	return data as SavedPeriodAnalysisResult;
 }
 
+/**
+ * List saved period analyses, optionally filtered by period.
+ */
+export async function getSavedAnalyses(
+	period?: 'week' | 'month' | 'all'
+): Promise<SavedPeriodAnalysisResult[]> {
+	const params = new URLSearchParams();
+	if (period) params.set('period', period);
+	const qs = params.toString();
+	const response = await fetch(`/api/v1/ai/analyses${qs ? `?${qs}` : ''}`, {
+		headers: {
+			'Authorization': `Bearer ${pb.authStore.token}`
+		}
+	});
+
+	if (!response.ok) {
+		let message = '获取历史分析列表失败';
+		try {
+			const data = await response.json();
+			if (data?.message) message = data.message;
+		} catch {
+			// ignore
+		}
+		throw new Error(message);
+	}
+
+	const data = await response.json();
+	return (data?.items ?? []) as SavedPeriodAnalysisResult[];
+}
+
 export const DEFAULT_ANALYSIS_SYSTEM_PROMPT =
 	'你是一个贴心的日记分析助手，基于用户提供的日记内容进行深入分析。你需要：\n1) 归纳总结日记的主要内容；\n2) 分析用户的情绪变化、生活模式；\n3) 找出亮点和值得改进的地方；\n4) 给出具体、可操作的建议。\n请用温暖、鼓励且理性的语气，分段输出，便于阅读。使用中文回答。';
 
