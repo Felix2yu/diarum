@@ -18,7 +18,7 @@
 	let result: PeriodAnalysisResult | null = $state(null);
 	let errorMsg: string | null = $state(null);
 	let showPromptEditor = $state(false);
-	let systemPrompt = $state('');
+	let systemPrompt = $state(DEFAULT_ANALYSIS_SYSTEM_PROMPT);
 	let userPrefix = $state('');
 
 	async function runAnalysis() {
