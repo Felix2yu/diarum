@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import Calendar from '$lib/components/calendar/Calendar.svelte';
 	import Footer from '$lib/components/ui/Footer.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import { getDatesWithDiaries, getRecentDiaries, getDiaryStats, type CalendarDiaryMeta } from '$lib/api/diaries';
 	import { isAuthenticated } from '$lib/api/client';
 	import { getMonthRange, formatDisplayDate } from '$lib/utils/date';
@@ -78,56 +79,7 @@
 </svelte:head>
 
 <div class="min-h-screen bg-background">
-	<!-- Header -->
-	<header class="glass border-b border-border/50 sticky top-0 z-20">
-		<div class="max-w-6xl mx-auto px-4 h-11">
-			<div class="flex items-center justify-between h-full">
-				<a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-					<img src="/logo.png" alt="吾身" class="w-6 h-6" />
-					<span class="text-lg font-semibold text-foreground hover:text-primary transition-colors">吾身</span>
-				</a>
-
-				<div class="flex items-center gap-2">
-					<a href="/media" class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200" title="媒体库">
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-								d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-						</svg>
-					</a>
-					<a href="/search" class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200" title="搜索">
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-								d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-						</svg>
-					</a>
-					<a href="/assistant" class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200" title="AI 助手">
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<!-- 机器人头部 -->
-							<rect x="4" y="6" width="16" height="12" rx="2" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-							<!-- 天线 -->
-							<line x1="12" y1="6" x2="12" y2="2" stroke-width="2" stroke-linecap="round"/>
-							<circle cx="12" cy="2" r="1" fill="currentColor"/>
-							<!-- 眼睛 -->
-							<circle cx="9" cy="11" r="1.5" fill="currentColor"/>
-							<circle cx="15" cy="11" r="1.5" fill="currentColor"/>
-							<!-- 嘴巴 -->
-							<path d="M9 15h6" stroke-width="2" stroke-linecap="round"/>
-							<!-- 耳朵/侧边 -->
-							<rect x="1" y="10" width="2" height="4" rx="1" fill="currentColor"/>
-							<rect x="21" y="10" width="2" height="4" rx="1" fill="currentColor"/>
-						</svg>
-					</a>
-					<a href="/settings" class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200" title="设置">
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-								d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-						</svg>
-					</a>
-				</div>
-			</div>
-		</div>
-	</header>
+	<PageHeader title="日历" />
 
 	<!-- Calendar -->
 	<main class="max-w-5xl mx-auto px-4 py-6">
