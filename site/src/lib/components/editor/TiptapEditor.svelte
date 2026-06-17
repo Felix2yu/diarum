@@ -1,18 +1,28 @@
 <script lang="ts">
-	import { onMount, onDestroy, tick } from 'svelte';
 	import { marked } from 'marked';
 
-	export let content = '';
-	export let onChange: (value: string) => void = () => {};
-	export let placeholder = '开始书写...';
-	export let diaryDate: string | undefined = undefined;
-	export let selectedContent: string = '';
-	export let emptyStatePrompt: string = '';
+	// Props — using runes syntax: $props() + $bindable() for two-way binding
+	let {
+		content = '',
+		onChange = (_v: string) => {},
+		placeholder = '开始书写...',
+		diaryDate = undefined as string | undefined,
+		selectedContent = $bindable(''),
+		emptyStatePrompt = ''
+	}: {
+		content?: string;
+		onChange?: (value: string) => void;
+		placeholder?: string;
+		diaryDate?: string;
+		selectedContent?: string;
+		emptyStatePrompt?: string;
+	} = $props();
 
-	let textareaEl: HTMLTextAreaElement | null = null;
-	let isFocused = false;
+	// Reactive state
+	let textareaEl = $state<HTMLTextAreaElement | null>(null);
+	let isFocused = $state(false);
 
-	// Markdown 渲染配置：只在组件实例初始化一次
+	// Marked is configured once per instance via module init — no state needed
 	marked.setOptions({
 		breaks: true,
 		gfm: true,
@@ -26,7 +36,6 @@
 		try {
 			return marked.parse(trimmed, { async: false }) as string;
 		} catch (e) {
-			// 回退：保留换行的纯文本
 			return (text ?? '')
 				.split('\n')
 				.map((line) => `<p>${line}</p>`)
@@ -36,9 +45,7 @@
 
 	function handleInput() {
 		if (!textareaEl) return;
-		const val = textareaEl.value;
-		content = val;
-		onChange(val);
+		onChange(textareaEl.value);
 	}
 
 	function handleFocus() {
@@ -63,12 +70,10 @@
 		selectedContent = textareaEl.value.substring(start, end);
 	}
 
-	// 当点击预览区域（非焦点状态），聚焦到 textarea 的末尾并移动光标
 	function handlePreviewClick() {
 		if (!textareaEl) return;
 		textareaEl.focus();
 		const len = textareaEl.value.length;
-		// 把光标放到末尾
 		try {
 			textareaEl.setSelectionRange(len, len);
 		} catch (e) {
@@ -76,46 +81,30 @@
 		}
 	}
 
-	// 外部 content 变化时，同步 textarea 的值与滚动位置（避免光标跳动）
-	let internalContent = '';
+	// Sync textarea value when content prop changes (e.g. navigating between dates)
+	// — avoid disrupting the user while typing (focused state)
 	$effect(() => {
-		if (textareaEl && textareaEl.value !== content) {
-			// 只有在非聚焦状态下才完全替换内容；聚焦时只替换非当前选择前后的内容，避免打断输入
-			if (!isFocused) {
-				textareaEl.value = content;
-			} else {
-				// 聚焦状态下不覆盖（输入由 handleInput 驱动）
-				// 但如果外部来源差异过大（例如清空），跟随更新并尽量保留光标位置
-				const cur = textareaEl.value;
-				if (content === '' || cur.length === 0 || Math.abs(cur.length - content.length) > 100) {
-					const pos = textareaEl.selectionStart ?? cur.length;
-					textareaEl.value = content;
-					const newPos = Math.min(pos, content.length);
-					try {
-						textareaEl.setSelectionRange(newPos, newPos);
-					} catch (e) {
-						// ignore
-					}
-				}
+		const el = textareaEl;
+		if (!el) return;
+		if (el.value === content) return;
+		if (!isFocused) {
+			el.value = content ?? '';
+		} else if (Math.abs((el.value.length ?? 0) - (content?.length ?? 0)) > 80) {
+			// Significant external change while focused (e.g. cache restore) — sync but keep cursor
+			const pos = el.selectionStart ?? el.value.length;
+			el.value = content ?? '';
+			const newPos = Math.min(pos, el.value.length);
+			try {
+				el.setSelectionRange(newPos, newPos);
+			} catch (e) {
+				// ignore
 			}
 		}
-		internalContent = content;
 	});
-
-	$effect(() => {
-		// 初始加载：设置 textarea 的 value
-		if (textareaEl) {
-			textareaEl.value = content;
-		}
-	});
-
-	function toggleFocusFromClick() {
-		handlePreviewClick();
-	}
 </script>
 
 <div class="markdown-editor">
-	<!-- 编辑模式：聚焦时显示 textarea -->
+	<!-- Editing layer — always present; gets hidden when not focused -->
 	<textarea
 		bind:this={textareaEl}
 		class="markdown-textarea {isFocused ? 'is-focused' : 'is-blurred'}"
@@ -128,13 +117,15 @@
 		spellcheck="false"
 	></textarea>
 
-	<!-- 预览模式：失焦时覆盖渲染 Markdown -->
+	<!-- Preview layer — shown when textarea is blurred + has content -->
 	{#if !isFocused && content}
-		<div class="markdown-preview" onclick={toggleFocusFromClick}>
+		<div class="markdown-preview" onclick={handlePreviewClick}>
 			{@html renderMarkdown(content)}
 		</div>
-	{:else if !isFocused && !content && emptyStatePrompt}
-		<!-- 空状态 -->
+	{/if}
+
+	<!-- Empty state layer -->
+	{#if !isFocused && !content && emptyStatePrompt}
 		<button
 			type="button"
 			class="empty-state-overlay"
@@ -173,7 +164,6 @@
 		tab-size: 2;
 		box-sizing: border-box;
 		transition: opacity 0.15s ease;
-		/* 失焦时降低透明度并移到后方（由预览层覆盖可见） */
 	}
 
 	.markdown-textarea.is-blurred {
