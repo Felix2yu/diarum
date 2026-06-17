@@ -3,7 +3,9 @@ package api
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -282,15 +284,49 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		return nil
 	})
 
-	// Week / Month analysis endpoint
+	// Week / Month analysis - retrieve saved result
+	group.GET("/analysis", func(c echo.Context) error {
+		userId := auth.CurrentUser(c).ID
+		period := strings.ToLower(strings.TrimSpace(c.QueryParam("period")))
+		start := strings.TrimSpace(c.QueryParam("start"))
+		end := strings.TrimSpace(c.QueryParam("end"))
+		if period != "week" && period != "month" {
+			return badRequest("period must be 'week' or 'month'", nil)
+		}
+		if start == "" || end == "" {
+			return badRequest("start and end are required", nil)
+		}
+		a, err := s.GetPeriodAnalysis(userId, period, start, end)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return c.JSON(http.StatusOK, map[string]any{"found": false})
+			}
+			return serverError("Failed to load period analysis", err)
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"found":         true,
+			"id":            a.ID,
+			"period":        a.Period,
+			"start":         a.StartDate,
+			"end":           a.EndDate,
+			"count":         a.DiaryCount,
+			"summary":       a.Summary,
+			"system_prompt": a.SystemPrompt,
+			"user_prefix":   a.UserPrefix,
+			"created":       a.Created,
+			"updated":       a.Updated,
+		})
+	})
+
+	// Week / Month analysis endpoint - generate and save
 	group.POST("/analysis", func(c echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		var body struct {
-			Period            string `json:"period"`
-			Start             string `json:"start"`
-			End               string `json:"end"`
-			SystemPrompt      string `json:"system_prompt"`
-			UserPrefix        string `json:"user_prefix"`
+			Period       string `json:"period"`
+			Start        string `json:"start"`
+			End          string `json:"end"`
+			SystemPrompt string `json:"system_prompt"`
+			UserPrefix   string `json:"user_prefix"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
@@ -436,7 +472,10 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			summary = aiResp.Choices[0].Message.Content
 		}
 
-		return c.JSON(http.StatusOK, map[string]any{
+		// Persist the analysis for later retrieval
+		saved, saveErr := s.SavePeriodAnalysis(userId, period, start, end, len(diaries), summary, systemPrompt, userPrefix)
+
+		response := map[string]any{
 			"start":         start,
 			"end":           end,
 			"period":        period,
@@ -444,7 +483,15 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			"summary":       summary,
 			"system_prompt": systemPrompt,
 			"user_prefix":   userPrefix,
-		})
+		}
+		if saveErr == nil && saved != nil {
+			response["id"] = saved.ID
+			response["created"] = saved.Created
+			response["updated"] = saved.Updated
+		} else if saveErr != nil {
+			logger.Warn("[POST /api/v1/ai/analysis] failed to persist analysis: %v", saveErr)
+		}
+		return c.JSON(http.StatusOK, response)
 	})
 }
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { analyzePeriod, DEFAULT_ANALYSIS_SYSTEM_PROMPT, type PeriodAnalysisResult } from '$lib/api/ai';
+	import { analyzePeriod, getSavedAnalysis, DEFAULT_ANALYSIS_SYSTEM_PROMPT, type PeriodAnalysisResult } from '$lib/api/ai';
 
 	let {
 		period,
@@ -13,10 +13,11 @@
 		onClose: () => void;
 	} = $props();
 
-	type Stage = 'idle' | 'loading' | 'ready' | 'error';
-	let stage: Stage = $state('idle');
+	type Stage = 'checking' | 'idle' | 'loading' | 'ready' | 'error';
+	let stage: Stage = $state('checking');
 	let result: PeriodAnalysisResult | null = $state(null);
 	let errorMsg: string | null = $state(null);
+	let savedLabel: string | null = $state(null);
 	let showPromptEditor = $state(false);
 	let systemPrompt = $state(DEFAULT_ANALYSIS_SYSTEM_PROMPT);
 	let userPrefix = $state('');
@@ -44,6 +45,35 @@
 		};
 	});
 
+	// 打开时：先尝试加载已保存的分析；若没有则进入 idle 等待用户点击"开始分析"
+	async function tryLoadSaved() {
+		stage = 'checking';
+		errorMsg = null;
+		try {
+			const saved = await getSavedAnalysis(period, start, end);
+			if (saved) {
+				result = saved;
+				if (saved.system_prompt) systemPrompt = saved.system_prompt;
+				if (saved.user_prefix) userPrefix = saved.user_prefix;
+				savedLabel = saved.updated
+					? `已保存 · ${saved.updated.replace('T', ' ').slice(0, 19)}`
+					: '已保存';
+				stage = 'ready';
+				return;
+			}
+			savedLabel = null;
+			result = null;
+			stage = 'idle';
+		} catch (e: unknown) {
+			// 获取失败时不要阻断用户；进入 idle 让用户重新发起分析
+			stage = 'idle';
+		}
+	}
+
+	$effect(() => {
+		tryLoadSaved();
+	});
+
 	// ESC 关闭
 	function onKey(e: KeyboardEvent) {
 		if (e.key === 'Escape') onClose();
@@ -53,11 +83,17 @@
 		stage = 'loading';
 		errorMsg = null;
 		result = null;
+		savedLabel = null;
 		try {
 			result = await analyzePeriod(period, start, end, {
 				system_prompt: systemPrompt,
 				user_prefix: userPrefix
 			});
+			if (result?.id) {
+				savedLabel = result.updated
+					? `已保存 · ${result.updated.replace('T', ' ').slice(0, 19)}`
+					: '已保存';
+			}
 			stage = 'ready';
 		} catch (e: unknown) {
 			errorMsg = e instanceof Error ? e.message : 'AI 分析失败';
@@ -93,7 +129,12 @@
 	<div class="analysis-panel" onclick={(e) => e.stopPropagation()}>
 		<div class="analysis-header">
 			<h3>{label}</h3>
-			<span class="analysis-range">{start} ~ {end}</span>
+			<span class="analysis-range">
+				{start} ~ {end}
+				{#if savedLabel}
+					<span class="analysis-saved-badge" title="该分析已保存">{savedLabel}</span>
+				{/if}
+			</span>
 			<button class="analysis-close" onclick={onClose} aria-label="关闭">×</button>
 		</div>
 
@@ -105,8 +146,8 @@
 				{showPromptEditor ? '收起提示词' : '编辑提示词'}
 			</button>
 			<button onclick={useDefaultPrompt} class="analysis-toggle">恢复默认</button>
-			<button onclick={runAnalysis} disabled={stage === 'loading'} class="analysis-reanalyze">
-				{stage === 'loading' ? '分析中…' : '开始分析'}
+			<button onclick={runAnalysis} disabled={stage === 'loading' || stage === 'checking'} class="analysis-reanalyze">
+				{stage === 'loading' ? '分析中…' : stage === 'checking' ? '加载中…' : result?.id ? '重新生成分析' : '开始分析'}
 			</button>
 		</div>
 
@@ -133,12 +174,18 @@
 		{/if}
 
 		<div class="analysis-body">
-			{#if stage === 'idle'}
+			{#if stage === 'checking'}
+				<div class="analysis-loading">
+					<div class="spinner" aria-hidden="true"></div>
+					<p>正在读取之前保存的分析…</p>
+				</div>
+			{:else if stage === 'idle'}
 				<div class="analysis-idle">
 					<p class="analysis-idle-title">准备开始 AI 分析</p>
 					<p class="analysis-idle-sub">
 						系统将基于此时间段的日记内容生成一份结构化的总结与建议。可先点击上方
 						"编辑提示词" 自定义分析风格，然后点击"开始分析"。
+						分析结果会自动保存，下次打开时可直接查看。
 					</p>
 				</div>
 			{:else if stage === 'loading'}
@@ -213,6 +260,18 @@
 	.analysis-range {
 		color: hsl(var(--muted-foreground));
 		font-size: 0.85rem;
+		display: inline-flex;
+		align-items: center;
+		gap: 0.5rem;
+	}
+
+	.analysis-saved-badge {
+		font-size: 0.72rem;
+		padding: 0.15rem 0.5rem;
+		background: hsl(var(--primary) / 0.12);
+		color: hsl(var(--primary));
+		border-radius: 9999px;
+		border: 1px solid hsl(var(--primary) / 0.2);
 	}
 
 	.analysis-close {

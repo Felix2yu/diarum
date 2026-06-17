@@ -33,6 +33,7 @@ export interface VectorStats {
 }
 
 export interface PeriodAnalysisResult {
+	id?: string;
 	period: 'week' | 'month';
 	start: string;
 	end: string;
@@ -40,6 +41,43 @@ export interface PeriodAnalysisResult {
 	summary: string;
 	system_prompt?: string;
 	user_prefix?: string;
+	created?: string;
+	updated?: string;
+}
+
+export interface SavedPeriodAnalysisResult extends PeriodAnalysisResult {
+	id: string;
+}
+
+/**
+ * Retrieve a previously saved AI analysis for a period.
+ */
+export async function getSavedAnalysis(
+	period: 'week' | 'month',
+	start: string,
+	end: string
+): Promise<SavedPeriodAnalysisResult | null> {
+	const params = new URLSearchParams({ period, start, end });
+	const response = await fetch(`/api/v1/ai/analysis?${params.toString()}`, {
+		headers: {
+			'Authorization': `Bearer ${pb.authStore.token}`
+		}
+	});
+
+	if (!response.ok) {
+		let message = '获取分析失败';
+		try {
+			const data = await response.json();
+			if (data?.message) message = data.message;
+		} catch {
+			// ignore
+		}
+		throw new Error(message);
+	}
+
+	const data = await response.json();
+	if (!data || data.found === false) return null;
+	return data as SavedPeriodAnalysisResult;
 }
 
 export const DEFAULT_ANALYSIS_SYSTEM_PROMPT =
