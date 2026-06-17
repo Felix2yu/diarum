@@ -1,18 +1,18 @@
 <script lang="ts">
-	import { onMount, onDestroy, tick } from 'svelte';
 	import { marked } from 'marked';
 
-	export let content = '';
-	export let onChange: (value: string) => void = () => {};
-	export let placeholder = '开始书写...';
-	export let diaryDate: string | undefined = undefined;
-	export let selectedContent: string = '';
-	export let emptyStatePrompt: string = '';
+	let {
+		content: $bindable(''),
+		onChange = (value: string) => {},
+		placeholder = '开始书写...',
+		selectedContent: $bindable(''),
+		emptyStatePrompt = '',
+		diaryDate: $bindable(undefined as string | undefined)
+	} = $props();
 
-	let textareaEl: HTMLTextAreaElement | null = null;
-	let isFocused = false;
+	let textareaEl: $state<HTMLTextAreaElement | null> = null;
+	let isFocused = $state(false);
 
-	// Markdown 渲染配置：只在组件实例初始化一次
 	marked.setOptions({
 		breaks: true,
 		gfm: true,
@@ -26,7 +26,6 @@
 		try {
 			return marked.parse(trimmed, { async: false }) as string;
 		} catch (e) {
-			// 回退：保留换行的纯文本
 			return (text ?? '')
 				.split('\n')
 				.map((line) => `<p>${line}</p>`)
@@ -34,9 +33,9 @@
 		}
 	}
 
-	function handleInput() {
-		if (!textareaEl) return;
-		const val = textareaEl.value;
+	function handleInput(e: Event) {
+		const ta = e.target as HTMLTextAreaElement;
+		const val = ta.value;
 		content = val;
 		onChange(val);
 	}
@@ -49,7 +48,7 @@
 		isFocused = false;
 	}
 
-	function handleSelect() {
+	function updateSelectedText() {
 		if (!textareaEl) {
 			selectedContent = '';
 			return;
@@ -63,12 +62,10 @@
 		selectedContent = textareaEl.value.substring(start, end);
 	}
 
-	// 当点击预览区域（非焦点状态），聚焦到 textarea 的末尾并移动光标
 	function handlePreviewClick() {
 		if (!textareaEl) return;
 		textareaEl.focus();
 		const len = textareaEl.value.length;
-		// 把光标放到末尾
 		try {
 			textareaEl.setSelectionRange(len, len);
 		} catch (e) {
@@ -76,21 +73,18 @@
 		}
 	}
 
-	// 外部 content 变化时，同步 textarea 的值与滚动位置（避免光标跳动）
-	let internalContent = '';
+	// 当父组件从外部替换 content 时，同步到 textarea（避免输入打断）
 	$effect(() => {
-		if (textareaEl && textareaEl.value !== content) {
-			// 只有在非聚焦状态下才完全替换内容；聚焦时只替换非当前选择前后的内容，避免打断输入
+		const cur = content;
+		if (textareaEl && textareaEl.value !== cur) {
 			if (!isFocused) {
-				textareaEl.value = content;
+				textareaEl.value = cur;
 			} else {
-				// 聚焦状态下不覆盖（输入由 handleInput 驱动）
-				// 但如果外部来源差异过大（例如清空），跟随更新并尽量保留光标位置
-				const cur = textareaEl.value;
-				if (content === '' || cur.length === 0 || Math.abs(cur.length - content.length) > 100) {
-					const pos = textareaEl.selectionStart ?? cur.length;
-					textareaEl.value = content;
-					const newPos = Math.min(pos, content.length);
+				const len = textareaEl.value.length;
+				if (cur === '' || Math.abs(len - cur.length) > 100) {
+					const pos = textareaEl.selectionStart ?? len;
+					textareaEl.value = cur;
+					const newPos = Math.min(pos, cur.length);
 					try {
 						textareaEl.setSelectionRange(newPos, newPos);
 					} catch (e) {
@@ -99,23 +93,10 @@
 				}
 			}
 		}
-		internalContent = content;
 	});
-
-	$effect(() => {
-		// 初始加载：设置 textarea 的 value
-		if (textareaEl) {
-			textareaEl.value = content;
-		}
-	});
-
-	function toggleFocusFromClick() {
-		handlePreviewClick();
-	}
 </script>
 
 <div class="markdown-editor">
-	<!-- 编辑模式：聚焦时显示 textarea -->
 	<textarea
 		bind:this={textareaEl}
 		class="markdown-textarea {isFocused ? 'is-focused' : 'is-blurred'}"
@@ -123,18 +104,16 @@
 		oninput={handleInput}
 		onfocus={handleFocus}
 		onblur={handleBlur}
-		onselect={handleSelect}
-		onclick={handleSelect}
+		onselect={updateSelectedText}
+		onclick={updateSelectedText}
 		spellcheck="false"
 	></textarea>
 
-	<!-- 预览模式：失焦时覆盖渲染 Markdown -->
 	{#if !isFocused && content}
-		<div class="markdown-preview" onclick={toggleFocusFromClick}>
+		<div class="markdown-preview" onclick={handlePreviewClick}>
 			{@html renderMarkdown(content)}
 		</div>
 	{:else if !isFocused && !content && emptyStatePrompt}
-		<!-- 空状态 -->
 		<button
 			type="button"
 			class="empty-state-overlay"
@@ -173,7 +152,6 @@
 		tab-size: 2;
 		box-sizing: border-box;
 		transition: opacity 0.15s ease;
-		/* 失焦时降低透明度并移到后方（由预览层覆盖可见） */
 	}
 
 	.markdown-textarea.is-blurred {
