@@ -34,6 +34,10 @@
 		--card: 45 20% 99%;
 		/* 深棕色卡片文字 */
 		--card-foreground: 25 35% 25%;
+
+		/* 响应式排版 - 根据视口宽度自适应缩放 */
+		--scale-factor: 1;
+		font-size: clamp(15px, 0.92vw + 8px, 20px);
 	}
 
 	.dark {
@@ -69,6 +73,33 @@
 		--card-foreground: 45 25% 90%;
 	}
 
+	/* 响应式容器宽度变量 - 根据视口宽度自适应 */
+	@media (min-width: 1280px) {
+		:root {
+			--container-max: 80rem;
+		}
+	}
+
+	@media (min-width: 1600px) {
+		:root {
+			--container-max: 100rem;
+		}
+	}
+
+	@media (min-width: 1920px) {
+		:root {
+			--container-max: 120rem;
+			font-size: clamp(17px, 0.88vw + 8px, 22px);
+		}
+	}
+
+	@media (min-width: 2560px) {
+		:root {
+			--container-max: 150rem;
+			font-size: clamp(19px, 0.85vw + 8px, 24px);
+		}
+	}
+
 	* {
 		@apply border-border;
 	}
@@ -80,6 +111,7 @@
 
 	body {
 		@apply bg-background text-foreground transition-colors duration-300;
+		min-height: 100vh;
 	}
 }
 
@@ -105,6 +137,33 @@
 
 	.dark .glass-subtle {
 		background-color: hsl(26 28% 10% / 0.65);
+	}
+}
+
+/* 响应式容器 - 根据视口自适应宽度 */
+@layer components {
+	.container-responsive {
+		width: 100%;
+		max-width: calc(var(--container-max, 72rem));
+		margin-left: auto;
+		margin-right: auto;
+		padding-left: 1rem;
+		padding-right: 1rem;
+	}
+
+	@media (min-width: 768px) {
+		.container-responsive {
+			padding-left: 1.5rem;
+			padding-right: 1.5rem;
+		}
+	}
+
+	/* 阅读型内容 - 在大屏时保持合理的阅读宽度 */
+	.content-reading {
+		width: 100%;
+		max-width: min(56rem, calc(var(--container-max, 72rem) - 4rem));
+		margin-left: auto;
+		margin-right: auto;
 	}
 }
 

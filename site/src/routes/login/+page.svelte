@@ -61,15 +61,15 @@
 </script>
 
 <div class="min-h-screen flex flex-col bg-background">
-	<div class="flex-1 flex items-center justify-center p-4">
-		<div class="w-full max-w-md animate-fade-in">
+	<div class="flex-1 flex items-center justify-center p-4 sm:p-8">
+		<div class="w-full max-w-lg animate-fade-in">
 			<div class="text-center mb-8">
-				<img src="/logo.png" alt="吾身" class="w-16 h-16 mx-auto mb-4" />
-				<h1 class="text-3xl font-bold text-foreground mb-2">吾身</h1>
-				<p class="text-muted-foreground text-sm">你的个人日记</p>
+				<img src="/logo.png" alt="吾身" class="w-20 h-20 mx-auto mb-4" />
+				<h1 class="text-4xl font-bold text-foreground mb-2">吾身</h1>
+				<p class="text-muted-foreground">你的个人日记</p>
 			</div>
 
-			<div class="bg-card rounded-xl shadow-lg border border-border/50 p-6">
+			<div class="bg-card rounded-xl shadow-lg border border-border/50 p-8">
 				<!-- Tabs -->
 				<div class="flex border-b border-border mb-6">
 					<button
@@ -224,5 +224,5 @@
 	</div>
 
 	<!-- Footer -->
-	<Footer maxWidth="md" />
+	<Footer />
 </div>

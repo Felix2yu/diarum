@@ -4,7 +4,7 @@
 	const themes: { value: Theme; label: string; icon: string }[] = [
 		{ value: 'light', label: '浅色', icon: 'sun' },
 		{ value: 'dark', label: '深色', icon: 'moon' },
-		{ value: 'system', label: '跟随系统', icon: 'monitor' }
+		{ value: 'system', label: '自适应', icon: 'auto' }
 	];
 
 	let isOpen = false;
@@ -43,9 +43,10 @@
 					d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
 			</svg>
 		{:else}
-			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-					d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+			<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<path d="M12 3a9 9 0 010 18" fill="currentColor" />
+				<path d="M12 3a9 9 0 010 18" fill="none" />
+				<circle cx="12" cy="12" r="9" />
 			</svg>
 		{/if}
 		<span class="hidden sm:inline">{themes.find(t => t.value === $theme)?.label}</span>
@@ -73,9 +74,9 @@
 								d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
 						</svg>
 					{:else}
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-								d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+						<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<path d="M12 3a9 9 0 010 18" fill="currentColor" />
+							<circle cx="12" cy="12" r="9" />
 						</svg>
 					{/if}
 					{t.label}

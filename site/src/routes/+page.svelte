@@ -59,15 +59,15 @@
 	<div class="min-h-screen flex flex-col bg-background">
 		<!-- Navigation -->
 		<nav class="fixed top-0 left-0 right-0 z-50 glass border-b border-border/50">
-			<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-				<div class="flex items-center justify-between h-16">
-					<div class="flex items-center gap-2">
-						<img src="/logo.png" alt="吾身" class="w-8 h-8" />
+			<div class="container-responsive h-16">
+				<div class="flex items-center justify-between h-full">
+					<div class="flex items-center gap-3">
+						<img src="/logo.png" alt="吾身" class="w-10 h-10" />
 						<span class="text-2xl font-bold text-foreground">吾身</span>
 					</div>
 					<a
 						href="/login"
-						class="px-4 py-2 text-sm font-medium text-foreground hover:text-primary transition-colors"
+						class="px-5 py-2 text-sm font-medium text-foreground hover:text-primary transition-colors"
 					>
 						登录
 					</a>
@@ -76,7 +76,7 @@
 		</nav>
 
 		<!-- Hero Section -->
-		<section class="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+		<section class="pt-32 pb-20 container-responsive">
 			<div class="max-w-4xl mx-auto text-center animate-fade-in">
 				<h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground mb-6 leading-tight">
 					你的个人空间，用于
@@ -104,8 +104,8 @@
 		</section>
 
 		<!-- Screenshots Section -->
-		<section class="py-16 px-4 sm:px-6 lg:px-8 bg-muted/30">
-			<div class="max-w-7xl mx-auto">
+		<section class="py-16 bg-muted/30">
+			<div class="container-responsive">
 				<!-- Desktop Screenshots -->
 				<div class="hidden md:block mb-12 animate-fade-in">
 					<div class="relative rounded-2xl overflow-hidden shadow-2xl border border-border/50">
@@ -186,8 +186,8 @@
 		</section>
 
 		<!-- Features Section -->
-		<section id="features" class="py-20 px-4 sm:px-6 lg:px-8">
-			<div class="max-w-6xl mx-auto">
+		<section id="features" class="py-20 container-responsive">
+			<div class="w-full">
 				<div class="text-center mb-16 animate-fade-in">
 					<h2 class="text-3xl sm:text-4xl font-bold text-foreground mb-4">
 						写日记所需的一切
@@ -213,8 +213,8 @@
 		</section>
 
 		<!-- AI Assistant Preview -->
-		<section class="py-20 px-4 sm:px-6 lg:px-8 bg-muted/30">
-			<div class="max-w-6xl mx-auto">
+		<section class="py-20 bg-muted/30">
+			<div class="container-responsive">
 				<div class="grid lg:grid-cols-2 gap-12 items-center">
 					<div class="animate-fade-in">
 						<h2 class="text-3xl sm:text-4xl font-bold text-foreground mb-6">
@@ -275,7 +275,7 @@
 		</section>
 
 		<!-- CTA Section -->
-		<section class="py-20 px-4 sm:px-6 lg:px-8">
+		<section class="py-20 container-responsive">
 			<div class="max-w-3xl mx-auto text-center">
 				<h2 class="text-3xl sm:text-4xl font-bold text-foreground mb-6">
 					立即开始你的日记旅程
@@ -296,6 +296,6 @@
 		</section>
 
 		<!-- Footer -->
-		<Footer maxWidth="6xl" tagline="你的个人日记，由 AI 提供强大动力" />
-	</div>
+		<Footer tagline="你的个人日记，由 AI 提供强大动力" />
+</div>
 {/if}

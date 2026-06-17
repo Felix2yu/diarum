@@ -1,12 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import Calendar from '$lib/components/calendar/Calendar.svelte';
 	import Footer from '$lib/components/ui/Footer.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import { getDatesWithDiaries, getRecentDiaries, getDiaryStats, type CalendarDiaryMeta } from '$lib/api/diaries';
 	import { isAuthenticated } from '$lib/api/client';
-	import { getMonthRange, formatDisplayDate } from '$lib/utils/date';
+	import { getMonthRange, formatDisplayDate, parseDate } from '$lib/utils/date';
 
 	let currentYear = new Date().getFullYear();
 	let currentMonth = new Date().getMonth() + 1;
@@ -57,6 +58,22 @@
 			goto('/login');
 			return;
 		}
+
+		const dateParam = $page.url.searchParams.get('date');
+		if (dateParam) {
+			try {
+				const parsed = parseDate(dateParam);
+				if (!isNaN(parsed.getTime())) {
+					currentYear = parsed.getFullYear();
+					currentMonth = parsed.getMonth() + 1;
+					prevYear = currentYear;
+					prevMonth = currentMonth;
+				}
+			} catch (e) {
+				// 忽略解析错误，使用当前日期
+			}
+		}
+
 		loadDatesWithDiaries();
 		loadRecentDiaries();
 		loadStats();
@@ -78,15 +95,15 @@
 	<title>日历 - 吾身</title>
 </svelte:head>
 
-<div class="min-h-screen bg-background">
+<div class="flex flex-col min-h-screen bg-background">
 	<PageHeader title="日历" />
 
 	<!-- Calendar -->
-	<main class="max-w-5xl mx-auto px-4 py-6">
-		<div class="flex flex-col lg:flex-row gap-6 lg:h-[540px]">
+	<main class="container-responsive py-6 flex-1">
+		<div class="flex flex-col lg:flex-row gap-6 lg:min-h-[540px]">
 			<!-- Left: Calendar -->
 			<div class="lg:flex-1 lg:min-w-0">
-				<div class="bg-card rounded-xl shadow-sm border border-border/50 p-5 h-full relative overflow-hidden">
+				<div class="bg-card rounded-xl shadow-sm border border-border/50 p-5 relative">
 					{#if loading}
 						<div class="absolute inset-0 flex flex-col items-center justify-center gap-3">
 							<svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
@@ -183,5 +200,5 @@
 	</main>
 
 	<!-- Footer -->
-	<Footer maxWidth="6xl" tagline="记录生活的点滴" />
+	<Footer tagline="记录生活的点滴" />
 </div>
