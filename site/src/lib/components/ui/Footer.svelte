@@ -30,7 +30,7 @@
 </script>
 
 <footer class="border-t border-border/50 mt-auto">
-	<div class="container-responsive py-3 px-0">
+	<div class="container-responsive py-3">
 		<div class="flex flex-row items-center justify-center sm:justify-between gap-2 sm:gap-4 flex-wrap">
 			<div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
 				{#if tagline}
