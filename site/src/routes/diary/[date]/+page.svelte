@@ -323,6 +323,104 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 							diaryDate={date}
 						/>
 					</div>
+
+					<!-- Mobile: Mood, Weather, Tags panel below editor -->
+					<div class="lg:hidden mt-4 space-y-3">
+						<!-- Mood -->
+						<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
+							<div class="flex items-center justify-between mb-2">
+								<div class="text-sm font-semibold text-foreground">心情</div>
+								{#if selectedMood}
+									<button
+										on:click={() => handleMoodSelect(selectedMood)}
+										class="text-[11px] px-2 py-1 rounded-full bg-muted/70 hover:bg-muted border border-border/70 transition-colors text-muted-foreground"
+									>
+										清除
+									</button>
+								{/if}
+							</div>
+							<div class="grid grid-cols-4 gap-2">
+								{#each moodPresets as option}
+									<button
+										on:click={() => handleMoodSelect(option)}
+										class="emoji-option-mobile {selectedMood === option ? 'emoji-option-active' : ''}"
+										title={option}
+										aria-label={`心情 ${option}`}
+									>
+										<span class="text-xl leading-none">{option}</span>
+									</button>
+								{/each}
+							</div>
+						</div>
+
+						<!-- Weather -->
+						<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
+							<div class="flex items-center justify-between mb-2">
+								<div class="text-sm font-semibold text-foreground">天气</div>
+								{#if selectedWeather}
+									<button
+										on:click={() => handleWeatherSelect(selectedWeather)}
+										class="text-[11px] px-2 py-1 rounded-full bg-muted/70 hover:bg-muted border border-border/70 transition-colors text-muted-foreground"
+									>
+										清除
+									</button>
+								{/if}
+							</div>
+							<div class="grid grid-cols-4 gap-2">
+								{#each weatherPresets as option}
+									<button
+										on:click={() => handleWeatherSelect(option)}
+										class="emoji-option-mobile {selectedWeather === option ? 'emoji-option-active' : ''}"
+										title={option}
+										aria-label={`天气 ${option}`}
+									>
+										<span class="text-xl leading-none">{option}</span>
+									</button>
+								{/each}
+							</div>
+						</div>
+
+						<!-- Tags -->
+						<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
+							<div class="flex items-center justify-between mb-3">
+								<div class="text-sm font-semibold text-foreground">标签</div>
+								{#if tags.length > 0}
+									<span class="text-[10px] text-muted-foreground">
+										{tags.length} 个
+									</span>
+								{/if}
+							</div>
+							<div class="flex flex-wrap gap-1.5 mb-3">
+								{#each tags as tag (tag)}
+									<span
+										class="inline-flex items-center gap-1 group bg-primary/10 text-primary border border-primary/20 rounded-full px-2 py-0.5 text-xs hover:bg-primary/15 transition-colors"
+									>
+										{tag}
+										<button
+											type="button"
+											on:click={() => removeTag(tag)}
+											class="opacity-60 hover:opacity-100 hover:text-destructive transition-opacity flex-shrink-0"
+											aria-label={`移除标签 ${tag}`}
+										>
+											<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+											</svg>
+										</button>
+									</span>
+								{:else}
+									<div class="text-xs text-muted-foreground/60">尚未添加标签</div>
+								{/each}
+							</div>
+							<input
+								type="text"
+								bind:value={tagInput}
+								on:keydown={handleTagKeydown}
+								on:blur={addTagFromInput}
+								placeholder="添加标签，按回车或逗号确认"
+								class="w-full text-xs px-3 py-2 rounded-lg bg-muted/30 border border-border/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors placeholder:text-muted-foreground/50"
+							/>
+						</div>
+					</div>
 				{/if}
 			</main>
 
@@ -616,6 +714,23 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 		border-color: hsl(var(--primary) / 0.65);
 		background: hsl(var(--primary) / 0.12);
 		box-shadow: 0 8px 16px hsl(var(--primary) / 0.12);
+	}
+
+	.emoji-option-mobile {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.5rem;
+		border-radius: 0.75rem;
+		border: 1px solid hsl(var(--border) / 0.5);
+		background: hsl(var(--muted) / 0.3);
+		transition: transform 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+	}
+
+	.emoji-option-mobile:hover {
+		transform: translateY(-1px);
+		background: hsl(var(--muted) / 0.6);
+		border-color: hsl(var(--primary) / 0.25);
 	}
 
 	.diary-layout {
