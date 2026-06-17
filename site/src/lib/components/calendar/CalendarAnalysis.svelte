@@ -7,6 +7,36 @@
 		type PeriodAnalysisResult,
 		type SavedPeriodAnalysisResult
 	} from '$lib/api/ai';
+	import { marked } from 'marked';
+
+	// 只在首次调用时配置一次 marked，避免每次渲染重复设置
+	let markedConfigured = false;
+	function ensureMarkedConfig() {
+		if (markedConfigured) return;
+		marked.setOptions({
+			gfm: true,
+			breaks: true,
+			mangle: false,
+			headerIds: false
+		});
+		markedConfigured = true;
+	}
+
+	// 把 markdown 文本渲染为安全的 HTML
+	function renderMarkdown(text: string): string {
+		ensureMarkedConfig();
+		try {
+			const safe = (text ?? '').trim();
+			if (!safe) return '';
+			return marked.parse(safe, { async: false }) as string;
+		} catch (e) {
+			// 渲染失败则回退到保留换行的纯文本
+			return (text ?? '')
+				.split('\n')
+				.map((line) => `<p>${line}</p>`)
+				.join('\n');
+		}
+	}
 
 	let {
 		mode = 'single',
@@ -157,10 +187,6 @@
 	function useDefaultPrompt() {
 		systemPrompt = DEFAULT_ANALYSIS_SYSTEM_PROMPT;
 		userPrefix = '';
-	}
-
-	function formatSummary(text: string): string {
-		return text.trim();
 	}
 
 	function openSaved(item: SavedPeriodAnalysisResult) {
@@ -340,12 +366,8 @@
 						</div>
 					{:else if result}
 						<div class="analysis-meta">共 {result.count} 篇日记</div>
-						<div class="analysis-summary">
-							{#each formatSummary(result.summary).split('\n') as line}
-								{#if line.trim() !== ''}
-									<p>{line}</p>
-								{/if}
-							{/each}
+						<div class="analysis-summary markdown-body">
+							{@html renderMarkdown(result.summary)}
 						</div>
 					{/if}
 				</div>
@@ -416,12 +438,8 @@
 					</div>
 				{:else if stage === 'ready' && result}
 					<div class="analysis-meta">共 {result.count} 篇日记</div>
-					<div class="analysis-summary">
-						{#each formatSummary(result.summary).split('\n') as line}
-							{#if line.trim() !== ''}
-								<p>{line}</p>
-							{/if}
-						{/each}
+					<div class="analysis-summary markdown-body">
+						{@html renderMarkdown(result.summary)}
 					</div>
 				{/if}
 			</div>
@@ -681,8 +699,156 @@
 		font-size: 0.95rem;
 	}
 
-	.analysis-summary p {
+	/* ---- Markdown 渲染样式 ---- */
+	.markdown-body {
+		line-height: 1.75;
+		color: hsl(var(--foreground) / 0.92);
+		font-size: 0.95rem;
+		word-break: break-word;
+	}
+
+	.markdown-body > *:first-child {
+		margin-top: 0;
+	}
+
+	.markdown-body > *:last-child {
+		margin-bottom: 0;
+	}
+
+	.markdown-body p {
 		margin: 0 0 0.75rem;
+	}
+
+	.markdown-body strong {
+		font-weight: 600;
+		color: hsl(var(--foreground));
+	}
+
+	.markdown-body em {
+		font-style: italic;
+	}
+
+	.markdown-body h1,
+	.markdown-body h2,
+	.markdown-body h3,
+	.markdown-body h4 {
+		font-weight: 600;
+		line-height: 1.3;
+		color: hsl(var(--foreground));
+		margin: 1.25rem 0 0.6rem;
+	}
+
+	.markdown-body h1 {
+		font-size: 1.35rem;
+		border-bottom: 1px solid hsl(var(--border) / 0.6);
+		padding-bottom: 0.4rem;
+	}
+
+	.markdown-body h2 {
+		font-size: 1.15rem;
+	}
+
+	.markdown-body h3 {
+		font-size: 1.02rem;
+	}
+
+	.markdown-body h4 {
+		font-size: 0.95rem;
+	}
+
+	.markdown-body ul,
+	.markdown-body ol {
+		margin: 0.25rem 0 0.75rem;
+		padding-left: 1.5rem;
+	}
+
+	.markdown-body li {
+		margin: 0.2rem 0;
+	}
+
+	.markdown-body ul li {
+		list-style: disc;
+	}
+
+	.markdown-body ol li {
+		list-style: decimal;
+	}
+
+	.markdown-body blockquote {
+		margin: 0.5rem 0 0.75rem;
+		padding: 0.4rem 0.9rem;
+		border-left: 3px solid hsl(var(--primary) / 0.5);
+		background: hsl(var(--muted) / 0.3);
+		color: hsl(var(--muted-foreground));
+		border-radius: 0 0.4rem 0.4rem 0;
+	}
+
+	.markdown-body blockquote p {
+		margin: 0;
+	}
+
+	.markdown-body code {
+		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-size: 0.85em;
+		padding: 0.1rem 0.35rem;
+		background: hsl(var(--muted) / 0.5);
+		border-radius: 0.3rem;
+		color: hsl(var(--foreground) / 0.95);
+	}
+
+	.markdown-body pre {
+		background: hsl(var(--muted) / 0.35);
+		border: 1px solid hsl(var(--border) / 0.4);
+		border-radius: 0.5rem;
+		padding: 0.75rem 0.9rem;
+		overflow-x: auto;
+		margin: 0.5rem 0 0.75rem;
+	}
+
+	.markdown-body pre code {
+		background: transparent;
+		border: none;
+		padding: 0;
+		font-size: 0.82rem;
+		color: hsl(var(--foreground) / 0.95);
+	}
+
+	.markdown-body hr {
+		border: none;
+		border-top: 1px solid hsl(var(--border) / 0.55);
+		margin: 0.9rem 0;
+	}
+
+	.markdown-body a {
+		color: hsl(var(--primary));
+		text-decoration: none;
+	}
+
+	.markdown-body a:hover {
+		text-decoration: underline;
+	}
+
+	.markdown-body table {
+		width: 100%;
+		border-collapse: collapse;
+		margin: 0.5rem 0 0.75rem;
+		font-size: 0.88rem;
+	}
+
+	.markdown-body th,
+	.markdown-body td {
+		border: 1px solid hsl(var(--border) / 0.5);
+		padding: 0.4rem 0.6rem;
+		text-align: left;
+	}
+
+	.markdown-body th {
+		background: hsl(var(--muted) / 0.5);
+		font-weight: 600;
+	}
+
+	.markdown-body tr:nth-child(even) td {
+		background: hsl(var(--muted) / 0.15);
 	}
 
 	.analysis-list {
