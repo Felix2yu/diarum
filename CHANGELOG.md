@@ -7,18 +7,37 @@
 ## v1.3 - 2026-06-19
 
 > 发布日期：2026-06-19
-> 对应 commit：`f29a062` — feat: add CHANGELOG.md and exclude from Docker build (#17)
-> 对比基线：`v1.2 (685adc5)` → `v1.3 (f29a062)`，**2 个文件，+134 / -0 行**
+> 对应 commit：`131a141` — feat: 新增 AI 文本整理功能并优化星期显示 (#17)
+> 对比基线：`v1.2 (685adc5)` → `v1.3 (131a141)`
 
-### 📝 变更概要
+### ✨ 新增 Features
 
-- **新增 `CHANGELOG.md`** — 按发布时间倒序记录 v1.0 / v1.1 / v1.2 及后续版本的核心变更，包含版本号、发布日期、对应 commit、主要新功能、数据模型调整、前端/API/CI 变化及关键文件清单
-- **Docker 构建忽略 CHANGELOG.md** — [.dockerignore](file:///workspace/.dockerignore) 新增 `CHANGELOG.md`，避免日志文件被打入镜像，减小镜像体积，保持 CI/CD 构建效率
+- **AI 文本整理（TextPolisher）** — 在日记编辑页新增「AI 整理」入口，支持 3 种整理模式：中等（去语气词、纠错、自动分段）、强力（重组句子、精简冗余）、自定义（自行编写 system prompt）
+- **双栏对比与一键回写** — 整理结果在右侧栏与原文并排展示字数对比，可一键应用到当前日记，保留上下文
+- **AI 后端端点 `/api/v1/ai/polish`** — 支持传入 `mode` 与可选 `customPrompt`，返回结构化的 `PolishResult { content, model }`，并在用户未配置 AI Key / 端点时返回友好错误
+
+### 🎨 前端界面 / 交互调整
+
+- **日历星期表头统一为「一二三四五六日」** — [Calendar.svelte](file:///workspace/site/src/lib/components/calendar/Calendar.svelte) 与 [date.ts](file:///workspace/site/src/lib/utils/date.ts) 保持一致，告别周一/周日的显示不一致
+- **`getCalendarDays` / `getWeekRange` 统一以周一为首** — 日历 padding 日与周范围计算均采用 `(day + 6) % 7` 偏移，保证周视图、年视图、日历视图对齐
+- **日记编辑页工具栏新增 `TextPolisher` 模态框** — [routes/diary/[date]/+page.svelte](file:///workspace/site/src/routes/diary/[date]/+page.svelte) 从正文中截取纯文本作为 `sourceText`，整理完毕后回写
+
+### 🔌 API 变更
+
+- 新增 `POST /api/v1/ai/polish` — 接收 `{ text, mode, customPrompt? }`，返回 `{ content, model }`
+- `GET /api/v1/version` / `GET /api/version` 保持向后兼容（v1.3 版本号在构建时注入）
 
 ### 📁 主要变更文件
 
 - [CHANGELOG.md](file:///workspace/CHANGELOG.md) — 新增版本更新日志文件
 - [.dockerignore](file:///workspace/.dockerignore) — 排除 CHANGELOG.md 及文档目录
+- [diarum.go](file:///workspace/diarum.go) — `Version` 升级为 `v1.3`
+- [internal/api/ai.go](file:///workspace/internal/api/ai.go) — 新增 `/polish` 端点
+- [site/src/lib/components/TextPolisher.svelte](file:///workspace/site/src/lib/components/TextPolisher.svelte) — AI 文本整理模态组件
+- [site/src/lib/api/ai.ts](file:///workspace/site/src/lib/api/ai.ts) — 新增 `polishText()` 与 `PolishResult`
+- [site/src/lib/components/calendar/Calendar.svelte](file:///workspace/site/src/lib/components/calendar/Calendar.svelte) — 星期表头「一二三四五六日」
+- [site/src/lib/utils/date.ts](file:///workspace/site/src/lib/utils/date.ts) — 周/日历统一以周一为首
+- [site/src/routes/diary/[date]/+page.svelte](file:///workspace/site/src/routes/diary/[date]/+page.svelte) — 接入 TextPolisher
 
 ---
 
