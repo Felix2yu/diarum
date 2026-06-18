@@ -11,6 +11,9 @@
 		id: string;
 		date: string;
 		snippet: string;
+		mood?: string;
+		weather?: string;
+		tags?: string[];
 	}
 
 	let query = '';
@@ -47,7 +50,10 @@
 			results = data.map((item: any) => ({
 				id: item.id,
 				date: item.date?.split(' ')[0] || item.date,
-				snippet: cleanSnippet(item.snippet || '', query.trim())
+				snippet: cleanSnippet(item.snippet || '', query.trim()),
+				mood: item.mood || '',
+				weather: item.weather || '',
+				tags: Array.isArray(item.tags) ? item.tags : []
 			}));
 		} catch (error) {
 			console.error('Search error:', error);
@@ -188,6 +194,12 @@
 									<span class="sm:hidden">{formatShortDate(result.date)}</span>
 								</span>
 								<span class="text-xs text-muted-foreground">{getDayOfWeek(result.date)}</span>
+								{#if result.mood}
+									<span class="text-sm">{result.mood}</span>
+								{/if}
+								{#if result.weather}
+									<span class="text-sm">{result.weather}</span>
+								{/if}
 							</div>
 							<svg class="w-4 h-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -197,6 +209,23 @@
 						<p class="text-sm text-muted-foreground leading-relaxed line-clamp-3">
 							{@html highlightMatch(result.snippet, query)}
 						</p>
+						<!-- Tags -->
+						{#if result.tags && result.tags.length > 0}
+							<div class="flex flex-wrap gap-1.5 mt-3">
+								{#each result.tags as tag (tag)}
+									{@const matched = tag.toLowerCase().includes(query.toLowerCase())}
+									<span
+										class="inline-flex text-[11px] px-2 py-0.5 rounded-full border transition-colors"
+										style={matched
+											? 'background-color: hsl(var(--primary) / 0.1); color: hsl(var(--primary)); border-color: hsl(var(--primary) / 0.2)'
+											: 'background-color: hsl(var(--muted) / 0.6); color: hsl(var(--muted-foreground)); border-color: hsl(var(--border))'
+										}
+									>
+										#{tag}
+									</span>
+								{/each}
+							</div>
+						{/if}
 					</button>
 				{/each}
 			</div>

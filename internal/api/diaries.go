@@ -18,10 +18,11 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 	group.POST("/upsert", func(c echo.Context) error {
 		user := auth.CurrentUser(c)
 		var body struct {
-			Date    string `json:"date"`
-			Content string `json:"content"`
-			Mood    string `json:"mood"`
-			Weather string `json:"weather"`
+			Date    string   `json:"date"`
+			Content string   `json:"content"`
+			Mood    string   `json:"mood"`
+			Weather string   `json:"weather"`
+			Tags    []string `json:"tags"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
@@ -29,8 +30,11 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		if body.Date == "" {
 			return badRequest("date is required", nil)
 		}
+		if body.Tags == nil {
+			body.Tags = []string{}
+		}
 
-		diary, _, err := s.UpsertDiary(user.ID, body.Date, body.Content, body.Mood, body.Weather)
+		diary, _, err := s.UpsertDiary(user.ID, body.Date, body.Content, body.Mood, body.Weather, body.Tags)
 		if err != nil {
 			return badRequest("Failed to save diary", err)
 		}
@@ -126,7 +130,18 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 			if len(snippet) > 200 {
 				snippet = snippet[:200] + "..."
 			}
-			results = append(results, map[string]any{"id": diary.ID, "date": store.DateOnly(diary.Date), "snippet": snippet, "mood": diary.Mood, "weather": diary.Weather})
+			tags := diary.Tags
+			if tags == nil {
+				tags = []string{}
+			}
+			results = append(results, map[string]any{
+				"id":      diary.ID,
+				"date":    store.DateOnly(diary.Date),
+				"snippet": snippet,
+				"mood":    diary.Mood,
+				"weather": diary.Weather,
+				"tags":    tags,
+			})
 		}
 		return c.JSON(http.StatusOK, map[string]any{"results": results, "total": len(results)})
 	})
@@ -197,15 +212,43 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		}
 		return c.JSON(http.StatusOK, map[string]any{"success": true})
 	})
+
+	group.GET("/tags", func(c echo.Context) error {
+		user := auth.CurrentUser(c)
+		tags, err := s.ListTagCounts(user.ID)
+		if err != nil {
+			return serverError("Failed to fetch tags", err)
+		}
+		return c.JSON(http.StatusOK, map[string]any{"tags": tags, "total": len(tags)})
+	})
+
+	group.GET("/by-tag/:tag", func(c echo.Context) error {
+		user := auth.CurrentUser(c)
+		tag := c.PathParam("tag")
+		diaries, err := s.ListDiariesByTag(user.ID, tag)
+		if err != nil {
+			return serverError("Failed to fetch diaries by tag", err)
+		}
+		result := make([]map[string]any, 0, len(diaries))
+		for _, diary := range diaries {
+			result = append(result, diaryResponse(diary, store.DateOnly(diary.Date), true))
+		}
+		return c.JSON(http.StatusOK, map[string]any{"tag": tag, "diaries": result, "total": len(result)})
+	})
 }
 
 func diaryResponse(diary *store.Diary, date string, exists bool) map[string]any {
+	tags := diary.Tags
+	if tags == nil {
+		tags = []string{}
+	}
 	return map[string]any{
 		"id":      diary.ID,
 		"date":    date,
 		"content": diary.Content,
 		"mood":    diary.Mood,
 		"weather": diary.Weather,
+		"tags":    tags,
 		"owner":   diary.Owner,
 		"created": diary.Created,
 		"updated": diary.Updated,

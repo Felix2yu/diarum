@@ -45,6 +45,8 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	let selectedContent = '';
 	let selectedMood = '';
 	let selectedWeather = '';
+	let tags: string[] = [];
+	let tagInput = '';
 	// Snapshot taken on mousedown (before blur clears selectedContent)
 	let shareSelectedContent = '';
 	let shareOpenedByMouse = false;
@@ -63,6 +65,39 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 		}
 		shareOpenedByMouse = false;
 		showShareModal = true;
+	}
+
+	function addTagFromInput() {
+		const raw = tagInput.trim();
+		if (!raw) return;
+		// Split by comma so users can enter multiple at once
+		const newTags = raw.split(/[,，]/).map(s => s.trim()).filter(Boolean);
+		const seen = new Set(tags);
+		const merged = [...tags];
+		for (const t of newTags) {
+			if (!seen.has(t)) {
+				seen.add(t);
+				merged.push(t);
+			}
+		}
+		tags = merged;
+		tagInput = '';
+		updateLocalCache(date, { content, mood: selectedMood, weather: selectedWeather, tags });
+	}
+
+	function removeTag(tag: string) {
+		tags = tags.filter(t => t !== tag);
+		updateLocalCache(date, { content, mood: selectedMood, weather: selectedWeather, tags });
+	}
+
+	function handleTagKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter' || e.key === ',') {
+			e.preventDefault();
+			addTagFromInput();
+		} else if (e.key === 'Backspace' && tagInput === '' && tags.length > 0) {
+			tags = tags.slice(0, -1);
+			updateLocalCache(date, { content, mood: selectedMood, weather: selectedWeather, tags });
+		}
 	}
 
 	$: date = $page.params.date ?? getToday();
@@ -97,6 +132,7 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 			content = cached.content;
 			selectedMood = cached.mood || '';
 			selectedWeather = cached.weather || '';
+			tags = cached.tags || [];
 			loading = false;
 			return;
 		}
@@ -104,6 +140,7 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 		content = '';
 		selectedMood = '';
 		selectedWeather = '';
+		tags = [];
 
 		// Browser cache is disabled; fetch current content from server.
 		loading = true;
@@ -115,6 +152,7 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 			content = diary?.content || '';
 			selectedMood = diary?.mood || '';
 			selectedWeather = diary?.weather || '';
+			tags = diary?.tags || [];
 		} catch (error) {
 			console.error('Failed to load diary:', error);
 			// Keep local draft on fetch failure if one exists.
@@ -122,6 +160,7 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 				content = cached.content;
 				selectedMood = cached.mood || '';
 				selectedWeather = cached.weather || '';
+				tags = cached.tags || [];
 			}
 		}
 		loading = false;
@@ -142,7 +181,8 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 		updateLocalCache(date, {
 			content,
 			mood: selectedMood,
-			weather: selectedWeather
+			weather: selectedWeather,
+			tags
 		});
 	}
 
@@ -151,7 +191,8 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 		updateLocalCache(date, {
 			content,
 			mood: selectedMood,
-			weather: selectedWeather
+			weather: selectedWeather,
+			tags
 		});
 	}
 
@@ -160,7 +201,8 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 		updateLocalCache(date, {
 			content,
 			mood: selectedMood,
-			weather: selectedWeather
+			weather: selectedWeather,
+			tags
 		});
 	}
 
@@ -281,6 +323,104 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 							diaryDate={date}
 						/>
 					</div>
+
+					<!-- Mobile: Mood, Weather, Tags panel below editor -->
+					<div class="lg:hidden mt-4 space-y-3">
+						<!-- Mood -->
+						<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
+							<div class="flex items-center justify-between mb-2">
+								<div class="text-sm font-semibold text-foreground">心情</div>
+								{#if selectedMood}
+									<button
+										on:click={() => handleMoodSelect(selectedMood)}
+										class="text-[11px] px-2 py-1 rounded-full bg-muted/70 hover:bg-muted border border-border/70 transition-colors text-muted-foreground"
+									>
+										清除
+									</button>
+								{/if}
+							</div>
+							<div class="grid grid-cols-4 gap-2">
+								{#each moodPresets as option}
+									<button
+										on:click={() => handleMoodSelect(option)}
+										class="emoji-option-mobile {selectedMood === option ? 'emoji-option-active' : ''}"
+										title={option}
+										aria-label={`心情 ${option}`}
+									>
+										<span class="text-xl leading-none">{option}</span>
+									</button>
+								{/each}
+							</div>
+						</div>
+
+						<!-- Weather -->
+						<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
+							<div class="flex items-center justify-between mb-2">
+								<div class="text-sm font-semibold text-foreground">天气</div>
+								{#if selectedWeather}
+									<button
+										on:click={() => handleWeatherSelect(selectedWeather)}
+										class="text-[11px] px-2 py-1 rounded-full bg-muted/70 hover:bg-muted border border-border/70 transition-colors text-muted-foreground"
+									>
+										清除
+									</button>
+								{/if}
+							</div>
+							<div class="grid grid-cols-4 gap-2">
+								{#each weatherPresets as option}
+									<button
+										on:click={() => handleWeatherSelect(option)}
+										class="emoji-option-mobile {selectedWeather === option ? 'emoji-option-active' : ''}"
+										title={option}
+										aria-label={`天气 ${option}`}
+									>
+										<span class="text-xl leading-none">{option}</span>
+									</button>
+								{/each}
+							</div>
+						</div>
+
+						<!-- Tags -->
+						<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
+							<div class="flex items-center justify-between mb-3">
+								<div class="text-sm font-semibold text-foreground">标签</div>
+								{#if tags.length > 0}
+									<span class="text-[10px] text-muted-foreground">
+										{tags.length} 个
+									</span>
+								{/if}
+							</div>
+							<div class="flex flex-wrap gap-1.5 mb-3">
+								{#each tags as tag (tag)}
+									<span
+										class="inline-flex items-center gap-1 group bg-primary/10 text-primary border border-primary/20 rounded-full px-2 py-0.5 text-xs hover:bg-primary/15 transition-colors"
+									>
+										{tag}
+										<button
+											type="button"
+											on:click={() => removeTag(tag)}
+											class="opacity-60 hover:opacity-100 hover:text-destructive transition-opacity flex-shrink-0"
+											aria-label={`移除标签 ${tag}`}
+										>
+											<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+											</svg>
+										</button>
+									</span>
+								{:else}
+									<div class="text-xs text-muted-foreground/60">尚未添加标签</div>
+								{/each}
+							</div>
+							<input
+								type="text"
+								bind:value={tagInput}
+								on:keydown={handleTagKeydown}
+								on:blur={addTagFromInput}
+								placeholder="添加标签，按回车或逗号确认"
+								class="w-full text-xs px-3 py-2 rounded-lg bg-muted/30 border border-border/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors placeholder:text-muted-foreground/50"
+							/>
+						</div>
+					</div>
 				{/if}
 			</main>
 
@@ -345,7 +485,15 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 						</div>
 
 						<div class="bg-card/50 rounded-xl border border-border/50 p-4">
-							<TableOfContents {content} />
+							<TableOfContents
+								{content}
+								tags={tags}
+								tagInputValue={tagInput}
+								onTagInput={(v) => (tagInput = v)}
+								onTagAdd={addTagFromInput}
+								onTagRemove={removeTag}
+								onTagKeydown={handleTagKeydown}
+							/>
 						</div>
 					</div>
 				</aside>
@@ -445,6 +593,23 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 					</a>
 
 					<a
+						href="/tags"
+						class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
+						on:click={() => showDrawer = false}
+					>
+						<div class="p-1.5 rounded-md bg-purple-500/10 text-purple-500 group-hover:bg-purple-500/20 transition-colors">
+							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+									d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
+							</svg>
+						</div>
+						<div class="min-w-0">
+							<div class="text-xs font-medium text-foreground">标签云</div>
+							<div class="text-[10px] text-muted-foreground truncate">浏览你的全部标签</div>
+						</div>
+					</a>
+
+					<a
 						href="/settings"
 						class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
 						on:click={() => showDrawer = false}
@@ -503,7 +668,16 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 
 			<!-- TOC Section -->
 			<div class="flex-1 overflow-y-auto px-3 py-3">
-				<TableOfContents {content} onNavigate={() => showDrawer = false} />
+				<TableOfContents
+					{content}
+					tags={tags}
+					tagInputValue={tagInput}
+					onTagInput={(v) => (tagInput = v)}
+					onTagAdd={addTagFromInput}
+					onTagRemove={removeTag}
+					onTagKeydown={handleTagKeydown}
+					onNavigate={() => showDrawer = false}
+				/>
 			</div>
 		</div>
 	</div>
@@ -540,6 +714,23 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 		border-color: hsl(var(--primary) / 0.65);
 		background: hsl(var(--primary) / 0.12);
 		box-shadow: 0 8px 16px hsl(var(--primary) / 0.12);
+	}
+
+	.emoji-option-mobile {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		padding: 0.5rem;
+		border-radius: 0.75rem;
+		border: 1px solid hsl(var(--border) / 0.5);
+		background: hsl(var(--muted) / 0.3);
+		transition: transform 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+	}
+
+	.emoji-option-mobile:hover {
+		transform: translateY(-1px);
+		background: hsl(var(--muted) / 0.6);
+		border-color: hsl(var(--primary) / 0.25);
 	}
 
 	.diary-layout {

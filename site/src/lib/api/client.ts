@@ -14,6 +14,7 @@ export interface Diary {
     content: string;
     mood?: string;
     weather?: string;
+    tags?: string[];
     owner: string;
     created?: string;
     updated?: string;

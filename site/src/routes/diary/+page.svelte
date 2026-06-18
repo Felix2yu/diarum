@@ -102,7 +102,7 @@
 	<main class="container-responsive py-6 flex-1">
 		<div class="flex flex-col lg:flex-row gap-6 lg:min-h-[540px]">
 			<!-- Left: Calendar -->
-			<div class="lg:flex-1 lg:min-w-0">
+			<div class="lg:flex-1 lg:min-w-0 max-w-[900px] mx-auto w-full">
 				<div class="bg-card rounded-xl shadow-sm border border-border/50 p-5 relative">
 					{#if loading}
 						<div class="absolute inset-0 flex flex-col items-center justify-center gap-3">
@@ -121,7 +121,7 @@
 			</div>
 
 			<!-- Right: Stats and Recent Entries -->
-			<div class="lg:w-[340px] xl:w-[380px] flex flex-col gap-4 flex-shrink-0">
+			<div class="lg:w-[340px] xl:w-[380px] flex flex-col gap-4 flex-shrink-0 mx-auto w-full">
 				<!-- Stats -->
 				<div class="grid grid-cols-3 gap-4">
 					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">

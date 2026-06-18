@@ -2,7 +2,13 @@
 	let {
 		content = '',
 		className = '',
-		onNavigate: onNavigateProp = (() => {}) as () => void
+		tags: rawTags = [] as string[],
+		tagInputValue = '',
+		onNavigate: onNavigateProp = (() => {}) as () => void,
+		onTagInput = ((_s: string) => {}) as (s: string) => void,
+		onTagAdd = (() => {}) as () => void,
+		onTagRemove = ((_t: string) => {}) as (t: string) => void,
+		onTagKeydown = ((_e: KeyboardEvent) => {}) as (e: KeyboardEvent) => void
 	} = $props();
 
 	interface TocItem {
@@ -63,9 +69,48 @@
 			onNavigateProp();
 		}
 	}
+
+	function handleTagInputChange(e: Event) {
+		const target = e.target as HTMLInputElement;
+		onTagInput(target.value);
+	}
 </script>
 
 <div class={className}>
+	<div class="mb-4">
+		<div class="text-muted-foreground/60 text-xs uppercase font-semibold mb-2">标签</div>
+		<div class="flex flex-wrap gap-1.5 mb-2">
+			{#each rawTags as tag (tag)}
+				<span
+					class="inline-flex items-center gap-1 group bg-primary/10 text-primary border border-primary/20 rounded-full px-2 py-0.5 text-xs hover:bg-primary/15 transition-colors"
+				>
+					{tag}
+					<button
+						type="button"
+						onclick={() => onTagRemove(tag)}
+						class="opacity-60 hover:opacity-100 hover:text-destructive transition-opacity"
+						aria-label={`移除标签 ${tag}`}
+					>
+						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
+				</span>
+			{/each}
+		</div>
+		<div class="flex items-center gap-1">
+			<input
+				type="text"
+				value={tagInputValue}
+				oninput={handleTagInputChange}
+				onkeydown={onTagKeydown}
+				onblur={onTagAdd}
+				placeholder="添加标签，回车或逗号分隔"
+				class="w-full text-xs px-2 py-1.5 rounded-md bg-background border border-border/70 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors placeholder:text-muted-foreground/50"
+			/>
+		</div>
+	</div>
+
 	{#if headings.length > 0}
 		<div class="text-muted-foreground/60 text-xs uppercase font-semibold mb-2">目录</div>
 		<nav>
@@ -86,14 +131,5 @@
 				{/each}
 			</ul>
 		</nav>
-	{:else}
-		<div class="text-muted-foreground/50 text-sm">
-			<svg class="w-8 h-8 mx-auto mb-2 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
-					d="M4 6h16M4 12h16M4 18h7" />
-			</svg>
-			<p>暂无标题</p>
-			<p class="text-xs mt-1">使用 # 来创建标题</p>
-		</div>
 	{/if}
 </div>

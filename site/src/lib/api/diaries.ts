@@ -140,11 +140,13 @@ export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
 		const effectiveContent = diary.content !== undefined ? diary.content : existing?.content;
 		const effectiveMood = diary.mood !== undefined ? diary.mood : existing?.mood;
 		const effectiveWeather = diary.weather !== undefined ? diary.weather : existing?.weather;
+		const effectiveTags = diary.tags !== undefined ? diary.tags : existing?.tags ?? [];
 
 		const allEmpty =
 			isContentEmpty(effectiveContent) &&
 			!effectiveMood?.trim() &&
-			!effectiveWeather?.trim();
+			!effectiveWeather?.trim() &&
+			(effectiveTags.length === 0);
 
 		if (existing && existing.id) {
 			if (allEmpty) {
@@ -168,7 +170,8 @@ export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
 				date: diary.date,
 				content: diary.content ?? existing?.content ?? '',
 				mood: diary.mood ?? existing?.mood ?? '',
-				weather: diary.weather ?? existing?.weather ?? ''
+				weather: diary.weather ?? existing?.weather ?? '',
+				tags: effectiveTags
 			})
 		});
 
@@ -319,5 +322,56 @@ export async function deleteDiary(id: string): Promise<boolean> {
 	} catch (error) {
 		console.error('Error deleting diary:', error);
 		return false;
+	}
+}
+
+export interface TagCount {
+	tag: string;
+	count: number;
+}
+
+/**
+ * Get tag cloud (frequency of each tag across user's diaries)
+ */
+export async function getTagCloud(): Promise<TagCount[]> {
+	try {
+		const response = await fetch('/api/v1/diaries/tags', {
+			headers: {
+				'Authorization': `Bearer ${pb.authStore.token}`
+			}
+		});
+
+		if (!response.ok) {
+			return [];
+		}
+
+		const data = await response.json();
+		return Array.isArray(data.tags) ? data.tags : [];
+	} catch (error) {
+		console.error('Error fetching tag cloud:', error);
+		return [];
+	}
+}
+
+/**
+ * Get all diaries tagged with a specific tag
+ */
+export async function getDiariesByTag(tag: string): Promise<Diary[]> {
+	try {
+		const response = await fetch(`/api/v1/diaries/by-tag/${encodeURIComponent(tag)}`, {
+			headers: {
+				'Authorization': `Bearer ${pb.authStore.token}`
+			}
+		});
+
+		if (!response.ok) {
+			return [];
+		}
+
+		const data = await response.json();
+		return Array.isArray(data.diaries) ? (data.diaries as Diary[]) : [];
+	} catch (error) {
+		console.error('Error fetching diaries by tag:', error);
+		return [];
 	}
 }

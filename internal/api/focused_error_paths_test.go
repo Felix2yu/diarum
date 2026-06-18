@@ -412,10 +412,10 @@ func TestFocusedExportImportEdges(t *testing.T) {
 	e := echo.New()
 	RegisterExportImportRoutes(e, s, authMiddlewareFor(user), nil)
 
-	if _, err := s.InsertImportedDiary(user.ID, "export-old", "2024-01-01", "old diary", "", ""); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "export-old", "2024-01-01", "old diary", "", "", nil); err != nil {
 		t.Fatalf("InsertImportedDiary old: %v", err)
 	}
-	if _, err := s.InsertImportedDiary(user.ID, "export-new", "2024-02-02", "new diary", "", ""); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "export-new", "2024-02-02", "new diary", "", "", nil); err != nil {
 		t.Fatalf("InsertImportedDiary new: %v", err)
 	}
 	missingMedia, err := s.InsertImportedMedia(user.ID, "export-missing-media", "missing.png", "Missing", "", nil)

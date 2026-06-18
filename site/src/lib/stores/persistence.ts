@@ -7,6 +7,7 @@ export interface PersistedEntry {
 	content: string;
 	mood?: string;
 	weather?: string;
+	tags?: string[];
 	localUpdatedAt: number;
 	serverUpdatedAt: string | null;
 	isDirty: boolean;
