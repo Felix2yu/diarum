@@ -193,7 +193,7 @@
 									<span class="hidden sm:inline">{formatDisplayDate(result.date)}</span>
 									<span class="sm:hidden">{formatShortDate(result.date)}</span>
 								</span>
-								<span class="text-xs text-muted-foreground">{getDayOfWeek(result.date)}</span>
+								<span class="text-xs text-muted-foreground">周{getDayOfWeek(result.date)}</span>
 								{#if result.mood}
 									<span class="text-sm">{result.mood}</span>
 								{/if}

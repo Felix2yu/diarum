@@ -4,7 +4,8 @@
 	import { onMount } from 'svelte';
 	import TiptapEditor from '$lib/components/editor/TiptapEditor.svelte';
 	import TableOfContents from '$lib/components/ui/TableOfContents.svelte';
-import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import TextPolisher from '$lib/components/TextPolisher.svelte';
+	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import Footer from '$lib/components/ui/Footer.svelte';
 	import DiaryShareModal from '$lib/components/share/DiaryShareModal.svelte';
 	import { getDiaryByDate } from '$lib/api/diaries';
@@ -42,6 +43,8 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	let showDrawer = false;
 	let showDesktopToc = true;
 	let showShareModal = false;
+	let showPolisher = false;
+	let polishSourceText = '';
 	let selectedContent = '';
 	let selectedMood = '';
 	let selectedWeather = '';
@@ -217,6 +220,24 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 		}
 	}
 
+	function handleOpenPolisher() {
+		polishSourceText =
+			selectedContent && selectedContent.trim() !== '' ? selectedContent : content;
+		showPolisher = true;
+	}
+
+	function handleApplyPolished(text: string) {
+		const toReplace = selectedContent && selectedContent.trim() !== '' ? selectedContent : content;
+		if (selectedContent && selectedContent.trim() !== '' && selectedContent !== content) {
+			// 只替换选中的部分
+			const newContent = content.replace(selectedContent, text);
+			handleContentChange(newContent);
+		} else {
+			// 替换整篇
+			handleContentChange(text);
+		}
+	}
+
 	let previousDate = '';
 
 	onMount(() => {
@@ -326,6 +347,23 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 
 					<!-- Mobile: Mood, Weather, Tags panel below editor -->
 					<div class="lg:hidden mt-4 space-y-3">
+						<!-- AI 整理入口 -->
+						<button
+							type="button"
+							on:click={handleOpenPolisher}
+							class="w-full flex items-center gap-2 bg-card hover:bg-card/80 rounded-xl border border-border/50 p-3 shadow-sm text-left group transition-all"
+						>
+							<div class="p-1.5 rounded-md bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0018 18.469V19a2 2 0 01-2 2H8a2 2 0 01-2-2v-.531c0-.895.357-1.753.988-2.357l-.547-.546z" />
+								</svg>
+							</div>
+							<div>
+								<div class="text-xs font-semibold text-foreground">AI 整理文本</div>
+								<div class="text-[11px] text-muted-foreground">去语气词 · 纠错 · 自动分段</div>
+							</div>
+						</button>
+
 						<!-- Mood -->
 						<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
 							<div class="flex items-center justify-between mb-2">
@@ -428,6 +466,22 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 			{#if showDesktopToc}
 				<aside class="hidden lg:block w-[19rem] flex-shrink-0">
 					<div class="sticky top-11 space-y-3 animate-slide-in-right">
+						<button
+							type="button"
+							on:click={handleOpenPolisher}
+							class="w-full flex items-center gap-2 bg-card/50 hover:bg-card rounded-xl border border-border/50 hover:border-primary/30 p-3 shadow-sm transition-all text-left group"
+						>
+							<div class="p-1.5 rounded-md bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0018 18.469V19a2 2 0 01-2 2H8a2 2 0 01-2-2v-.531c0-.895.357-1.753.988-2.357l-.547-.546z" />
+								</svg>
+							</div>
+							<div class="min-w-0">
+								<div class="text-xs font-semibold text-foreground">AI 整理文本</div>
+								<div class="text-[11px] text-muted-foreground truncate">去语气词 · 纠错 · 重组</div>
+							</div>
+						</button>
+
 						<div class="bg-card/50 rounded-xl border border-border/50 p-4 shadow-sm">
 							<div class="flex items-center justify-between mb-2">
 								<div>
@@ -558,6 +612,22 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 							<div class="text-[10px] text-muted-foreground truncate">与 AI 聊聊你的日记</div>
 						</div>
 					</a>
+
+					<button
+						type="button"
+						on:click={() => { showDrawer = false; handleOpenPolisher(); }}
+						class="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group text-left"
+					>
+						<div class="p-1.5 rounded-md bg-purple-500/10 text-purple-500 group-hover:bg-purple-500/20 transition-colors">
+							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0018 18.469V19a2 2 0 01-2 2H8a2 2 0 01-2-2v-.531c0-.895.357-1.753.988-2.357l-.547-.546z" />
+							</svg>
+						</div>
+						<div class="min-w-0 text-left">
+							<div class="text-xs font-medium text-foreground">AI 整理文本</div>
+							<div class="text-[10px] text-muted-foreground truncate">去语气词 · 纠错 · 重组</div>
+						</div>
+					</button>
 
 					<button
 						on:mousedown={captureShareSelection}
@@ -691,6 +761,15 @@ import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	selectedContent={shareSelectedContent}
 	onClose={() => showShareModal = false}
 />
+
+<!-- AI Text Polisher Modal -->
+{#if showPolisher}
+	<TextPolisher
+		bind:open={showPolisher}
+		bind:sourceText={polishSourceText}
+		onApply={handleApplyPolished}
+	/>
+{/if}
 
 <style>
 	.emoji-option {

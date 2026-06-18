@@ -283,3 +283,48 @@ export async function getVectorStats(): Promise<VectorStats> {
 
 	return await response.json();
 }
+
+export interface PolishResult {
+	content: string;
+	mode: string;
+}
+
+/**
+ * Polish / rewrite diary text using AI.
+ * mode: "medium" (去语气词纠错分段) | "strong" (重组精简) | "custom" (自定义 prompt)
+ */
+export async function polishText(
+	content: string,
+	mode: 'medium' | 'strong' | 'custom',
+	customPrompt?: string
+): Promise<PolishResult> {
+	const payload: Record<string, unknown> = {
+		content,
+		mode
+	};
+	if (customPrompt !== undefined) {
+		payload.prompt = customPrompt;
+	}
+
+	const response = await fetch('/api/v1/ai/polish', {
+		method: 'POST',
+		headers: {
+			'Authorization': `Bearer ${pb.authStore.token}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify(payload)
+	});
+
+	if (!response.ok) {
+		let message = 'AI 整理失败';
+		try {
+			const data = await response.json();
+			if (data?.message) message = data.message;
+		} catch {
+			// ignore
+		}
+		throw new Error(message);
+	}
+
+	return await response.json();
+}

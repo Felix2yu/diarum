@@ -526,6 +526,113 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		}
 		return c.JSON(http.StatusOK, response)
 	})
+
+	// Text polishing endpoint - three built-in modes plus custom prompt
+	group.POST("/polish", func(c echo.Context) error {
+		userId := auth.CurrentUser(c).ID
+		var body struct {
+			Content string `json:"content"`
+			Mode    string `json:"mode"` // "medium" | "strong" | "custom"
+			Prompt  string `json:"prompt"`
+		}
+		if err := c.Bind(&body); err != nil {
+			return badRequest("Invalid request body", err)
+		}
+		content := strings.TrimSpace(body.Content)
+		if content == "" {
+			return badRequest("content is required", nil)
+		}
+		mode := strings.ToLower(strings.TrimSpace(body.Mode))
+		if mode == "" {
+			mode = "medium"
+		}
+		if mode != "medium" && mode != "strong" && mode != "custom" {
+			return badRequest("mode must be 'medium', 'strong' or 'custom'", nil)
+		}
+
+		// Load AI config
+		cfgService := config.NewConfigService(s)
+		apiKey, _ := cfgService.GetString(userId, "ai.api_key")
+		baseURL, _ := cfgService.GetString(userId, "ai.base_url")
+		model, _ := cfgService.GetString(userId, "ai.chat_model")
+		enabled, _ := cfgService.GetBool(userId, "ai.enabled")
+		if !enabled || apiKey == "" || baseURL == "" || model == "" {
+			return badRequest("AI settings are not configured", nil)
+		}
+
+		var systemPrompt string
+		switch mode {
+		case "medium":
+			systemPrompt = "你是一个日记文本整理助手。请对用户提供的日记文本进行以下处理：\n1) 去除口语化的语气词（如「哈哈」、「呃」、「嗯」、「嘛」、「吧」的冗余使用）、多余的标点和感叹；\n2) 纠正明显的错别字、语法错误和语病；\n3) 根据内容含义自动分段，使段落结构清晰、阅读流畅；\n4) 保留原文的核心事实、情感表达和个人口吻，不要增加新的事件或情节；\n5) 输出只返回整理后的文本本身，不要包含解释、说明或额外文字。"
+		case "strong":
+			systemPrompt = "你是一个日记文本改写助手。请对用户提供的日记文本进行深度重组和精简：\n1) 主动重组句子结构，使其更通顺、逻辑更清晰；\n2) 去除一切冗余、重复、流水账式的描述，保留最有意义的内容；\n3) 让表达更书面、更精炼，但仍保持自然和个人的语气；\n4) 适当补充过渡语句，使段落之间衔接自然；\n5) 不要虚构新的事件或情节；\n6) 输出只返回改写后的文本本身，不要包含解释、说明或额外文字。"
+		case "custom":
+			systemPrompt = strings.TrimSpace(body.Prompt)
+			if systemPrompt == "" {
+				return badRequest("prompt is required for custom mode", nil)
+			}
+		}
+
+		ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Minute)
+		defer cancel()
+
+		baseURL = strings.TrimSuffix(baseURL, "/")
+		url := baseURL + "/v1/chat/completions"
+
+		reqBody := map[string]any{
+			"model": model,
+			"messages": []map[string]string{
+				{"role": "system", "content": systemPrompt},
+				{"role": "user", "content": content},
+			},
+			"stream": false,
+		}
+
+		jsonBytes, err := json.Marshal(reqBody)
+		if err != nil {
+			return serverError("Failed to build AI request", err)
+		}
+
+		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBytes))
+		if err != nil {
+			return serverError("Failed to create AI request", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		req.Header.Set("Content-Type", "application/json")
+
+		client := &http.Client{Timeout: 5 * time.Minute}
+		resp, err := client.Do(req)
+		if err != nil {
+			return serverError("AI request failed: "+err.Error(), nil)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			bodyText, _ := io.ReadAll(resp.Body)
+			return serverError(fmt.Sprintf("AI returned status %d: %s", resp.StatusCode, string(bodyText)), nil)
+		}
+
+		var aiResp struct {
+			Choices []struct {
+				Message struct {
+					Content string `json:"content"`
+				} `json:"message"`
+			} `json:"choices"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&aiResp); err != nil {
+			return serverError("Failed to decode AI response", err)
+		}
+
+		polished := ""
+		if len(aiResp.Choices) > 0 {
+			polished = strings.TrimSpace(aiResp.Choices[0].Message.Content)
+		}
+
+		return c.JSON(http.StatusOK, map[string]any{
+			"content": polished,
+			"mode":    mode,
+		})
+	})
 }
 
 func fetchModels(baseURL, apiKey string) ([]ModelInfo, error) {
