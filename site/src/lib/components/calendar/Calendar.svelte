@@ -335,14 +335,14 @@
 			</div>
 
 			<!-- Week Days -->
-			<div class="grid grid-cols-7 gap-2 mb-2">
+			<div class="weekdays-grid">
 				{#each weekDays as day}
 					<div class="text-center font-medium text-muted-foreground text-sm py-2">{day}</div>
 				{/each}
 			</div>
 
 			<!-- Calendar Days -->
-			<div class="grid grid-cols-7 gap-2">
+			<div class="days-grid">
 				{#each calendarDays as date, i}
 					<button
 						onclick={() => handleDateClick(date)}
@@ -505,6 +505,25 @@
 
 	.view-container {
 		width: 100%;
+		max-width: 600px;
+		margin-left: auto;
+		margin-right: auto;
+	}
+
+	/* Month view: weekdays header + days grid
+	   Cap the overall grid width so cells don't get too huge on 2K+ displays,
+	   while still using 100% on normal/laptop sizes. */
+	.weekdays-grid {
+		display: grid;
+		grid-template-columns: repeat(7, 1fr);
+		gap: 0.5rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.days-grid {
+		display: grid;
+		grid-template-columns: repeat(7, 1fr);
+		gap: 0.5rem;
 	}
 
 	/* Year button in month view header */
