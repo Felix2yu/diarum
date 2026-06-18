@@ -4,6 +4,24 @@
 
 ---
 
+## v1.3 - 2026-06-19
+
+> 发布日期：2026-06-19
+> 对应 commit：`f29a062` — feat: add CHANGELOG.md and exclude from Docker build (#17)
+> 对比基线：`v1.2 (685adc5)` → `v1.3 (f29a062)`，**2 个文件，+134 / -0 行**
+
+### 📝 变更概要
+
+- **新增 `CHANGELOG.md`** — 按发布时间倒序记录 v1.0 / v1.1 / v1.2 及后续版本的核心变更，包含版本号、发布日期、对应 commit、主要新功能、数据模型调整、前端/API/CI 变化及关键文件清单
+- **Docker 构建忽略 CHANGELOG.md** — [.dockerignore](file:///workspace/.dockerignore) 新增 `CHANGELOG.md`，避免日志文件被打入镜像，减小镜像体积，保持 CI/CD 构建效率
+
+### 📁 主要变更文件
+
+- [CHANGELOG.md](file:///workspace/CHANGELOG.md) — 新增版本更新日志文件
+- [.dockerignore](file:///workspace/.dockerignore) — 排除 CHANGELOG.md 及文档目录
+
+---
+
 ## v1.2 - 2026-06-18
 
 > 发布日期：2026-06-18
