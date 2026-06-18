@@ -62,10 +62,10 @@ export function formatShortDate(dateStr: string): string {
 }
 
 /**
- * Get day of week in Chinese short format (e.g., "周二")
+ * Get day of week in Chinese short format (e.g., "二")
  */
 export function getDayOfWeek(dateStr: string): string {
-	const days = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+	const days = ['日', '一', '二', '三', '四', '五', '六'];
 	const date = parseDate(dateStr);
 	return days[date.getDay()];
 }

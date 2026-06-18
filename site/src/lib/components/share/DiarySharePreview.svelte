@@ -152,7 +152,7 @@
 				{formatDisplayDate(date)}
 			</div>
 			<div style="font-size: 14px; color: {theme.mutedForeground};">
-				{getDayOfWeek(date)}
+				周{getDayOfWeek(date)}
 			</div>
 		</div>
 	{/if}
