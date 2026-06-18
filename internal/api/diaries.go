@@ -130,7 +130,18 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 			if len(snippet) > 200 {
 				snippet = snippet[:200] + "..."
 			}
-			results = append(results, map[string]any{"id": diary.ID, "date": store.DateOnly(diary.Date), "snippet": snippet, "mood": diary.Mood, "weather": diary.Weather})
+			tags := diary.Tags
+			if tags == nil {
+				tags = []string{}
+			}
+			results = append(results, map[string]any{
+				"id":      diary.ID,
+				"date":    store.DateOnly(diary.Date),
+				"snippet": snippet,
+				"mood":    diary.Mood,
+				"weather": diary.Weather,
+				"tags":    tags,
+			})
 		}
 		return c.JSON(http.StatusOK, map[string]any{"results": results, "total": len(results)})
 	})

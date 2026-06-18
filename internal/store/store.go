@@ -939,7 +939,12 @@ func (s *Store) SearchDiaries(owner, query string, limit int) ([]*Diary, error) 
 	if limit <= 0 {
 		limit = 50
 	}
-	rows, err := s.DB.Query(`SELECT content, created, date, id, mood, owner, updated, weather, tags FROM diaries WHERE owner = ? AND content LIKE ? ORDER BY date DESC LIMIT ?`, owner, "%"+query+"%", limit)
+	searchPattern := "%" + query + "%"
+	rows, err := s.DB.Query(
+		`SELECT content, created, date, id, mood, owner, updated, weather, tags
+		 FROM diaries WHERE owner = ? AND (content LIKE ? OR tags LIKE ?) ORDER BY date DESC LIMIT ?`,
+		owner, searchPattern, searchPattern, limit,
+	)
 	if err != nil {
 		return nil, err
 	}
