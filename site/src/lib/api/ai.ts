@@ -32,11 +32,14 @@ export interface VectorStats {
 	pending_count: number;
 }
 
+export type PeriodType = 'week' | 'month' | 'custom';
+
 export interface PeriodAnalysisResult {
 	id?: string;
-	period: 'week' | 'month';
+	period: PeriodType;
 	start: string;
 	end: string;
+	keywords?: string;
 	count: number;
 	summary: string;
 	system_prompt?: string;
@@ -50,14 +53,16 @@ export interface SavedPeriodAnalysisResult extends PeriodAnalysisResult {
 }
 
 /**
- * Retrieve a previously saved AI analysis for a period.
+ * Retrieve a previously saved AI analysis for a period + optional keywords.
  */
 export async function getSavedAnalysis(
-	period: 'week' | 'month',
+	period: PeriodType,
 	start: string,
-	end: string
+	end: string,
+	keywords?: string
 ): Promise<SavedPeriodAnalysisResult | null> {
 	const params = new URLSearchParams({ period, start, end });
+	if (keywords !== undefined) params.set('keywords', keywords);
 	const response = await fetch(`/api/v1/ai/analysis?${params.toString()}`, {
 		headers: {
 			'Authorization': `Bearer ${pb.authStore.token}`
@@ -84,7 +89,7 @@ export async function getSavedAnalysis(
  * List saved period analyses, optionally filtered by period.
  */
 export async function getSavedAnalyses(
-	period?: 'week' | 'month' | 'all'
+	period?: PeriodType | 'all'
 ): Promise<SavedPeriodAnalysisResult[]> {
 	const params = new URLSearchParams();
 	if (period) params.set('period', period);
@@ -114,18 +119,21 @@ export const DEFAULT_ANALYSIS_SYSTEM_PROMPT =
 	'你是一个贴心的日记分析助手，基于用户提供的日记内容进行深入分析。你需要：\n1) 归纳总结日记的主要内容；\n2) 分析用户的情绪变化、生活模式；\n3) 找出亮点和值得改进的地方；\n4) 给出具体、可操作的建议。\n请用温暖、鼓励且理性的语气，分段输出，便于阅读。使用中文回答。';
 
 /**
- * Request period (week / month) analysis for a given date range.
- * Optional `system_prompt` and `user_prefix` override saved settings.
+ * Request analysis for a given date range. Supports a custom period ('custom') as
+ * well as optional keyword / keyword filtering so only diaries containing the
+ * provided keywords are analyzed. Optional system_prompt and user_prefix override
+ * saved settings.
  */
 export async function analyzePeriod(
-	period: 'week' | 'month',
+	period: PeriodType,
 	start: string,
 	end: string,
-	opts?: { system_prompt?: string; user_prefix?: string }
+	opts?: { system_prompt?: string; user_prefix?: string; keywords?: string }
 ): Promise<PeriodAnalysisResult> {
 	const payload: Record<string, unknown> = { period, start, end };
 	if (opts?.system_prompt !== undefined) payload.system_prompt = opts.system_prompt;
 	if (opts?.user_prefix !== undefined) payload.user_prefix = opts.user_prefix;
+	if (opts?.keywords !== undefined) payload.keywords = opts.keywords;
 
 	const response = await fetch('/api/v1/ai/analysis', {
 		method: 'POST',

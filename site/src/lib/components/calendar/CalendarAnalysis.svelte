@@ -5,7 +5,8 @@
 		getSavedAnalyses,
 		DEFAULT_ANALYSIS_SYSTEM_PROMPT,
 		type PeriodAnalysisResult,
-		type SavedPeriodAnalysisResult
+		type SavedPeriodAnalysisResult,
+		type PeriodType
 	} from '$lib/api/ai';
 	import { marked } from 'marked';
 
@@ -46,7 +47,7 @@
 		onClose
 	}: {
 		mode?: 'single' | 'history';
-		period: 'week' | 'month';
+		period: PeriodType;
 		start: string;
 		end: string;
 		onClose: () => void;
@@ -63,9 +64,16 @@
 	let showPromptEditor = $state(false);
 	let systemPrompt = $state(DEFAULT_ANALYSIS_SYSTEM_PROMPT);
 	let userPrefix = $state('');
+	let keywords = $state('');
+
+	// 自定义时间区间（只在自定义模式下编辑；默认填充传入的 start/end）
+	let customPeriod = $state<PeriodType>(period);
+	let customStart = $state(start);
+	let customEnd = $state(end);
+	let showFilters = $state(false);
 
 	// ------- 历史列表视图 -------
-	type Filter = 'all' | 'week' | 'month';
+	type Filter = 'all' | 'week' | 'month' | 'custom';
 	let filter: Filter = $state('all');
 	let savedList: SavedPeriodAnalysisResult[] = $state([]);
 	let selected: SavedPeriodAnalysisResult | null = $state(null);
@@ -98,16 +106,22 @@
 		savedLabel = null;
 		systemPrompt = DEFAULT_ANALYSIS_SYSTEM_PROMPT;
 		userPrefix = '';
+		keywords = '';
 		showPromptEditor = false;
+		showFilters = false;
 	}
 
 	// 打开时：根据 mode 决定加载什么内容
-	async function tryLoadSingle(per: 'week' | 'month', s: string, e: string) {
+	async function tryLoadSingle(per: PeriodType, s: string, e: string, kw?: string) {
 		resetSingleState();
+		customPeriod = per;
+		customStart = s;
+		customEnd = e;
+		if (kw !== undefined) keywords = kw;
 		stage = 'checking';
 		errorMsg = null;
 		try {
-			const saved = await getSavedAnalysis(per, s, e);
+			const saved = await getSavedAnalysis(per, s, e, kw ?? '');
 			if (saved) {
 				result = saved;
 				if (saved.system_prompt) systemPrompt = saved.system_prompt;
@@ -130,7 +144,7 @@
 		selected = null;
 		filter = per;
 		try {
-			const items = await getSavedAnalyses(per === 'all' ? undefined : per);
+			const items = await getSavedAnalyses(per === 'all' ? undefined : (per as PeriodType));
 			savedList = items;
 			stage = 'list-ready';
 		} catch (e: unknown) {
@@ -160,16 +174,32 @@
 		}
 	}
 
+	function validateDates(): string | null {
+		const s = customStart.trim();
+		const e = customEnd.trim();
+		if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '开始日期格式应为 YYYY-MM-DD';
+		if (!/^\d{4}-\d{2}-\d{2}$/.test(e)) return '结束日期格式应为 YYYY-MM-DD';
+		if (new Date(s).getTime() > new Date(e).getTime()) return '开始日期不能晚于结束日期';
+		return null;
+	}
+
 	// ------- 单条分析逻辑 -------
-	async function runAnalysis(per: 'week' | 'month', s: string, e: string) {
+	async function runAnalysis() {
+		const dateErr = validateDates();
+		if (dateErr) {
+			errorMsg = dateErr;
+			stage = 'error';
+			return;
+		}
 		stage = 'loading';
 		errorMsg = null;
 		result = null;
 		savedLabel = null;
 		try {
-			const r = await analyzePeriod(per, s, e, {
+			const r = await analyzePeriod(customPeriod, customStart, customEnd, {
 				system_prompt: systemPrompt,
-				user_prefix: userPrefix
+				user_prefix: userPrefix,
+				keywords: keywords
 			});
 			result = r;
 			if (r?.id) {
@@ -184,16 +214,16 @@
 		}
 	}
 
-	function useDefaultPrompt() {
-		systemPrompt = DEFAULT_ANALYSIS_SYSTEM_PROMPT;
-		userPrefix = '';
-	}
-
 	function openSaved(item: SavedPeriodAnalysisResult) {
 		// 在弹窗内切换到单条分析视图，展示已保存内容
 		result = item;
 		if (item.system_prompt) systemPrompt = item.system_prompt;
 		if (item.user_prefix) userPrefix = item.user_prefix;
+		customPeriod = item.period;
+		customStart = item.start;
+		customEnd = item.end;
+		keywords = item.keywords ?? '';
+		showFilters = item.period === 'custom' || (item.keywords ?? '').trim() !== '';
 		savedLabel = item.updated
 			? `已保存 · ${item.updated.replace('T', ' ').slice(0, 19)}`
 			: '已保存';
@@ -209,12 +239,25 @@
 		stage = 'list-ready';
 	}
 
+	function useDefaultPrompt() {
+		systemPrompt = DEFAULT_ANALYSIS_SYSTEM_PROMPT;
+		userPrefix = '';
+	}
+
 	function periodTitle(per: string): string {
-		return per === 'week' ? '周分析' : per === 'month' ? '月分析' : '分析';
+		if (per === 'week') return '周分析';
+		if (per === 'month') return '月分析';
+		return '自定义分析';
 	}
 
 	const mainLabel =
-		mode === 'history' ? '历史分析' : period === 'week' ? '本周分析' : '本月分析';
+		mode === 'history'
+			? '历史分析'
+			: period === 'week'
+				? '本周分析'
+				: period === 'month'
+					? '本月分析'
+					: '自定义分析';
 
 	// 绑定到根元素引用
 	function setRef(node: HTMLDivElement | null) {
@@ -232,26 +275,30 @@
 >
 	<div class="analysis-panel" onclick={(e) => e.stopPropagation()}>
 		<div class="analysis-header">
-			<h3>{mainLabel}</h3>
-			<span class="analysis-range">
+			<div class="analysis-header-main">
+				<h3>{mainLabel}</h3>
 				{#if mode === 'history'}
 					{#if selected}
-						{selected.start} ~ {selected.end}
-						{#if selected.updated}
-							<span class="analysis-saved-badge" title="该分析已保存">
-								已保存 · {selected.updated.replace('T', ' ').slice(0, 19)}
-							</span>
-						{/if}
+						<p class="analysis-header-sub">
+							{selected.start} ~ {selected.end}
+							{#if selected.updated}
+								<span class="analysis-saved-badge" title="该分析已保存">
+									已保存 · {selected.updated.replace('T', ' ').slice(0, 19)}
+								</span>
+							{/if}
+						</p>
 					{:else}
-						共 {savedList.length} 份历史分析
+						<p class="analysis-header-sub">共 {savedList.length} 份历史分析</p>
 					{/if}
 				{:else}
-					{start} ~ {end}
-					{#if savedLabel}
-						<span class="analysis-saved-badge" title="该分析已保存">{savedLabel}</span>
-					{/if}
+					<p class="analysis-header-sub">
+						{start} ~ {end}
+						{#if savedLabel}
+							<span class="analysis-saved-badge" title="该分析已保存">{savedLabel}</span>
+						{/if}
+					</p>
 				{/if}
-			</span>
+			</div>
 			<button class="analysis-close" onclick={onClose} aria-label="关闭">×</button>
 		</div>
 
@@ -271,6 +318,10 @@
 						class={filter === 'month' ? 'analysis-toggle analysis-toggle--active' : 'analysis-toggle'}
 						onclick={() => loadList('month')}
 					>月分析</button>
+					<button
+						class={filter === 'custom' ? 'analysis-toggle analysis-toggle--active' : 'analysis-toggle'}
+						onclick={() => loadList('custom')}
+					>自定义</button>
 					<button onclick={() => loadList(filter)} class="analysis-toggle ml-auto" title="刷新">
 						刷新
 					</button>
@@ -304,6 +355,9 @@
 										</span>
 										<span class="analysis-list-range">{item.start} ~ {item.end}</span>
 										<span class="analysis-list-count">{item.count} 篇日记</span>
+										{#if item.keywords}
+											<span class="analysis-list-keywords" title="关键词">🏷 {item.keywords}</span>
+										{/if}
 									</div>
 									<p class="analysis-list-preview">{item.summary.slice(0, 120)}{item.summary.length > 120 ? '…' : ''}</p>
 									{#if item.updated}
@@ -318,18 +372,59 @@
 				<!-- 选中某条历史：显示详细内容 + 可重新生成 -->
 				<div class="analysis-toolbar">
 					<button onclick={backToList} class="analysis-toggle">← 返回列表</button>
+					{#if customPeriod !== 'week' && customPeriod !== 'month'}
+						<button
+							class={showFilters ? 'analysis-toggle analysis-toggle--active' : 'analysis-toggle'}
+							onclick={() => (showFilters = !showFilters)}
+						>
+							{showFilters ? '收起筛选' : '自定义筛选'}
+						</button>
+					{/if}
 					<button onclick={() => (showPromptEditor = !showPromptEditor)} class="analysis-toggle">
 						{showPromptEditor ? '收起提示词' : '编辑提示词'}
 					</button>
 					<button onclick={useDefaultPrompt} class="analysis-toggle">恢复默认</button>
 					<button
-						onclick={() => runAnalysis(selected.period, selected.start, selected.end)}
+						onclick={() => runAnalysis()}
 						disabled={stage === 'loading' || stage === 'checking'}
 						class="analysis-reanalyze"
 					>
 						{stage === 'loading' ? '分析中…' : '重新生成分析'}
 					</button>
 				</div>
+
+				{#if customPeriod !== 'week' && customPeriod !== 'month' && showFilters}
+					<div class="analysis-filters">
+					<div class="analysis-filter-row">
+						<label class="analysis-filter-label" for="cas-history-start">开始日期</label>
+						<input
+							id="cas-history-start"
+							type="date"
+							bind:value={customStart}
+							class="analysis-filter-input"
+						/>
+					</div>
+					<div class="analysis-filter-row">
+						<label class="analysis-filter-label" for="cas-history-end">结束日期</label>
+						<input
+							id="cas-history-end"
+							type="date"
+							bind:value={customEnd}
+							class="analysis-filter-input"
+						/>
+					</div>
+					<div class="analysis-filter-row">
+						<label class="analysis-filter-label" for="cas-history-keywords">关键词过滤</label>
+						<input
+							id="cas-history-keywords"
+							type="text"
+							bind:value={keywords}
+							placeholder="多个关键词用逗号或空格分隔；留空则不做关键词过滤"
+							class="analysis-filter-input"
+						/>
+					</div>
+					</div>
+				{/if}
 
 				{#if showPromptEditor}
 					<div class="analysis-prompt">
@@ -362,10 +457,13 @@
 					{:else if stage === 'error'}
 						<div class="analysis-error">
 							<p>{errorMsg}</p>
-							<button class="analysis-retry" onclick={() => runAnalysis(selected.period, selected.start, selected.end)}>重试</button>
+							<button class="analysis-retry" onclick={() => runAnalysis()}>重试</button>
 						</div>
 					{:else if result}
-						<div class="analysis-meta">共 {result.count} 篇日记</div>
+						<div class="analysis-meta">
+							共 {result.count} 篇日记
+							{#if result.keywords} · 关键词：{result.keywords}{/if}
+						</div>
 						<div class="analysis-summary markdown-body">
 							{@html renderMarkdown(result.summary)}
 						</div>
@@ -376,18 +474,65 @@
 		<!-- ---- 单条分析模式（原有逻辑） ---- -->
 		{:else}
 			<div class="analysis-toolbar">
+				{#if period === 'week' || period === 'month'}
+					<!-- 周/月分析：只保留提示词相关按钮，不提供自定义筛选 -->
+				{:else}
+					<!-- 自定义分析：只保留筛选/提示词按钮，不提供"回到默认区间" -->
+					<button
+						class={showFilters ? 'analysis-toggle analysis-toggle--active' : 'analysis-toggle'}
+						onclick={() => (showFilters = !showFilters)}
+					>
+						{showFilters ? '收起筛选' : '自定义筛选'}
+					</button>
+				{/if}
 				<button onclick={() => (showPromptEditor = !showPromptEditor)} class="analysis-toggle">
 					{showPromptEditor ? '收起提示词' : '编辑提示词'}
 				</button>
 				<button onclick={useDefaultPrompt} class="analysis-toggle">恢复默认</button>
 				<button
-					onclick={() => runAnalysis(period, start, end)}
+					onclick={() => runAnalysis()}
 					disabled={stage === 'loading' || stage === 'checking'}
 					class="analysis-reanalyze"
 				>
 					{stage === 'loading' ? '分析中…' : stage === 'checking' ? '加载中…' : result?.id ? '重新生成分析' : '开始分析'}
 				</button>
 			</div>
+
+			{#if period !== 'week' && period !== 'month' && showFilters}
+				<div class="analysis-filters">
+					<div class="analysis-filter-row">
+						<label class="analysis-filter-label" for="cas-custom-start">开始日期</label>
+						<input
+							id="cas-custom-start"
+							type="date"
+							bind:value={customStart}
+							class="analysis-filter-input"
+						/>
+					</div>
+					<div class="analysis-filter-row">
+						<label class="analysis-filter-label" for="cas-custom-end">结束日期</label>
+						<input
+							id="cas-custom-end"
+							type="date"
+							bind:value={customEnd}
+							class="analysis-filter-input"
+						/>
+					</div>
+					<div class="analysis-filter-row">
+						<label class="analysis-filter-label" for="cas-keywords">关键词过滤</label>
+						<input
+							id="cas-keywords"
+							type="text"
+							bind:value={keywords}
+							placeholder="多个关键词用逗号或空格分隔，例如：运动, 阅读, 工作"
+							class="analysis-filter-input"
+						/>
+					</div>
+					<p class="analysis-prompt-hint">
+						自定义筛选：只分析在指定日期范围内且日记内容中包含任一关键词的条目。留空则分析整个区间的日记。
+					</p>
+				</div>
+			{/if}
 
 			{#if showPromptEditor}
 				<div class="analysis-prompt">
@@ -418,14 +563,25 @@
 						<p>正在读取之前保存的分析…</p>
 					</div>
 				{:else if stage === 'idle'}
-					<div class="analysis-idle">
-						<p class="analysis-idle-title">准备开始 AI 分析</p>
-						<p class="analysis-idle-sub">
-							系统将基于此时间段的日记内容生成一份结构化的总结与建议。可先点击上方
-							"编辑提示词" 自定义分析风格，然后点击"开始分析"。
-							分析结果会自动保存，下次打开时可直接查看。
-						</p>
-					</div>
+					{#if !showFilters || !showPromptEditor}
+						{#if showFilters}
+							<div class="analysis-idle">
+								<p class="analysis-idle-title">准备开始 AI 分析</p>
+								<p class="analysis-idle-sub">已启用自定义筛选。请确认上方的日期范围和关键词（可留空），然后点击"开始分析"。系统将只分析符合筛选条件的日记，分析结果会自动保存，下次打开时可直接查看。</p>
+							</div>
+						{:else}
+							<div class="analysis-idle">
+								<p class="analysis-idle-title">准备开始 AI 分析</p>
+								<p class="analysis-idle-sub">
+									{#if period === 'week' || period === 'month'}
+										系统将基于所选时间段的日记内容生成一份结构化的总结与建议。可在"编辑提示词"中自定义分析风格，然后点击"开始分析"。分析结果会自动保存，下次打开时可直接查看。
+									{:else}
+										系统将基于所选时间段的日记内容生成一份结构化的总结与建议。可点击"自定义筛选"按日期范围或关键词进行更精细的分析，也可在"编辑提示词"中自定义分析风格，然后点击"开始分析"。分析结果会自动保存，下次打开时可直接查看。
+									{/if}
+								</p>
+							</div>
+						{/if}
+					{/if}
 				{:else if stage === 'loading'}
 					<div class="analysis-loading">
 						<div class="spinner" aria-hidden="true"></div>
@@ -434,10 +590,13 @@
 				{:else if stage === 'error'}
 					<div class="analysis-error">
 						<p>{errorMsg}</p>
-						<button class="analysis-retry" onclick={() => runAnalysis(period, start, end)}>重试</button>
+						<button class="analysis-retry" onclick={() => runAnalysis()}>重试</button>
 					</div>
 				{:else if stage === 'ready' && result}
-					<div class="analysis-meta">共 {result.count} 篇日记</div>
+					<div class="analysis-meta">
+						共 {result.count} 篇日记
+						{#if result.keywords} · 关键词：{result.keywords}{/if}
+					</div>
 					<div class="analysis-summary markdown-body">
 						{@html renderMarkdown(result.summary)}
 					</div>
@@ -466,8 +625,9 @@
 		border: 1px solid hsl(var(--border) / 0.6);
 		border-radius: 1rem;
 		width: 100%;
-		max-width: 680px;
+		max-width: min(56rem, 92vw);
 		max-height: 80vh;
+		overflow-y: auto;
 		display: flex;
 		flex-direction: column;
 		box-shadow: 0 20px 60px hsl(0 0% 0% / 0.25);
@@ -478,11 +638,17 @@
 	}
 
 	.analysis-header {
-		padding: 1rem 1.25rem;
+		padding: 1rem 3rem 1rem 1.25rem;
 		border-bottom: 1px solid hsl(var(--border) / 0.5);
+		text-align: center;
+		position: relative;
+	}
+
+	.analysis-header-main {
 		display: flex;
+		flex-direction: column;
 		align-items: center;
-		gap: 0.75rem;
+		gap: 0.25rem;
 	}
 
 	.analysis-header h3 {
@@ -492,12 +658,15 @@
 		color: hsl(var(--foreground));
 	}
 
-	.analysis-range {
+	.analysis-header-sub {
+		margin: 0;
 		color: hsl(var(--muted-foreground));
-		font-size: 0.85rem;
+		font-size: 0.8rem;
 		display: inline-flex;
 		align-items: center;
 		gap: 0.5rem;
+		flex-wrap: wrap;
+		justify-content: center;
 	}
 
 	.analysis-saved-badge {
@@ -510,7 +679,9 @@
 	}
 
 	.analysis-close {
-		margin-left: auto;
+		position: absolute;
+		top: 0.6rem;
+		right: 0.6rem;
 		width: 2rem;
 		height: 2rem;
 		border-radius: 9999px;
@@ -583,6 +754,50 @@
 		cursor: not-allowed;
 	}
 
+	/* ---- 自定义筛选（日期 / 关键词） ---- */
+	.analysis-filters {
+		padding: 0.85rem 1.25rem 1rem;
+		border-bottom: 1px solid hsl(var(--border) / 0.4);
+		background: hsl(var(--muted) / 0.15);
+	}
+
+	.analysis-filter-row {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.analysis-filter-row:last-child {
+		margin-bottom: 0;
+	}
+
+	.analysis-filter-label {
+		flex: 0 0 5.5rem;
+		font-size: 0.8rem;
+		color: hsl(var(--muted-foreground));
+	}
+
+	.analysis-filter-input {
+		flex: 1;
+		width: 100%;
+		padding: 0.5rem 0.75rem;
+		font-size: 0.85rem;
+		line-height: 1.5;
+		background: hsl(var(--background));
+		border: 1px solid hsl(var(--border) / 0.6);
+		color: hsl(var(--foreground));
+		border-radius: 0.5rem;
+		outline: none;
+		transition: border-color 0.15s ease, box-shadow 0.15s ease;
+	}
+
+	.analysis-filter-input:focus {
+		border-color: hsl(var(--primary) / 0.7);
+		box-shadow: 0 0 0 1px hsl(var(--primary) / 0.3);
+	}
+
+	/* ---- 提示词样式 ---- */
 	.analysis-prompt {
 		padding: 0.85rem 1.25rem 1rem;
 		background: hsl(var(--muted) / 0.25);
@@ -602,22 +817,22 @@
 
 	.analysis-prompt-textarea {
 		width: 100%;
-		padding: 0.5rem 0.65rem;
-		font-size: 0.82rem;
+		padding: 0.5rem 0.75rem;
+		font-size: 0.85rem;
 		line-height: 1.6;
 		background: hsl(var(--background));
-		border: 1px solid hsl(var(--border) / 0.7);
+		border: 1px solid hsl(var(--border) / 0.6);
 		color: hsl(var(--foreground));
 		border-radius: 0.5rem;
 		resize: vertical;
-		font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+		font-family: inherit;
 		outline: none;
 		transition: border-color 0.15s ease, box-shadow 0.15s ease;
 	}
 
 	.analysis-prompt-textarea:focus {
-		border-color: hsl(var(--primary) / 0.8);
-		box-shadow: 0 0 0 2px hsl(var(--primary) / 0.15);
+		border-color: hsl(var(--primary) / 0.7);
+		box-shadow: 0 0 0 1px hsl(var(--primary) / 0.3);
 	}
 
 	.analysis-prompt-hint {
@@ -630,6 +845,9 @@
 		padding: 1.25rem;
 		overflow-y: auto;
 		flex: 1;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
 	}
 
 	.analysis-loading,
@@ -652,6 +870,19 @@
 		font-size: 0.9rem;
 		line-height: 1.6;
 		max-width: 36rem;
+	}
+
+	.analysis-idle--compact {
+		padding: 1rem 0.75rem;
+	}
+
+	.analysis-idle--compact .analysis-idle-title {
+		font-size: 0.9rem;
+		margin-bottom: 0.25rem;
+	}
+
+	.analysis-idle--compact .analysis-idle-sub {
+		font-size: 0.8rem;
 	}
 
 	.analysis-loading p {
@@ -911,6 +1142,15 @@
 		margin-left: auto;
 		font-size: 0.75rem;
 		color: hsl(var(--muted-foreground));
+	}
+
+	.analysis-list-keywords {
+		margin-left: 0.6rem;
+		padding: 0.15rem 0.45rem;
+		font-size: 0.72rem;
+		background: hsl(var(--primary) / 0.08);
+		color: hsl(var(--primary));
+		border-radius: 0.35rem;
 	}
 
 	.analysis-list-preview {

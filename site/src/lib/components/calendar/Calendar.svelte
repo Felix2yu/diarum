@@ -31,7 +31,7 @@
 	type AnalysisState = {
 		active: boolean;
 		mode?: 'single' | 'history';
-		period: 'week' | 'month';
+		period: 'week' | 'month' | 'custom';
 		start: string;
 		end: string;
 	} | null;
@@ -41,17 +41,22 @@
 		const { start, end } = getWeekRange(new Date());
 		analysis = { active: true, mode: 'single', period: 'week', start, end };
 	}
-
 	function openMonthAnalysis() {
 		const { start, end } = getMonthRange(currentYear, currentMonth);
 		analysis = { active: true, mode: 'single', period: 'month', start, end };
 	}
-
 	function openHistoryAnalysis() {
 		const { start, end } = getMonthRange(currentYear, currentMonth);
 		analysis = { active: true, mode: 'history', period: 'month', start, end };
 	}
-
+	function openCustomAnalysis() {
+		// 默认取最近 30 天作为自定义分析的初始范围；用户可在弹窗中进一步调整
+		const today = new Date();
+		const start = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000);
+		const fmt = (d: Date) =>
+			`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+		analysis = { active: true, mode: 'single', period: 'custom', start: fmt(start), end: fmt(today) };
+	}
 	function closeAnalysis() {
 		analysis = null;
 	}
@@ -329,6 +334,19 @@
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 							</svg>
 							历史分析
+						</span>
+					</button>
+					<!-- 自定义分析：独立按钮，不与周/月分析混在一起 -->
+					<button
+						onclick={openCustomAnalysis}
+						class="ml-1.5 px-3 py-1 text-xs font-medium rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 hover:border-primary/60 transition-all duration-200"
+						title="自定义日期范围和关键词分析"
+					>
+						<span class="inline-flex items-center gap-1">
+							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M7 12h10M10 18h4" />
+							</svg>
+							自定义分析
 						</span>
 					</button>
 				</div>

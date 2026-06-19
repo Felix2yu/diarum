@@ -46,39 +46,40 @@
 </script>
 
 <header class="glass border-b border-border/50 flex-shrink-0 z-20 {sticky ? 'sticky top-0' : ''}">
-	<div class="container-responsive h-14">
-		<div class="grid grid-cols-[auto_1fr_auto] items-center gap-2 h-full">
-			<div class="flex items-center gap-2 min-w-0">
-				<a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity" title="吾身首页">
-					<img src="/logo.png" alt="吾身" class="w-7 h-7" />
-					<span class="hidden sm:inline text-lg font-semibold text-foreground hover:text-primary transition-colors">吾身</span>
-				</a>
-			</div>
+	<div class="container-responsive h-14 relative flex items-center">
+		<!-- 左侧：Logo -->
+		<div class="flex items-center gap-2 z-10">
+			<a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity" title="吾身首页">
+				<img src="/logo.png" alt="吾身" class="w-7 h-7" />
+				<span class="hidden sm:inline text-lg font-semibold text-foreground hover:text-primary transition-colors">吾身</span>
+			</a>
+		</div>
 
-			{#if showTitle && title}
-				<div class="flex items-center justify-center min-w-0">
+		<!-- 中间：标题（绝对居中，漂浮在整行上方，不挤压左右两侧） -->
+		{#if showTitle && title}
+			<div class="absolute inset-0 flex items-center justify-center px-48 pointer-events-none">
+				<div class="flex items-center justify-center gap-2 min-w-0 max-w-full overflow-hidden pointer-events-auto">
 					<div class="text-sm font-medium text-foreground truncate">{title}</div>
 					<slot name="subtitle" />
 				</div>
-			{:else}
-				<div></div>
-			{/if}
-
-			<div class="flex items-center justify-end gap-1 min-w-[10rem]">
-				{#each navItems as item}
-					{@const active = item.match($page.url.pathname)}
-					<a
-						href={item.href}
-						class="p-2 rounded-lg transition-all duration-200 {active ? 'bg-primary/15 text-primary ring-1 ring-primary/30' : 'hover:bg-muted/50 text-foreground'}"
-						title={item.label}
-						aria-label={item.label}
-						aria-current={active ? 'page' : null}
-					>
-						{@html item.svg}
-					</a>
-				{/each}
-				<slot name="actions" />
 			</div>
+		{/if}
+
+		<!-- 右侧：导航图标与操作 -->
+		<div class="ml-auto flex items-center justify-end gap-1 z-10">
+			{#each navItems as item}
+				{@const active = item.match($page.url.pathname)}
+				<a
+					href={item.href}
+					class="p-2 rounded-lg transition-all duration-200 {active ? 'bg-primary/15 text-primary ring-1 ring-primary/30' : 'hover:bg-muted/50 text-foreground'}"
+					title={item.label}
+					aria-label={item.label}
+					aria-current={active ? 'page' : null}
+				>
+					{@html item.svg}
+				</a>
+			{/each}
+			<slot name="actions" />
 		</div>
 	</div>
 </header>
