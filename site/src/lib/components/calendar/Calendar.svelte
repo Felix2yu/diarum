@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { tick } from 'svelte';
 	import { formatDate, getCalendarDays, getToday, getYearRange, getMonthRange, getWeekRange, formatMonthYear } from '$lib/utils/date';
 	import { getDatesWithDiaries, type CalendarDiaryMeta } from '$lib/api/diaries';
 	import CalendarAnalysis from './CalendarAnalysis.svelte';
@@ -24,8 +23,6 @@
 	let yearLoading = $state(false);
 	let loadedYear = $state<number | null>(null);
 	let transitionDirection = $state<'forward' | 'backward'>('forward');
-	let yearGridEl: $state<HTMLDivElement | null> = null;
-	let wheelCooldown = $state(false);
 	let yearPickerOpen = $state(false);
 
 	type AnalysisState = {
@@ -130,7 +127,6 @@
 	async function enterYearView() {
 		viewMode = 'year';
 		await loadYearData(currentYear);
-		scrollToCurrentMonth();
 	}
 
 	function exitYearView(month: number) {
@@ -205,39 +201,6 @@
 	function handleMiniDayClick(e: Event, month: number, _day: number) {
 		e.stopPropagation();
 		exitYearView(month + 1);
-	}
-
-	function handleYearWheel(e: WheelEvent) {
-		if (!yearGridEl || wheelCooldown || yearLoading) return;
-
-		const el = yearGridEl;
-		const atTop = el.scrollTop <= 0;
-		const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
-
-		if ((atTop && e.deltaY < 0) || (atBottom && e.deltaY > 0)) {
-			e.preventDefault();
-			wheelCooldown = true;
-			if (e.deltaY < 0) {
-				goToPreviousYear();
-			} else {
-				goToNextYear();
-			}
-			setTimeout(() => {
-				wheelCooldown = false;
-			}, 600);
-		}
-	}
-
-	async function scrollToCurrentMonth() {
-		await tick();
-		if (!yearGridEl) return;
-		const today = new Date();
-		if (currentYear !== today.getFullYear()) return;
-		const targetMonth = today.getMonth();
-		const cards = yearGridEl.querySelectorAll('.mini-month');
-		if (cards[targetMonth]) {
-			cards[targetMonth].scrollIntoView({ block: 'center', behavior: 'smooth' });
-		}
 	}
 </script>
 
@@ -395,7 +358,7 @@
 		</div>
 	{:else}
 		<!-- Year View -->
-		<div class="view-container animate-fade-in-only">
+		<div class="view-container year-mode animate-fade-in-only">
 			<!-- Year Header -->
 			<div class="flex items-center justify-between mb-5 px-2">
 				<button
@@ -429,13 +392,8 @@
 				</button>
 			</div>
 
-			<!-- Year Grid (scrollable) -->
-			<!-- svelte-ignore a11y-no-static-element-interactions -->
-			<div
-				class="year-scroll-container"
-				bind:this={yearGridEl}
-				onwheel={handleYearWheel}
-			>
+			<!-- Year Grid -->
+			<div class="year-scroll-container">
 				{#if yearLoading}
 					<div class="flex items-center justify-center py-12">
 						<svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
@@ -480,11 +438,6 @@
 							</button>
 						{/each}
 					</div>
-
-					<!-- Scroll hint -->
-					<div class="scroll-hint">
-						<span class="scroll-hint-text">滚动切换年份</span>
-					</div>
 				{/if}
 			</div>
 		</div>
@@ -526,6 +479,32 @@
 		max-width: 600px;
 		margin-left: auto;
 		margin-right: auto;
+	}
+
+	/* Year view: use a slightly wider container on larger screens so the
+	   4-column month grid has enough room for each day cell. */
+	@media (min-width: 780px) {
+		.view-container.year-mode {
+			max-width: 760px;
+		}
+	}
+
+	/* Compact month styling when 4 columns are in use — less padding
+	   inside each mini month so the 7 day-columns fit horizontally. */
+	@media (min-width: 780px) {
+		.view-container.year-mode .mini-month {
+			padding: 0.375rem;
+		}
+		.view-container.year-mode .mini-month-name {
+			font-size: 0.75rem;
+			margin-bottom: 0.2rem;
+		}
+		.view-container.year-mode .mini-day {
+			font-size: 0.65rem;
+		}
+		.view-container.year-mode .mini-weekday {
+			font-size: 0.5rem;
+		}
 	}
 
 	/* Month view: weekdays header + days grid
@@ -575,59 +554,31 @@
 		width: 70%;
 	}
 
-	/* Scrollable year container */
+	/* Year grid container: no height cap so all 12 months are visible */
 	.year-scroll-container {
-		max-height: 440px;
-		overflow-y: auto;
-		overflow-x: hidden;
-		scroll-behavior: smooth;
-		-webkit-overflow-scrolling: touch;
-		padding-right: 2px;
+		width: 100%;
 		position: relative;
 	}
 
-	/* Fade edges to hint scrollability */
-	.year-scroll-container::after {
-		content: '';
-		position: sticky;
-		bottom: 0;
-		left: 0;
-		right: 0;
-		display: block;
-		height: 24px;
-		background: linear-gradient(to top, hsl(var(--card)), transparent);
-		pointer-events: none;
-		margin-top: -24px;
-	}
-
-	/* Scroll hint text */
-	.scroll-hint {
-		display: flex;
-		justify-content: center;
-		padding: 0.5rem 0 0.25rem;
-	}
-
-	.scroll-hint-text {
-		font-size: 0.6875rem;
-		color: hsl(var(--muted-foreground) / 0.5);
-		user-select: none;
-	}
-
-	/* Year grid */
+	/* Year grid: default is 3 columns × 4 rows; on screens wide enough
+	   for 4 columns per row and all 7 day-columns to fit inside, switch
+	   to 4×3 to keep the overall layout shorter. */
 	.year-grid {
 		display: grid;
 		grid-template-columns: repeat(3, 1fr);
 		gap: 0.5rem;
 	}
 
-	@media (max-width: 640px) {
+	@media (min-width: 780px) {
+		.year-grid {
+			grid-template-columns: repeat(4, 1fr);
+		}
+	}
+
+	@media (max-width: 500px) {
 		.year-grid {
 			grid-template-columns: repeat(2, 1fr);
 			gap: 0.375rem;
-		}
-
-		.year-scroll-container {
-			max-height: 380px;
 		}
 	}
 
