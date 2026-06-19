@@ -46,27 +46,29 @@
 </script>
 
 <header class="glass border-b border-border/50 flex-shrink-0 z-20 {sticky ? 'sticky top-0' : ''}">
-	<div class="container-responsive h-14 relative flex items-center">
+	<div class="container-responsive h-14 flex items-center gap-2">
 		<!-- 左侧：Logo -->
-		<div class="flex items-center gap-2 z-10">
+		<div class="flex items-center gap-2 flex-shrink-0">
 			<a href="/" class="flex items-center gap-2 hover:opacity-80 transition-opacity" title="吾身首页">
 				<img src="/logo.png" alt="吾身" class="w-7 h-7" />
 				<span class="hidden sm:inline text-lg font-semibold text-foreground hover:text-primary transition-colors">吾身</span>
 			</a>
 		</div>
 
-		<!-- 中间：标题（绝对居中，漂浮在整行上方，不挤压左右两侧） -->
+		<!-- 中间：标题（在可用空间内居中，避免与左右内容重合） -->
 		{#if showTitle && title}
-			<div class="absolute inset-0 flex items-center justify-center px-48 pointer-events-none">
-				<div class="flex items-center justify-center gap-2 min-w-0 max-w-full overflow-hidden pointer-events-auto">
+			<div class="flex-1 min-w-0 flex items-center justify-center px-2">
+				<div class="flex items-center justify-center gap-2 min-w-0 max-w-full overflow-hidden">
 					<div class="text-sm font-medium text-foreground truncate">{title}</div>
 					<slot name="subtitle" />
 				</div>
 			</div>
+		{:else}
+			<div class="flex-1" />
 		{/if}
 
 		<!-- 右侧：导航图标与操作 -->
-		<div class="ml-auto flex items-center justify-end gap-1 z-10">
+		<div class="flex items-center justify-end gap-1 flex-shrink-0">
 			{#each navItems as item}
 				{@const active = item.match($page.url.pathname)}
 				<a
