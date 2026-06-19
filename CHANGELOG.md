@@ -4,6 +4,56 @@
 
 ---
 
+## v1.4 - 2026-06-19
+
+> 发布日期：2026-06-19
+> 对应 commit：`671e092` — feat: AI日记分析支持自定义时间范围与关键词
+> 对比基线：`v1.3 (479194f)` → `v1.4 (671e092)`，**11 个文件，+521 / -202 行**
+
+### ✨ 新增 Features
+
+- **AI 分析支持自定义时间区间** — 日历头部新增独立的「自定义分析」按钮，与周分析、月分析并列，可自由选择起止日期
+- **关键词筛选** — 自定义分析支持逗号分隔的关键词，仅将命中关键词的日记交给模型，适用于主题式复盘（如"运动""心情""工作"）
+- **提示词编辑器** — 在分析弹窗中可编辑传给模型的 system prompt，自定义分析风格；默认风格保持简洁
+- **按时间正序投喂** — 提交给 AI 的日记内容由旧到新排列，并在系统提示词中明确引导关注日期维度与情绪/模式变化
+- **历史分析列表** — 可在日历页查看所有已保存的 AI 分析（按周、月、自定义分类），打开任意一条可直接阅读或重新生成
+- **页面标题全局居中** — 标题不再被左右导航按钮挤压，采用浮动层绝对居中布局
+
+### 🔌 API 变更
+
+- `POST /api/v1/ai/analysis` 新增 `period=custom` 支持，请求体新增 `customStart`、`customEnd`、`keywords` 字段
+- 响应结构保持向后兼容：`{ period, startDate, endDate, keywords, summary, model }`
+- `GET /api/v1/ai/analysis` 按用户返回所有已保存分析，供前端「历史分析」列表使用
+
+### 🏗️ 数据模型 / 存储
+
+- `period_analyses` 表新增 `keywords JSON DEFAULT '[]' NOT NULL`
+- 新增唯一索引 `idx_period_analyses_user_period_start_keywords`，同一时间区间 + 关键词组合只保存一份最新结果
+- 启动时自动迁移，缺失字段自动补默认值
+
+### 🎨 前端界面调整
+
+- [CalendarAnalysis.svelte](file:///workspace/site/src/lib/components/calendar/CalendarAnalysis.svelte) — 筛选面板与提示词编辑器条件渲染，容器全局滚动
+- [Calendar.svelte](file:///workspace/site/src/lib/components/calendar/Calendar.svelte) — 头部新增自定义分析按钮
+- [PageHeader.svelte](file:///workspace/site/src/lib/components/ui/PageHeader.svelte) — 标题改为绝对居中漂浮层
+- [ai.ts](file:///workspace/site/src/lib/api/ai.ts) — `createAnalysis` 扩展自定义区间与关键词字段
+
+### 📁 主要变更文件
+
+- [diarum.go](file:///workspace/diarum.go) — `Version` 升级为 `v1.4`
+- [CHANGELOG.md](file:///workspace/CHANGELOG.md) — 本文件
+- [internal/api/ai.go](file:///workspace/internal/api/ai.go) — custom period + keywords 支持，时间正序，系统提示词优化
+- [internal/store/store.go](file:///workspace/internal/store/store.go) — `period_analyses` 表结构升级
+- [site/src/lib/api/ai.ts](file:///workspace/site/src/lib/api/ai.ts) — 前端 API 类型扩展
+- [site/src/lib/components/calendar/Calendar.svelte](file:///workspace/site/src/lib/components/calendar/Calendar.svelte) — 自定义分析入口
+- [site/src/lib/components/calendar/CalendarAnalysis.svelte](file:///workspace/site/src/lib/components/calendar/CalendarAnalysis.svelte) — 筛选 + 提示词 + 全局滚动
+- [site/src/lib/components/ui/PageHeader.svelte](file:///workspace/site/src/lib/components/ui/PageHeader.svelte) — 标题绝对居中
+- [site/src/routes/diary/[date]/+page.svelte](file:///workspace/site/src/routes/diary/[date]/+page.svelte) — 日期导航整行居中
+- [site/src/routes/assistant/+page.svelte](file:///workspace/site/src/routes/assistant/+page.svelte) / [[id]/+page.svelte](file:///workspace/site/src/routes/assistant/[id]/+page.svelte) — 容器与间距微调
+- [site/src/routes/search/+page.svelte](file:///workspace/site/src/routes/search/+page.svelte) / [settings/+page.svelte](file:///workspace/site/src/routes/settings/+page.svelte) — 容器与间距微调
+
+---
+
 ## v1.3 - 2026-06-19
 
 > 发布日期：2026-06-19
