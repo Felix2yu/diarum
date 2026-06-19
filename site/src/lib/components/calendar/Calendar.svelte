@@ -358,7 +358,7 @@
 		</div>
 	{:else}
 		<!-- Year View -->
-		<div class="view-container year-view-container animate-fade-in-only">
+		<div class="view-container animate-fade-in-only">
 			<!-- Year Header -->
 			<div class="flex items-center justify-between mb-5 px-2">
 				<button
@@ -481,16 +481,6 @@
 		margin-right: auto;
 	}
 
-	.view-container.year-view-container {
-		max-width: 900px;
-	}
-
-	@media (min-width: 900px) {
-		.view-container.year-view-container {
-			max-width: 1000px;
-		}
-	}
-
 	/* Month view: weekdays header + days grid
 	   Cap the overall grid width so cells don't get too huge on 2K+ displays,
 	   while still using 100% on normal/laptop sizes. */
@@ -538,24 +528,17 @@
 		width: 70%;
 	}
 
-	/* Year grid container: prefer showing all 12 months without scrolling
-	   when space allows, but still scroll if the viewport is too short. */
+	/* Year grid container: no height cap so all 12 months are visible */
 	.year-scroll-container {
 		width: 100%;
 		position: relative;
 	}
 
-	/* Year grid: 4 columns on desktop (4x3 = 12 months), responsive */
+	/* Year grid: 3 columns × 4 rows = 12 months, responsive on small screens */
 	.year-grid {
 		display: grid;
-		grid-template-columns: repeat(4, 1fr);
+		grid-template-columns: repeat(3, 1fr);
 		gap: 0.5rem;
-	}
-
-	@media (max-width: 900px) {
-		.year-grid {
-			grid-template-columns: repeat(3, 1fr);
-		}
 	}
 
 	@media (max-width: 640px) {
