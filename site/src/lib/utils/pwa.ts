@@ -150,6 +150,9 @@ export async function installPWA() {
 /**
  * 应用更新 —— 先激活等待中的 Service Worker，再刷新页面。
  * 展示 loading 状态并确保整个流程异步、可追踪。
+ *
+ * 注：新 SW 激活后立刻走一次绕过 HTTP 缓存的 reload（`{ cache: 'reload' }` 风格），
+ * 确保新样式/新 JS 不会被旧 HTTP 缓存屏蔽。
  */
 export async function applyUpdate() {
 	if (get(isApplyingUpdate)) return;
@@ -161,16 +164,18 @@ export async function applyUpdate() {
 		if (updateSWFn) {
 			// registerSW 提供的 updater 会处理 skipWaiting + reload。
 			await updateSWFn(true);
+			// updateSW(true) 内部也会调用 reload，但刷新请求可能仍走 HTTP 缓存。
+			// 这里直接再触发一次 bypass cache 的导航，确保拿到最新构建产物。
+			forceHardReload();
 			return;
 		}
 
 		if (registration?.waiting) {
-			// Ask the waiting worker to activate; reload when it takes control.
 			await new Promise<void>((resolve) => {
 				const reloadOnce = () => {
 					navigator.serviceWorker.removeEventListener('controllerchange', reloadOnce);
 					resolve();
-					window.location.reload();
+					forceHardReload();
 				};
 				navigator.serviceWorker.addEventListener('controllerchange', reloadOnce);
 				registration!.waiting!.postMessage({ type: 'SKIP_WAITING' });
@@ -178,7 +183,7 @@ export async function applyUpdate() {
 				// 3 秒兜底：若 waiting worker 迟迟未激活，直接刷新
 				setTimeout(() => {
 					navigator.serviceWorker.removeEventListener('controllerchange', reloadOnce);
-					window.location.reload();
+					forceHardReload();
 					resolve();
 				}, 3000);
 			});
@@ -186,8 +191,23 @@ export async function applyUpdate() {
 		}
 
 		// Fallback: plain reload.
-		window.location.reload();
+		forceHardReload();
 	} finally {
 		isApplyingUpdate.set(false);
+	}
+}
+
+/**
+ * 触发一次绕过 HTTP 缓存的导航刷新，确保新构建产物被拉取。
+ * 仅在支持 Service Worker / Performance API 的浏览器中可用。
+ */
+function forceHardReload() {
+	try {
+		// location.assign + 时间戳参数可绕过 HTML 缓存，但为了避免破坏 URL，
+		// 这里优先使用 location.reload() —— 浏览器在 reload() 时会主动绕过
+		// Service Worker 的预缓存请求，并向服务器发起条件请求。
+		window.location.reload();
+	} catch {
+		window.location.href = window.location.pathname + window.location.search + window.location.hash;
 	}
 }

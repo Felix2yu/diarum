@@ -120,6 +120,7 @@ export default defineConfig({
 				globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],
 				cleanupOutdatedCaches: true,
 				clientsClaim: true,
+				skipWaiting: false, // 不自动 skipWaiting：等用户点击"立即更新"后由 updateSW(true) 触发
 				// adapter-static produces a single `index.html` at the site root.
 				// @vite-pwa/sveltekit's default `globDirectory` is SvelteKit's
 				// `output/client/`, which does not contain it, so we inject
