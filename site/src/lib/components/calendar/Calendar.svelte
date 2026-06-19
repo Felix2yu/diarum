@@ -34,7 +34,7 @@
 	} | null;
 	let analysis = $state<AnalysisState>(null);
 
-	// 往年今日 / 随机穿越
+	// 往昔今朝 / 时空穿越
 	type OnThisDayState = {
 		active: boolean;
 		date: string;
@@ -332,30 +332,6 @@
 							>
 								今天
 							</button>
-							<button
-								onclick={openOnThisDay}
-								class="px-3 py-1 text-sm rounded-md border border-border bg-muted/30 text-foreground hover:bg-muted/60 transition-all duration-200"
-								title="查看往年今日的日记"
-							>
-								<span class="inline-flex items-center gap-1">
-									<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-									</svg>
-									往年今日
-								</span>
-							</button>
-							<button
-								onclick={openRandom}
-								class="px-3 py-1 text-sm rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-all duration-200"
-								title="随机翻到过去有内容的一条日记"
-							>
-								<span class="inline-flex items-center gap-1">
-									<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
-									</svg>
-									随机穿越
-								</span>
-							</button>
 						</div>
 					</div>
 
@@ -370,7 +346,7 @@
 					</button>
 				</div>
 
-				<!-- 第二行：紧凑 AI 分析按钮 -->
+					<!-- 第二行：紧凑 AI 分析按钮 -->
 				<div class="flex items-center justify-center gap-1.5">
 					<button
 						onclick={openWeekAnalysis}
@@ -419,6 +395,34 @@
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M7 12h10M10 18h4" />
 							</svg>
 							自定义分析
+						</span>
+					</button>
+				</div>
+
+				<!-- 第三行：往昔今朝 / 时空穿越 -->
+				<div class="flex items-center justify-center gap-2 mt-0.5">
+					<button
+						onclick={openOnThisDay}
+						class="px-3 py-1 text-xs rounded-md border border-border bg-muted/20 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200"
+						title="查看往年同一日的日记"
+					>
+						<span class="inline-flex items-center gap-1">
+							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+							</svg>
+							往昔今朝
+						</span>
+					</button>
+					<button
+						onclick={openRandom}
+						class="px-3 py-1 text-xs rounded-md border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition-all duration-200"
+						title="随机翻阅一条过去的日记"
+					>
+						<span class="inline-flex items-center gap-1">
+							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
+							</svg>
+							时空穿越
 						</span>
 					</button>
 				</div>
@@ -489,30 +493,6 @@
 						>
 							本年
 						</button>
-						<button
-							onclick={openOnThisDay}
-							class="px-3 py-1 text-sm rounded-md border border-border bg-muted/30 text-foreground hover:bg-muted/60 transition-all duration-200"
-							title="查看往年今日的日记"
-						>
-							<span class="inline-flex items-center gap-1">
-								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-								</svg>
-								往年今日
-							</span>
-						</button>
-						<button
-							onclick={openRandom}
-							class="px-3 py-1 text-sm rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-all duration-200"
-							title="随机翻到过去有内容的一条日记"
-						>
-							<span class="inline-flex items-center gap-1">
-								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
-								</svg>
-								随机穿越
-							</span>
-						</button>
 					</div>
 				</div>
 
@@ -524,6 +504,34 @@
 					<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
 					</svg>
+				</button>
+			</div>
+
+			<!-- 年视图专属行：往昔今朝 / 时空穿越 -->
+			<div class="flex items-center justify-center gap-2 mb-5 px-2">
+				<button
+					onclick={openOnThisDay}
+					class="px-3 py-1 text-xs rounded-md border border-border bg-muted/20 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200"
+					title="查看往年同一日的日记"
+				>
+					<span class="inline-flex items-center gap-1">
+						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+						往昔今朝
+					</span>
+				</button>
+				<button
+					onclick={openRandom}
+					class="px-3 py-1 text-xs rounded-md border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition-all duration-200"
+					title="随机翻阅一条过去的日记"
+				>
+					<span class="inline-flex items-center gap-1">
+						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
+						</svg>
+						时空穿越
+					</span>
 				</button>
 			</div>
 
@@ -603,7 +611,7 @@
 		/>
 	{/if}
 
-	<!-- 往年今日 Modal -->
+	<!-- 往昔今朝 Modal -->
 	{#if onThisDay.active}
 		<div class="modal-backdrop" onclick={closeOnThisDay}>
 			<div class="modal-panel" onclick={(e) => e.stopPropagation()}>
@@ -612,7 +620,7 @@
 						<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 						</svg>
-						<h3 class="text-base font-semibold text-foreground">往年今日 · {formatDisplayDate(onThisDay.date)}</h3>
+						<h3 class="text-base font-semibold text-foreground">往昔今朝 · {formatDisplayDate(onThisDay.date)}</h3>
 					</div>
 					<button
 						onclick={closeOnThisDay}
@@ -673,7 +681,7 @@
 		</div>
 	{/if}
 
-	<!-- 随机穿越 Modal -->
+	<!-- 时空穿越 Modal -->
 	{#if randomState.active}
 		<div class="modal-backdrop" onclick={closeRandom}>
 			<div class="modal-panel" onclick={(e) => e.stopPropagation()}>
@@ -682,7 +690,7 @@
 						<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
 						</svg>
-						<h3 class="text-base font-semibold text-foreground">随机穿越</h3>
+						<h3 class="text-base font-semibold text-foreground">时空穿越</h3>
 					</div>
 					<button
 						onclick={closeRandom}
@@ -959,7 +967,7 @@
 		aspect-ratio: 1;
 	}
 
-	/* Modal: 往年今日 / 随机穿越 */
+	/* Modal: 往昔今朝 / 时空穿越 */
 	.modal-backdrop {
 		position: fixed;
 		inset: 0;
