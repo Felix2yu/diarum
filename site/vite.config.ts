@@ -98,6 +98,21 @@ export default defineConfig({
 				globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],
 				cleanupOutdatedCaches: true,
 				clientsClaim: true,
+				// adapter-static produces a single `index.html` at the site root.
+				// @vite-pwa/sveltekit's default `globDirectory` is SvelteKit's
+				// `output/client/`, which does not contain it, so we inject
+				// it into the precache manifest here and point all offline
+				// navigation requests back at it. Without this, navigating
+				// while offline returns a browser error page ("空白页面").
+				additionalManifestEntries: [
+					{ url: '/index.html', revision: null }
+				],
+				navigateFallback: '/index.html',
+				// Don't apply the offline fallback to API calls or SvelteKit
+				// internal endpoints (they are handled by their own runtime
+				// cache entries below, or by the browser's normal offline
+				// behaviour which returns a network error as expected).
+				navigateFallbackAllowlist: [/^\/[^_][^/]*.*$/],
 				runtimeCaching: [
 					{
 						urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
