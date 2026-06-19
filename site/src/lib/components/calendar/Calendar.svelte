@@ -358,7 +358,7 @@
 		</div>
 	{:else}
 		<!-- Year View -->
-		<div class="view-container animate-fade-in-only">
+		<div class="view-container year-mode animate-fade-in-only">
 			<!-- Year Header -->
 			<div class="flex items-center justify-between mb-5 px-2">
 				<button
@@ -481,6 +481,32 @@
 		margin-right: auto;
 	}
 
+	/* Year view: use a slightly wider container on larger screens so the
+	   4-column month grid has enough room for each day cell. */
+	@media (min-width: 780px) {
+		.view-container.year-mode {
+			max-width: 760px;
+		}
+	}
+
+	/* Compact month styling when 4 columns are in use — less padding
+	   inside each mini month so the 7 day-columns fit horizontally. */
+	@media (min-width: 780px) {
+		.view-container.year-mode .mini-month {
+			padding: 0.375rem;
+		}
+		.view-container.year-mode .mini-month-name {
+			font-size: 0.75rem;
+			margin-bottom: 0.2rem;
+		}
+		.view-container.year-mode .mini-day {
+			font-size: 0.65rem;
+		}
+		.view-container.year-mode .mini-weekday {
+			font-size: 0.5rem;
+		}
+	}
+
 	/* Month view: weekdays header + days grid
 	   Cap the overall grid width so cells don't get too huge on 2K+ displays,
 	   while still using 100% on normal/laptop sizes. */
@@ -534,16 +560,18 @@
 		position: relative;
 	}
 
-	/* Year grid: 4 columns × 3 rows on wider screens, 3×4 on narrow screens */
+	/* Year grid: default is 3 columns × 4 rows; on screens wide enough
+	   for 4 columns per row and all 7 day-columns to fit inside, switch
+	   to 4×3 to keep the overall layout shorter. */
 	.year-grid {
 		display: grid;
-		grid-template-columns: repeat(4, 1fr);
+		grid-template-columns: repeat(3, 1fr);
 		gap: 0.5rem;
 	}
 
-	@media (max-width: 700px) {
+	@media (min-width: 780px) {
 		.year-grid {
-			grid-template-columns: repeat(3, 1fr);
+			grid-template-columns: repeat(4, 1fr);
 		}
 	}
 
