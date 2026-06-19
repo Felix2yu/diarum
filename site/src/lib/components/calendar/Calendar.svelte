@@ -372,22 +372,10 @@
 							月分析
 						</span>
 					</button>
-					<button
-						onclick={openHistoryAnalysis}
-						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
-						title="查看历史分析"
-					>
-						<span class="inline-flex items-center gap-1">
-							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-							</svg>
-							历史分析
-						</span>
-					</button>
-					<!-- 自定义分析：独立按钮，不与周/月分析混在一起 -->
+					<!-- 自定义分析：移到历史分析前面，用普通灰色样式 -->
 					<button
 						onclick={openCustomAnalysis}
-						class="ml-1.5 px-3 py-1 text-xs font-medium rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 hover:border-primary/60 transition-all duration-200"
+						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
 						title="自定义日期范围和关键词分析"
 					>
 						<span class="inline-flex items-center gap-1">
@@ -397,17 +385,30 @@
 							自定义分析
 						</span>
 					</button>
+					<!-- 历史分析：移到末尾并使用突出样式 -->
+					<button
+						onclick={openHistoryAnalysis}
+						class="ml-1.5 px-3 py-1 text-xs font-medium rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 hover:border-primary/60 transition-all duration-200"
+						title="查看历史分析"
+					>
+						<span class="inline-flex items-center gap-1">
+							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+							</svg>
+							历史分析
+						</span>
+					</button>
 				</div>
 
 				<!-- 第三行：往昔今朝 / 时空穿越 -->
-				<div class="flex items-center justify-center gap-2 mt-0.5">
+				<div class="flex items-center justify-center gap-1.5 mt-0.5">
 					<button
 						onclick={openOnThisDay}
-						class="px-3 py-1 text-xs rounded-md border border-border bg-muted/20 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200"
+						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
 						title="查看往年同一日的日记"
 					>
 						<span class="inline-flex items-center gap-1">
-							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 							</svg>
 							往昔今朝
@@ -415,11 +416,11 @@
 					</button>
 					<button
 						onclick={openRandom}
-						class="px-3 py-1 text-xs rounded-md border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition-all duration-200"
+						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
 						title="随机翻阅一条过去的日记"
 					>
 						<span class="inline-flex items-center gap-1">
-							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
 							</svg>
 							时空穿越
@@ -508,14 +509,14 @@
 			</div>
 
 			<!-- 年视图专属行：往昔今朝 / 时空穿越 -->
-			<div class="flex items-center justify-center gap-2 mb-5 px-2">
+			<div class="flex items-center justify-center gap-1.5 mb-5 px-2">
 				<button
 					onclick={openOnThisDay}
-					class="px-3 py-1 text-xs rounded-md border border-border bg-muted/20 text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all duration-200"
+					class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
 					title="查看往年同一日的日记"
 				>
 					<span class="inline-flex items-center gap-1">
-						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 						</svg>
 						往昔今朝
@@ -523,11 +524,11 @@
 				</button>
 				<button
 					onclick={openRandom}
-					class="px-3 py-1 text-xs rounded-md border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition-all duration-200"
+					class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
 					title="随机翻阅一条过去的日记"
 				>
 					<span class="inline-flex items-center gap-1">
-						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
 						</svg>
 						时空穿越
