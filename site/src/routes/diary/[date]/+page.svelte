@@ -97,9 +97,6 @@
 		if (e.key === 'Enter' || e.key === ',') {
 			e.preventDefault();
 			addTagFromInput();
-		} else if (e.key === 'Backspace' && tagInput === '' && tags.length > 0) {
-			tags = tags.slice(0, -1);
-			updateLocalCache(date, { content, mood: selectedMood, weather: selectedWeather, tags });
 		}
 	}
 
