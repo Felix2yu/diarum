@@ -108,11 +108,11 @@
 	<title>搜索 - 吾身</title>
 </svelte:head>
 
-<div class="min-h-screen bg-background">
+<div class="flex flex-col min-h-screen bg-background">
 	<PageHeader title="搜索" />
 
 	<!-- Main Content -->
-	<main class="container-responsive py-8">
+	<main class="container-responsive py-8 flex-1">
 		<!-- Search Header -->
 		<div class="mb-8 animate-fade-in">
 			<h1 class="text-2xl font-bold text-foreground mb-2">搜索日记</h1>
