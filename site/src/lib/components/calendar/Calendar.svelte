@@ -743,8 +743,213 @@
         </div>
     </div>
 {/if}
+</div>
 
+<style>
+	.calendar {
+		width: 100%;
+	}
 
+	.view-container {
+		width: 100%;
+		max-width: 600px;
+		margin-left: auto;
+		margin-right: auto;
+	}
+
+	/* Year view: use a slightly wider container on larger screens so the
+	   4-column month grid has enough room for each day cell. */
+	@media (min-width: 780px) {
+		.view-container.year-mode {
+			max-width: 760px;
+		}
+	}
+
+	/* Compact month styling when 4 columns are in use — less padding
+	   inside each mini month so the 7 day-columns fit horizontally. */
+	@media (min-width: 780px) {
+		.view-container.year-mode .mini-month {
+			padding: 0.375rem;
+		}
+		.view-container.year-mode .mini-month-name {
+			font-size: 0.75rem;
+			margin-bottom: 0.2rem;
+		}
+		.view-container.year-mode .mini-day {
+			font-size: 0.65rem;
+		}
+		.view-container.year-mode .mini-weekday {
+			font-size: 0.5rem;
+		}
+	}
+
+	/* Month view: weekdays header + days grid
+	   Cap the overall grid width so cells don't get too huge on 2K+ displays,
+	   while still using 100% on normal/laptop sizes. */
+	.weekdays-grid {
+		display: grid;
+		grid-template-columns: repeat(7, 1fr);
+		gap: 0.5rem;
+		margin-bottom: 0.5rem;
+	}
+
+	.days-grid {
+		display: grid;
+		grid-template-columns: repeat(7, 1fr);
+		gap: 0.5rem;
+	}
+
+	/* Year button in month view header */
+	.year-button {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.125rem 0.5rem;
+		border-radius: 0.375rem;
+		transition: all 0.2s ease;
+		position: relative;
+	}
+
+	.year-button::after {
+		content: '';
+		position: absolute;
+		bottom: 0;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 0;
+		height: 1.5px;
+		background: hsl(var(--primary));
+		transition: width 0.2s ease;
+	}
+
+	.year-button:hover {
+		color: hsl(var(--primary));
+		background: hsl(var(--primary) / 0.08);
+	}
+
+	.year-button:hover::after {
+		width: 70%;
+	}
+
+	/* Year grid container: no height cap so all 12 months are visible */
+	.year-scroll-container {
+		width: 100%;
+		position: relative;
+	}
+
+	/* Year grid: default is 3 columns × 4 rows; on screens wide enough
+	   for 4 columns per row and all 7 day-columns to fit inside, switch
+	   to 4×3 to keep the overall layout shorter. */
+	.year-grid {
+		display: grid;
+		grid-template-columns: repeat(3, 1fr);
+		gap: 0.5rem;
+	}
+
+	@media (min-width: 780px) {
+		.year-grid {
+			grid-template-columns: repeat(4, 1fr);
+		}
+	}
+
+	@media (max-width: 500px) {
+		.year-grid {
+			grid-template-columns: repeat(2, 1fr);
+			gap: 0.375rem;
+		}
+	}
+
+	/* Mini month card */
+	.mini-month {
+		display: flex;
+		flex-direction: column;
+		padding: 0.5rem;
+		border-radius: 0.625rem;
+		border: 1px solid hsl(var(--border) / 0.5);
+		background: hsl(var(--card));
+		transition: all 0.2s ease;
+		cursor: pointer;
+		text-align: left;
+		animation: mini-month-in 0.3s ease-out both;
+	}
+
+	.mini-month:hover {
+		border-color: hsl(var(--primary) / 0.4);
+		background: hsl(var(--primary) / 0.04);
+		box-shadow: 0 2px 8px hsl(var(--primary) / 0.08);
+		transform: translateY(-1px);
+	}
+
+	.mini-month-current {
+		border-color: hsl(var(--primary) / 0.3);
+		background: hsl(var(--primary) / 0.04);
+	}
+
+	@keyframes mini-month-in {
+		from {
+			opacity: 0;
+			transform: scale(0.95);
+		}
+		to {
+			opacity: 1;
+			transform: scale(1);
+		}
+	}
+
+	/* Mini month name */
+	.mini-month-name {
+		font-size: 0.8125rem;
+		font-weight: 600;
+		margin-bottom: 0.25rem;
+		padding-left: 0.125rem;
+		color: hsl(var(--foreground));
+	}
+
+	/* Mini calendar grid */
+	.mini-cal-grid {
+		display: grid;
+		grid-template-columns: repeat(7, 1fr);
+		gap: 1px;
+	}
+
+	.mini-weekday {
+		text-align: center;
+		font-size: 0.55rem;
+		color: hsl(var(--muted-foreground) / 0.7);
+		padding: 2px 0;
+	}
+
+	.mini-day {
+		aspect-ratio: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		font-size: 0.7rem;
+		border-radius: 3px;
+		color: hsl(var(--foreground) / 0.85);
+		cursor: pointer;
+		transition: all 0.15s ease;
+	}
+
+	.mini-day:hover {
+		background: hsl(var(--primary) / 0.1);
+		color: hsl(var(--foreground));
+	}
+
+	.mini-day-today {
+		background: hsl(var(--primary) / 0.2);
+		color: hsl(var(--primary));
+		font-weight: 600;
+	}
+
+	.mini-day-has-diary {
+		background: hsl(38, 100%, 50% / 0.15);
+	}
+
+	.mini-day-empty {
+		aspect-ratio: 1;
+	}
+
+	/* Modal: 往昔今朝 / 时空穿越 */
 /* 往昔今朝 / 时空穿越 */
 .history-modal-backdrop {
     position: fixed;
