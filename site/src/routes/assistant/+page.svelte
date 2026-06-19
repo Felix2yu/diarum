@@ -12,7 +12,6 @@
 	import ChatInput from '$lib/components/chat/ChatInput.svelte';
 	import ConversationList from '$lib/components/chat/ConversationList.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
-	import ThemeToggle from '$lib/components/ui/ThemeToggle.svelte';
 
 	let conversations: Conversation[] = [];
 	let isCreating = false;
@@ -20,7 +19,6 @@
 	let aiEnabled = false;
 	let sidebarOpen = false;
 	let chatError = '';
-	let version = '';
 
 	function closeSidebarOnMobile() {
 		if (window.innerWidth < 1024) {
@@ -53,18 +51,6 @@
 		}
 	}
 
-	async function fetchVersion() {
-		try {
-			const res = await fetch('/api/version');
-			if (res.ok) {
-				const data = await res.json();
-				version = data.version;
-			}
-		} catch (e) {
-			// Silently fail
-		}
-	}
-
 	async function handleSendMessage(content: string) {
 		if (isCreating) return;
 
@@ -86,8 +72,6 @@
 			goto('/login');
 			return;
 		}
-
-		fetchVersion();
 
 		const settings = await getAISettings();
 		aiEnabled = settings.enabled;
@@ -321,13 +305,7 @@
 							on:send={(e) => handleSendMessage(e.detail)}
 						/>
 						<div class="flex items-center justify-center gap-2 mt-3 text-xs text-muted-foreground/60">
-							<span class="hidden sm:inline">按 Enter 发送,Shift+Enter 换行 ·</span>
-							<span>吾身</span>
-							{#if version}
-								<a href="https://github.com/songtianlun/diarum" target="_blank" rel="noopener noreferrer" class="font-mono text-[10px] hover:text-foreground transition-colors">{version}</a>
-							{/if}
-							<span class="hidden sm:inline">·</span>
-							<span class="hidden sm:block"><ThemeToggle /></span>
+							<span class="hidden sm:inline">按 Enter 发送,Shift+Enter 换行</span>
 						</div>
 					</div>
 				</div>

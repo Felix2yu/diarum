@@ -700,11 +700,11 @@
 	<title>设置 - 吾身</title>
 </svelte:head>
 
-<div class="min-h-screen bg-background">
+<div class="flex flex-col min-h-screen bg-background">
 	<PageHeader title="设置" />
 
 	<!-- Main Content -->
-	<div class="container-responsive py-6">
+	<div class="container-responsive py-6 flex-1">
 		<div class="flex justify-center">
 			<main class="w-full max-w-5xl">
 				<div class="mb-4 space-y-3">
@@ -752,7 +752,7 @@
 				<div id="api-access" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
 					<h2 class="text-lg font-semibold text-foreground mb-4">API 访问</h2>
 					<p class="text-sm text-muted-foreground mb-6">
-						Enable API access to read and write your diary entries programmatically. Use your API token to authenticate requests.
+						启用 API 访问以程序化地读取和写入你的日记条目。使用你的 API Token 来认证请求。
 					</p>
 
 					<!-- Enable/Disable Toggle -->
@@ -1976,5 +1976,5 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 		</div>
 	</div>
 
-	<Footer tagline="Manage your settings" />
+	<Footer tagline="自定义你的日记体验" />
 </div>
