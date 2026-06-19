@@ -107,3 +107,65 @@
 ## 6. 结论
 
 Diarum AI 助手技术方案 v3.0 不仅仅是对 v2.0 的一次简单修订，而是一次**架构层面的战略升级**。通过建立一个健壮、可扩展的统一配置系统，我们为 Diarum 项目的长期发展和功能迭代奠定了坚实的基础。这个方案不仅完美地解决了当前 AI 功能的配置需求，更为未来无限的可能性铺平了道路。
+
+## 7. 实现状态（v3.0 与实际代码的对应关系）
+
+本节说明 v3.0 设计方案在当前代码中的落实情况。
+
+### 7.1. 已实现
+
+| 设计条目 | 对应代码位置 | 说明 |
+| :--- | :--- | :--- |
+| 统一 Key-Value 配置表 | `user_settings` 表（`internal/store/store.go`） | 已实现，支持 string、bool、int、float、json 五类值。 |
+| 配置元数据注册表 | `internal/config/registry.go` | `ConfigRegistry`（K, V, `ConfigMeta` 定义所有配置项的类型、默认值和加密属性） |
+| AES-256-GCM 加密 | `internal/config/registry.go` 中的 `encrypted` 字段 | 敏感字段（如 API Key）自动加密，与数据库存储。 |
+| 配置 CRUD API | `internal/api/settings.go`（`POST /api/v1/settings`, `GET /api/v1/settings`） | 支持批量读写，返回 JSON 对象。 |
+| API Token 管理 | `api.enabled`、`api.token` | 已实现 Token 生成与开关功能，允许外部程序访问 Diarum 的日记。 |
+| 配置项按 Key 注册 | `GetConfigMeta(key)`, `IsEncrypted(key)`, `GetDefault(key)` | 由 `registry.go` 中统一管理。 |
+| 统一配置服务层（ConfigService） | `internal/api/settings.go` 中的 HTTP handler + `internal/store/store.go` 中的 `GetSetting`, `SetSetting`, `GetSettings` | 已实现并被前后端统一调用。 |
+
+### 7.2. 设计与实现的差异
+
+| 设计条目 | 设计描述 | 实际实现 |
+| :--- | :--- | :--- |
+| 配置键命名 | `ai.embedding.*` / `ai.llm.*`（嵌入与对话两个子域） | 实际使用统一的 `ai.api_key`、`ai.base_url`、`ai.chat_model`、`ai.embedding_model`（共享同一个 API Key/URL） |
+| `ai.chat.save_history` 开关 | 设计中为可选的"是否保存对话历史" | **未实现**；当前始终记录对话历史 |
+| 预设模板 API | `GET /api/v1/settings/presets`, `POST /api/v1/settings/preset/:name`（一键填充 OpenAI / DeepSeek 等） | **未实现**；前端无预设模板机制，需用户手动输入 |
+| 连接测试 API | `POST /api/v1/settings/test` | **未实现**；用户需通过实际发送一次 AI 对话验证配置 |
+| 批量保存接口 | `PUT /api/v1/settings/batch` | 实际使用 `POST /api/v1/settings` 完成相同的批量保存 |
+| `/api/v1/user/me` 合并配置返回 | 设计中希望用户信息与配置一次性返回 | **未实现**；前端需分别请求用户信息与配置 |
+| 内置缓存机制 | `ConfigService` 内置缓存以提升性能 | 在当前 Go Store 层**未做缓存**；每次读取直接查询数据库 |
+
+### 7.3. 当前已注册的配置键一览
+
+| Key | 类型 | 默认值 | 是否加密 |
+| :--- | :--- | :--- | :--- |
+| `api.token` | `string` | `""` | 否 |
+| `api.enabled` | `bool` | `false` | 否 |
+| `sync.cacheDays` | `int` | `30` | 否 |
+| `memos.enabled` | `bool` | `false` | 否 |
+| `memos.webhook_token` | `string` | `""` | **是** |
+| `memos.base_url` | `string` | `""` | 否 |
+| `ai.enabled` | `bool` | `false` | 否 |
+| `ai.api_key` | `string` | `""` | **是** |
+| `ai.base_url` | `string` | `""` | 否 |
+| `ai.chat_model` | `string` | `""` | 否 |
+| `ai.embedding_model` | `string` | `""` | 否 |
+| `ai.vectors_built_at` | `string` | `""` | 否 |
+| `ai.analysis_system_prompt` | `string` | `""` | 否 |
+| `ai.analysis_user_prefix` | `string` | `""` | 否 |
+| `chevereto.enabled` | `bool` | `false` | 否 |
+| `chevereto.domain` | `string` | `""` | 否 |
+| `chevereto.api_key` | `string` | `""` | **是** |
+| `chevereto.album_id` | `string` | `""` | 否 |
+| `image_upload.provider` | `string` | `"local"` | 否 |
+| `image_upload.local.path` | `string` | `""` | 否 |
+| `image_upload.s3.bucket` | `string` | `""` | 否 |
+| `image_upload.s3.region` | `string` | `""` | 否 |
+| `image_upload.s3.endpoint` | `string` | `""` | 否 |
+| `image_upload.s3.access_key` | `string` | `""` | **是** |
+| `image_upload.s3.secret` | `string` | `""` | **是** |
+| `image_upload.s3.force_path_style` | `bool` | `false` | 否 |
+| `diary.mood_options` | `json` | `["😊","😌","🥳","💪","🤔","😴","😔","😤"]` | 否 |
+| `diary.weather_options` | `json` | `["☀️","⛅","☁️","🌧️","⛈️","🌫️","❄️","🌬️"]` | 否 |
+

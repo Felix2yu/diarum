@@ -126,11 +126,42 @@ graph TD
 2.  **开发会话界面**: 在 AI 助手页面左侧增加一个可伸缩的侧边栏，用于展示和管理对话会话列表。
 3.  **更新聊天组件**: 增加引用追溯的显示逻辑，并在界面上提供会话管理的操作入口。
 
-## 7. 结论
+## 7. 实现状态（v2.0 与实际代码的对应关系）
 
-方案 v2.0 在保持 v1.0 核心优势（嵌入式、架构契合）的基础上，通过**将 AI 服务配置完全交由用户自定义**，极大地提升了方案的**灵活性和普适性**。无论是追求极致隐私的本地部署爱好者，还是希望获得最佳性能的云服务用户，都能在这套统一的架构下找到满足自己需求的解决方案。
+此部分将设计方案与实际代码实现进行比对，便于开发者快速理解当前功能状态。
 
-同时，**精细化的对话历史管理功能**的设计，使得 AI 助手不再是“一次性”的工具，而是能够沉淀知识、提供连续性思考支持的智能伙伴，进一步增强了 Diarum 的核心价值。
+### 7.1. 已实现
+
+| 设计条目 | 对应代码位置 | 说明 |
+| :--- | :--- | :--- |
+| 嵌入式向量库 `chromem-go` | `internal/embedding/` | 已实现 `EmbeddingService`，以用户 ID 为维度隔离独立的向量库实例。 |
+| 用户自定义 AI API 配置 | `internal/config/registry.go`（`ai.api_key`, `ai.base_url`, `ai.chat_model`, `ai.embedding_model`） | 通过统一配置系统存储；`ai.api_key` 采用 AES-256-GCM 加密。 |
+| AI 开关 | `ai.enabled` | 在 `internal/api/ai.go` 中，若 `ai.enabled=false` 则拒绝处理 AI 相关请求。 |
+| 向量构建 | `POST /api/v1/ai/vectors/build` | 遍历用户所有日记生成 Embedding 并存入 `chromem-go`。 |
+| 向量查询 | `POST /api/v1/ai/chat` 的检索步骤 | 在对话流程中自动检索相关日记，作为上下文注入到 LLM Prompt 中。 |
+| 对话历史存储 | `ai_conversations`, `ai_messages`（`internal/store/store.go`） | 已实现 `ListConversations`、`GetConversation`、消息读取等方法。 |
+| 引用追溯 | `referenced_diaries` 字段 | 在 `/ai/chat` 返回的每一条 assistant 消息中写入相关日记 ID，前端可点击跳转。 |
+| 周期分析报告 | `POST /api/v1/ai/analysis` + `period_analyses` 表 | 根据周期+关键词生成摘要报告，并持久化；可查询历史分析记录。 |
+| 动态 LLM 客户端 | `internal/api/ai.go` | 根据用户配置动态构建 OpenAI 兼容客户端（`go-openai`），支持任意模型。 |
+
+### 7.2. 设计中存在但尚未实现
+
+| 设计条目 | 当前状态 |
+| :--- | :--- |
+| 快速配置模板（OpenAI / DeepSeek / 本地 Ollama 预设） | 配置项字段已就绪，但前端**尚未**提供"一键填充"模板；目前用户需手动输入 Base URL 与模型名称。 |
+| 连接测试按钮 | 前端**未**提供 "测试连接" 按钮；用户需通过实际发送一次 AI 对话来验证配置正确性。 |
+| 可配置的 "检索日记数量"、"最大生成 Token 数"、"Temperature" | 后端使用默认值；**未**通过配置表暴露给用户调整。 |
+| 对话历史开关（关闭后不再记录消息） | 默认开启存储；**未**实现关闭存储的选项。 |
+| 对话数据的自动清理（"删除30天前的对话"） | **未**实现；当前仅支持手动删除整个会话或单条消息。 |
+| 会话导出为 Markdown / JSON | **未**实现；可通过后端 `export/zip` 接口整体导出（包含对话），但缺少针对性的会话级导出。 |
+| 高级会话管理（重命名、归档、搜索） | 前端已提供基础列表；**未**实现归档功能与搜索功能。 |
+| 情感分析曲线图 | 设计中规划的"情感分析可视化"**未**实现。 |
+| "保存日记时自动向量化"（Index-on-save） | 当前需要用户手动调用 `build` 接口；增量构建已在代码中实现（跳过已构建的日记），但未在保存日记时触发。 |
+
+### 7.3. 数据流与实际实现对照
+
+- **索引流程**：用户通过前端调用 `POST /api/v1/ai/vectors/build` → 后端读取 `ai.embedding_model` 配置 → 调用 Embedding API → 将向量写入 `chromem-go` → 更新 `ai.vectors_built_at` 时间戳。
+- **检索流程**：用户在 `/ai/chat` 界面发送消息 → 后端调用 Embedding API 将用户消息向量化 → 在 `chromem-go` 中检索 top-K 相关日记 → 将相关日记内容作为上下文拼接到 system prompt → 调用 LLM API 流式返回 → 将消息写入 `ai_messages` 表（附 `referenced_diaries` 列表）。
 
 ---
 

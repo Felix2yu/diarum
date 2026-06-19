@@ -4,6 +4,30 @@
 
 Diarum 已经实现了完整的 PWA（Progressive Web App）功能，支持离线使用、应用安装和自动更新。
 
+## 实现状态
+
+本文档中的描述与实际代码实现高度一致。关键文件已在 `site/` 目录中部署：
+
+| 功能 | 文件路径 | 实现状态 |
+| :--- | :--- | :--- |
+| 应用清单 | `site/static/site.webmanifest` | ✅ 已实现 |
+| Service Worker | `site/vite.config.ts`（Vite PWA 插件自动生成） | ✅ 已实现 |
+| 应用图标 | `site/static/android-chrome-192x192.png`、`-512x512.png`、`apple-touch-icon.png` | ✅ 已实现 |
+| PWA 工具函数 | `site/src/lib/utils/pwa.ts` | ✅ 已实现 |
+| 安装提示组件 | `site/src/lib/components/PWAInstallPrompt.svelte` | ✅ 已实现 |
+| 更新提示组件 | `site/src/lib/components/PWAUpdatePrompt.svelte` | ✅ 已实现 |
+| 集成到全局布局 | `site/src/routes/+layout.svelte` | ✅ 已实现 |
+| Vite PWA 插件 | `site/vite.config.ts` | ✅ 已实现 |
+
+### 主要差异点
+
+| 点 | 描述 |
+| :--- | :--- |
+| 缓存策略 | Vite PWA 插件自动管理 Service Worker 与缓存，无需手写 SW 文件。 |
+| 离线提示 | 文档中提到的"离线提示"由 Vite PWA 插件自动处理，无需额外代码。 |
+
+---
+
 ## 已实现的功能
 
 ### 1. 核心 PWA 功能

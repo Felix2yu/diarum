@@ -117,7 +117,53 @@ graph TD
     *   使用 `fetch` API 调用后端导入导出接口，并处理文件上传的进度显示。
     *   展示后端返回的详细导入导出统计信息。
 
-## 5. 总结
+## 5. 实现状态
+
+本节对比设计方案与实际代码实现。
+
+### 5.1. 已实现
+
+| 设计条目 | 对应代码位置 | 说明 |
+| :--- | :--- | :--- |
+| ZIP 导出 | `internal/api/export_import.go` → `GET /api/v1/export/zip` | 打包日记、媒体、配置、AI 对话与分析报告为单一 ZIP 文件，用户可直接下载。 |
+| `diarum_export.json` 结构化数据 | 同上 | 导出文件内含完整 JSON 结构化数据（diaries、media、conversations、messages、settings、analyses）。 |
+| Markdown 目录 | `internal/api/export_import.go` | 对每篇日记生成独立的 `.md` 文件，文件名使用 `YYYY-MM-DD` 格式。 |
+| 媒体目录 | 同上 | 打包 `media/` 目录下的所有图片/媒体原始文件，包含完整的 `id`-`filename` 映射。 |
+| ZIP 导入 | `POST /api/v1/import/zip` | 解析 ZIP 包，读取 `diarum_export.json` 并将日记、媒体、配置、对话等数据回写到数据库。 |
+| 冲突处理（Skip-on-exist） | `internal/api/export_import.go` 中导入逻辑 | 通过比对 date / id 实现冲突跳过，避免重复导入。 |
+| 导入后自动重建向量 | `internal/api/export_import.go` | 导入成功后自动触发 `ai/vectors/build`，重新为所有导入日记生成向量索引。 |
+| 单文件 Markdown 导出 | `GET /api/v1/export/markdown` | 按日期生成单篇 Markdown 日记，便于阅读与分享。 |
+| 单文件 JSON 导出 | `GET /api/v1/export/json` | 将用户所有日记内容以 JSON 格式导出一份，便于程序消费。 |
+
+### 5.2. 设计与实现的差异
+
+| 设计条目 | 设计描述 | 实际实现 |
+| :--- | :--- | :--- |
+| 导出文件名 | 设计中使用 `导出文件名.zip` 这种通用名 | 实际根据用户名和时间戳生成（如 `diarum-user-20250619120000.zip`） |
+| Markdown 文件命名 | `YYYY-MM-DD_日记标题.md`（使用日记标题） | 实际使用 `YYYY-MM-DD.md`（仅日期） |
+| 导入结果统计 | 设计中返回详细的"成功/跳过/失败"统计 | 实际实现返回成功条目数；失败时会返回具体错误信息。未返回按日记、媒体、AI 分类的细粒度统计 |
+| Markdown 图片链接 | `![alt](media/image1.jpg)` 格式 | 实际上 Markdown 导出是纯文本版，不含图片链接（图片在 ZIP 的 `media/` 目录中独立提供） |
+| 导出 UI 反馈 | 设计中前端展示导出统计 | 目前前端 UI 较为简单，无详细统计展示 |
+| 嵌入式向量 | 设计中明确"向量不在导出范围内" | 符合实际：向量通过重建接口在导入后自动生成 |
+
+### 5.3. 实际 ZIP 结构一览
+
+```
+diarum-xxx-20250619120000.zip
+├── diarum_export.json   # 所有结构化数据（diaries, media, ai_conversations, ai_messages, settings, period_analyses）
+├── markdown/             # 每个日期一个 .md 文件
+│   ├── 2024-01-15.md
+│   ├── 2024-03-08.md
+│   └── ...
+└── media/                # 图片、视频等二进制媒体文件
+    ├── abc123.jpg        # 文件名=媒体 id；原文件名可在 diarum_export.json 中查找
+    ├── def456.png
+    └── ...
+```
+
+---
+
+## 6. 总结
 
 此优化方案提供了一个更加自动化和用户友好的 Diarum 日记应用导入导出功能。通过统一的 ZIP 格式，确保了所有类型数据（不含嵌入向量）的完整性和一致性。详细的统计反馈机制将使用户对导入导出过程有清晰的了解。默认包含 AI 对话数据，并自动处理图片链接和导入冲突，同时明确了嵌入向量的重新生成机制，进一步提升了用户体验和系统效率。
 
