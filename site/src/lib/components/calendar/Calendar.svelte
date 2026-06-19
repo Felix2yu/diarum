@@ -613,393 +613,367 @@
 	{/if}
 
 	<!-- 往昔今朝 Modal -->
-	{#if onThisDay.active}
-		<div class="modal-backdrop" onclick={closeOnThisDay}>
-			<div class="modal-panel" onclick={(e) => e.stopPropagation()}>
-				<div class="flex items-center justify-between mb-4">
-					<div class="flex items-center gap-2">
-						<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-						</svg>
-						<h3 class="text-base font-semibold text-foreground">往昔今朝 · {formatDisplayDate(onThisDay.date)}</h3>
-					</div>
-					<button
-						onclick={closeOnThisDay}
-						class="p-1.5 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all"
-						aria-label="关闭"
-					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-						</svg>
-					</button>
-				</div>
+{#if onThisDay.active}
+    <div class="history-modal-backdrop" onclick={closeOnThisDay}>
+        <div class="history-modal-panel" onclick={(e) => e.stopPropagation()}>
+            <div class="history-modal-header">
+                <div class="history-modal-header-main">
+                    <div class="flex items-center gap-2 justify-center">
+                        <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <h3 class="history-modal-title">往昔今朝</h3>
+                    </div>
+                    <p class="history-modal-sub">{formatDisplayDate(onThisDay.date)}</p>
+                </div>
+                <button class="history-modal-close" onclick={closeOnThisDay} aria-label="关闭">×</button>
+            </div>
 
-				{#if onThisDay.loading}
-					<div class="flex items-center justify-center py-10 text-muted-foreground text-sm">
-						<svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
-							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-						</svg>
-						正在翻找往年的日记…
-					</div>
-				{:else if onThisDay.diaries.length === 0}
-					<div class="py-10 text-center">
-						<div class="text-4xl mb-3">🗓️</div>
-						<div class="text-sm text-muted-foreground">这一天在往年还没有日记，继续记录下去吧！</div>
-					</div>
-				{:else}
-					<div class="text-xs text-muted-foreground mb-3">
-						共 {onThisDay.diaries.length} 个不同年份的今日
-					</div>
-					<div class="space-y-2.5 max-h-[55vh] overflow-y-auto pr-1">
-						{#each onThisDay.diaries as diary}
-							<a
-								href="/diary/{diary.date}"
-								class="block p-3.5 rounded-lg border border-border/60 bg-card hover:border-primary/40 hover:bg-primary/5 transition-all"
-							>
-								<div class="flex items-center justify-between mb-2">
-									<div class="text-sm font-medium text-foreground">{formatDisplayDate(diary.date)}</div>
-									<div class="flex items-center gap-2 text-xs text-muted-foreground">
-										{#if diary.mood}<span title="心情">{diary.mood}</span>{/if}
-										{#if diary.weather}<span title="天气">{diary.weather}</span>{/if}
-									</div>
-								</div>
-								{#if diary.content}
-									<div class="text-sm text-foreground/90 leading-relaxed">{diaryContentPreview(diary.content)}</div>
-								{/if}
-								{#if diary.tags && diary.tags.length > 0}
-									<div class="flex flex-wrap gap-1 mt-2">
-										{#each diary.tags as tag}
-											<span class="text-[11px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground">#{tag}</span>
-										{/each}
-									</div>
-								{/if}
-							</a>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		</div>
-	{/if}
+            <div class="history-modal-body">
+                {#if onThisDay.loading}
+                    <div class="history-loading">
+                        <svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p>正在翻找往年的日记…</p>
+                    </div>
+                {:else if onThisDay.diaries.length === 0}
+                    <div class="history-idle">
+                        <p class="history-idle-title">这一天在往年还没有日记</p>
+                        <p class="history-idle-sub">继续记录每一天，明年的今天就会有可以回顾的内容了。</p>
+                    </div>
+                {:else}
+                    <div class="history-meta">共 {onThisDay.diaries.length} 个不同年份的今日</div>
+                    <div class="history-list">
+                        {#each onThisDay.diaries as diary}
+                            <a href="/diary/{diary.date}" class="history-list-item">
+                                <div class="history-list-head">
+                                    <span class="history-list-date">{formatDisplayDate(diary.date)}</span>
+                                    <div class="flex items-center gap-2 text-xs text-muted-foreground">
+                                        {#if diary.mood}<span title="心情">{diary.mood}</span>{/if}
+                                        {#if diary.weather}<span title="天气">{diary.weather}</span>{/if}
+                                    </div>
+                                </div>
+                                {#if diary.content}
+                                    <p class="history-list-preview">{diaryContentPreview(diary.content)}</p>
+                                {/if}
+                                {#if diary.tags && diary.tags.length > 0}
+                                    <div class="flex flex-wrap gap-1 mt-2">
+                                        {#each diary.tags as tag}
+                                            <span class="history-list-tag">#{tag}</span>
+                                        {/each}
+                                    </div>
+                                {/if}
+                            </a>
+                        {/each}
+                    </div>
+                {/if}
+            </div>
+        </div>
+    </div>
+{/if}
 
-	<!-- 时空穿越 Modal -->
-	{#if randomState.active}
-		<div class="modal-backdrop" onclick={closeRandom}>
-			<div class="modal-panel" onclick={(e) => e.stopPropagation()}>
-				<div class="flex items-center justify-between mb-4">
-					<div class="flex items-center gap-2">
-						<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
-						</svg>
-						<h3 class="text-base font-semibold text-foreground">时空穿越</h3>
-					</div>
-					<button
-						onclick={closeRandom}
-						class="p-1.5 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all"
-						aria-label="关闭"
-					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-						</svg>
-					</button>
-				</div>
+<!-- 时空穿越 Modal -->
+{#if randomState.active}
+    <div class="history-modal-backdrop" onclick={closeRandom}>
+        <div class="history-modal-panel" onclick={(e) => e.stopPropagation()}>
+            <div class="history-modal-header">
+                <div class="history-modal-header-main">
+                    <div class="flex items-center gap-2 justify-center">
+                        <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
+                        </svg>
+                        <h3 class="history-modal-title">时空穿越</h3>
+                    </div>
+                    <p class="history-modal-sub">随机翻阅一条过去的日记</p>
+                </div>
+                <button class="history-modal-close" onclick={closeRandom} aria-label="关闭">×</button>
+            </div>
 
-				{#if randomState.loading}
-					<div class="flex items-center justify-center py-10 text-muted-foreground text-sm">
-						<svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
-							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-						</svg>
-						随机抽取一段过往日记…
-					</div>
-				{:else if !randomState.exists || !randomState.diary}
-					<div class="py-10 text-center">
-						<div class="text-4xl mb-3">🔮</div>
-						<div class="text-sm text-muted-foreground">还没有可随机翻阅的日记，先开始记录吧！</div>
-					</div>
-				{:else}
-					<div class="mb-3">
-						<div class="flex items-center justify-between mb-2">
-							<div class="text-sm font-medium text-foreground">{formatDisplayDate(randomState.diary.date)}</div>
-							<div class="flex items-center gap-2 text-xs text-muted-foreground">
-								{#if randomState.diary.mood}<span title="心情">{randomState.diary.mood}</span>{/if}
-								{#if randomState.diary.weather}<span title="天气">{randomState.diary.weather}</span>{/if}
-							</div>
-						</div>
-						{#if randomState.diary.content}
-							<div class="text-sm text-foreground/90 leading-relaxed">
-								{diaryContentPreview(randomState.diary.content, 280)}
-							</div>
-						{/if}
-						{#if randomState.diary.tags && randomState.diary.tags.length > 0}
-							<div class="flex flex-wrap gap-1 mt-3">
-								{#each randomState.diary.tags as tag}
-									<span class="text-[11px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground">#{tag}</span>
-								{/each}
-							</div>
-						{/if}
-					</div>
-					<div class="flex items-center justify-end gap-2 pt-3 border-t border-border/50">
-						<button
-							onclick={rerollRandom}
-							class="px-3 py-1.5 text-sm rounded-md border border-border bg-muted/30 text-foreground hover:bg-muted/60 transition-all"
-						>
-							<span class="inline-flex items-center gap-1.5">
-								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
-								</svg>
-								再来一次
-							</span>
-						</button>
-						<a
-							href={randomState.diary ? `/diary/${randomState.diary.date}` : ''}
-							class="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-all"
-						>
-							查看完整日记
-						</a>
-					</div>
-				{/if}
-			</div>
-		</div>
-	{/if}
-</div>
+            <div class="history-modal-toolbar">
+                <button class="history-modal-btn" onclick={rerollRandom}>
+                    <span class="inline-flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
+                        </svg>
+                        再抽一次
+                    </span>
+                </button>
+                <a
+                    href={randomState.diary ? `/diary/${randomState.diary.date}` : ''}
+                    class="history-modal-btn history-modal-btn--primary"
+                >
+                    查看完整日记
+                </a>
+            </div>
 
-<style>
-	.calendar {
-		width: 100%;
-	}
+            <div class="history-modal-body">
+                {#if randomState.loading}
+                    <div class="history-loading">
+                        <svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <p>随机抽取一段过往日记…</p>
+                    </div>
+                {:else if !randomState.exists || !randomState.diary}
+                    <div class="history-idle">
+                        <p class="history-idle-title">还没有可翻阅的日记</p>
+                        <p class="history-idle-sub">先开始记录你的生活吧，有了足够的日记后再试试这个功能。</p>
+                    </div>
+                {:else}
+                    <div class="history-meta">{formatDisplayDate(randomState.diary.date)}</div>
+                    <div class="history-summary">
+                        {#if randomState.diary.content}
+                            <div class="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
+                                {diaryContentPreview(randomState.diary.content, 280)}
+                            </div>
+                        {/if}
+                        {#if randomState.diary.tags && randomState.diary.tags.length > 0}
+                            <div class="flex flex-wrap gap-1 mt-3">
+                                {#each randomState.diary.tags as tag}
+                                    <span class="history-list-tag">#{tag}</span>
+                                {/each}
+                            </div>
+                        {/if}
+                    </div>
+                {/if}
+            </div>
+        </div>
+    </div>
+{/if}
 
-	.view-container {
-		width: 100%;
-		max-width: 600px;
-		margin-left: auto;
-		margin-right: auto;
-	}
 
-	/* Year view: use a slightly wider container on larger screens so the
-	   4-column month grid has enough room for each day cell. */
-	@media (min-width: 780px) {
-		.view-container.year-mode {
-			max-width: 760px;
-		}
-	}
+/* 往昔今朝 / 时空穿越 */
+.history-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: hsl(var(--background) / 0.72);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    z-index: 60;
+    animation: fade-in 0.15s ease-out both;
+}
 
-	/* Compact month styling when 4 columns are in use — less padding
-	   inside each mini month so the 7 day-columns fit horizontally. */
-	@media (min-width: 780px) {
-		.view-container.year-mode .mini-month {
-			padding: 0.375rem;
-		}
-		.view-container.year-mode .mini-month-name {
-			font-size: 0.75rem;
-			margin-bottom: 0.2rem;
-		}
-		.view-container.year-mode .mini-day {
-			font-size: 0.65rem;
-		}
-		.view-container.year-mode .mini-weekday {
-			font-size: 0.5rem;
-		}
-	}
+.history-modal-panel {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border) / 0.6);
+    border-radius: 1rem;
+    width: 100%;
+    max-width: min(56rem, 92vw);
+    max-height: 80vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px hsl(0 0% 0% / 0.25);
+    animation: panel-in 0.2s ease-out both;
+}
 
-	/* Month view: weekdays header + days grid
-	   Cap the overall grid width so cells don't get too huge on 2K+ displays,
-	   while still using 100% on normal/laptop sizes. */
-	.weekdays-grid {
-		display: grid;
-		grid-template-columns: repeat(7, 1fr);
-		gap: 0.5rem;
-		margin-bottom: 0.5rem;
-	}
+.history-modal-header {
+    padding: 1rem 3rem 1rem 1.25rem;
+    border-bottom: 1px solid hsl(var(--border) / 0.5);
+    text-align: center;
+    position: relative;
+}
 
-	.days-grid {
-		display: grid;
-		grid-template-columns: repeat(7, 1fr);
-		gap: 0.5rem;
-	}
+.history-modal-header-main {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+}
 
-	/* Year button in month view header */
-	.year-button {
-		display: inline-flex;
-		align-items: center;
-		padding: 0.125rem 0.5rem;
-		border-radius: 0.375rem;
-		transition: all 0.2s ease;
-		position: relative;
-	}
+.history-modal-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+}
 
-	.year-button::after {
-		content: '';
-		position: absolute;
-		bottom: 0;
-		left: 50%;
-		transform: translateX(-50%);
-		width: 0;
-		height: 1.5px;
-		background: hsl(var(--primary));
-		transition: width 0.2s ease;
-	}
+.history-modal-sub {
+    margin: 0;
+    color: hsl(var(--muted-foreground));
+    font-size: 0.8rem;
+}
 
-	.year-button:hover {
-		color: hsl(var(--primary));
-		background: hsl(var(--primary) / 0.08);
-	}
+.history-modal-close {
+    position: absolute;
+    top: 0.6rem;
+    right: 0.6rem;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    border: none;
+    background: transparent;
+    color: hsl(var(--muted-foreground));
+    font-size: 1.25rem;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
 
-	.year-button:hover::after {
-		width: 70%;
-	}
+.history-modal-close:hover {
+    background: hsl(var(--muted) / 0.6);
+    color: hsl(var(--foreground));
+}
 
-	/* Year grid container: no height cap so all 12 months are visible */
-	.year-scroll-container {
-		width: 100%;
-		position: relative;
-	}
+.history-modal-toolbar {
+    padding: 0.75rem 1.25rem;
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    border-bottom: 1px solid hsl(var(--border) / 0.4);
+}
 
-	/* Year grid: default is 3 columns × 4 rows; on screens wide enough
-	   for 4 columns per row and all 7 day-columns to fit inside, switch
-	   to 4×3 to keep the overall layout shorter. */
-	.year-grid {
-		display: grid;
-		grid-template-columns: repeat(3, 1fr);
-		gap: 0.5rem;
-	}
+.history-modal-btn {
+    padding: 0.4rem 0.85rem;
+    font-size: 0.8rem;
+    border: 1px solid hsl(var(--border) / 0.7);
+    background: hsl(var(--muted) / 0.3);
+    color: hsl(var(--foreground) / 0.85);
+    border-radius: 0.5rem;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
 
-	@media (min-width: 780px) {
-		.year-grid {
-			grid-template-columns: repeat(4, 1fr);
-		}
-	}
+.history-modal-btn:hover {
+    background: hsl(var(--muted) / 0.7);
+    color: hsl(var(--foreground));
+}
 
-	@media (max-width: 500px) {
-		.year-grid {
-			grid-template-columns: repeat(2, 1fr);
-			gap: 0.375rem;
-		}
-	}
+.history-modal-btn--primary {
+    border-color: hsl(var(--primary) / 0.3);
+    background: hsl(var(--primary) / 0.1);
+    color: hsl(var(--primary));
+    font-weight: 500;
+}
 
-	/* Mini month card */
-	.mini-month {
-		display: flex;
-		flex-direction: column;
-		padding: 0.5rem;
-		border-radius: 0.625rem;
-		border: 1px solid hsl(var(--border) / 0.5);
-		background: hsl(var(--card));
-		transition: all 0.2s ease;
-		cursor: pointer;
-		text-align: left;
-		animation: mini-month-in 0.3s ease-out both;
-	}
+.history-modal-btn--primary:hover {
+    background: hsl(var(--primary) / 0.2);
+    color: hsl(var(--primary));
+}
 
-	.mini-month:hover {
-		border-color: hsl(var(--primary) / 0.4);
-		background: hsl(var(--primary) / 0.04);
-		box-shadow: 0 2px 8px hsl(var(--primary) / 0.08);
-		transform: translateY(-1px);
-	}
+.history-modal-body {
+    padding: 1.25rem;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
 
-	.mini-month-current {
-		border-color: hsl(var(--primary) / 0.3);
-		background: hsl(var(--primary) / 0.04);
-	}
+.history-loading,
+.history-idle {
+    padding: 2rem 1rem;
+    text-align: center;
+    color: hsl(var(--muted-foreground));
+}
 
-	@keyframes mini-month-in {
-		from {
-			opacity: 0;
-			transform: scale(0.95);
-		}
-		to {
-			opacity: 1;
-			transform: scale(1);
-		}
-	}
+.history-loading p,
+.history-idle p {
+    margin-top: 0.75rem;
+}
 
-	/* Mini month name */
-	.mini-month-name {
-		font-size: 0.8125rem;
-		font-weight: 600;
-		margin-bottom: 0.25rem;
-		padding-left: 0.125rem;
-		color: hsl(var(--foreground));
-	}
+.history-idle-title {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: hsl(var(--foreground));
+}
 
-	/* Mini calendar grid */
-	.mini-cal-grid {
-		display: grid;
-		grid-template-columns: repeat(7, 1fr);
-		gap: 1px;
-	}
+.history-idle-sub {
+    margin: 0;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    max-width: 36rem;
+}
 
-	.mini-weekday {
-		text-align: center;
-		font-size: 0.55rem;
-		color: hsl(var(--muted-foreground) / 0.7);
-		padding: 2px 0;
-	}
+.history-meta {
+    font-size: 0.8rem;
+    color: hsl(var(--muted-foreground));
+    margin-bottom: 0.75rem;
+}
 
-	.mini-day {
-		aspect-ratio: 1;
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		font-size: 0.7rem;
-		border-radius: 3px;
-		color: hsl(var(--foreground) / 0.85);
-		cursor: pointer;
-		transition: all 0.15s ease;
-	}
+.history-summary {
+    line-height: 1.75;
+    color: hsl(var(--foreground) / 0.9);
+    font-size: 0.95rem;
+    max-width: 40rem;
+    width: 100%;
+}
 
-	.mini-day:hover {
-		background: hsl(var(--primary) / 0.1);
-		color: hsl(var(--foreground));
-	}
+.history-list {
+    width: 100%;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
 
-	.mini-day-today {
-		background: hsl(var(--primary) / 0.2);
-		color: hsl(var(--primary));
-		font-weight: 600;
-	}
+.history-list-item {
+    padding: 0.85rem 1rem;
+    border: 1px solid hsl(var(--border) / 0.55);
+    border-radius: 0.65rem;
+    background: hsl(var(--muted) / 0.25);
+    cursor: pointer;
+    transition: background 0.15s ease, border-color 0.15s ease;
+    text-decoration: none;
+    color: inherit;
+}
 
-	.mini-day-has-diary {
-		background: hsl(38, 100%, 50% / 0.15);
-	}
+.history-list-item:hover {
+    background: hsl(var(--muted) / 0.5);
+    border-color: hsl(var(--primary) / 0.35);
+}
 
-	.mini-day-empty {
-		aspect-ratio: 1;
-	}
+.history-list-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.35rem;
+}
 
-	/* Modal: 往昔今朝 / 时空穿越 */
-	.modal-backdrop {
-		position: fixed;
-		inset: 0;
-		background: hsl(var(--background) / 0.55);
-		backdrop-filter: blur(4px);
-		display: flex;
-		align-items: center;
-		justify-content: center;
-		padding: 1rem;
-		z-index: 60;
-		animation: fade-in 0.15s ease-out both;
-	}
+.history-list-date {
+    font-size: 0.9rem;
+    color: hsl(var(--foreground));
+    font-weight: 500;
+}
 
-	.modal-panel {
-		background: hsl(var(--card));
-		border: 1px solid hsl(var(--border) / 0.7);
-		border-radius: 0.75rem;
-		width: 100%;
-		max-width: 520px;
-		padding: 1.25rem 1.25rem 1rem;
-		box-shadow: 0 10px 40px -10px hsl(var(--foreground) / 0.2);
-		animation: modal-in 0.2s ease-out both;
-	}
+.history-list-preview {
+    margin: 0.15rem 0 0.4rem;
+    font-size: 0.85rem;
+    line-height: 1.55;
+    color: hsl(var(--foreground) / 0.75);
+    white-space: pre-wrap;
+}
 
-	@keyframes fade-in {
-		from { opacity: 0; }
-		to { opacity: 1; }
-	}
+.history-list-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.15rem;
+    background: hsl(var(--primary) / 0.10);
+    color: hsl(var(--primary));
+    border: 1px solid hsl(var(--primary) / 0.2);
+    border-radius: 9999px;
+    padding: 0.1rem 0.45rem;
+    font-size: 0.7rem;
+}
 
-	@keyframes modal-in {
-		from { opacity: 0; transform: translateY(8px) scale(0.98); }
-		to { opacity: 1; transform: translateY(0) scale(1); }
-	}
+@keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes panel-in {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
 </style>
