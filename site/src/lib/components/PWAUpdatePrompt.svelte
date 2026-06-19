@@ -1,24 +1,55 @@
 <script lang="ts">
-	import { isUpdateAvailable, applyUpdate } from '$lib/utils/pwa';
+	import { isUpdateAvailable, isApplyingUpdate, applyUpdate } from '$lib/utils/pwa';
 	import { onMount } from 'svelte';
 
+	const DISMISS_KEY = 'pwa_update_dismissed_at';
+	const DISMISS_DURATION_MS = 24 * 60 * 60 * 1000; // 24 小时不打扰
+
 	let showUpdate = false;
+	let applying = false;
+
+	function shouldShow(): boolean {
+		if (typeof window === 'undefined') return true;
+		try {
+			const raw = window.localStorage.getItem(DISMISS_KEY);
+			if (!raw) return true;
+			const dismissedAt = Number(raw);
+			if (!Number.isFinite(dismissedAt)) return true;
+			return Date.now() - dismissedAt > DISMISS_DURATION_MS;
+		} catch {
+			return true;
+		}
+	}
+
+	function rememberDismiss() {
+		try {
+			window.localStorage.setItem(DISMISS_KEY, String(Date.now()));
+		} catch {
+			// ignore storage errors
+		}
+	}
 
 	onMount(() => {
-		const unsubscribe = isUpdateAvailable.subscribe((value) => {
-			showUpdate = value;
+		const unsubUpdate = isUpdateAvailable.subscribe((v) => {
+			showUpdate = v && shouldShow();
 		});
-
-		return unsubscribe;
+		const unsubApplying = isApplyingUpdate.subscribe((v) => {
+			applying = v;
+		});
+		return () => {
+			unsubUpdate();
+			unsubApplying();
+		};
 	});
 
-	function handleUpdate() {
-		applyUpdate();
+	async function handleUpdate() {
+		await applyUpdate();
 	}
 
 	function dismiss() {
 		showUpdate = false;
 		isUpdateAvailable.set(false);
+		rememberDismiss();
 	}
 </script>
 
@@ -50,14 +81,28 @@
 						<button
 							type="button"
 							on:click={handleUpdate}
-							class="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+							disabled={applying}
+							class="inline-flex items-center gap-2 px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
 						>
-							立即更新
+							{#if applying}
+								<svg
+									class="w-4 h-4 animate-spin"
+									fill="none"
+									stroke="currentColor"
+									viewBox="0 0 24 24"
+								>
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6l4 2" />
+								</svg>
+								正在更新...
+							{:else}
+								立即更新
+							{/if}
 						</button>
 						<button
 							type="button"
 							on:click={dismiss}
-							class="px-4 py-2 bg-white dark:bg-blue-800 text-blue-700 dark:text-blue-200 text-sm font-medium rounded-md hover:bg-blue-50 dark:hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+							disabled={applying}
+							class="px-4 py-2 bg-white dark:bg-blue-800 text-blue-700 dark:text-blue-200 text-sm font-medium rounded-md hover:bg-blue-50 dark:hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
 						>
 							稍后
 						</button>

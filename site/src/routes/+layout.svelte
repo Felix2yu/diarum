@@ -8,6 +8,7 @@
 	import { initDiaryCache } from '$lib/stores/diaryCache';
 	import PWAInstallPrompt from '$lib/components/PWAInstallPrompt.svelte';
 	import PWAUpdatePrompt from '$lib/components/PWAUpdatePrompt.svelte';
+	import OnlineStatusBanner from '$lib/components/OnlineStatusBanner.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
@@ -25,5 +26,6 @@
 
 {@render children()}
 
+<OnlineStatusBanner />
 <PWAInstallPrompt />
 <PWAUpdatePrompt />
