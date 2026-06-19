@@ -534,14 +534,20 @@
 		position: relative;
 	}
 
-	/* Year grid: 3 columns × 4 rows = 12 months, responsive on small screens */
+	/* Year grid: 4 columns × 3 rows on wider screens, 3×4 on narrow screens */
 	.year-grid {
 		display: grid;
-		grid-template-columns: repeat(3, 1fr);
+		grid-template-columns: repeat(4, 1fr);
 		gap: 0.5rem;
 	}
 
-	@media (max-width: 640px) {
+	@media (max-width: 700px) {
+		.year-grid {
+			grid-template-columns: repeat(3, 1fr);
+		}
+	}
+
+	@media (max-width: 500px) {
 		.year-grid {
 			grid-template-columns: repeat(2, 1fr);
 			gap: 0.375rem;
