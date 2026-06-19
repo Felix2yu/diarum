@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { formatDate, getCalendarDays, getToday, getYearRange, getMonthRange, getWeekRange, formatMonthYear } from '$lib/utils/date';
-	import { getDatesWithDiaries, type CalendarDiaryMeta } from '$lib/api/diaries';
+	import { formatDate, getCalendarDays, getToday, getYearRange, getMonthRange, getWeekRange, formatMonthYear, parseDate } from '$lib/utils/date';
+	import { getDatesWithDiaries, getDiariesOnThisDay, getRandomDiary, type CalendarDiaryMeta, type Diary } from '$lib/api/diaries';
 	import CalendarAnalysis from './CalendarAnalysis.svelte';
 	import CalendarYearPicker from './CalendarYearPicker.svelte';
 
@@ -33,6 +33,89 @@
 		end: string;
 	} | null;
 	let analysis = $state<AnalysisState>(null);
+
+	// 往年今日 / 随机穿越
+	type OnThisDayState = {
+		active: boolean;
+		date: string;
+		total: number;
+		diaries: Diary[];
+		loading: boolean;
+	};
+	let onThisDay = $state<OnThisDayState>({
+		active: false,
+		date: '',
+		total: 0,
+		diaries: [],
+		loading: false
+	});
+
+	type RandomState = {
+		active: boolean;
+		exists: boolean;
+		diary: Diary | null;
+		loading: boolean;
+	};
+	let randomState = $state<RandomState>({
+		active: false,
+		exists: false,
+		diary: null,
+		loading: false
+	});
+
+	async function openOnThisDay() {
+		const today = getToday();
+		const queryDate = onThisDay.date || today;
+		onThisDay.active = true;
+		onThisDay.date = queryDate;
+		onThisDay.loading = true;
+		onThisDay.diaries = [];
+		onThisDay.total = 0;
+		const result = await getDiariesOnThisDay(queryDate);
+		onThisDay.date = result.date;
+		onThisDay.total = result.total;
+		onThisDay.diaries = result.diaries;
+		onThisDay.loading = false;
+	}
+
+	function closeOnThisDay() {
+		onThisDay.active = false;
+	}
+
+	async function openRandom() {
+		randomState.active = true;
+		randomState.loading = true;
+		randomState.exists = false;
+		randomState.diary = null;
+		const result = await getRandomDiary(getToday());
+		randomState.exists = result.exists;
+		randomState.diary = result.diary;
+		randomState.loading = false;
+	}
+
+	async function rerollRandom() {
+		const current = randomState.diary;
+		randomState.loading = true;
+		const result = await getRandomDiary(current?.date ?? getToday());
+		randomState.exists = result.exists;
+		randomState.diary = result.diary;
+		randomState.loading = false;
+	}
+
+	function closeRandom() {
+		randomState.active = false;
+	}
+
+	function formatDisplayDate(dateStr: string): string {
+		const d = parseDate(dateStr);
+		return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
+	}
+
+	function diaryContentPreview(content: string, maxLength = 140): string {
+		const text = content.replace(/<[^>]*>/g, '').trim();
+		if (text.length <= maxLength) return text;
+		return text.slice(0, maxLength) + '…';
+	}
 
 	function openWeekAnalysis() {
 		const { start, end } = getWeekRange(new Date());
@@ -242,12 +325,38 @@
 								查看全年
 							</button>
 						</h2>
-						<button
-							onclick={goToToday}
-							class="px-3 py-1 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-all duration-200"
-						>
-							今天
-						</button>
+						<div class="flex items-center gap-1.5">
+							<button
+								onclick={goToToday}
+								class="px-3 py-1 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-all duration-200"
+							>
+								今天
+							</button>
+							<button
+								onclick={openOnThisDay}
+								class="px-3 py-1 text-sm rounded-md border border-border bg-muted/30 text-foreground hover:bg-muted/60 transition-all duration-200"
+								title="查看往年今日的日记"
+							>
+								<span class="inline-flex items-center gap-1">
+									<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+									</svg>
+									往年今日
+								</span>
+							</button>
+							<button
+								onclick={openRandom}
+								class="px-3 py-1 text-sm rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-all duration-200"
+								title="随机翻到过去有内容的一条日记"
+							>
+								<span class="inline-flex items-center gap-1">
+									<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
+									</svg>
+									随机穿越
+								</span>
+							</button>
+						</div>
 					</div>
 
 					<button
@@ -373,12 +482,38 @@
 
 				<div class="flex items-center gap-3">
 					<h2 class="text-lg font-semibold text-foreground">{currentYear}</h2>
-					<button
-						onclick={goToCurrentYear}
-						class="px-3 py-1 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-all duration-200"
-					>
-						本年
-					</button>
+					<div class="flex items-center gap-1.5">
+						<button
+							onclick={goToCurrentYear}
+							class="px-3 py-1 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-all duration-200"
+						>
+							本年
+						</button>
+						<button
+							onclick={openOnThisDay}
+							class="px-3 py-1 text-sm rounded-md border border-border bg-muted/30 text-foreground hover:bg-muted/60 transition-all duration-200"
+							title="查看往年今日的日记"
+						>
+							<span class="inline-flex items-center gap-1">
+								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+								</svg>
+								往年今日
+							</span>
+						</button>
+						<button
+							onclick={openRandom}
+							class="px-3 py-1 text-sm rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/20 transition-all duration-200"
+							title="随机翻到过去有内容的一条日记"
+						>
+							<span class="inline-flex items-center gap-1">
+								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
+								</svg>
+								随机穿越
+							</span>
+						</button>
+					</div>
 				</div>
 
 				<button
@@ -466,6 +601,157 @@
 			onClose={closeYearPicker}
 			onMonthChange={onmonthchange}
 		/>
+	{/if}
+
+	<!-- 往年今日 Modal -->
+	{#if onThisDay.active}
+		<div class="modal-backdrop" onclick={closeOnThisDay}>
+			<div class="modal-panel" onclick={(e) => e.stopPropagation()}>
+				<div class="flex items-center justify-between mb-4">
+					<div class="flex items-center gap-2">
+						<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+						</svg>
+						<h3 class="text-base font-semibold text-foreground">往年今日 · {formatDisplayDate(onThisDay.date)}</h3>
+					</div>
+					<button
+						onclick={closeOnThisDay}
+						class="p-1.5 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all"
+						aria-label="关闭"
+					>
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
+				</div>
+
+				{#if onThisDay.loading}
+					<div class="flex items-center justify-center py-10 text-muted-foreground text-sm">
+						<svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+						</svg>
+						正在翻找往年的日记…
+					</div>
+				{:else if onThisDay.diaries.length === 0}
+					<div class="py-10 text-center">
+						<div class="text-4xl mb-3">🗓️</div>
+						<div class="text-sm text-muted-foreground">这一天在往年还没有日记，继续记录下去吧！</div>
+					</div>
+				{:else}
+					<div class="text-xs text-muted-foreground mb-3">
+						共 {onThisDay.diaries.length} 个不同年份的今日
+					</div>
+					<div class="space-y-2.5 max-h-[55vh] overflow-y-auto pr-1">
+						{#each onThisDay.diaries as diary}
+							<a
+								href="/diary/{diary.date}"
+								class="block p-3.5 rounded-lg border border-border/60 bg-card hover:border-primary/40 hover:bg-primary/5 transition-all"
+							>
+								<div class="flex items-center justify-between mb-2">
+									<div class="text-sm font-medium text-foreground">{formatDisplayDate(diary.date)}</div>
+									<div class="flex items-center gap-2 text-xs text-muted-foreground">
+										{#if diary.mood}<span title="心情">{diary.mood}</span>{/if}
+										{#if diary.weather}<span title="天气">{diary.weather}</span>{/if}
+									</div>
+								</div>
+								{#if diary.content}
+									<div class="text-sm text-foreground/90 leading-relaxed">{diaryContentPreview(diary.content)}</div>
+								{/if}
+								{#if diary.tags && diary.tags.length > 0}
+									<div class="flex flex-wrap gap-1 mt-2">
+										{#each diary.tags as tag}
+											<span class="text-[11px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground">#{tag}</span>
+										{/each}
+									</div>
+								{/if}
+							</a>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</div>
+	{/if}
+
+	<!-- 随机穿越 Modal -->
+	{#if randomState.active}
+		<div class="modal-backdrop" onclick={closeRandom}>
+			<div class="modal-panel" onclick={(e) => e.stopPropagation()}>
+				<div class="flex items-center justify-between mb-4">
+					<div class="flex items-center gap-2">
+						<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
+						</svg>
+						<h3 class="text-base font-semibold text-foreground">随机穿越</h3>
+					</div>
+					<button
+						onclick={closeRandom}
+						class="p-1.5 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-all"
+						aria-label="关闭"
+					>
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
+				</div>
+
+				{#if randomState.loading}
+					<div class="flex items-center justify-center py-10 text-muted-foreground text-sm">
+						<svg class="w-4 h-4 mr-2 animate-spin" fill="none" viewBox="0 0 24 24">
+							<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+							<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+						</svg>
+						随机抽取一段过往日记…
+					</div>
+				{:else if !randomState.exists || !randomState.diary}
+					<div class="py-10 text-center">
+						<div class="text-4xl mb-3">🔮</div>
+						<div class="text-sm text-muted-foreground">还没有可随机翻阅的日记，先开始记录吧！</div>
+					</div>
+				{:else}
+					<div class="mb-3">
+						<div class="flex items-center justify-between mb-2">
+							<div class="text-sm font-medium text-foreground">{formatDisplayDate(randomState.diary.date)}</div>
+							<div class="flex items-center gap-2 text-xs text-muted-foreground">
+								{#if randomState.diary.mood}<span title="心情">{randomState.diary.mood}</span>{/if}
+								{#if randomState.diary.weather}<span title="天气">{randomState.diary.weather}</span>{/if}
+							</div>
+						</div>
+						{#if randomState.diary.content}
+							<div class="text-sm text-foreground/90 leading-relaxed">
+								{diaryContentPreview(randomState.diary.content, 280)}
+							</div>
+						{/if}
+						{#if randomState.diary.tags && randomState.diary.tags.length > 0}
+							<div class="flex flex-wrap gap-1 mt-3">
+								{#each randomState.diary.tags as tag}
+									<span class="text-[11px] px-2 py-0.5 rounded-full bg-muted/60 text-muted-foreground">#{tag}</span>
+								{/each}
+							</div>
+						{/if}
+					</div>
+					<div class="flex items-center justify-end gap-2 pt-3 border-t border-border/50">
+						<button
+							onclick={rerollRandom}
+							class="px-3 py-1.5 text-sm rounded-md border border-border bg-muted/30 text-foreground hover:bg-muted/60 transition-all"
+						>
+							<span class="inline-flex items-center gap-1.5">
+								<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
+								</svg>
+								再来一次
+							</span>
+						</button>
+						<a
+							href={randomState.diary ? `/diary/${randomState.diary.date}` : ''}
+							class="px-3 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-all"
+						>
+							查看完整日记
+						</a>
+					</div>
+				{/if}
+			</div>
+		</div>
 	{/if}
 </div>
 
@@ -671,5 +957,40 @@
 
 	.mini-day-empty {
 		aspect-ratio: 1;
+	}
+
+	/* Modal: 往年今日 / 随机穿越 */
+	.modal-backdrop {
+		position: fixed;
+		inset: 0;
+		background: hsl(var(--background) / 0.55);
+		backdrop-filter: blur(4px);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		padding: 1rem;
+		z-index: 60;
+		animation: fade-in 0.15s ease-out both;
+	}
+
+	.modal-panel {
+		background: hsl(var(--card));
+		border: 1px solid hsl(var(--border) / 0.7);
+		border-radius: 0.75rem;
+		width: 100%;
+		max-width: 520px;
+		padding: 1.25rem 1.25rem 1rem;
+		box-shadow: 0 10px 40px -10px hsl(var(--foreground) / 0.2);
+		animation: modal-in 0.2s ease-out both;
+	}
+
+	@keyframes fade-in {
+		from { opacity: 0; }
+		to { opacity: 1; }
+	}
+
+	@keyframes modal-in {
+		from { opacity: 0; transform: translateY(8px) scale(0.98); }
+		to { opacity: 1; transform: translateY(0) scale(1); }
 	}
 </style>
