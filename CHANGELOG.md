@@ -4,6 +4,61 @@
 
 ---
 
+## v1.5 - 2026-06-19
+
+> 发布日期：2026-06-19
+> 对应 commit：`e114b9a` — feat: PWA 离线访问功能异常
+> 对比基线：`v1.3 (131a141)` → `v1.5 (e114b9a)`，**8 个文件，+594 / -165 行**
+
+### ✨ 新增 Features
+
+- **PWA 完整离线能力** — Service Worker 预缓存入口 HTML 与静态资源，断网后仍可打开应用、浏览已加载内容
+- **应用安装到桌面/主屏** — 检测到可安装时弹出轻量横幅，点击即可将应用安装为独立 PWA 应用
+- **版本更新检测与手动激活** — 每 60 分钟后台检测新版本；发现新版本后弹窗提示用户"立即更新"，用户点击后才激活新 SW 并刷新，**编辑中绝不会被强制打断**
+- **离线状态横幅** — 断网时页面顶部显示红色横幅并展示"待同步条数"；用户可点击"立即同步"手动触发，在线时恢复正常
+- **右下角轻量同步状态徽标** — 数据正在同步或已同步完成时，右下角出现小字徽标（不干扰编辑），2 秒后自动淡出
+- **日记同步健壮性增强** — 单条日记同步失败（网络或 API 5xx）不再阻塞其他条目的同步；区分"可重试"（网络/超时）与"不可重试"（权限/4xx）错误并采用不同策略；增加自动重试上限（20 次）避免死循环退避
+- **manifest 元信息完善** — 补充 `lang`/`dir`/`categories`/`shortcuts`/`screenshots`，每个图标尺寸同时提供 `any` 与 `maskable`，适配 iOS/Android 的圆角与安全区域
+
+### 🛡️ 缓存策略一览
+
+| 资源类别 | 策略 | 说明 |
+|--------|------|------|
+| `/_app/immutable/*`（构建产物） | `CacheFirst` | 带 hash，一经缓存永久有效 |
+| Google Fonts / gstatic | `CacheFirst` | CDN 静态资源，最大限度离线可用 |
+| 图片 / 媒体上传 | `StaleWhileRevalidate` | 先返回缓存再后台更新，离线体验最佳 |
+| `/_*`（SvelteKit 内部端点） | `NetworkFirst` | 优先网络，超时用本地缓存兜底 |
+| `/api/*`（日记 / AI 接口） | `NetworkFirst` | 数据接口优先新鲜，超时退回上次结果 |
+| `/api/auth/*`（登录/鉴权） | `NetworkOnly` | 认证绝不缓存，断网直接提示 |
+| 导航请求（页面访问） | `navigateFallback: /index.html` | 离线时回退入口 HTML，仅作用于常规路由，通过 `navigateFallbackAllowlist` 排除 API 与内部端点 |
+
+### 🔧 修复与优化
+
+- **修复 HTML 入口不更新** — `vite.config.ts` 中为 `/index.html` 的预缓存条目添加 `BUILD_REVISION = Date.now()` 作为 revision，每次部署都能刷新 HTML 缓存（此前 `revision: null` 导致浏览器判断已缓存，新版本 HTML 无法下发）
+- **修复重复定时器** — `pwa.ts` 的 `registerServiceWorker` 在创建 `setInterval` 前先清理旧句柄，组件热更新或多次调用时不会叠加定时器
+- **修复同步死循环** — `diaryCache.ts` 新增 `MAX_RETRIES = 20`，指数退避超出上限后停止自动重试，改由用户手动触发
+- **`immediate: false` 用户可控的更新流程** — 新版本 Service Worker 进入 waiting 状态，由用户点击"立即更新"后才调用 `updateSW(true)` 并刷新，避免编辑过程中数据丢失
+
+### 🔌 API / 类型变更
+
+- 新增 TypeScript 类型声明：`site/src/app.d.ts` — 为 `virtual:pwa-register` 虚拟模块补充 `registerSW` 函数签名与 `RegisterSWOptions` 回调选项
+- PWA 工具模块重构：`site/src/lib/utils/pwa.ts` — 新增 `isApplyingUpdate` store、`registerServiceWorker`、`cleanupPWA`、`forceHardReload`，`applyUpdate` 改为异步流程
+
+### 📁 主要变更文件
+
+- [CHANGELOG.md](file:///workspace/CHANGELOG.md) — 新增 v1.5 条目
+- [diarum.go](file:///workspace/diarum.go) — `Version` 升级为 `v1.5`
+- [site/src/app.d.ts](file:///workspace/site/src/app.d.ts) — `virtual:pwa-register` 类型声明
+- [site/vite.config.ts](file:///workspace/site/vite.config.ts) — `SvelteKitPWA` 配置完善（revision / manifest / runtimeCaching）
+- [site/src/lib/utils/pwa.ts](file:///workspace/site/src/lib/utils/pwa.ts) — Service Worker 注册、更新检测、硬刷新
+- [site/src/lib/stores/diaryCache.ts](file:///workspace/site/src/lib/stores/diaryCache.ts) — 同步流程重构：可重试错误识别、逐条失败不阻塞、重试上限
+- [site/src/lib/components/OnlineStatusBanner.svelte](file:///workspace/site/src/lib/components/OnlineStatusBanner.svelte) — 离线横幅 + 右下角同步状态徽标（新增文件）
+- [site/src/lib/components/PWAInstallPrompt.svelte](file:///workspace/site/src/lib/components/PWAInstallPrompt.svelte) — 主题适配与图标升级
+- [site/src/lib/components/PWAUpdatePrompt.svelte](file:///workspace/site/src/lib/components/PWAUpdatePrompt.svelte) — 新增 loading spinner、24 小时"稍后"记忆
+- [site/src/routes/+layout.svelte](file:///workspace/site/src/routes/+layout.svelte) — 挂载 3 个 PWA 组件、初始化 `initPWA` 与 `initDiaryCache`
+
+---
+
 ## v1.3 - 2026-06-19
 
 > 发布日期：2026-06-19
