@@ -326,11 +326,12 @@ func createSchema(db *sql.DB) error {
 			summary TEXT DEFAULT '' NOT NULL,
 			system_prompt TEXT DEFAULT '' NOT NULL,
 			user_prefix TEXT DEFAULT '' NOT NULL,
+			keywords TEXT DEFAULT '' NOT NULL,
 			created TEXT NOT NULL,
 			updated TEXT NOT NULL,
 			FOREIGN KEY(owner) REFERENCES users(id) ON DELETE CASCADE
 		)`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_period_analyses_owner_period ON period_analyses(owner, period, start_date, end_date)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_period_analyses_owner_period ON period_analyses(owner, period, start_date, end_date, keywords)`,
 		`CREATE INDEX IF NOT EXISTS idx_period_analyses_owner ON period_analyses(owner)`,
 		`INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(1, datetime('now'))`,
 	}
@@ -339,6 +340,33 @@ func createSchema(db *sql.DB) error {
 			return err
 		}
 	}
+
+	// ---- 字段补齐（旧数据库升级）----
+	// period_analyses.keywords：在 v1 schema 之后新增
+	{
+		var hasKeywords bool
+		_ = db.QueryRow(`SELECT 1 FROM pragma_table_info('period_analyses') WHERE name = 'keywords'`).Scan(&hasKeywords)
+		if !hasKeywords {
+			if _, err := db.Exec(`ALTER TABLE period_analyses ADD COLUMN keywords TEXT DEFAULT '' NOT NULL`); err != nil {
+				logger.Warn("[Store] failed to add keywords column to period_analyses: %v", err)
+			} else {
+				logger.Info("[Store] period_analyses: added keywords column")
+			}
+		}
+	}
+
+	// 重建唯一索引（使其包含 keywords）：旧索引若存在，先 drop 再重建
+	{
+		var idxExists bool
+		_ = db.QueryRow(`SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = 'idx_period_analyses_owner_period'`).Scan(&idxExists)
+		if idxExists {
+			// SQLite 不允许直接改索引；先尝试 drop 再重建；若失败（例如被外键约束引用，此处不受影响）则忽略
+			if _, err := db.Exec(`DROP INDEX IF EXISTS idx_period_analyses_owner_period`); err == nil {
+				_, _ = db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_period_analyses_owner_period ON period_analyses(owner, period, start_date, end_date, keywords)`)
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -1083,57 +1111,62 @@ func DateOnly(dateTime string) string {
 	return dateTime
 }
 
-// PeriodAnalysis represents a saved AI analysis for a given time period
+// PeriodAnalysis represents a saved AI analysis for a given time period.
+// When `keywords` is non-empty, the analysis was generated only from diaries whose
+// content contains at least one of the provided keywords.
 type PeriodAnalysis struct {
-	ID          string `json:"id"`
-	Owner       string `json:"owner"`
-	Period      string `json:"period"`
-	StartDate   string `json:"start_date"`
-	EndDate     string `json:"end_date"`
-	DiaryCount  int    `json:"diary_count"`
-	Summary     string `json:"summary"`
+	ID           string `json:"id"`
+	Owner        string `json:"owner"`
+	Period       string `json:"period"`
+	StartDate    string `json:"start_date"`
+	EndDate      string `json:"end_date"`
+	DiaryCount   int    `json:"diary_count"`
+	Summary      string `json:"summary"`
 	SystemPrompt string `json:"system_prompt"`
-	UserPrefix  string `json:"user_prefix"`
-	Created     string `json:"created"`
-	Updated     string `json:"updated"`
+	UserPrefix   string `json:"user_prefix"`
+	Keywords     string `json:"keywords"`
+	Created      string `json:"created"`
+	Updated      string `json:"updated"`
 }
 
-// GetPeriodAnalysis retrieves the saved analysis for a given period and date range.
-func (s *Store) GetPeriodAnalysis(owner, period, startDate, endDate string) (*PeriodAnalysis, error) {
-	row := s.DB.QueryRow(`SELECT id, owner, period, start_date, end_date, diary_count, summary, system_prompt, user_prefix, created, updated FROM period_analyses WHERE owner = ? AND period = ? AND start_date = ? AND end_date = ? LIMIT 1`, owner, period, startDate, endDate)
+// GetPeriodAnalysis retrieves the saved analysis for a given period, date range and keywords.
+func (s *Store) GetPeriodAnalysis(owner, period, startDate, endDate, keywords string) (*PeriodAnalysis, error) {
+	row := s.DB.QueryRow(`SELECT id, owner, period, start_date, end_date, diary_count, summary, system_prompt, user_prefix, COALESCE(keywords, ''), created, updated FROM period_analyses WHERE owner = ? AND period = ? AND start_date = ? AND end_date = ? AND COALESCE(keywords, '') = ? LIMIT 1`, owner, period, startDate, endDate, keywords)
 	a := &PeriodAnalysis{}
-	err := row.Scan(&a.ID, &a.Owner, &a.Period, &a.StartDate, &a.EndDate, &a.DiaryCount, &a.Summary, &a.SystemPrompt, &a.UserPrefix, &a.Created, &a.Updated)
+	err := row.Scan(&a.ID, &a.Owner, &a.Period, &a.StartDate, &a.EndDate, &a.DiaryCount, &a.Summary, &a.SystemPrompt, &a.UserPrefix, &a.Keywords, &a.Created, &a.Updated)
 	if err != nil {
 		return nil, err
 	}
 	return a, nil
 }
 
-// SavePeriodAnalysis creates or updates the analysis record for a given period and date range.
-func (s *Store) SavePeriodAnalysis(owner, period, startDate, endDate string, diaryCount int, summary, systemPrompt, userPrefix string) (*PeriodAnalysis, error) {
+// SavePeriodAnalysis creates or updates the analysis record for a given period, date range and keywords.
+// The uniqueness constraint is on (owner, period, start_date, end_date, keywords) so users can save
+// distinct analyses for the same date range using different keyword filters.
+func (s *Store) SavePeriodAnalysis(owner, period, startDate, endDate string, diaryCount int, summary, systemPrompt, userPrefix, keywords string) (*PeriodAnalysis, error) {
 	now := nowString()
 	// Try to update an existing record first
-	res, err := s.DB.Exec(`UPDATE period_analyses SET diary_count = ?, summary = ?, system_prompt = ?, user_prefix = ?, updated = ? WHERE owner = ? AND period = ? AND start_date = ? AND end_date = ?`, diaryCount, summary, systemPrompt, userPrefix, now, owner, period, startDate, endDate)
+	res, err := s.DB.Exec(`UPDATE period_analyses SET diary_count = ?, summary = ?, system_prompt = ?, user_prefix = ?, keywords = ?, updated = ? WHERE owner = ? AND period = ? AND start_date = ? AND end_date = ? AND COALESCE(keywords, '') = ?`, diaryCount, summary, systemPrompt, userPrefix, keywords, now, owner, period, startDate, endDate, keywords)
 	if err != nil {
 		return nil, err
 	}
 	affected, _ := res.RowsAffected()
 	if affected > 0 {
-		return s.GetPeriodAnalysis(owner, period, startDate, endDate)
+		return s.GetPeriodAnalysis(owner, period, startDate, endDate, keywords)
 	}
 	// No existing row; create a new one
 	id, err := GenerateID()
 	if err != nil {
 		return nil, err
 	}
-	_, err = s.DB.Exec(`INSERT INTO period_analyses(id, owner, period, start_date, end_date, diary_count, summary, system_prompt, user_prefix, created, updated) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, id, owner, period, startDate, endDate, diaryCount, summary, systemPrompt, userPrefix, now, now)
+	_, err = s.DB.Exec(`INSERT INTO period_analyses(id, owner, period, start_date, end_date, diary_count, summary, system_prompt, user_prefix, keywords, created, updated) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, id, owner, period, startDate, endDate, diaryCount, summary, systemPrompt, userPrefix, keywords, now, now)
 	if err != nil {
 		return nil, err
 	}
-	return s.GetPeriodAnalysis(owner, period, startDate, endDate)
+	return s.GetPeriodAnalysis(owner, period, startDate, endDate, keywords)
 }
 
-// ListSavedAnalyses returns saved analyses for a user, filtered by period (week|month|empty).
+// ListSavedAnalyses returns saved analyses for a user, filtered by period (week|month|custom|all|empty).
 func (s *Store) ListSavedAnalyses(owner, period string, limit int) ([]*PeriodAnalysis, error) {
 	if limit <= 0 {
 		limit = 200
@@ -1143,9 +1176,9 @@ func (s *Store) ListSavedAnalyses(owner, period string, limit int) ([]*PeriodAna
 		err  error
 	)
 	if period == "" || period == "all" {
-		rows, err = s.DB.Query(`SELECT id, owner, period, start_date, end_date, diary_count, summary, system_prompt, user_prefix, created, updated FROM period_analyses WHERE owner = ? ORDER BY start_date DESC LIMIT ?`, owner, limit)
+		rows, err = s.DB.Query(`SELECT id, owner, period, start_date, end_date, diary_count, summary, system_prompt, user_prefix, COALESCE(keywords, ''), created, updated FROM period_analyses WHERE owner = ? ORDER BY start_date DESC, updated DESC LIMIT ?`, owner, limit)
 	} else {
-		rows, err = s.DB.Query(`SELECT id, owner, period, start_date, end_date, diary_count, summary, system_prompt, user_prefix, created, updated FROM period_analyses WHERE owner = ? AND period = ? ORDER BY start_date DESC LIMIT ?`, owner, period, limit)
+		rows, err = s.DB.Query(`SELECT id, owner, period, start_date, end_date, diary_count, summary, system_prompt, user_prefix, COALESCE(keywords, ''), created, updated FROM period_analyses WHERE owner = ? AND period = ? ORDER BY start_date DESC, updated DESC LIMIT ?`, owner, period, limit)
 	}
 	if err != nil {
 		return nil, err
@@ -1155,7 +1188,7 @@ func (s *Store) ListSavedAnalyses(owner, period string, limit int) ([]*PeriodAna
 	items := make([]*PeriodAnalysis, 0)
 	for rows.Next() {
 		a := &PeriodAnalysis{}
-		if err := rows.Scan(&a.ID, &a.Owner, &a.Period, &a.StartDate, &a.EndDate, &a.DiaryCount, &a.Summary, &a.SystemPrompt, &a.UserPrefix, &a.Created, &a.Updated); err != nil {
+		if err := rows.Scan(&a.ID, &a.Owner, &a.Period, &a.StartDate, &a.EndDate, &a.DiaryCount, &a.Summary, &a.SystemPrompt, &a.UserPrefix, &a.Keywords, &a.Created, &a.Updated); err != nil {
 			return nil, err
 		}
 		items = append(items, a)

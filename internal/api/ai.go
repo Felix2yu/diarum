@@ -284,19 +284,20 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		return nil
 	})
 
-	// Week / Month analysis - retrieve saved result
+	// Analysis - retrieve saved result (week / month / custom)
 	group.GET("/analysis", func(c echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		period := strings.ToLower(strings.TrimSpace(c.QueryParam("period")))
 		start := strings.TrimSpace(c.QueryParam("start"))
 		end := strings.TrimSpace(c.QueryParam("end"))
-		if period != "week" && period != "month" {
-			return badRequest("period must be 'week' or 'month'", nil)
+		keywords := strings.TrimSpace(c.QueryParam("keywords"))
+		if period != "week" && period != "month" && period != "custom" {
+			return badRequest("period must be 'week', 'month' or 'custom'", nil)
 		}
 		if start == "" || end == "" {
 			return badRequest("start and end are required", nil)
 		}
-		a, err := s.GetPeriodAnalysis(userId, period, start, end)
+		a, err := s.GetPeriodAnalysis(userId, period, start, end, keywords)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return c.JSON(http.StatusOK, map[string]any{"found": false})
@@ -313,17 +314,18 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			"summary":       a.Summary,
 			"system_prompt": a.SystemPrompt,
 			"user_prefix":   a.UserPrefix,
+			"keywords":      a.Keywords,
 			"created":       a.Created,
 			"updated":       a.Updated,
 		})
 	})
 
-	// Week / Month analysis - list all saved analyses (optionally filtered by period)
+	// Analysis - list all saved analyses (optionally filtered by period)
 	group.GET("/analyses", func(c echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		period := strings.ToLower(strings.TrimSpace(c.QueryParam("period")))
-		if period != "" && period != "week" && period != "month" && period != "all" {
-			return badRequest("period must be 'week', 'month', or 'all'", nil)
+		if period != "" && period != "week" && period != "month" && period != "custom" && period != "all" {
+			return badRequest("period must be 'week', 'month', 'custom' or 'all'", nil)
 		}
 		filter := period
 		if period == "all" {
@@ -344,6 +346,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 				"summary":       a.Summary,
 				"system_prompt": a.SystemPrompt,
 				"user_prefix":   a.UserPrefix,
+				"keywords":      a.Keywords,
 				"created":       a.Created,
 				"updated":       a.Updated,
 			})
@@ -351,13 +354,15 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		return c.JSON(http.StatusOK, map[string]any{"items": out})
 	})
 
-	// Week / Month analysis endpoint - generate and save
+	// Analysis endpoint - generate and save. Supports custom date ranges and
+	// keyword / content filtering so users can analyze only matching diary entries.
 	group.POST("/analysis", func(c echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		var body struct {
 			Period       string `json:"period"`
 			Start        string `json:"start"`
 			End          string `json:"end"`
+			Keywords     string `json:"keywords"`
 			SystemPrompt string `json:"system_prompt"`
 			UserPrefix   string `json:"user_prefix"`
 		}
@@ -365,8 +370,11 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			return badRequest("Invalid request body", err)
 		}
 		period := strings.ToLower(strings.TrimSpace(body.Period))
-		if period != "week" && period != "month" {
-			return badRequest("period must be 'week' or 'month'", nil)
+		if period == "" {
+			period = "custom"
+		}
+		if period != "week" && period != "month" && period != "custom" {
+			return badRequest("period must be 'week', 'month' or 'custom'", nil)
 		}
 		start := strings.TrimSpace(body.Start)
 		end := strings.TrimSpace(body.End)
@@ -379,19 +387,61 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		if _, err := time.Parse("2006-01-02", end); err != nil {
 			return badRequest("end must be in YYYY-MM-DD format", err)
 		}
+		keywords := strings.TrimSpace(body.Keywords)
 
 		// Fetch diaries in range
 		diaries, err := s.ListDiaries(userId, start+" 00:00:00.000Z", end+" 23:59:59.999Z", "-date", 0)
 		if err != nil {
 			return serverError("Failed to fetch diaries for analysis", err)
 		}
+
+		// Optional keyword/content filtering
+		if keywords != "" {
+			// Split on common separators (comma, space) and build a lowercase token list
+			rawTokens := strings.FieldsFunc(keywords, func(r rune) bool {
+				return r == ',' || r == '，' || r == ';' || r == '；' || r == '/' || r == '\\'
+			})
+			tokens := make([]string, 0, len(rawTokens))
+			for _, t := range rawTokens {
+				t = strings.TrimSpace(t)
+				if t == "" {
+					continue
+				}
+				tokens = append(tokens, strings.ToLower(t))
+			}
+			if len(tokens) > 0 {
+				filtered := make([]*store.Diary, 0, len(diaries))
+				for _, d := range diaries {
+					haystack := strings.ToLower(d.Content)
+					matched := false
+					for _, tok := range tokens {
+						if strings.Contains(haystack, tok) {
+							matched = true
+							break
+						}
+					}
+					if matched {
+						filtered = append(filtered, d)
+					}
+				}
+				diaries = filtered
+			}
+		}
+
 		if len(diaries) == 0 {
+			var emptySummary string
+			if keywords != "" {
+				emptySummary = fmt.Sprintf("在 %s 至 %s 的时间段内，没有找到包含关键词「%s」的日记记录，无法进行分析。建议调整时间范围、更换关键词，或先记录一些相关日常内容。", start, end, keywords)
+			} else {
+				emptySummary = fmt.Sprintf("在 %s 至 %s 的时间段内没有日记记录，无法进行分析。建议先记录一些日常内容，然后再尝试。", start, end)
+			}
 			return c.JSON(http.StatusOK, map[string]any{
-				"start":   start,
-				"end":     end,
-				"period":  period,
-				"count":   0,
-				"summary": "这个时间段内没有日记记录，无法进行分析。建议先记录一些日常内容，然后再尝试。",
+				"start":    start,
+				"end":      end,
+				"period":   period,
+				"keywords": keywords,
+				"count":    0,
+				"summary":  emptySummary,
 			})
 		}
 
@@ -408,14 +458,23 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		// Resolve prompts: request override → saved config → default
 		savedSystemPrompt, _ := cfgService.GetString(userId, "ai.analysis_system_prompt")
 		savedUserPrefix, _ := cfgService.GetString(userId, "ai.analysis_user_prefix")
-		defaultSystemPrompt := "你是一个贴心的日记分析助手，基于用户提供的日记内容进行深入分析。你需要：\n1) 归纳总结日记的主要内容；\n2) 分析用户的情绪变化、生活模式；\n3) 找出亮点和值得改进的地方；\n4) 给出具体、可操作的建议。\n请用温暖、鼓励且理性的语气，分段输出，便于阅读。使用中文回答。"
-		defaultUserPrefix := ""
+		defaultSystemPrompt := "你是一个贴心的日记分析助手，基于用户提供的日记内容进行深入分析。你需要：\n1) 归纳总结日记的主要内容；\n2) 留意每篇日记的日期，分析情绪变化、生活模式在时间线上的演变；\n3) 找出亮点和值得改进的地方；\n4) 给出具体、可操作的建议。\n请用温暖、鼓励且理性的语气，分段输出，便于阅读。使用中文回答。"
 
-		periodLabel := "本周"
-		if period == "month" {
+		var periodLabel string
+		switch period {
+		case "month":
 			periodLabel = "本月"
+		case "week":
+			periodLabel = "本周"
+		default:
+			periodLabel = "所选时间段"
 		}
-		defaultUserPrefix = fmt.Sprintf("以下是%s（%s 至 %s）的日记记录，共 %d 篇。请根据内容进行重组、分析，并给出建议。\n\n", periodLabel, start, end, len(diaries))
+		defaultUserPrefix := ""
+		if keywords != "" {
+			defaultUserPrefix = fmt.Sprintf("以下是%s（%s 至 %s）中包含关键词「%s」的日记记录，共 %d 篇。请根据这些内容进行重组、分析，并给出建议。\n\n", periodLabel, start, end, keywords, len(diaries))
+		} else {
+			defaultUserPrefix = fmt.Sprintf("以下是%s（%s 至 %s）的日记记录，共 %d 篇。请根据内容进行重组、分析，并给出建议。\n\n", periodLabel, start, end, len(diaries))
+		}
 
 		systemPrompt := strings.TrimSpace(body.SystemPrompt)
 		if systemPrompt == "" {
@@ -433,7 +492,13 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			userPrefix = defaultUserPrefix
 		}
 
-		// Build user content with diary entries
+		// Build user content with diary entries.
+		// Reverse the diaries so they are presented to the AI in ascending (old → new)
+		// chronological order — this makes it easier for the AI to detect trends and
+		// mood progression across the analyzed period.
+		for i, j := 0, len(diaries)-1; i < j; i, j = i+1, j-1 {
+			diaries[i], diaries[j] = diaries[j], diaries[i]
+		}
 		var sb strings.Builder
 		sb.WriteString(userPrefix)
 		if !strings.HasSuffix(userPrefix, "\n") {
@@ -506,12 +571,13 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		}
 
 		// Persist the analysis for later retrieval
-		saved, saveErr := s.SavePeriodAnalysis(userId, period, start, end, len(diaries), summary, systemPrompt, userPrefix)
+		saved, saveErr := s.SavePeriodAnalysis(userId, period, start, end, len(diaries), summary, systemPrompt, userPrefix, keywords)
 
 		response := map[string]any{
 			"start":         start,
 			"end":           end,
 			"period":        period,
+			"keywords":      keywords,
 			"count":         len(diaries),
 			"summary":       summary,
 			"system_prompt": systemPrompt,

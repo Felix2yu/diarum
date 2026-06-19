@@ -273,7 +273,7 @@
 		<!-- 日期导航 -->
 		<div class="diary-layout flex gap-6 mx-auto transition-all duration-300 mb-4" class:with-desktop-sidebar={showDesktopToc}>
 			<main class="diary-main w-full min-w-0">
-				<div class="flex items-center justify-between bg-card rounded-xl border border-border/50 px-3 py-2.5 shadow-sm">
+				<div class="flex items-center bg-card rounded-xl border border-border/50 px-3 py-2.5 shadow-sm">
 					<button
 						type="button"
 						on:click={goToPreviousDay}
@@ -286,7 +286,7 @@
 						<span>前一天</span>
 					</button>
 
-					<div class="flex items-center gap-2 text-center">
+					<div class="flex-1 flex items-center justify-center gap-2 min-w-0">
 						<button
 							type="button"
 							on:click={goToCalendar}
