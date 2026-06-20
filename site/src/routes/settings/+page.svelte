@@ -104,7 +104,12 @@
 		embedding_model: '',
 		analysis_system_prompt: '',
 		analysis_user_prefix: '',
-		enabled: false
+		enabled: false,
+		speech_provider: 'none',
+		speech_base_url: '',
+		speech_api_key: '',
+		speech_model: 'whisper-1',
+		speech_language: 'zh'
 	};
 	let originalAISettings: AISettings = { ...aiSettings };
 	let aiSaving = false;
@@ -534,7 +539,12 @@
 		aiSettings.embedding_model !== originalAISettings.embedding_model ||
 		(aiSettings.analysis_system_prompt ?? '') !== (originalAISettings.analysis_system_prompt ?? '') ||
 		(aiSettings.analysis_user_prefix ?? '') !== (originalAISettings.analysis_user_prefix ?? '') ||
-		aiSettings.enabled !== originalAISettings.enabled;
+		aiSettings.enabled !== originalAISettings.enabled ||
+		(aiSettings.speech_provider ?? '') !== (originalAISettings.speech_provider ?? '') ||
+		(aiSettings.speech_base_url ?? '') !== (originalAISettings.speech_base_url ?? '') ||
+		(aiSettings.speech_api_key ?? '') !== (originalAISettings.speech_api_key ?? '') ||
+		(aiSettings.speech_model ?? '') !== (originalAISettings.speech_model ?? '') ||
+		(aiSettings.speech_language ?? '') !== (originalAISettings.speech_language ?? '');
 
 	// Embedding model keywords for sorting
 	const embeddingKeywords = ['embed', 'bge', 'e5', 'voyage', 'jina'];
@@ -1476,6 +1486,72 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							{/if}
 						</div>
 					{/if}
+
+					<!-- 语音识别 -->
+					<div class="py-4 border-b border-border/50">
+						<div class="font-medium text-foreground mb-3">语音识别</div>
+						<p class="text-xs text-muted-foreground mb-3">
+							用于日记编辑器中的 AI 语音转文字功能，仅支持 OpenAI 兼容的 /v1/audio/transcriptions 接口（如 whisper、groq、本地 Whisper 部署等）。若未单独填写语音 API 密钥与地址，将回退使用上面"AI 助手"的 Base URL 与密钥。
+						</p>
+						<div class="mb-4">
+							<label for="speech-provider" class="block text-sm text-muted-foreground mb-1.5">启用语音识别</label>
+							<select
+								id="speech-provider"
+								bind:value={aiSettings.speech_provider}
+								class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+							>
+								<option value="none">不启用</option>
+								<option value="openai">OpenAI 兼容接口（推荐）</option>
+							</select>
+						</div>
+						<div class="grid gap-3 md:grid-cols-2 mb-3">
+							<div>
+								<label for="speech-base-url" class="block text-sm text-muted-foreground mb-1.5">API Base URL（可选）</label>
+								<input
+									id="speech-base-url"
+									type="text"
+									bind:value={aiSettings.speech_base_url}
+									placeholder="例如 https://api.openai.com；留空则使用上面 AI 助手的 Base URL"
+									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+							</div>
+							<div>
+								<label for="speech-api-key" class="block text-sm text-muted-foreground mb-1.5">API 密钥（可选）</label>
+								<input
+									id="speech-api-key"
+									type="password"
+									bind:value={aiSettings.speech_api_key}
+									placeholder="留空则使用上面 AI 助手的 API 密钥"
+									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+							</div>
+						</div>
+						<div class="grid gap-3 md:grid-cols-2">
+							<div>
+								<label for="speech-model" class="block text-sm text-muted-foreground mb-1.5">模型名称</label>
+								<input
+									id="speech-model"
+									type="text"
+									bind:value={aiSettings.speech_model}
+									placeholder="whisper-1"
+									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+							</div>
+							<div>
+								<label for="speech-language" class="block text-sm text-muted-foreground mb-1.5">默认语言 (ISO-639-1)</label>
+								<input
+									id="speech-language"
+									type="text"
+									bind:value={aiSettings.speech_language}
+									placeholder="zh / en / ja / …；留空由模型自动识别"
+									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+							</div>
+						</div>
+						<p class="text-xs text-muted-foreground mt-2">
+							配置完成后，请点击下方"保存 AI 设置"。随后你可以在日记编辑器顶部看到 🎙️ 录音按钮，点击即可开始录音并自动转录为文字。
+						</p>
+					</div>
 
 					<!-- 周/月分析提示词 -->
 					<div class="py-4 border-b border-border/50">

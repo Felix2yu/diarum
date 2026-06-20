@@ -8,6 +8,11 @@ export interface AISettings {
 	analysis_system_prompt: string;
 	analysis_user_prefix: string;
 	enabled: boolean;
+	speech_provider: string;
+	speech_base_url: string;
+	speech_api_key: string;
+	speech_model: string;
+	speech_language: string;
 }
 
 export interface ModelInfo {
@@ -176,16 +181,23 @@ export async function getAISettings(): Promise<AISettings> {
 		}
 
 		return await response.json();
-	} catch (error) {
-		console.error('Error fetching AI settings:', error);
-		return {
-			api_key: '',
-			base_url: '',
-			chat_model: '',
-			embedding_model: '',
-			enabled: false
-		};
-	}
+} catch (error) {
+	console.error('Error fetching AI settings:', error);
+	return {
+		api_key: '',
+		base_url: '',
+		chat_model: '',
+		embedding_model: '',
+		analysis_system_prompt: '',
+		analysis_user_prefix: '',
+		enabled: false,
+		speech_provider: 'none',
+		speech_base_url: '',
+		speech_api_key: '',
+		speech_model: '',
+		speech_language: ''
+	};
+}
 }
 
 /**
@@ -335,4 +347,63 @@ export async function polishText(
 	}
 
 	return await response.json();
+}
+
+export interface TranscribeResult {
+	text: string;
+}
+
+/**
+ * Upload a recorded audio Blob and receive a text transcription using the
+ * configured speech recognition provider.
+ */
+export async function transcribeAudio(
+	audio: Blob,
+	opts?: { language?: string; model?: string; prompt?: string }
+): Promise<TranscribeResult> {
+	const formData = new FormData();
+	const fileName = 'audio.webm';
+	formData.append('file', audio, fileName);
+	if (opts?.language) formData.append('language', opts.language);
+	if (opts?.model) formData.append('model', opts.model);
+	if (opts?.prompt) formData.append('prompt', opts.prompt);
+
+	const response = await fetch('/api/v1/ai/transcribe', {
+		method: 'POST',
+		headers: {
+			Authorization: `Bearer ${pb.authStore.token}`
+		},
+		body: formData
+	});
+
+	if (!response.ok) {
+		let message = '语音识别失败';
+		try {
+			const data = await response.json();
+			if (data?.message) message = data.message;
+		} catch {
+			// ignore
+		}
+		throw new Error(message);
+	}
+
+	return (await response.json()) as TranscribeResult;
+}
+
+/**
+ * Returns whether the provided settings are considered ready for speech
+ * transcription from the editor UI.
+ */
+export function isSpeechConfigured(settings: AISettings | undefined | null): boolean {
+	if (!settings) return false;
+	const provider = (settings.speech_provider || '').trim().toLowerCase();
+	if (provider === '' || provider === 'none' || provider === 'off' || provider === 'disabled') {
+		return false;
+	}
+	const hasExplicit =
+		(settings.speech_base_url || '').trim() !== '' &&
+		(settings.speech_api_key || '').trim() !== '';
+	const hasFallback =
+		(settings.base_url || '').trim() !== '' && (settings.api_key || '').trim() !== '';
+	return hasExplicit || hasFallback;
 }

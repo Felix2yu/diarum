@@ -30,6 +30,11 @@ var ConfigRegistry = map[string]ConfigMeta{
 	"ai.vectors_built_at":      {Type: "string", Default: "", Encrypted: false},
 	"ai.analysis_system_prompt": {Type: "string", Default: "", Encrypted: false},
 	"ai.analysis_user_prefix":  {Type: "string", Default: "", Encrypted: false},
+	"ai.speech.provider":       {Type: "string", Default: "none", Encrypted: false},
+	"ai.speech.base_url":       {Type: "string", Default: "", Encrypted: false},
+	"ai.speech.api_key":        {Type: "string", Default: "", Encrypted: true},
+	"ai.speech.model":          {Type: "string", Default: "whisper-1", Encrypted: false},
+	"ai.speech.language":       {Type: "string", Default: "zh", Encrypted: false},
 
 	// Chevereto image hosting settings
 	"chevereto.enabled":  {Type: "bool", Default: false, Encrypted: false},
