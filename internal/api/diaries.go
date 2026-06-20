@@ -1,6 +1,8 @@
 package api
 
 import (
+	"database/sql"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -53,6 +55,38 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 			return c.JSON(http.StatusOK, map[string]any{"date": dateStr, "content": "", "exists": false})
 		}
 		return c.JSON(http.StatusOK, diaryResponse(diary, dateStr, true))
+	})
+
+	// 往年今日: 返回所有相同月-日但年份不同的日记
+	group.GET("/on-this-day", func(c echo.Context) error {
+		user := auth.CurrentUser(c)
+		date := c.QueryParam("date")
+		if date == "" {
+			date = time.Now().Format("2006-01-02")
+		}
+		diaries, err := s.GetDiariesByMonthDay(user.ID, date)
+		if err != nil {
+			return serverError("Failed to query on-this-day diaries", err)
+		}
+		result := make([]map[string]any, 0, len(diaries))
+		for _, diary := range diaries {
+			result = append(result, diaryResponse(diary, store.DateOnly(diary.Date), true))
+		}
+		return c.JSON(http.StatusOK, map[string]any{"date": date, "total": len(result), "diaries": result})
+	})
+
+	// 随机穿越: 从用户有内容的日记中随机挑选一条返回
+	group.GET("/random", func(c echo.Context) error {
+		user := auth.CurrentUser(c)
+		exclude := c.QueryParam("exclude_date")
+		diary, err := s.GetRandomDiary(user.ID, exclude)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return c.JSON(http.StatusOK, map[string]any{"exists": false})
+			}
+			return serverError("Failed to pick a random diary", err)
+		}
+		return c.JSON(http.StatusOK, diaryResponse(diary, store.DateOnly(diary.Date), true))
 	})
 
 	group.GET("/exists", func(c echo.Context) error {

@@ -917,6 +917,62 @@ func (s *Store) GetDiaryByDate(owner, start, end string) (*Diary, error) {
 	return scanDiary(s.DB.QueryRow(`SELECT content, created, date, id, mood, owner, updated, weather, tags FROM diaries WHERE date >= ? AND date <= ? AND owner = ? LIMIT 1`, start, end, owner))
 }
 
+// GetDiariesByMonthDay returns diaries from previous years that share the
+// same month-and-day as the provided YYYY-MM-DD date, but exclude the provided
+// date itself so only "往年今日" entries are returned.
+func (s *Store) GetDiariesByMonthDay(owner, dateStr string) ([]*Diary, error) {
+	if len(dateStr) < 10 {
+		return []*Diary{}, nil
+	}
+	monthDay := dateStr[5:10] // MM-DD
+	rows, err := s.DB.Query(
+		`SELECT content, created, date, id, mood, owner, updated, weather, tags
+		 FROM diaries
+		 WHERE owner = ? AND substr(date, 6, 5) = ? AND substr(date, 1, 10) != ?
+		 ORDER BY date DESC`,
+		owner, monthDay, dateStr,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanDiaries(rows)
+}
+
+// GetRandomDiary returns a single random diary from the user's collection that
+// has non-trivial content (at least one of content, mood, weather populated
+// or has tags). Passing a non-empty excludeDate avoids returning the same-day
+// entry on successive calls (例如, 今日日期被排除).
+func (s *Store) GetRandomDiary(owner, excludeDate string) (*Diary, error) {
+	where := "WHERE owner = ?"
+	args := []any{owner}
+	if excludeDate != "" && len(excludeDate) >= 10 {
+		where += " AND substr(date, 1, 10) != ?"
+		args = append(args, excludeDate[:10])
+	}
+	// 偏好有内容的日记： content 非空 或 mood 非空 或 weather 非空 或 tags != '[]'
+	where += " AND (trim(content) != '' OR trim(mood) != '' OR trim(weather) != '' OR tags != '[]')"
+	// SQLite 的 RANDOM() 返回 -9223372036854775808 到 9223372036854775807，取一条
+	rows, err := s.DB.Query(
+		`SELECT content, created, date, id, mood, owner, updated, weather, tags
+		 FROM diaries `+where+`
+		 ORDER BY RANDOM() LIMIT 1`,
+		args...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	diaries, err := scanDiaries(rows)
+	if err != nil {
+		return nil, err
+	}
+	if len(diaries) == 0 {
+		return nil, sql.ErrNoRows
+	}
+	return diaries[0], nil
+}
+
 func (s *Store) GetDiaryByID(id string) (*Diary, error) {
 	return scanDiary(s.DB.QueryRow(`SELECT content, created, date, id, mood, owner, updated, weather, tags FROM diaries WHERE id = ?`, id))
 }

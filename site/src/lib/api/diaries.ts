@@ -101,6 +101,59 @@ export async function getDiaryByDate(date: string): Promise<Diary | null> {
 }
 
 /**
+ * 获取往年今日：返回所有与指定日期月-日相同但年份不同的日记。
+ * 不传日期则使用今天。
+ */
+export async function getDiariesOnThisDay(date?: string): Promise<{ date: string; total: number; diaries: Diary[] }> {
+	try {
+		const query = date ? `?date=${encodeURIComponent(date)}` : '';
+		const response = await fetch(`/api/v1/diaries/on-this-day${query}`, {
+			headers: {
+				'Authorization': `Bearer ${pb.authStore.token}`
+			}
+		});
+		if (!response.ok) {
+			return { date: date ?? '', total: 0, diaries: [] };
+		}
+		const data = await response.json();
+		return {
+			date: data.date ?? date ?? '',
+			total: Number(data.total) ?? 0,
+			diaries: Array.isArray(data.diaries) ? (data.diaries as Diary[]) : []
+		};
+	} catch (error) {
+		console.error('Error fetching on-this-day diaries:', error);
+		return { date: date ?? '', total: 0, diaries: [] };
+	}
+}
+
+/**
+ * 随机穿越：从用户有内容的日记中随机挑选一条返回。
+ * 返回值若 exists=false 则表示没有可用的日记。
+ */
+export async function getRandomDiary(excludeDate?: string): Promise<{ exists: boolean; diary: Diary | null }> {
+	try {
+		const query = excludeDate ? `?exclude_date=${encodeURIComponent(excludeDate)}` : '';
+		const response = await fetch(`/api/v1/diaries/random${query}`, {
+			headers: {
+				'Authorization': `Bearer ${pb.authStore.token}`
+			}
+		});
+		if (!response.ok) {
+			return { exists: false, diary: null };
+		}
+		const data = await response.json();
+		if (data.exists === false) {
+			return { exists: false, diary: null };
+		}
+		return { exists: true, diary: data as Diary };
+	} catch (error) {
+		console.error('Error fetching random diary:', error);
+		return { exists: false, diary: null };
+	}
+}
+
+/**
  * Check if content is effectively empty (strips HTML tags and whitespace)
  */
 function isContentEmpty(content: string | undefined | null): boolean {

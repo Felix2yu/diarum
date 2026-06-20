@@ -270,61 +270,53 @@
 	<PageHeader title="日记" />
 <!-- Main Content -->
 	<div class="container-responsive py-6 flex-1 flex flex-col">
-		<!-- 日期导航 -->
-		<div class="diary-layout flex gap-6 mx-auto transition-all duration-300 mb-4" class:with-desktop-sidebar={showDesktopToc}>
-			<main class="diary-main w-full min-w-0">
-				<div class="flex items-center bg-card rounded-xl border border-border/50 px-3 py-2.5 shadow-sm">
-					<button
-						type="button"
-						on:click={goToPreviousDay}
-						class="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-lg transition-all duration-200"
-						title="上一天"
-					>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-						</svg>
-						<span>前一天</span>
-					</button>
-
-					<div class="flex-1 flex items-center justify-center gap-2 min-w-0">
+		<!-- 主内容布局：导航条与编辑器同宽 -->
+		<div class="diary-layout flex gap-6 mx-auto transition-all duration-300 flex-1 min-h-0" class:with-desktop-sidebar={showDesktopToc}>
+			<main class="diary-main w-full min-w-0 flex flex-col min-h-0">
+				<!-- 日期导航：紧贴编辑器上方，宽度随编辑器一致 -->
+				<div class="mb-4">
+					<div class="flex items-center bg-card rounded-xl border border-border/50 px-3 py-2.5 shadow-sm">
 						<button
 							type="button"
-							on:click={goToCalendar}
-							class="text-sm font-semibold text-foreground hover:opacity-80 transition-opacity"
-							title="返回日历"
+							on:click={goToPreviousDay}
+							class="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-lg transition-all duration-200"
+							title="上一天"
 						>
-							{formatDisplayDate(date)}
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+							</svg>
+							<span>前一天</span>
 						</button>
-						{#if isToday(date)}
-							<span class="text-[10px] px-1.5 py-0.5 bg-primary/15 text-primary rounded-full font-medium">今天</span>
-						{/if}
-						<span class="text-[11px] text-muted-foreground hidden sm:inline">星期{getDayOfWeek(date)}</span>
+
+						<div class="flex-1 flex items-center justify-center gap-2 min-w-0">
+							<button
+								type="button"
+								on:click={goToCalendar}
+								class="text-sm font-semibold text-foreground hover:opacity-80 transition-opacity"
+								title="返回日历"
+							>
+								{formatDisplayDate(date)}
+							</button>
+							{#if isToday(date)}
+								<span class="text-[10px] px-1.5 py-0.5 bg-primary/15 text-primary rounded-full font-medium">今天</span>
+							{/if}
+							<span class="text-[11px] text-muted-foreground hidden sm:inline">星期{getDayOfWeek(date)}</span>
+						</div>
+
+						<button
+							type="button"
+							on:click={goToNextDay}
+							class="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-lg transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
+							disabled={!canGoNext}
+							title="下一天"
+						>
+							<span>后一天</span>
+							<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+							</svg>
+						</button>
 					</div>
-
-					<button
-						type="button"
-						on:click={goToNextDay}
-						class="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-lg transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
-						disabled={!canGoNext}
-						title="下一天"
-					>
-						<span>后一天</span>
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-						</svg>
-					</button>
 				</div>
-			</main>
-			<!-- 占位保持右侧边栏对齐 -->
-			{#if showDesktopToc}
-				<div class="hidden lg:block w-[19rem] flex-shrink-0" aria-hidden="true"></div>
-			{/if}
-		</div>
-
-		<!-- 原布局 -->
-		<div class="diary-layout flex gap-6 mx-auto transition-all duration-300 flex-1 min-h-0" class:with-desktop-sidebar={showDesktopToc}>
-			<!-- Editor -->
-			<main class="diary-main w-full min-w-0 flex flex-col min-h-0">
 				{#if loading}
 					<div class="flex flex-col items-center justify-center py-20 gap-3 animate-fade-in">
 						<svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
