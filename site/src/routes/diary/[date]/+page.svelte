@@ -498,64 +498,7 @@
 						<div class="text-muted-foreground text-sm">加载中...</div>
 					</div>
 				{:else}
-					<div class="bg-card rounded-xl shadow-sm border border-border/50 overflow-hidden animate-fade-in flex flex-col flex-1 min-h-0">
-						{#if speechEnabled || isRecording || isTranscribing}
-							<div class="flex items-center gap-2 px-4 py-2 border-b border-border/50 bg-muted/30">
-							{#if isRecording}
-								<button
-									type="button"
-									on:click={stopRecording}
-									title="停止录音并转文字"
-									class="inline-flex items-center gap-2 px-3 py-1.5 bg-destructive/90 hover:bg-destructive text-destructive-foreground rounded-lg text-sm font-medium shadow-sm transition-all"
-								>
-									<span class="relative flex items-center justify-center w-3 h-3">
-										<span class="absolute inline-flex h-full w-full rounded-full bg-white/70 animate-ping opacity-75"></span>
-										<span class="relative inline-flex rounded-full w-2 h-2 bg-white"></span>
-									</span>
-									<span>停止录音</span>
-								</button>
-								<div class="text-xs text-muted-foreground tabular-nums">
-									录音中：{formatRecordingTime(recordingSeconds)}
-								</div>
-								<div class="text-xs text-muted-foreground">
-									（最长 5 分钟）
-								</div>
-							{:else if isTranscribing}
-								<button
-									type="button"
-									disabled
-									class="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-sm font-medium"
-								>
-									<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-										<circle class="opacity-25" cx="12" cy="12" r="10" stroke-width="4" stroke="currentColor"/>
-										<path class="opacity-75" fill="currentColor" stroke="currentColor" stroke-width="4" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-									</svg>
-									正在转写中...
-								</button>
-							{:else}
-								<button
-									type="button"
-									on:click={startRecording}
-									title="AI 语音输入日记"
-									class="inline-flex items-center gap-2 px-3 py-1.5 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-sm font-medium transition-colors"
-								>
-									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 1a3 3 0 00-3 3v5a3 3 0 006 0V4a3 3 0 00-3-3z"/>
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 10v1a7 7 0 01-14 0v-1M12 18v3M8 21h8"/>
-									</svg>
-									<span>AI 语音输入</span>
-								</button>
-								<div class="text-xs text-muted-foreground">
-									（点击开始录音，再次点击停止按钮停止并自动转写）
-								</div>
-							{/if}
-							{#if speechError}
-								<div class="ml-auto text-xs text-destructive">
-									{speechError}
-								</div>
-							{/if}
-						</div>
-					{/if}
+					<div class="bg-card rounded-xl shadow-sm border border-border/50 overflow-hidden animate-fade-in flex flex-col flex-1 min-h-0 relative">
 						<TiptapEditor
 							{content}
 							bind:selectedContent
@@ -564,6 +507,55 @@
 							emptyStatePrompt="✨ 回顾今天... 这一天你会记住什么？"
 							diaryDate={date}
 						/>
+					{#if speechEnabled || isRecording || isTranscribing}
+						<div class="absolute bottom-3 right-3 flex items-center gap-2 z-10">
+							{#if speechError}
+								<div class="px-3 py-1.5 rounded-lg bg-destructive/90 text-destructive-foreground text-xs shadow-md">
+									{speechError}
+								</div>
+							{/if}
+							{#if isRecording}
+								<button
+									type="button"
+									on:click={stopRecording}
+									title="停止录音并转文字"
+									class="inline-flex items-center gap-2 px-3 py-2 bg-destructive/90 hover:bg-destructive text-destructive-foreground rounded-full text-sm font-medium shadow-lg shadow-destructive/20 transition-all"
+								>
+									<span class="relative flex items-center justify-center w-3 h-3">
+										<span class="absolute inline-flex h-full w-full rounded-full bg-white/70 animate-ping opacity-75"></span>
+										<span class="relative inline-flex rounded-full w-2 h-2 bg-white"></span>
+									</span>
+									<span>停止录音</span>
+									<span class="text-xs text-white/80 tabular-nums">{formatRecordingTime(recordingSeconds)}</span>
+								</button>
+							{:else if isTranscribing}
+								<button
+									type="button"
+									disabled
+									class="inline-flex items-center gap-2 px-3 py-2 bg-primary/90 text-primary-foreground rounded-full text-sm font-medium shadow-lg shadow-primary/20"
+								>
+									<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+										<circle class="opacity-25" cx="12" cy="12" r="10" stroke-width="4" stroke="currentColor"/>
+										<path class="opacity-75" fill="currentColor" stroke="currentColor" stroke-width="4" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+									</svg>
+									<span>正在转写</span>
+								</button>
+							{:else}
+								<button
+									type="button"
+									on:click={startRecording}
+									title="AI 语音输入日记"
+									class="inline-flex items-center gap-2 px-3 py-2 bg-primary/90 hover:bg-primary text-primary-foreground rounded-full text-sm font-medium shadow-lg shadow-primary/20 transition-all"
+								>
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 1a3 3 0 00-3 3v5a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 10v1a7 7 0 01-14 0v-1M12 18v3M8 21h8"/>
+									</svg>
+									<span>AI 语音</span>
+								</button>
+							{/if}
+						</div>
+					{/if}
 					</div>
 
 					<!-- Mobile: Mood, Weather, Tags panel below editor -->
