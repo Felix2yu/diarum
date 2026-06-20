@@ -49,7 +49,7 @@
 </script>
 
 {#if visible}
-	<div class="fixed top-0 left-0 right-0 z-40">
+	<div class="fixed top-0 left-0 right-0 z-40 safe-top">
 		<div class="bg-accent/80 backdrop-blur-md border-b border-border/50 text-foreground/70 text-sm px-4 py-2 flex items-center justify-center gap-3">
 			<svg
 				class="w-4 h-4 animate-pulse-subtle"

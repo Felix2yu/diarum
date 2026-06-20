@@ -10,11 +10,12 @@
 		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 		<link rel="mask-icon" href="/favicon.svg" color="#8B5A2B" />
 		<link rel="manifest" href="/site.webmanifest" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
 		<!-- PWA Meta Tags -->
-		<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-		<meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
+		<meta name="theme-color" content="#F7F3E8" id="meta-theme-color" />
+		<meta name="theme-color" content="#F7F3E8" media="(prefers-color-scheme: light)" />
+		<meta name="theme-color" content="#1C1714" media="(prefers-color-scheme: dark)" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
 		<meta name="apple-mobile-web-app-title" content="吾身" />
@@ -22,6 +23,17 @@
 		<meta name="application-name" content="吾身" />
 		<meta name="msapplication-TileColor" content="#ffffff" />
 		<meta name="description" content="一款简洁优雅、可自托管的日记应用，具备 AI 洞察能力。" />
+		<script>
+			// 提前根据用户主题设置 theme-color，避免 iOS/macOS PWA 启动时状态栏颜色闪烁
+			(function () {
+				try {
+					var stored = localStorage.getItem('theme') || 'system';
+					var isDark = stored === 'dark' || (stored === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+					var meta = document.getElementById('meta-theme-color');
+					if (meta) meta.setAttribute('content', isDark ? '#1C1714' : '#F7F3E8');
+				} catch (e) { /* ignore */ }
+			})();
+		</script>
 
 		%sveltekit.head%
 		<!-- Google tag (gtag.js) -->

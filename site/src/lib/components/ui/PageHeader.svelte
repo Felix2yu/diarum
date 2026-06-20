@@ -45,7 +45,7 @@
 	];
 </script>
 
-<header class="glass border-b border-border/50 flex-shrink-0 z-20 {sticky ? 'sticky top-0' : ''}">
+<header class="glass border-b border-border/50 flex-shrink-0 z-20 safe-top {sticky ? 'sticky top-0' : ''}">
 	<div class="container-responsive h-14 relative flex items-center">
 		<!-- 左侧：Logo -->
 		<div class="flex items-center gap-2 z-10 flex-shrink-0">

@@ -33,6 +33,13 @@ export function initTheme() {
 		} else {
 			document.documentElement.classList.remove('dark');
 		}
+
+		// 同步设置 PWA/状态栏 theme-color（iOS/macOS PWA 依赖此标签）
+		// 浅色：温暖米黄 #F7F3E8  |  深色：深棕 #1C1714
+		const meta = document.getElementById('meta-theme-color');
+		if (meta) {
+			meta.setAttribute('content', effective === 'dark' ? '#1C1714' : '#F7F3E8');
+		}
 	};
 
 	theme.subscribe((t) => {
