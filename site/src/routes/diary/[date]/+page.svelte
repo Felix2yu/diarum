@@ -9,7 +9,7 @@
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import Footer from '$lib/components/ui/Footer.svelte';
 	import DiaryShareModal from '$lib/components/share/DiaryShareModal.svelte';
-	import { getDiaryByDate } from '$lib/api/diaries';
+	import { getDiaryByDate, getTagCloud } from '$lib/api/diaries';
 	import { isAuthenticated } from '$lib/api/client';
 	import { getDiaryEmojiSettings } from '$lib/api/settings';
 	import {
@@ -51,6 +51,10 @@
 	let selectedWeather = '';
 	let tags: string[] = [];
 	let tagInput = '';
+	let allTags: string[] = [];
+	let tagSuggestions: string[] = [];
+	let showTagSuggestions = false;
+	let selectedSuggestionIndex = -1;
 
 	// Speech recognition
 	let speechSettings: AISettings | null = null;
@@ -109,7 +113,72 @@
 	function handleTagKeydown(e: KeyboardEvent) {
 		if (e.key === 'Enter' || e.key === ',') {
 			e.preventDefault();
-			addTagFromInput();
+			if (showTagSuggestions && selectedSuggestionIndex >= 0) {
+				applySuggestion(tagSuggestions[selectedSuggestionIndex]);
+			} else {
+				addTagFromInput();
+			}
+		} else if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			if (showTagSuggestions) {
+				selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, tagSuggestions.length - 1);
+			}
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			if (showTagSuggestions) {
+				selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, -1);
+			}
+		} else if (e.key === 'Escape') {
+			showTagSuggestions = false;
+			selectedSuggestionIndex = -1;
+		}
+	}
+
+	function handleTagInput(e: Event) {
+		const value = (e.target as HTMLInputElement).value;
+		tagInput = value;
+		updateTagSuggestions(value);
+	}
+
+	function updateTagSuggestions(value: string) {
+		const q = value.trim().toLowerCase();
+		if (!q || q.length < 1) {
+			tagSuggestions = [];
+			showTagSuggestions = false;
+			selectedSuggestionIndex = -1;
+			return;
+		}
+		const existingSet = new Set(tags);
+		tagSuggestions = allTags
+			.filter(t => t.toLowerCase().includes(q) && !existingSet.has(t))
+			.slice(0, 6);
+		showTagSuggestions = tagSuggestions.length > 0;
+		selectedSuggestionIndex = -1;
+	}
+
+	function applySuggestion(tag: string) {
+		if (!tags.includes(tag)) {
+			tags = [...tags, tag];
+			updateLocalCache(date, { content, mood: selectedMood, weather: selectedWeather, tags });
+		}
+		tagInput = '';
+		showTagSuggestions = false;
+		selectedSuggestionIndex = -1;
+	}
+
+	function hideTagSuggestions() {
+		setTimeout(() => {
+			showTagSuggestions = false;
+			selectedSuggestionIndex = -1;
+		}, 150);
+	}
+
+	async function loadAllTags() {
+		try {
+			const result = await getTagCloud();
+			allTags = result.map(t => t.tag);
+		} catch {
+			allTags = [];
 		}
 	}
 
@@ -419,6 +488,7 @@
 		cacheReady = true;
 		void loadDiaryEmojiPresets();
 		void loadSpeechSettings();
+		void loadAllTags();
 
 		window.addEventListener('keydown', handleKeyboard);
 		return () => {
@@ -662,14 +732,31 @@
 									<div class="text-xs text-muted-foreground/60">尚未添加标签</div>
 								{/each}
 							</div>
-							<input
-								type="text"
-								bind:value={tagInput}
-								on:keydown={handleTagKeydown}
-								on:blur={addTagFromInput}
-								placeholder="添加标签，按回车或逗号确认"
-								class="w-full text-xs px-3 py-2 rounded-lg bg-muted/30 border border-border/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors placeholder:text-muted-foreground/50"
-							/>
+							<div class="relative">
+								<input
+									type="text"
+									value={tagInput}
+									on:input={handleTagInput}
+									on:keydown={handleTagKeydown}
+									on:focus={() => updateTagSuggestions(tagInput)}
+									on:blur={hideTagSuggestions}
+									placeholder="添加标签，按回车或逗号确认"
+									class="w-full text-xs px-3 py-2 rounded-lg bg-muted/30 border border-border/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors placeholder:text-muted-foreground/50"
+								/>
+								{#if showTagSuggestions && tagSuggestions.length > 0}
+									<div class="absolute left-0 right-0 top-full mt-1 bg-card border border-border/50 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
+										{#each tagSuggestions as suggestion, i}
+											<button
+												type="button"
+												on:mousedown|preventDefault={() => applySuggestion(suggestion)}
+												class="w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors {i === selectedSuggestionIndex ? 'bg-muted/50 text-foreground' : 'text-muted-foreground'}"
+											>
+												<span class="text-foreground font-medium">{suggestion.slice(0, tagInput.trim().length)}</span><span>{suggestion.slice(tagInput.trim().length)}</span>
+											</button>
+										{/each}
+									</div>
+								{/if}
+							</div>
 						</div>
 					</div>
 				{/if}
@@ -760,6 +847,13 @@
 								onTagAdd={addTagFromInput}
 								onTagRemove={removeTag}
 								onTagKeydown={handleTagKeydown}
+								{allTags}
+								{tagSuggestions}
+								{showTagSuggestions}
+								{selectedSuggestionIndex}
+								onSuggestionSelect={applySuggestion}
+								onSuggestionFocus={() => updateTagSuggestions(tagInput)}
+								onSuggestionBlur={hideTagSuggestions}
 							/>
 						</div>
 					</div>
@@ -960,6 +1054,13 @@
 					onTagRemove={removeTag}
 					onTagKeydown={handleTagKeydown}
 					onNavigate={() => showDrawer = false}
+					{allTags}
+					{tagSuggestions}
+					{showTagSuggestions}
+					{selectedSuggestionIndex}
+					onSuggestionSelect={applySuggestion}
+					onSuggestionFocus={() => updateTagSuggestions(tagInput)}
+					onSuggestionBlur={hideTagSuggestions}
 				/>
 			</div>
 		</div>
