@@ -33,7 +33,10 @@ FROM golang:1.26-alpine AS backend-builder
 
 WORKDIR /app
 
-COPY --from=go-modules /go/pkg/mod /go/pkg/mod
+COPY go.mod go.sum ./
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 COPY --from=frontend-builder /app/site/build ./internal/static/build
 
@@ -41,7 +44,8 @@ COPY main.go diarum.go ./
 COPY internal/ ./internal/
 
 ARG VERSION=dev
-RUN --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
     echo "Building version: $VERSION" && \
     CGO_ENABLED=0 GOOS=linux go build \
       -trimpath \
