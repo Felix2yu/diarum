@@ -13,11 +13,12 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
 		<!-- PWA Meta Tags -->
+		<!-- 注意：iOS Safari/PWA 不识别带 media 的 theme-color，只读取不带 media 的主标签。
+		     black-translucent 让页面内容背景色（body bg-background）延伸到状态栏区域，
+		     再配合 meta theme-color 让任务栏/tab 栏图标颜色匹配。 -->
 		<meta name="theme-color" content="#F7F3E8" id="meta-theme-color" />
-		<meta name="theme-color" content="#F7F3E8" media="(prefers-color-scheme: light)" />
-		<meta name="theme-color" content="#1C1714" media="(prefers-color-scheme: dark)" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
-		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 		<meta name="apple-mobile-web-app-title" content="吾身" />
 		<meta name="mobile-web-app-capable" content="yes" />
 		<meta name="application-name" content="吾身" />
