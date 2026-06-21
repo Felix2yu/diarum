@@ -620,3 +620,145 @@ func TestFetchModelsAdditionalErrors(t *testing.T) {
 		t.Fatal("expected response decode error")
 	}
 }
+
+func TestParseMarkdownFile(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		filename string
+		content  string
+		wantNil  bool
+		wantDate string
+		wantMood string
+		wantWx   string
+	}{
+		{
+			name:     "date from filename",
+			filename: "2024-03-15.md",
+			content:  "Hello world",
+			wantDate: "2024-03-15",
+		},
+		{
+			name:     "date from filename with mood suffix",
+			filename: "2024-03-15_happy.md",
+			content:  "Hello world",
+			wantDate: "2024-03-15",
+		},
+		{
+			name:     "date from heading",
+			filename: "diary.md",
+			content:  "# 2024-05-01\n\nContent here",
+			wantDate: "2024-05-01",
+		},
+		{
+			name:     "mood and weather from content",
+			filename: "2024-01-01.md",
+			content:  "# 2024-01-01\n\n**Mood:** excited\n**Weather:** rainy\n\nBody text",
+			wantDate: "2024-01-01",
+			wantMood: "excited",
+			wantWx:   "rainy",
+		},
+		{
+			name:     "no date returns nil",
+			filename: "notes.md",
+			content:  "Just some notes",
+			wantNil:  true,
+		},
+		{
+			name:     "nested path extracts date",
+			filename: "markdown/2024-07-04_mood.md",
+			content:  "content",
+			wantDate: "2024-07-04",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			result := parseMarkdownFile(tc.filename, []byte(tc.content))
+			if tc.wantNil {
+				if result != nil {
+					t.Fatalf("expected nil, got %+v", result)
+				}
+				return
+			}
+			if result == nil {
+				t.Fatal("expected non-nil result")
+			}
+			if result.Date != tc.wantDate {
+				t.Errorf("Date = %q, want %q", result.Date, tc.wantDate)
+			}
+			if tc.wantMood != "" && result.Mood != tc.wantMood {
+				t.Errorf("Mood = %q, want %q", result.Mood, tc.wantMood)
+			}
+			if tc.wantWx != "" && result.Weather != tc.wantWx {
+				t.Errorf("Weather = %q, want %q", result.Weather, tc.wantWx)
+			}
+		})
+	}
+}
+
+func TestResolveConflictRoutes(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	e := echo.New()
+	RegisterExportImportRoutes(e, s, authMiddlewareFor(user), nil)
+
+	if _, err := s.InsertImportedDiary(user.ID, "old", "2024-06-01", "old content", "sad", "", nil); err != nil {
+		t.Fatalf("InsertImportedDiary: %v", err)
+	}
+
+	body, _ := json.Marshal(resolveConflictRequest{Date: "", Action: "keep_old"})
+	rec := performRequest(t, e, http.MethodPost, "/api/v1/import/resolve", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("empty date status = %d", rec.Code)
+	}
+
+	body, _ = json.Marshal(resolveConflictRequest{Date: "2024-06-01", Action: "invalid"})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/import/resolve", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid action status = %d", rec.Code)
+	}
+
+	body, _ = json.Marshal(resolveConflictRequest{Date: "2024-06-01", Action: "keep_old"})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/import/resolve", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("keep_old status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	body, _ = json.Marshal(resolveConflictRequest{Date: "2024-06-01", Action: "replace", Content: "new content", Mood: "happy", Weather: "sunny"})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/import/resolve", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("replace status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSONBody(t, rec)
+	if payload["status"] != "replaced" {
+		t.Fatalf("replace payload = %#v", payload)
+	}
+	existing, _ := s.GetDiaryByDate(user.ID, "2024-06-01 00:00:00.000Z", "2024-06-01 23:59:59.999Z")
+	if existing == nil || existing.Content != "new content" || existing.Mood != "happy" {
+		t.Fatalf("diary after replace = %+v", existing)
+	}
+}
+
+func TestImportMdZipFallback(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	e := echo.New()
+	RegisterExportImportRoutes(e, s, authMiddlewareFor(user), nil)
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	w, _ := zw.Create("2024-08-10.md")
+	_, _ = w.Write([]byte("# 2024-08-10\n\n**Mood:** calm\n**Weather:** foggy\n\nA quiet day"))
+	w, _ = zw.Create("2024-08-11.md")
+	_, _ = w.Write([]byte("# 2024-08-11\n\nJust a normal entry"))
+	_ = zw.Close()
+
+	body, contentType := multipartRequestBody(t, "file", "diaries.zip", buf.Bytes(), nil)
+	rec := performRequest(t, e, http.MethodPost, "/api/v1/import", body, map[string]string{"Content-Type": contentType})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST import md zip status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSONBody(t, rec)
+	diaries := payload["diaries"].(map[string]any)
+	if diaries["imported"] != float64(2) {
+		t.Fatalf("imported = %v, want 2", diaries["imported"])
+	}
+}
