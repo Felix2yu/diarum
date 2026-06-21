@@ -9,7 +9,7 @@ export type DiaryByDateResult =
 
 export interface CalendarDiaryMeta {
 	date: string;
-	mood?: string;
+	mood?: number;
 	weather?: string;
 }
 
@@ -197,11 +197,11 @@ export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
 		const effectiveWeather = diary.weather !== undefined ? diary.weather : existing?.weather;
 		const effectiveTags = diary.tags !== undefined ? diary.tags : existing?.tags ?? [];
 
-		const allEmpty =
-			isContentEmpty(effectiveContent) &&
-			!effectiveMood?.trim() &&
-			!effectiveWeather?.trim() &&
-			(effectiveTags.length === 0);
+	const allEmpty =
+		isContentEmpty(effectiveContent) &&
+		!effectiveMood &&
+		!effectiveWeather?.trim() &&
+		(effectiveTags.length === 0);
 
 		if (existing && existing.id) {
 			if (allEmpty) {

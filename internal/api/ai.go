@@ -675,8 +675,8 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		}
 		for i, d := range diaries {
 			sb.WriteString(fmt.Sprintf("--- 第 %d 篇 - %s ---\n", i+1, store.DateOnly(d.Date)))
-			if d.Mood != "" {
-				sb.WriteString(fmt.Sprintf("心情：%s\n", d.Mood))
+			if d.Mood != 0 {
+				sb.WriteString(fmt.Sprintf("心情：%s\n", store.MoodToEmoji(d.Mood)))
 			}
 			if d.Weather != "" {
 				sb.WriteString(fmt.Sprintf("天气：%s\n", d.Weather))

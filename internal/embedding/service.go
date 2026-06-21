@@ -303,7 +303,7 @@ func (s *EmbeddingService) processDiary(ctx context.Context, collection *chromem
 		Embedding: embedding,
 		Metadata: map[string]string{
 			"date":     dateStr,
-			"mood":     mood,
+			"mood":     fmt.Sprintf("%d", mood),
 			"weather":  weather,
 			"built_at": builtAt,
 		},
@@ -374,7 +374,7 @@ type DiarySearchResult struct {
 	ID      string  `json:"id"`
 	Date    string  `json:"date"`
 	Content string  `json:"content"`
-	Mood    string  `json:"mood,omitempty"`
+	Mood    int     `json:"mood,omitempty"`
 	Weather string  `json:"weather,omitempty"`
 	Score   float32 `json:"score"`
 }
@@ -422,11 +422,13 @@ func (s *EmbeddingService) QuerySimilar(ctx context.Context, userID, query strin
 	// Convert to DiarySearchResult
 	searchResults := make([]DiarySearchResult, 0, len(results))
 	for _, result := range results {
+		moodInt := 0
+		fmt.Sscanf(result.Metadata["mood"], "%d", &moodInt)
 		searchResults = append(searchResults, DiarySearchResult{
 			ID:      result.ID,
 			Date:    result.Metadata["date"],
 			Content: result.Content,
-			Mood:    result.Metadata["mood"],
+			Mood:    moodInt,
 			Weather: result.Metadata["weather"],
 			Score:   result.Similarity,
 		})

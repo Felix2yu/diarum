@@ -57,7 +57,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 		var body struct {
 			Date    string   `json:"date"`
 			Content string   `json:"content"`
-			Mood    string   `json:"mood"`
+			Mood    int      `json:"mood"`
 			Weather string   `json:"weather"`
 			Tags    []string `json:"tags"`
 		}
@@ -97,7 +97,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 
 		var body struct {
 			Content string   `json:"content"`
-			Mood    string   `json:"mood"`
+			Mood    int      `json:"mood"`
 			Weather string   `json:"weather"`
 			Tags    []string `json:"tags"`
 		}
@@ -110,7 +110,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			content = existing.Content
 		}
 		mood := body.Mood
-		if mood == "" {
+		if mood == 0 {
 			mood = existing.Mood
 		}
 		weather := body.Weather

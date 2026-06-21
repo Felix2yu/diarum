@@ -381,7 +381,7 @@ func TestDiaryMediaAndPublicRoutes(t *testing.T) {
 		t.Fatalf("Set api.enabled: %v", err)
 	}
 
-	rec := performRequest(t, e, http.MethodPost, "/api/v1/diaries/upsert", strings.NewReader(`{"date":"2024-03-01","content":"My first diary","mood":"happy","weather":"sunny"}`), map[string]string{"Content-Type": "application/json"})
+	rec := performRequest(t, e, http.MethodPost, "/api/v1/diaries/upsert", strings.NewReader(`{"date":"2024-03-01","content":"My first diary","mood":4,"weather":"sunny"}`), map[string]string{"Content-Type": "application/json"})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("diary upsert status = %d body=%s", rec.Code, rec.Body.String())
 	}
@@ -391,7 +391,7 @@ func TestDiaryMediaAndPublicRoutes(t *testing.T) {
 		t.Fatalf("changeCount after upsert = %d, want 1", changeCount)
 	}
 
-	if _, err := s.InsertImportedDiary(user.ID, "", "2024-03-02", "Search me later", "calm", "cloudy", nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "", "2024-03-02", "Search me later", 4, "cloudy", nil); err != nil {
 		t.Fatalf("InsertImportedDiary: %v", err)
 	}
 
@@ -847,7 +847,7 @@ func TestMemosSyncFindsAndRemovesExistingBlock(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
 	oldBlock := renderMemosBlock(memosMemo{ID: "memo-1", Content: "old", CreateTime: "2024-04-01"}, "2024-04-01")
-	if _, _, err := s.UpsertDiary(user.ID, "2024-04-01", "intro\n\n"+oldBlock, "calm", "cloudy", nil); err != nil {
+	if _, _, err := s.UpsertDiary(user.ID, "2024-04-01", "intro\n\n"+oldBlock, 4, "cloudy", nil); err != nil {
 		t.Fatalf("UpsertDiary old: %v", err)
 	}
 
@@ -859,7 +859,7 @@ func TestMemosSyncFindsAndRemovesExistingBlock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetDiaryByDate existing memo: %v", err)
 	}
-	if strings.Contains(diary.Content, "old") || !strings.Contains(diary.Content, "new") || diary.Mood != "calm" || diary.Weather != "cloudy" {
+	if strings.Contains(diary.Content, "old") || !strings.Contains(diary.Content, "new") || diary.Mood != 4 || diary.Weather != "cloudy" {
 		t.Fatalf("updated existing diary = %#v", diary)
 	}
 
@@ -880,7 +880,7 @@ func TestMemosSyncFindsAndRemovesExistingBlock(t *testing.T) {
 		t.Fatalf("remove missing memo changed=%v err=%v", changed, err)
 	}
 
-	if _, _, err := s.UpsertDiary(user.ID, "2024-04-04", "plain diary", "ok", "sun", nil); err != nil {
+	if _, _, err := s.UpsertDiary(user.ID, "2024-04-04", "plain diary", 3, "sun", nil); err != nil {
 		t.Fatalf("UpsertDiary plain: %v", err)
 	}
 	changed, err = syncMemosMemo(s, user.ID, memosWebhookEvent{Action: "upsert", Memo: memosMemo{ID: "memo-2", Content: "appended", CreateTime: "2024-04-04"}})
@@ -923,14 +923,14 @@ func TestDiaryRoutesSearchStatsAndAccessBranches(t *testing.T) {
 	today := time.Now().UTC().Format("2006-01-02")
 	yesterday := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
 	oldContent := strings.Repeat("x", 220) + " searchable"
-	diaryToday, _, err := s.UpsertDiary(user.ID, today, oldContent, "focused", "sunny", nil)
+	diaryToday, _, err := s.UpsertDiary(user.ID, today, oldContent, 5, "sunny", nil)
 	if err != nil {
 		t.Fatalf("UpsertDiary today: %v", err)
 	}
-	if _, _, err := s.UpsertDiary(user.ID, yesterday, "yesterday searchable", "calm", "cloudy", nil); err != nil {
+	if _, _, err := s.UpsertDiary(user.ID, yesterday, "yesterday searchable", 4, "cloudy", nil); err != nil {
 		t.Fatalf("UpsertDiary yesterday: %v", err)
 	}
-	otherDiary, _, err := s.UpsertDiary(other.ID, today, "other diary", "private", "rain", nil)
+	otherDiary, _, err := s.UpsertDiary(other.ID, today, "other diary", 0, "rain", nil)
 	if err != nil {
 		t.Fatalf("UpsertDiary other: %v", err)
 	}
@@ -1290,7 +1290,7 @@ func TestPublicRoutesWriteOperations(t *testing.T) {
 
 	// Test POST /api/v1/diaries - Create new diary
 	rec := performRequest(t, e, http.MethodPost, "/api/v1/diaries?token=public-token",
-		strings.NewReader(`{"date":"2024-05-01","content":"Test diary content","mood":"happy","weather":"sunny"}`),
+		strings.NewReader(`{"date":"2024-05-01","content":"Test diary content","mood":4,"weather":"sunny"}`),
 		map[string]string{"Content-Type": "application/json"})
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("POST /diaries create status = %d body=%s", rec.Code, rec.Body.String())
@@ -1300,7 +1300,7 @@ func TestPublicRoutesWriteOperations(t *testing.T) {
 
 	// Test POST /api/v1/diaries - Update existing diary (should return 200)
 	rec = performRequest(t, e, http.MethodPost, "/api/v1/diaries?token=public-token",
-		strings.NewReader(`{"date":"2024-05-01","content":"Updated content","mood":"calm","weather":"cloudy"}`),
+		strings.NewReader(`{"date":"2024-05-01","content":"Updated content","mood":4,"weather":"cloudy"}`),
 		map[string]string{"Content-Type": "application/json"})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("POST /diaries update status = %d body=%s", rec.Code, rec.Body.String())
@@ -1332,7 +1332,7 @@ func TestPublicRoutesWriteOperations(t *testing.T) {
 
 	// Test PUT /api/v1/diaries/:id - Update diary
 	rec = performRequest(t, e, http.MethodPut, "/api/v1/diaries/"+diaryID+"?token=public-token",
-		strings.NewReader(`{"content":"Updated via PUT","mood":"excited"}`),
+		strings.NewReader(`{"content":"Updated via PUT","mood":5}`),
 		map[string]string{"Content-Type": "application/json"})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("PUT /diaries/:id status = %d body=%s", rec.Code, rec.Body.String())
@@ -1340,7 +1340,7 @@ func TestPublicRoutesWriteOperations(t *testing.T) {
 
 	// Test PUT /api/v1/diaries/:id - Partial update (only mood)
 	rec = performRequest(t, e, http.MethodPut, "/api/v1/diaries/"+diaryID+"?token=public-token",
-		strings.NewReader(`{"mood":"peaceful"}`),
+		strings.NewReader(`{"mood":4}`),
 		map[string]string{"Content-Type": "application/json"})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("PUT /diaries/:id partial status = %d body=%s", rec.Code, rec.Body.String())

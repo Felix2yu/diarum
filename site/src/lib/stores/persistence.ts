@@ -5,7 +5,7 @@ const STORAGE_KEY = 'diarum_diary_cache';
 export interface PersistedEntry {
 	date: string;
 	content: string;
-	mood?: string;
+	mood?: number;
 	weather?: string;
 	tags?: string[];
 	localUpdatedAt: number;
@@ -18,7 +18,7 @@ export interface PersistedData {
 	version: number;
 }
 
-const CURRENT_VERSION = 1;
+const CURRENT_VERSION = 2;
 
 /**
  * Load persisted data from localStorage
@@ -108,9 +108,17 @@ export function clearAllPersistedData(): void {
 function migrateData(data: PersistedData): PersistedData {
 	const migratedEntries: PersistedData['entries'] = {};
 	for (const [date, entry] of Object.entries(data.entries || {})) {
+		let mood = entry.mood ?? 0;
+		if (typeof mood === 'string') {
+			const emojiMap: Record<string, number> = {
+				'😞': 1, '😔': 2, '😐': 3, '😊': 4, '🤩': 5,
+				'😌': 4, '🥳': 5, '💪': 5, '🤔': 3, '😴': 2, '😤': 1
+			};
+			mood = emojiMap[mood as string] ?? 0;
+		}
 		migratedEntries[date] = {
 			...entry,
-			mood: entry.mood ?? '',
+			mood,
 			weather: entry.weather ?? ''
 		};
 	}

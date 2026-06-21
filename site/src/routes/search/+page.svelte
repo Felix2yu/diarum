@@ -6,12 +6,13 @@
 	import { searchDiaries } from '$lib/api/diaries';
 	import { isAuthenticated } from '$lib/api/client';
 	import { formatDisplayDate, formatShortDate, getDayOfWeek } from '$lib/utils/date';
+	import { moodToEmoji } from '$lib/utils/diaryEmoji';
 
 	interface SearchResult {
 		id: string;
 		date: string;
 		snippet: string;
-		mood?: string;
+		mood?: number;
 		weather?: string;
 		tags?: string[];
 	}
@@ -51,7 +52,7 @@
 				id: item.id,
 				date: item.date?.split(' ')[0] || item.date,
 				snippet: cleanSnippet(item.snippet || '', query.trim()),
-				mood: item.mood || '',
+				mood: item.mood || 0,
 				weather: item.weather || '',
 				tags: Array.isArray(item.tags) ? item.tags : []
 			}));
@@ -194,9 +195,9 @@
 									<span class="sm:hidden">{formatShortDate(result.date)}</span>
 								</span>
 								<span class="text-xs text-muted-foreground">周{getDayOfWeek(result.date)}</span>
-								{#if result.mood}
-									<span class="text-sm">{result.mood}</span>
-								{/if}
+							{#if result.mood}
+								<span class="text-sm">{moodToEmoji(result.mood)}</span>
+							{/if}
 								{#if result.weather}
 									<span class="text-sm">{result.weather}</span>
 								{/if}

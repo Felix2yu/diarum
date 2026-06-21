@@ -46,7 +46,7 @@ type exportDiary struct {
 	ID      string `json:"id"`
 	Date    string `json:"date"`
 	Content string `json:"content"`
-	Mood    string `json:"mood,omitempty"`
+	Mood    int    `json:"mood,omitempty"`
 	Weather string `json:"weather,omitempty"`
 }
 
@@ -111,15 +111,15 @@ type importCounters struct {
 }
 
 type importDiaryDetail struct {
-	Date      string `json:"date"`
-	Status    string `json:"status"`
-	Reason    string `json:"reason,omitempty"`
+	Date       string `json:"date"`
+	Status     string `json:"status"`
+	Reason     string `json:"reason,omitempty"`
 	NewContent string `json:"new_content,omitempty"`
-	NewMood   string `json:"new_mood,omitempty"`
+	NewMood    int    `json:"new_mood,omitempty"`
 	NewWeather string `json:"new_weather,omitempty"`
-	OldID     string `json:"old_id,omitempty"`
+	OldID      string `json:"old_id,omitempty"`
 	OldContent string `json:"old_content,omitempty"`
-	OldMood   string `json:"old_mood,omitempty"`
+	OldMood    int    `json:"old_mood,omitempty"`
 	OldWeather string `json:"old_weather,omitempty"`
 }
 
@@ -127,7 +127,7 @@ type resolveConflictRequest struct {
 	Date    string `json:"date"`
 	Action  string `json:"action"`
 	Content string `json:"content,omitempty"`
-	Mood    string `json:"mood,omitempty"`
+	Mood    int    `json:"mood,omitempty"`
 	Weather string `json:"weather,omitempty"`
 }
 
@@ -495,7 +495,7 @@ func parseMarkdownFile(name string, content []byte) *exportDiary {
 	if date == "" {
 		return nil
 	}
-	mood := ""
+	mood := 0
 	weather := ""
 	contentLines := make([]string, 0, len(lines))
 	for _, line := range lines {
@@ -504,7 +504,8 @@ func parseMarkdownFile(name string, content []byte) *exportDiary {
 			continue
 		}
 		if strings.HasPrefix(trimmed, "**Mood:**") || strings.HasPrefix(trimmed, "**mood:**") {
-			mood = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(trimmed, "**Mood:**"), "**mood:**"))
+			moodStr := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(trimmed, "**Mood:**"), "**mood:**"))
+			mood = emojiToMoodInt(moodStr)
 			continue
 		}
 		if strings.HasPrefix(trimmed, "**Weather:**") || strings.HasPrefix(trimmed, "**weather:**") {
@@ -520,13 +521,13 @@ func parseMarkdownFile(name string, content []byte) *exportDiary {
 func generateMarkdown(d exportDiary) string {
 	var sb strings.Builder
 	sb.WriteString("# " + d.Date + "\n\n")
-	if d.Mood != "" {
-		sb.WriteString("**Mood:** " + d.Mood + "\n")
+	if d.Mood != 0 {
+		sb.WriteString("**Mood:** " + store.MoodToEmoji(d.Mood) + "\n")
 	}
 	if d.Weather != "" {
 		sb.WriteString("**Weather:** " + d.Weather + "\n")
 	}
-	if d.Mood != "" || d.Weather != "" {
+	if d.Mood != 0 || d.Weather != "" {
 		sb.WriteString("\n")
 	}
 	sb.WriteString(d.Content)
@@ -577,4 +578,21 @@ func isDateInRange(dateStr string, start, end time.Time) bool {
 		return false
 	}
 	return !date.Before(start) && !date.After(end)
+}
+
+func emojiToMoodInt(emoji string) int {
+	switch emoji {
+	case "😞":
+		return 1
+	case "😔":
+		return 2
+	case "😐":
+		return 3
+	case "😊":
+		return 4
+	case "🤩":
+		return 5
+	default:
+		return 0
+	}
 }

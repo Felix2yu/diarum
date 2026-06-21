@@ -117,7 +117,7 @@ func TestExportImportRoutesAndHelpers(t *testing.T) {
 	e := echo.New()
 	RegisterExportImportRoutes(e, s, authMiddlewareFor(user), nil)
 
-	diary, err := s.InsertImportedDiary(user.ID, "diary-1", "2024-02-01", "Exported diary", "happy", "sunny", nil)
+	diary, err := s.InsertImportedDiary(user.ID, "diary-1", "2024-02-01", "Exported diary", 4, "sunny", nil)
 	if err != nil {
 		t.Fatalf("InsertImportedDiary: %v", err)
 	}
@@ -160,7 +160,7 @@ func TestExportImportRoutesAndHelpers(t *testing.T) {
 	if !isValidZipPath("media/photo.png") || isValidZipPath("../evil") {
 		t.Fatal("isValidZipPath results unexpected")
 	}
-	if markdown := generateMarkdown(exportDiary{Date: "2024-02-01", Content: "Hello", Mood: "happy", Weather: "sunny"}); !strings.Contains(markdown, "**Mood:** happy") {
+	if markdown := generateMarkdown(exportDiary{Date: "2024-02-01", Content: "Hello", Mood: 4, Weather: "sunny"}); !strings.Contains(markdown, "**Mood:**") {
 		t.Fatalf("generateMarkdown = %q", markdown)
 	}
 	if _, _, err := calculateDateRange(ExportRequest{DateRange: "custom", StartDate: "2024-01-02", EndDate: "2024-01-01"}); err == nil {
@@ -203,7 +203,7 @@ func TestExportImportRoutesAndHelpers(t *testing.T) {
 		Version:    1,
 		ExportedAt: "2024-02-01T00:00:00Z",
 		Diaries: []exportDiary{
-			{ID: "old-diary", Date: "2024-02-03", Content: "Imported diary", Mood: "calm", Weather: "cloudy"},
+			{ID: "old-diary", Date: "2024-02-03", Content: "Imported diary", Mood: 4, Weather: "cloudy"},
 		},
 		Media: []exportMedia{
 			{ID: "old-media", File: "photo.png", Name: "Photo", Alt: "Alt", Diary: []string{"old-diary"}},
@@ -393,7 +393,7 @@ func TestAIRoutesAndFetchModels(t *testing.T) {
 	convPayload := decodeJSONBody(t, convRec)
 	convID := convPayload["id"].(string)
 
-	if _, err := s.InsertImportedDiary(user.ID, "", "2024-04-01", "AI diary entry", "happy", "sunny", nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "", "2024-04-01", "AI diary entry", 4, "sunny", nil); err != nil {
 		t.Fatalf("InsertImportedDiary: %v", err)
 	}
 
@@ -461,7 +461,7 @@ func TestAIVectorRoutesWithEmbeddingService(t *testing.T) {
 	RegisterAIRoutes(e, s, authMiddlewareFor(user), embeddingService)
 
 	configureAIRouteSettings(t, s, user.ID)
-	if _, err := s.InsertImportedDiary(user.ID, "ai-vector-1", "2024-05-01", "vector route diary", "calm", "sunny", nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "ai-vector-1", "2024-05-01", "vector route diary", 4, "sunny", nil); err != nil {
 		t.Fatalf("InsertImportedDiary: %v", err)
 	}
 	withMockTransport(t, embeddingTransport(t))

@@ -647,8 +647,8 @@ func (s *ChatService) formatDiariesForContext(diaries []embedding.DiarySearchRes
 			weekday = t.Weekday().String()
 		}
 		sb.WriteString(fmt.Sprintf("--- Diary Entry %d (Date: %s, %s) ---\n", i+1, diary.Date, weekday))
-		if diary.Mood != "" {
-			sb.WriteString(fmt.Sprintf("Mood: %s\n", diary.Mood))
+		if diary.Mood != 0 {
+			sb.WriteString(fmt.Sprintf("Mood: %s\n", store.MoodToEmoji(diary.Mood)))
 		}
 		if diary.Weather != "" {
 			sb.WriteString(fmt.Sprintf("Weather: %s\n", diary.Weather))

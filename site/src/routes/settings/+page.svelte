@@ -21,20 +21,19 @@
 	import Footer from '$lib/components/ui/Footer.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import {
-		DEFAULT_MOOD_OPTIONS,
 		DEFAULT_WEATHER_OPTIONS,
 		MAX_DIARY_EMOJI_OPTION_COUNT,
 		MAX_DIARY_EMOJI_OPTION_LENGTH,
 		countDisplayChars,
-		sanitizeMoodOptions,
-		sanitizeWeatherOptions
+		sanitizeWeatherOptions,
+		moodToEmoji
 	} from '$lib/utils/diaryEmoji';
 
 	type SettingsTab = 'api-access' | 'mood-weather' | 'ai-assistant' | 'image-upload' | 'memos-sync' | 'data-management';
 
 	const settingsTabs: { id: SettingsTab; label: string }[] = [
 		{ id: 'ai-assistant', label: 'AI 助手' },
-		{ id: 'mood-weather', label: '心情与天气' },
+		{ id: 'mood-weather', label: '天气选项' },
 		{ id: 'api-access', label: 'API 访问' },
 		{ id: 'memos-sync', label: 'Memos 同步' },
 		{ id: 'image-upload', label: '图片上传' },
@@ -81,16 +80,13 @@
 	let memosSuccess = '';
 
 	// Diary emoji settings
-	let moodOptions: string[] = [];
 	let weatherOptions: string[] = [];
-	let originalMoodOptions: string[] = [];
 	let originalWeatherOptions: string[] = [];
-	let moodInput = '';
 	let weatherInput = '';
 	let emojiSettingsSaving = false;
 	let emojiSettingsError = '';
 	let emojiSettingsSuccess = '';
-	type EmojiListType = 'mood' | 'weather';
+	type EmojiListType = 'weather';
 	let draggingType: EmojiListType | null = null;
 	let draggingIndex: number | null = null;
 	let dragOverType: EmojiListType | null = null;
@@ -166,39 +162,8 @@
 
 	async function loadDiaryEmojiSettingsLocal() {
 		const settings = await getDiaryEmojiSettings();
-		moodOptions = [...settings.mood_options];
 		weatherOptions = [...settings.weather_options];
-		originalMoodOptions = [...settings.mood_options];
 		originalWeatherOptions = [...settings.weather_options];
-	}
-
-	function addMoodOption() {
-		emojiSettingsError = '';
-		const value = moodInput.trim();
-		if (!value) return;
-		if (moodOptions.length >= MAX_DIARY_EMOJI_OPTION_COUNT) {
-			emojiSettingsError = `最多可添加 ${MAX_DIARY_EMOJI_OPTION_COUNT} 个心情选项`;
-			return;
-		}
-		if (countDisplayChars(value) > MAX_DIARY_EMOJI_OPTION_LENGTH) {
-			emojiSettingsError = `心情选项最多 ${MAX_DIARY_EMOJI_OPTION_LENGTH} 个字符`;
-			return;
-		}
-		if (moodOptions.includes(value)) {
-			emojiSettingsError = '心情选项已存在';
-			return;
-		}
-		moodOptions = [...moodOptions, value];
-		moodInput = '';
-	}
-
-	function removeMoodOption(value: string) {
-		emojiSettingsError = '';
-		if (moodOptions.length <= 1) {
-			emojiSettingsError = '至少保留一个心情选项';
-			return;
-		}
-		moodOptions = moodOptions.filter((item) => item !== value);
 	}
 
 	function addWeatherOption() {
@@ -230,12 +195,6 @@
 		weatherOptions = weatherOptions.filter((item) => item !== value);
 	}
 
-	function restoreMoodDefaults() {
-		emojiSettingsError = '';
-		emojiSettingsSuccess = '';
-		moodOptions = [...DEFAULT_MOOD_OPTIONS];
-	}
-
 	function restoreWeatherDefaults() {
 		emojiSettingsError = '';
 		emojiSettingsSuccess = '';
@@ -245,7 +204,6 @@
 	function restoreAllDefaults() {
 		emojiSettingsError = '';
 		emojiSettingsSuccess = '';
-		moodOptions = [...DEFAULT_MOOD_OPTIONS];
 		weatherOptions = [...DEFAULT_WEATHER_OPTIONS];
 	}
 
@@ -279,11 +237,7 @@
 
 		emojiSettingsError = '';
 		emojiSettingsSuccess = '';
-		if (type === 'mood') {
-			moodOptions = reorderOptions(moodOptions, draggingIndex, index);
-		} else {
-			weatherOptions = reorderOptions(weatherOptions, draggingIndex, index);
-		}
+		weatherOptions = reorderOptions(weatherOptions, draggingIndex, index);
 
 		clearDragState();
 	}
@@ -296,11 +250,7 @@
 
 		emojiSettingsError = '';
 		emojiSettingsSuccess = '';
-		if (type === 'mood') {
-			moodOptions = reorderOptions(moodOptions, draggingIndex, moodOptions.length - 1);
-		} else {
-			weatherOptions = reorderOptions(weatherOptions, draggingIndex, weatherOptions.length - 1);
-		}
+		weatherOptions = reorderOptions(weatherOptions, draggingIndex, weatherOptions.length - 1);
 
 		clearDragState();
 	}
@@ -316,29 +266,25 @@
 		emojiSettingsError = '';
 		emojiSettingsSuccess = '';
 
-		if (moodOptions.length < 1 || weatherOptions.length < 1) {
-			emojiSettingsError = '心情和天气至少各保留一个选项';
+		if (weatherOptions.length < 1) {
+			emojiSettingsError = '天气至少保留一个选项';
 			return;
 		}
 
 		emojiSettingsSaving = true;
 		try {
-			const sanitizedMoodOptions = sanitizeMoodOptions(moodOptions);
 			const sanitizedWeatherOptions = sanitizeWeatherOptions(weatherOptions);
 
 			await saveDiaryEmojiSettings({
-				mood_options: sanitizedMoodOptions,
 				weather_options: sanitizedWeatherOptions
 			});
 
-			moodOptions = [...sanitizedMoodOptions];
 			weatherOptions = [...sanitizedWeatherOptions];
-			originalMoodOptions = [...sanitizedMoodOptions];
 			originalWeatherOptions = [...sanitizedWeatherOptions];
-			emojiSettingsSuccess = '心情与天气选项已成功保存';
+			emojiSettingsSuccess = '天气选项已成功保存';
 			setTimeout(() => emojiSettingsSuccess = '', 3000);
 		} catch (e) {
-			emojiSettingsError = e instanceof Error ? e.message : '保存心情与天气选项失败';
+			emojiSettingsError = e instanceof Error ? e.message : '保存天气选项失败';
 		}
 		emojiSettingsSaving = false;
 	}
@@ -529,7 +475,6 @@
 	$: canEnableAI = aiSettings.api_key && aiSettings.base_url && aiSettings.chat_model && aiSettings.embedding_model;
 
 	$: emojiSettingsChanged =
-		JSON.stringify(moodOptions) !== JSON.stringify(originalMoodOptions) ||
 		JSON.stringify(weatherOptions) !== JSON.stringify(originalWeatherOptions);
 
 	$: memosSettingsChanged = memosSettings.enabled !== originalMemosSettings.enabled ||
@@ -732,8 +677,8 @@
 		return (oldC || '') !== (newC || '');
 	}
 
-	function hasMoodChanged(oldM: string | undefined, newM: string | undefined): boolean {
-		return (oldM || '') !== (newM || '');
+	function hasMoodChanged(oldM: number | undefined, newM: number | undefined): boolean {
+		return (oldM || 0) !== (newM || 0);
 	}
 
 	function hasWeatherChanged(oldW: string | undefined, newW: string | undefined): boolean {
@@ -1069,19 +1014,19 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 				{/if}
 
 				{#if activeTab === 'mood-weather'}
-				<!-- 心情与天气 Section -->
+				<!-- 天气 Section -->
 				<div id="mood-weather" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
 					<div class="flex items-center justify-between gap-3 mb-4">
-						<h2 class="text-lg font-semibold text-foreground">心情与天气</h2>
+						<h2 class="text-lg font-semibold text-foreground">天气选项</h2>
 						<button
 							onclick={restoreAllDefaults}
 							class="px-3 py-1.5 text-xs bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
 						>
-							恢复所有默认值
+							恢复默认值
 						</button>
 					</div>
 					<p class="text-sm text-muted-foreground mb-6">
-						自定义日记编辑器中显示的选项。添加任意表情或最多 {MAX_DIARY_EMOJI_OPTION_LENGTH} 个字符的短文本，每个列表至少保留 1 个、最多 {MAX_DIARY_EMOJI_OPTION_COUNT} 个条目，然后拖动排序并保存。
+						自定义日记编辑器中显示的天气选项。添加任意表情或最多 {MAX_DIARY_EMOJI_OPTION_LENGTH} 个字符的短文本，至少保留 1 个、最多 {MAX_DIARY_EMOJI_OPTION_COUNT} 个条目，然后拖动排序并保存。
 					</p>
 
 					{#if emojiSettingsError}
@@ -1096,147 +1041,74 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 						</div>
 					{/if}
 
-					<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 pb-4 border-b border-border/50">
-						<div class="rounded-xl border border-border/50 p-4">
-							<div class="flex items-center justify-between gap-3 mb-2">
-								<div class="font-medium text-foreground">心情选项</div>
-								<button
-									onclick={restoreMoodDefaults}
-									class="px-2.5 py-1 text-xs bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
-								>
-									恢复默认值
-								</button>
-							</div>
-							<div class="flex items-center gap-2 mb-3">
-								<input
-									type="text"
-									bind:value={moodInput}
-									maxlength={MAX_DIARY_EMOJI_OPTION_LENGTH}
-									placeholder="例如 😊"
-									class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-									onkeydown={(event) => {
-										if (event.key === 'Enter') {
-											event.preventDefault();
-											addMoodOption();
-										}
-									}}
-								/>
-								<button
-									onclick={addMoodOption}
-									class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
-								>
-									添加
-								</button>
-							</div>
-							<div class="text-xs text-muted-foreground mb-3">每个选项最多 {MAX_DIARY_EMOJI_OPTION_LENGTH} 个字符，总计最多 {MAX_DIARY_EMOJI_OPTION_COUNT} 个心情选项。请保留至少一个。拖动可重新排序。</div>
-							<div class="flex flex-wrap gap-2">
-								{#if moodOptions.length === 0}
-									<div class="text-sm text-muted-foreground">暂无心情选项</div>
-								{:else}
-									{#each moodOptions as option, index}
-										<div
-											draggable="true"
-											role="listitem"
-											ondragstart={() => handleDragStart('mood', index)}
-											ondragover={(event) => handleDragOver(event, 'mood', index)}
-											ondrop={() => handleDrop('mood', index)}
-											ondragend={clearDragState}
-											class="relative w-14 h-14 rounded-xl border transition-colors flex items-center justify-center cursor-grab select-none {dragOverType === 'mood' && dragOverIndex === index ? 'border-primary bg-primary/10' : 'bg-muted/70 border-border/60'}"
-											title={option}
-										>
-											<button
-												onclick={(e) => { e.stopPropagation(); removeMoodOption(option); }}
-												class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-background border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors flex items-center justify-center"
-												aria-label={`Remove mood option ${option}`}
-											>
-												<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.25" d="M6 6l12 12M18 6l-12 12" />
-												</svg>
-											</button>
-											<span class="text-xl leading-none">{option}</span>
-										</div>
-									{/each}
-									<div
-										role="status"
-										ondragover={(event) => handleDragOver(event, 'mood', moodOptions.length - 1)}
-										ondrop={() => handleDropToEnd('mood')}
-										class="h-14 px-3 rounded-xl border border-dashed text-xs text-muted-foreground flex items-center {dragOverType === 'mood' ? 'border-primary bg-primary/5' : 'border-border/60'}"
-									>
-										拖到末尾
-									</div>
-								{/if}
-							</div>
+					<div class="rounded-xl border border-border/50 p-4">
+						<div class="flex items-center justify-between gap-3 mb-2">
+							<div class="font-medium text-foreground">天气选项</div>
+							<button
+								onclick={restoreWeatherDefaults}
+								class="px-2.5 py-1 text-xs bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
+							>
+								恢复默认值
+							</button>
 						</div>
-
-						<div class="rounded-xl border border-border/50 p-4">
-							<div class="flex items-center justify-between gap-3 mb-2">
-								<div class="font-medium text-foreground">天气选项</div>
-								<button
-									onclick={restoreWeatherDefaults}
-									class="px-2.5 py-1 text-xs bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
-								>
-									恢复默认值
-								</button>
-							</div>
-							<div class="flex items-center gap-2 mb-3">
-								<input
-									type="text"
-									bind:value={weatherInput}
-									maxlength={MAX_DIARY_EMOJI_OPTION_LENGTH}
-									placeholder="例如 ☀️"
-									class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-									onkeydown={(event) => {
-										if (event.key === 'Enter') {
-											event.preventDefault();
-											addWeatherOption();
-										}
-									}}
-								/>
-								<button
-									onclick={addWeatherOption}
-									class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
-								>
-									添加
-								</button>
-							</div>
-							<div class="text-xs text-muted-foreground mb-3">每个选项最多 {MAX_DIARY_EMOJI_OPTION_LENGTH} 个字符，总计最多 {MAX_DIARY_EMOJI_OPTION_COUNT} 个天气选项。请保留至少一个。拖动可重新排序。</div>
-							<div class="flex flex-wrap gap-2">
-								{#if weatherOptions.length === 0}
-									<div class="text-sm text-muted-foreground">暂无天气选项</div>
-								{:else}
-									{#each weatherOptions as option, index}
-										<div
-											draggable="true"
-											role="listitem"
-											ondragstart={() => handleDragStart('weather', index)}
-											ondragover={(event) => handleDragOver(event, 'weather', index)}
-											ondrop={() => handleDrop('weather', index)}
-											ondragend={clearDragState}
-											class="relative w-14 h-14 rounded-xl border transition-colors flex items-center justify-center cursor-grab select-none {dragOverType === 'weather' && dragOverIndex === index ? 'border-primary bg-primary/10' : 'bg-muted/70 border-border/60'}"
-											title={option}
-										>
-											<button
-												onclick={(e) => { e.stopPropagation(); removeWeatherOption(option); }}
-												class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-background border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors flex items-center justify-center"
-												aria-label={`Remove weather option ${option}`}
-											>
-												<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.25" d="M6 6l12 12M18 6l-12 12" />
-												</svg>
-											</button>
-											<span class="text-xl leading-none">{option}</span>
-										</div>
-									{/each}
+						<div class="flex items-center gap-2 mb-3">
+							<input
+								type="text"
+								bind:value={weatherInput}
+								maxlength={MAX_DIARY_EMOJI_OPTION_LENGTH}
+								placeholder="例如 ☀️"
+								class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								onkeydown={(event) => {
+									if (event.key === 'Enter') {
+										event.preventDefault();
+										addWeatherOption();
+									}
+								}}
+							/>
+							<button
+								onclick={addWeatherOption}
+								class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
+							>
+								添加
+							</button>
+						</div>
+						<div class="text-xs text-muted-foreground mb-3">每个选项最多 {MAX_DIARY_EMOJI_OPTION_LENGTH} 个字符，总计最多 {MAX_DIARY_EMOJI_OPTION_COUNT} 个天气选项。请保留至少一个。拖动可重新排序。</div>
+						<div class="flex flex-wrap gap-2">
+							{#if weatherOptions.length === 0}
+								<div class="text-sm text-muted-foreground">暂无天气选项</div>
+							{:else}
+								{#each weatherOptions as option, index}
 									<div
-										role="status"
-										ondragover={(event) => handleDragOver(event, 'weather', weatherOptions.length - 1)}
-										ondrop={() => handleDropToEnd('weather')}
-										class="h-14 px-3 rounded-xl border border-dashed text-xs text-muted-foreground flex items-center {dragOverType === 'weather' ? 'border-primary bg-primary/5' : 'border-border/60'}"
+										draggable="true"
+										role="listitem"
+										ondragstart={() => handleDragStart('weather', index)}
+										ondragover={(event) => handleDragOver(event, 'weather', index)}
+										ondrop={() => handleDrop('weather', index)}
+										ondragend={clearDragState}
+										class="relative w-14 h-14 rounded-xl border transition-colors flex items-center justify-center cursor-grab select-none {dragOverType === 'weather' && dragOverIndex === index ? 'border-primary bg-primary/10' : 'bg-muted/70 border-border/60'}"
+										title={option}
 									>
-										拖到末尾
+										<button
+											onclick={(e) => { e.stopPropagation(); removeWeatherOption(option); }}
+											class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-background border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors flex items-center justify-center"
+											aria-label={`Remove weather option ${option}`}
+										>
+											<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.25" d="M6 6l12 12M18 6l-12 12" />
+											</svg>
+										</button>
+										<span class="text-xl leading-none">{option}</span>
 									</div>
-								{/if}
-							</div>
+								{/each}
+								<div
+									role="status"
+									ondragover={(event) => handleDragOver(event, 'weather', weatherOptions.length - 1)}
+									ondrop={() => handleDropToEnd('weather')}
+									class="h-14 px-3 rounded-xl border border-dashed text-xs text-muted-foreground flex items-center {dragOverType === 'weather' ? 'border-primary bg-primary/5' : 'border-border/60'}"
+								>
+									拖到末尾
+								</div>
+							{/if}
 						</div>
 					</div>
 
@@ -1253,7 +1125,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								</svg>
 								保存中...
 							{:else}
-								保存心情与天气设置
+								保存天气设置
 							{/if}
 						</button>
 						{#if emojiSettingsSuccess}
@@ -2229,9 +2101,9 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 																		{#if hasMoodChanged(detail.old_mood, detail.new_mood)}
 																			<div class="flex items-center gap-2">
 																				<span class="text-muted-foreground">心情：</span>
-																				<span class="px-1.5 py-0.5 bg-red-100 dark:bg-red-950/40 text-red-600 line-through rounded">{detail.old_mood || '无'}</span>
+																				<span class="px-1.5 py-0.5 bg-red-100 dark:bg-red-950/40 text-red-600 line-through rounded">{detail.old_mood ? moodToEmoji(detail.old_mood) : '无'}</span>
 																				<svg class="w-3 h-3 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
-																				<span class="px-1.5 py-0.5 bg-green-100 dark:bg-green-950/40 text-green-600 rounded">{detail.new_mood || '无'}</span>
+																				<span class="px-1.5 py-0.5 bg-green-100 dark:bg-green-950/40 text-green-600 rounded">{detail.new_mood ? moodToEmoji(detail.new_mood) : '无'}</span>
 																			</div>
 																		{/if}
 																		{#if hasWeatherChanged(detail.old_weather, detail.new_weather)}

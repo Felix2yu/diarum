@@ -4,6 +4,7 @@
 	import { getDatesWithDiaries, getDiariesOnThisDay, getRandomDiary, type CalendarDiaryMeta, type Diary } from '$lib/api/diaries';
 	import CalendarAnalysis from './CalendarAnalysis.svelte';
 	import CalendarYearPicker from './CalendarYearPicker.svelte';
+	import { moodToEmoji, moodToLabel } from '$lib/utils/diaryEmoji';
 
 	let {
 		currentYear = $bindable(new Date().getFullYear()),
@@ -504,9 +505,12 @@
 									{#if meta?.weather}
 										<span class="emoji-chip" title="天气：{meta.weather}">{meta.weather}</span>
 									{/if}
-									{#if meta?.mood}
-										<span class="emoji-chip" title="心情：{meta.mood}">{meta.mood}</span>
+								{#if meta?.mood}
+									{@const moodEmoji = moodToEmoji(meta.mood)}
+									{#if moodEmoji}
+										<span class="emoji-chip" title="心情：{moodToLabel(meta.mood)}">{moodEmoji}</span>
 									{/if}
+								{/if}
 								</div>
 							{:else}
 								<span class="absolute bottom-1 w-1 h-1 bg-amber-500 rounded-full"></span>
@@ -694,7 +698,7 @@
                                 <div class="analysis-list-head">
                                     <span class="analysis-list-date">{formatDisplayDate(diary.date)}</span>
                                     <div class="flex items-center gap-2 text-xs text-muted-foreground">
-                                        {#if diary.mood}<span title="心情">{diary.mood}</span>{/if}
+                                        {#if diary.mood}{@const moodEmoji = moodToEmoji(diary.mood)}{#if moodEmoji}<span title="心情">{moodEmoji}</span>{/if}{/if}
                                         {#if diary.weather}<span title="天气">{diary.weather}</span>{/if}
                                     </div>
                                 </div>

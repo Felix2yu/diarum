@@ -158,7 +158,7 @@ func TestStoreUserDiarySettingsConversationFlows(t *testing.T) {
 		t.Fatalf("rolled back setting error = %v, want sql.ErrNoRows", err)
 	}
 
-	created, inserted, err := s.UpsertDiary(user.ID, "2024-05-20", "first entry", "happy", "sunny", nil)
+	created, inserted, err := s.UpsertDiary(user.ID, "2024-05-20", "first entry", 4, "sunny", nil)
 	if err != nil {
 		t.Fatalf("UpsertDiary create: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestStoreUserDiarySettingsConversationFlows(t *testing.T) {
 		t.Fatalf("created diary date = %q", created.Date)
 	}
 
-	updated, inserted, err := s.UpsertDiary(user.ID, "2024-05-20", "updated entry", "calm", "rain", nil)
+	updated, inserted, err := s.UpsertDiary(user.ID, "2024-05-20", "updated entry", 4, "rain", nil)
 	if err != nil {
 		t.Fatalf("UpsertDiary update: %v", err)
 	}
@@ -180,7 +180,7 @@ func TestStoreUserDiarySettingsConversationFlows(t *testing.T) {
 		t.Fatalf("updated diary = %#v", updated)
 	}
 
-	other, err := s.InsertImportedDiary(user.ID, "", "2024-05-21", "searchable content", "focused", "cloudy", nil)
+	other, err := s.InsertImportedDiary(user.ID, "", "2024-05-21", "searchable content", 5, "cloudy", nil)
 	if err != nil {
 		t.Fatalf("InsertImportedDiary: %v", err)
 	}
@@ -337,7 +337,7 @@ func TestStoreMediaAndFileHelpers(t *testing.T) {
 		t.Fatalf("SetSetting provider: %v", err)
 	}
 
-	diary, err := s.InsertImportedDiary(user.ID, "", "2024-06-01", "linked diary", "", "", nil)
+	diary, err := s.InsertImportedDiary(user.ID, "", "2024-06-01", "linked diary", 0, "", nil)
 	if err != nil {
 		t.Fatalf("InsertImportedDiary: %v", err)
 	}
@@ -585,7 +585,7 @@ func TestStoreS3AndHelperFunctions(t *testing.T) {
 func TestStoreClosedDatabaseErrorBranches(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
-	diary, err := s.InsertImportedDiary(user.ID, "closed-diary", "2024-01-01", "content", "", "", nil)
+	diary, err := s.InsertImportedDiary(user.ID, "closed-diary", "2024-01-01", "content", 0, "", nil)
 	if err != nil {
 		t.Fatalf("InsertImportedDiary before close: %v", err)
 	}
@@ -623,7 +623,7 @@ func TestStoreClosedDatabaseErrorBranches(t *testing.T) {
 		{"GetUserByID", func() error { _, err := s.GetUserByID(user.ID); return err }},
 		{"GetUserByIdentity", func() error { _, err := s.GetUserByIdentity(user.Email); return err }},
 		{"CreateUser", func() error { _, err := s.CreateUser("closed", "closed@example.com", "hash"); return err }},
-		{"UpsertDiary", func() error { _, _, err := s.UpsertDiary(user.ID, "2024-01-02", "x", "", "", nil); return err }},
+		{"UpsertDiary", func() error { _, _, err := s.UpsertDiary(user.ID, "2024-01-02", "x", 0, "", nil); return err }},
 		{"GetDiaryByDate", func() error {
 			_, err := s.GetDiaryByDate(user.ID, "2024-01-01 00:00:00.000Z", "2024-01-01 23:59:59.999Z")
 			return err
@@ -654,7 +654,7 @@ func TestStoreClosedDatabaseErrorBranches(t *testing.T) {
 		{"CreateMessage", func() error { _, err := s.CreateMessage(user.ID, conv.ID, "user", "x", nil); return err }},
 		{"InsertImportedMessage", func() error { _, err := s.InsertImportedMessage(user.ID, "x", conv.ID, "user", "x", nil); return err }},
 		{"GetMessage", func() error { _, err := s.GetMessage(msg.ID); return err }},
-		{"InsertImportedDiary", func() error { _, err := s.InsertImportedDiary(user.ID, "x", "2024-01-03", "x", "", "", nil); return err }},
+		{"InsertImportedDiary", func() error { _, err := s.InsertImportedDiary(user.ID, "x", "2024-01-03", "x", 0, "", nil); return err }},
 	}
 	for _, check := range checks {
 		t.Run(check.name, func(t *testing.T) {
@@ -1244,15 +1244,15 @@ func TestStoreAdditionalLowCoverageBranches(t *testing.T) {
 	if _, err := s.CreateUser(user.Username, "other@example.com", "hash"); err == nil {
 		t.Fatal("CreateUser should fail for duplicate username")
 	}
-	if _, inserted, err := s.UpsertDiary("missing-owner", "2024-07-01", "x", "", "", nil); err == nil || !inserted {
+	if _, inserted, err := s.UpsertDiary("missing-owner", "2024-07-01", "x", 0, "", nil); err == nil || !inserted {
 		t.Fatalf("UpsertDiary missing owner inserted/error = %v/%v, want insert attempt FK error", inserted, err)
 	}
 
-	first, _, err := s.UpsertDiary(user.ID, "2024-07-01", "first", "", "", nil)
+	first, _, err := s.UpsertDiary(user.ID, "2024-07-01", "first", 0, "", nil)
 	if err != nil {
 		t.Fatalf("UpsertDiary first: %v", err)
 	}
-	_, _, err = s.UpsertDiary(user.ID, "2024-07-02", "second", "", "", nil)
+	_, _, err = s.UpsertDiary(user.ID, "2024-07-02", "second", 0, "", nil)
 	if err != nil {
 		t.Fatalf("UpsertDiary second: %v", err)
 	}
@@ -2119,7 +2119,7 @@ func TestStoreWriteAndQueryErrorsAfterClose(t *testing.T) {
 	}{
 		{"transaction", func() error { return s.Transaction(context.Background(), func(*sql.Tx) error { return nil }) }},
 		{"create user", func() error { _, err := s.CreateUser("user", "email@example.com", "hash"); return err }},
-		{"upsert diary", func() error { _, _, err := s.UpsertDiary("owner", "2024-01-01", "body", "", "", nil); return err }},
+		{"upsert diary", func() error { _, _, err := s.UpsertDiary("owner", "2024-01-01", "body", 0, "", nil); return err }},
 		{"delete diary", func() error { return s.DeleteDiary("id", "owner") }},
 		{"list diaries", func() error { _, err := s.ListDiaries("owner", "", "", "-date", 1); return err }},
 		{"search diaries", func() error { _, err := s.SearchDiaries("owner", "body", 1); return err }},
@@ -2140,7 +2140,7 @@ func TestStoreWriteAndQueryErrorsAfterClose(t *testing.T) {
 			_, err := s.InsertImportedMessage("owner", "id", "conversation", "user", "body", nil)
 			return err
 		}},
-		{"insert diary", func() error { _, err := s.InsertImportedDiary("owner", "id", "2024-01-01", "body", "", "", nil); return err }},
+		{"insert diary", func() error { _, err := s.InsertImportedDiary("owner", "id", "2024-01-01", "body", 0, "", nil); return err }},
 	}
 	for _, check := range checks {
 		t.Run(check.name, func(t *testing.T) {
@@ -2166,13 +2166,13 @@ func TestGetDiariesByMonthDay(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
 
-	if _, err := s.InsertImportedDiary(user.ID, "d1", "2023-06-15", "去年今天", "", "", nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "d1", "2023-06-15", "去年今天", 0, "", nil); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.InsertImportedDiary(user.ID, "d2", "2024-06-15", "今年今天", "", "", nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "d2", "2024-06-15", "今年今天", 0, "", nil); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.InsertImportedDiary(user.ID, "d3", "2023-06-16", "不是同天", "", "", nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "d3", "2023-06-16", "不是同天", 0, "", nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -2194,10 +2194,10 @@ func TestGetRandomDiary(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
 
-	if _, err := s.InsertImportedDiary(user.ID, "r1", "2024-01-01", "content", "happy", "", nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "r1", "2024-01-01", "content", 4, "", nil); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.InsertImportedDiary(user.ID, "r2", "2024-02-01", "other", "calm", "", nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "r2", "2024-02-01", "other", 4, "", nil); err != nil {
 		t.Fatal(err)
 	}
 	d, err := s.GetRandomDiary(user.ID, "")
@@ -2218,10 +2218,10 @@ func TestListTagCountsAndDiariesByTag(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
 
-	if _, err := s.InsertImportedDiary(user.ID, "t1", "2024-01-01", "a", "", "", []string{"work", "urgent"}); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "t1", "2024-01-01", "a", 0, "", []string{"work", "urgent"}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.InsertImportedDiary(user.ID, "t2", "2024-01-02", "b", "", "", []string{"work"}); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "t2", "2024-01-02", "b", 0, "", []string{"work"}); err != nil {
 		t.Fatal(err)
 	}
 

@@ -1,16 +1,29 @@
 export const MAX_DIARY_EMOJI_OPTION_LENGTH = 2;
 export const MAX_DIARY_EMOJI_OPTION_COUNT = 12;
 
-export const DEFAULT_MOOD_OPTIONS = [
-	'😊',
-	'😌',
-	'🥳',
-	'💪',
-	'🤔',
-	'😴',
-	'😔',
-	'😤'
+export interface MoodLevel {
+	value: number;
+	emoji: string;
+	label: string;
+}
+
+export const MOOD_SCALE: MoodLevel[] = [
+	{ value: 1, emoji: '😞', label: '非常不愉快' },
+	{ value: 2, emoji: '😔', label: '不愉快' },
+	{ value: 3, emoji: '😐', label: '一般' },
+	{ value: 4, emoji: '😊', label: '愉快' },
+	{ value: 5, emoji: '🤩', label: '非常愉快' }
 ];
+
+export function moodToEmoji(mood: number): string {
+	const level = MOOD_SCALE.find(l => l.value === mood);
+	return level?.emoji ?? '';
+}
+
+export function moodToLabel(mood: number): string {
+	const level = MOOD_SCALE.find(l => l.value === mood);
+	return level?.label ?? '';
+}
 
 export const DEFAULT_WEATHER_OPTIONS = [
 	'☀️',
@@ -47,10 +60,6 @@ function sanitizeOptions(input: unknown, defaults: string[]): string[] {
 	}
 
 	return cleaned.length > 0 ? cleaned : [...defaults];
-}
-
-export function sanitizeMoodOptions(input: unknown): string[] {
-	return sanitizeOptions(input, DEFAULT_MOOD_OPTIONS);
 }
 
 export function sanitizeWeatherOptions(input: unknown): string[] {

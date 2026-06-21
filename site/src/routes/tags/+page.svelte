@@ -7,6 +7,7 @@
 	import type { Diary } from '$lib/api/client';
 	import { formatDisplayDate } from '$lib/utils/date';
 	import { goto } from '$app/navigation';
+	import { moodToEmoji } from '$lib/utils/diaryEmoji';
 
 	interface TagCount {
 		tag: string;
@@ -244,9 +245,9 @@
 												<span class="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
 													{formatDisplayDate(diary.date)}
 												</span>
-												{#if diary.mood}
-													<span class="text-sm">{diary.mood}</span>
-												{/if}
+											{#if diary.mood}
+												<span class="text-sm">{moodToEmoji(diary.mood)}</span>
+											{/if}
 												{#if diary.weather}
 													<span class="text-sm">{diary.weather}</span>
 												{/if}

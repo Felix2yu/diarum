@@ -16,7 +16,7 @@
 	export let date: string;
 	export let content: string;
 	export let selectedContent: string = '';
-	export let mood: string = '';
+	export let mood: number = 0;
 	export let weather: string = '';
 	export let tags: string[] = [];
 	export let onClose: () => void = () => {};

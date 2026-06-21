@@ -22,7 +22,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		var body struct {
 			Date    string   `json:"date"`
 			Content string   `json:"content"`
-			Mood    string   `json:"mood"`
+			Mood    int      `json:"mood"`
 			Weather string   `json:"weather"`
 			Tags    []string `json:"tags"`
 		}
@@ -103,11 +103,11 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 			return serverError("Failed to query diaries", err)
 		}
 		dates := make([]string, 0, len(diaries))
-		entries := make([]map[string]string, 0, len(diaries))
+		entries := make([]map[string]any, 0, len(diaries))
 		for _, diary := range diaries {
 			date := store.DateOnly(diary.Date)
 			dates = append(dates, date)
-			entries = append(entries, map[string]string{"date": date, "mood": diary.Mood, "weather": diary.Weather})
+			entries = append(entries, map[string]any{"date": date, "mood": diary.Mood, "weather": diary.Weather})
 		}
 		return c.JSON(http.StatusOK, map[string]any{"dates": dates, "entries": entries})
 	})

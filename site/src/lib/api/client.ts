@@ -12,7 +12,7 @@ export interface Diary {
     id?: string;
     date: string;
     content: string;
-    mood?: string;
+    mood?: number;
     weather?: string;
     tags?: string[];
     owner: string;

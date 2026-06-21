@@ -73,12 +73,31 @@ type Diary struct {
 	ID      string   `json:"id"`
 	Date    string   `json:"date"`
 	Content string   `json:"content"`
-	Mood    string   `json:"mood"`
+	Mood    int      `json:"mood"`
 	Weather string   `json:"weather"`
 	Owner   string   `json:"owner"`
 	Tags    []string `json:"tags"`
 	Created string   `json:"created"`
 	Updated string   `json:"updated"`
+}
+
+// MoodToEmoji converts a numeric mood value (1-5) to its display emoji.
+// Returns empty string for 0 or out-of-range values.
+func MoodToEmoji(mood int) string {
+	switch mood {
+	case 1:
+		return "😞"
+	case 2:
+		return "😔"
+	case 3:
+		return "😐"
+	case 4:
+		return "😊"
+	case 5:
+		return "🤩"
+	default:
+		return ""
+	}
 }
 
 type Media struct {
@@ -338,6 +357,64 @@ func createSchema(db *sql.DB) error {
 	for _, statement := range statements {
 		if _, err := db.Exec(statement); err != nil {
 			return err
+		}
+	}
+
+	// ---- Migration v2: mood TEXT -> INTEGER ----
+	{
+		var currentVersion int
+		_ = db.QueryRow(`SELECT COALESCE(MAX(version), 0) FROM schema_migrations`).Scan(&currentVersion)
+		if currentVersion < 2 {
+			// Map old emoji mood values to numeric: 😞=1, 😔=2, 😐=3, 😊=4, 🤩=5
+			emojiToMood := map[string]int{
+				"😞": 1, "😔": 2, "😐": 3, "😊": 4, "🤩": 5,
+				// Legacy mappings from old configurable mood options
+				"😊": 4, "😌": 4, "🥳": 5, "💪": 5, "🤔": 3, "😴": 2, "😔": 2, "😤": 1,
+			}
+			rows, err := db.Query(`SELECT id, mood FROM diaries WHERE mood != ''`)
+			if err == nil {
+				defer rows.Close()
+				type moodUpdate struct {
+					id   string
+					mood int
+				}
+				var updates []moodUpdate
+				for rows.Next() {
+					var id, moodStr string
+					if err := rows.Scan(&id, &moodStr); err != nil {
+						continue
+					}
+					if m, ok := emojiToMood[moodStr]; ok {
+						updates = append(updates, moodUpdate{id: id, mood: m})
+					}
+				}
+				rows.Close()
+				for _, u := range updates {
+					_, _ = db.Exec(`UPDATE diaries SET mood = ? WHERE id = ?`, u.mood, u.id)
+				}
+			}
+			// Recreate diaries table with INTEGER mood
+			if _, err := db.Exec(`CREATE TABLE IF NOT EXISTS diaries_new (
+				content TEXT DEFAULT '' NOT NULL,
+				created TEXT NOT NULL,
+				date TEXT DEFAULT '' NOT NULL,
+				id TEXT PRIMARY KEY NOT NULL,
+				mood INTEGER DEFAULT 0 NOT NULL,
+				owner TEXT DEFAULT '' NOT NULL,
+				updated TEXT NOT NULL,
+				weather TEXT DEFAULT '' NOT NULL,
+				tags JSON DEFAULT '[]' NOT NULL,
+				FOREIGN KEY(owner) REFERENCES users(id) ON DELETE CASCADE
+			)`); err == nil {
+				_, _ = db.Exec(`INSERT OR REPLACE INTO diaries_new(content, created, date, id, mood, owner, updated, weather, tags)
+					SELECT content, created, date, id, CAST(CASE WHEN mood = '' THEN '0' ELSE mood END AS INTEGER), owner, updated, weather, tags FROM diaries`)
+				_, _ = db.Exec(`DROP TABLE diaries`)
+				_, _ = db.Exec(`ALTER TABLE diaries_new RENAME TO diaries`)
+				_, _ = db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_diaries_date_owner ON diaries(date, owner)`)
+				_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_diaries_owner_date ON diaries(owner, date)`)
+			}
+			_, _ = db.Exec(`INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(2, datetime('now'))`)
+			logger.Info("[Store] migration v2 completed: mood TEXT -> INTEGER")
 		}
 	}
 
@@ -885,7 +962,7 @@ func scanUser(row interface{ Scan(dest ...any) error }) (*User, error) {
 	return user, nil
 }
 
-func (s *Store) UpsertDiary(owner, date, content, mood, weather string, tags []string) (*Diary, bool, error) {
+func (s *Store) UpsertDiary(owner, date, content string, mood int, weather string, tags []string) (*Diary, bool, error) {
 	start, end := dayRange(date)
 	existing, err := s.GetDiaryByDate(owner, start, end)
 	if err == nil && existing != nil {
@@ -1045,10 +1122,12 @@ func (s *Store) CountDiaries(owner string) int {
 func scanDiary(row interface{ Scan(dest ...any) error }) (*Diary, error) {
 	diary := &Diary{}
 	var tagsRaw string
-	err := row.Scan(&diary.Content, &diary.Created, &diary.Date, &diary.ID, &diary.Mood, &diary.Owner, &diary.Updated, &diary.Weather, &tagsRaw)
+	var moodVal int
+	err := row.Scan(&diary.Content, &diary.Created, &diary.Date, &diary.ID, &moodVal, &diary.Owner, &diary.Updated, &diary.Weather, &tagsRaw)
 	if err != nil {
 		return nil, err
 	}
+	diary.Mood = moodVal
 	diary.Tags = decodeStringSlice(tagsRaw)
 	return diary, nil
 }
@@ -1058,9 +1137,11 @@ func scanDiaries(rows *sql.Rows) ([]*Diary, error) {
 	for rows.Next() {
 		item := &Diary{}
 		var tagsRaw string
-		if err := rows.Scan(&item.Content, &item.Created, &item.Date, &item.ID, &item.Mood, &item.Owner, &item.Updated, &item.Weather, &tagsRaw); err != nil {
+		var moodVal int
+		if err := rows.Scan(&item.Content, &item.Created, &item.Date, &item.ID, &moodVal, &item.Owner, &item.Updated, &item.Weather, &tagsRaw); err != nil {
 			return nil, err
 		}
+		item.Mood = moodVal
 		item.Tags = decodeStringSlice(tagsRaw)
 		items = append(items, item)
 	}
@@ -1745,7 +1826,7 @@ func scanMessageRow(rows *sql.Rows) (*Message, error) {
 	return scanMessage(rows)
 }
 
-func (s *Store) InsertImportedDiary(owner, id, date, content, mood, weather string, tags []string) (*Diary, error) {
+func (s *Store) InsertImportedDiary(owner, id, date, content string, mood int, weather string, tags []string) (*Diary, error) {
 	if id == "" {
 		var err error
 		id, err = GenerateID()
