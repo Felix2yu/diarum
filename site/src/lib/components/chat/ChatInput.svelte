@@ -26,7 +26,7 @@
 	<div class="flex-1">
 		<textarea
 			bind:value={content}
-			on:keydown={handleKeydown}
+			onkeydown={handleKeydown}
 			{placeholder}
 			{disabled}
 			rows="1"

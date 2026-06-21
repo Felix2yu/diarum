@@ -77,7 +77,7 @@
 							   {activeTab === 'login'
 							? 'text-primary'
 							: 'text-muted-foreground hover:text-foreground'}"
-						on:click={() => { activeTab = 'login'; error = ''; }}
+						onclick={() => { activeTab = 'login'; error = ''; }}
 					>
 						登录
 					</button>
@@ -86,7 +86,7 @@
 							   {activeTab === 'register'
 							? 'text-primary'
 							: 'text-muted-foreground hover:text-foreground'}"
-						on:click={() => { activeTab = 'register'; error = ''; }}
+						onclick={() => { activeTab = 'register'; error = ''; }}
 					>
 						注册
 					</button>
