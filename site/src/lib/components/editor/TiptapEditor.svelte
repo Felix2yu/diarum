@@ -202,52 +202,6 @@
 </script>
 
 <div class="markdown-editor">
-	<!-- 工具栏 -->
-	<div class="editor-toolbar">
-		<div class="toolbar-group">
-			<button
-				type="button"
-				class="toolbar-btn"
-				onclick={triggerFileSelect}
-				disabled={isUploading}
-				title="上传图片"
-			>
-				{#if isUploading}
-					<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-						<circle class="opacity-25" cx="12" cy="12" r="10" stroke-width="4" stroke="currentColor"/>
-						<path class="opacity-75" fill="currentColor" stroke="currentColor" stroke-width="4" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-					</svg>
-					<span class="toolbar-text">上传中...</span>
-				{:else}
-					<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-					</svg>
-					<span class="toolbar-text">上传图片</span>
-				{/if}
-			</button>
-			<button
-				type="button"
-				class="toolbar-btn"
-				onclick={triggerMediaPicker}
-				disabled={isUploading}
-				title="从媒体库选择"
-			>
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
-				</svg>
-				<span class="toolbar-text">媒体库</span>
-			</button>
-		</div>
-		{#if uploadError}
-			<div class="upload-error">
-				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-				</svg>
-				<span>{uploadError}</span>
-			</div>
-		{/if}
-	</div>
-
 	<input
 		type="file"
 		bind:this={fileInput}
@@ -285,6 +239,51 @@
 		</button>
 	{/if}
 
+	<!-- 左下角：图片上传 + 媒体库（与右下角语音按钮风格一致） -->
+	<div class="absolute bottom-3 left-3 flex items-center gap-2 z-10">
+		{#if uploadError}
+			<div class="px-3 py-1.5 rounded-lg bg-destructive/90 text-destructive-foreground text-xs shadow-md">
+				{uploadError}
+			</div>
+		{/if}
+		{#if isUploading}
+			<button
+				type="button"
+				disabled
+				class="inline-flex items-center gap-2 px-3 py-2 bg-muted/80 text-muted-foreground rounded-full text-sm font-medium shadow-lg transition-all"
+			>
+				<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<circle class="opacity-25" cx="12" cy="12" r="10" stroke-width="4" stroke="currentColor"/>
+					<path class="opacity-75" fill="currentColor" stroke="currentColor" stroke-width="4" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+				</svg>
+				<span class="hidden sm:inline">上传中...</span>
+			</button>
+		{:else}
+			<button
+				type="button"
+				onclick={triggerFileSelect}
+				title="上传图片"
+				class="inline-flex items-center gap-2 px-3 py-2 bg-primary/90 hover:bg-primary text-primary-foreground rounded-full text-sm font-medium shadow-lg shadow-primary/20 transition-all"
+			>
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+				</svg>
+				<span class="hidden sm:inline">上传图片</span>
+			</button>
+			<button
+				type="button"
+				onclick={triggerMediaPicker}
+				title="从媒体库选择"
+				class="inline-flex items-center gap-2 px-3 py-2 bg-muted/80 hover:bg-muted text-foreground rounded-full text-sm font-medium shadow-lg transition-all"
+			>
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+				</svg>
+				<span class="hidden sm:inline">媒体库</span>
+			</button>
+		{/if}
+	</div>
+
 	{#if showMediaPicker}
 		<MediaPicker onSelect={handleMediaSelect} onClose={handleMediaPickerClose} />
 	{/if}
@@ -301,74 +300,6 @@
 		flex-direction: column;
 	}
 
-	.editor-toolbar {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-		padding: 0.6rem 0.75rem;
-		border-bottom: 1px solid hsl(var(--border) / 0.5);
-		background: hsl(var(--muted) / 0.2);
-		border-top-left-radius: 0.75rem;
-		border-top-right-radius: 0.75rem;
-	}
-
-	.toolbar-group {
-		display: flex;
-		align-items: center;
-		gap: 0.35rem;
-		flex-wrap: wrap;
-	}
-
-	.toolbar-btn {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.4rem;
-		padding: 0.4rem 0.75rem;
-		border: 1px solid hsl(var(--border) / 0.6);
-		border-radius: 0.5rem;
-		background: hsl(var(--background));
-		color: hsl(var(--foreground) / 0.85);
-		font-size: 0.85rem;
-		font-weight: 500;
-		cursor: pointer;
-		transition: all 0.15s ease;
-		white-space: nowrap;
-	}
-
-	.toolbar-btn:hover:not(:disabled) {
-		background: hsl(var(--primary) / 0.08);
-		border-color: hsl(var(--primary) / 0.4);
-		color: hsl(var(--primary));
-	}
-
-	.toolbar-btn:disabled {
-		opacity: 0.6;
-		cursor: not-allowed;
-	}
-
-	.toolbar-text {
-		display: inline;
-	}
-
-	@media (max-width: 480px) {
-		.toolbar-text {
-			display: none;
-		}
-	}
-
-	.upload-error {
-		display: flex;
-		align-items: center;
-		gap: 0.4rem;
-		padding: 0.3rem 0.75rem;
-		background: hsl(var(--destructive) / 0.1);
-		border: 1px solid hsl(var(--destructive) / 0.3);
-		border-radius: 0.4rem;
-		color: hsl(var(--destructive));
-		font-size: 0.8rem;
-	}
-
 	.hidden-file-input {
 		display: none;
 	}
@@ -379,9 +310,9 @@
 		flex: 1 1 auto;
 		min-height: 500px;
 		padding: 1.5rem 1.75rem;
+		padding-bottom: 3.5rem;
 		border: none;
-		border-bottom-left-radius: 0.75rem;
-		border-bottom-right-radius: 0.75rem;
+		border-radius: 0.75rem;
 		background: transparent;
 		color: hsl(var(--foreground) / 0.92);
 		font-size: 1rem;
@@ -408,8 +339,8 @@
 	.markdown-preview {
 		position: absolute;
 		inset: 0;
-		top: 3.2rem;
 		padding: 1.5rem 1.75rem;
+		padding-bottom: 3.5rem;
 		overflow-y: auto;
 		cursor: text;
 		color: hsl(var(--foreground) / 0.92);
@@ -554,7 +485,6 @@
 	.empty-state-overlay {
 		position: absolute;
 		inset: 0;
-		top: 3.2rem;
 		display: flex;
 		align-items: center;
 		justify-content: center;

@@ -544,14 +544,14 @@
 								<button
 									type="button"
 									on:click={startRecording}
-									title="AI 语音输入日记"
+									title="语音输入日记"
 									class="inline-flex items-center gap-2 px-3 py-2 bg-primary/90 hover:bg-primary text-primary-foreground rounded-full text-sm font-medium shadow-lg shadow-primary/20 transition-all"
 								>
 									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 1a3 3 0 00-3 3v5a3 3 0 006 0V4a3 3 0 00-3-3z"/>
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 10v1a7 7 0 01-14 0v-1M12 18v3M8 21h8"/>
 									</svg>
-									<span>AI 语音</span>
+									<span>语音输入</span>
 								</button>
 							{/if}
 						</div>
