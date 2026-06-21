@@ -735,6 +735,18 @@ func TestResolveConflictRoutes(t *testing.T) {
 	if existing == nil || existing.Content != "new content" || existing.Mood != "happy" {
 		t.Fatalf("diary after replace = %+v", existing)
 	}
+
+	body, _ = json.Marshal(resolveConflictRequest{Date: "2024-09-99", Action: "replace", Content: "x"})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/import/resolve", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("replace no existing status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	body = []byte(`{}`)
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/import/resolve", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid bind status = %d", rec.Code)
+	}
 }
 
 func TestImportMdZipFallback(t *testing.T) {
@@ -760,5 +772,27 @@ func TestImportMdZipFallback(t *testing.T) {
 	diaries := payload["diaries"].(map[string]any)
 	if diaries["imported"] != float64(2) {
 		t.Fatalf("imported = %v, want 2", diaries["imported"])
+	}
+}
+
+func TestResolveConflictWithEmbedding(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	vectorDB, err := embedding.NewVectorDB(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewVectorDB: %v", err)
+	}
+	t.Cleanup(func() { _ = vectorDB.Close() })
+	service := embedding.NewEmbeddingService(s, vectorDB)
+	if err := config.NewConfigService(s).Set(user.ID, "ai.enabled", true); err != nil {
+		t.Fatalf("Set ai.enabled: %v", err)
+	}
+	e := echo.New()
+	RegisterExportImportRoutes(e, s, authMiddlewareFor(user), service)
+
+	body, _ := json.Marshal(resolveConflictRequest{Date: "2024-07-04", Action: "replace", Content: "new with embedding"})
+	rec := performRequest(t, e, http.MethodPost, "/api/v1/import/resolve", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("replace with embedding status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }
