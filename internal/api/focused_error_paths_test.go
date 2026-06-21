@@ -135,8 +135,16 @@ func TestAIRoutesHappyPath(t *testing.T) {
 	}
 
 	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"2024-01-01","end":"2024-01-31"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /ai/analysis empty status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	if _, err := s.InsertImportedDiary(user.ID, "", "2024-01-15", "some content", "happy", "", nil); err != nil {
+		t.Fatalf("InsertImportedDiary: %v", err)
+	}
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"2024-01-01","end":"2024-01-31"}`), map[string]string{"Content-Type": "application/json"})
 	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("POST /ai/analysis disabled status = %d body=%s", rec.Code, rec.Body.String())
+		t.Fatalf("POST /ai/analysis disabled with diaries status = %d body=%s", rec.Code, rec.Body.String())
 	}
 
 	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analyses?period=month", nil, nil)
@@ -147,6 +155,11 @@ func TestAIRoutesHappyPath(t *testing.T) {
 	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analysis?period=month&start=2024-01-01&end=2024-01-31", nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /ai/analysis status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"2024-01-01","end":"2024-01-31","keywords":"travel,food"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/analysis with keywords status = %d", rec.Code)
 	}
 
 	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/vectors/stats", nil, nil)
@@ -177,6 +190,16 @@ func TestAIRoutesHappyPath(t *testing.T) {
 	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"","end":""}`), map[string]string{"Content-Type": "application/json"})
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("POST /ai/analysis missing start/end status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"bad-date","end":"2024-01-31"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/analysis bad start date status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"2024-01-01","end":"bad-date"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/analysis bad end date status = %d", rec.Code)
 	}
 
 	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analysis?period=bad&start=2024-01-01&end=2024-01-31", nil, nil)
