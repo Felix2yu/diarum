@@ -22,6 +22,9 @@ export function setGalleryPickerTrigger(trigger: GalleryPickerTrigger | null) {
 	galleryPickerTrigger = trigger;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyChain = any;
+
 export const getSuggestionItems = (query: string): CommandItem[] => {
 	const items: CommandItem[] = [
 		{
@@ -30,7 +33,7 @@ export const getSuggestionItems = (query: string): CommandItem[] => {
 			icon: 'text',
 			group: 'FORMAT',
 			command: ({ editor, range }) => {
-				editor.chain().focus().deleteRange(range).setParagraph().run();
+				(editor.chain().focus().deleteRange(range) as AnyChain).setParagraph().run();
 			},
 		},
 		{
@@ -39,7 +42,7 @@ export const getSuggestionItems = (query: string): CommandItem[] => {
 			icon: 'h1',
 			group: 'FORMAT',
 			command: ({ editor, range }) => {
-				editor.chain().focus().deleteRange(range).setHeading({ level: 1 }).run();
+				(editor.chain().focus().deleteRange(range) as AnyChain).setHeading({ level: 1 }).run();
 			},
 		},
 		{
@@ -48,7 +51,7 @@ export const getSuggestionItems = (query: string): CommandItem[] => {
 			icon: 'h2',
 			group: 'FORMAT',
 			command: ({ editor, range }) => {
-				editor.chain().focus().deleteRange(range).setHeading({ level: 2 }).run();
+				(editor.chain().focus().deleteRange(range) as AnyChain).setHeading({ level: 2 }).run();
 			},
 		},
 		{
@@ -57,7 +60,7 @@ export const getSuggestionItems = (query: string): CommandItem[] => {
 			icon: 'h3',
 			group: 'FORMAT',
 			command: ({ editor, range }) => {
-				editor.chain().focus().deleteRange(range).setHeading({ level: 3 }).run();
+				(editor.chain().focus().deleteRange(range) as AnyChain).setHeading({ level: 3 }).run();
 			},
 		},
 		{
@@ -66,7 +69,7 @@ export const getSuggestionItems = (query: string): CommandItem[] => {
 			icon: 'list',
 			group: 'LIST',
 			command: ({ editor, range }) => {
-				editor.chain().focus().deleteRange(range).toggleBulletList().run();
+				(editor.chain().focus().deleteRange(range) as AnyChain).toggleBulletList().run();
 			},
 		},
 		{
@@ -75,7 +78,7 @@ export const getSuggestionItems = (query: string): CommandItem[] => {
 			icon: 'list-ordered',
 			group: 'LIST',
 			command: ({ editor, range }) => {
-				editor.chain().focus().deleteRange(range).toggleOrderedList().run();
+				(editor.chain().focus().deleteRange(range) as AnyChain).toggleOrderedList().run();
 			},
 		},
 		{
@@ -84,7 +87,7 @@ export const getSuggestionItems = (query: string): CommandItem[] => {
 			icon: 'check-square',
 			group: 'LIST',
 			command: ({ editor, range }) => {
-				editor.chain().focus().deleteRange(range).toggleTaskList().run();
+				(editor.chain().focus().deleteRange(range) as AnyChain).toggleTaskList().run();
 			},
 		},
 		{
@@ -117,7 +120,7 @@ export const getSuggestionItems = (query: string): CommandItem[] => {
 			icon: 'quote',
 			group: 'INSERT',
 			command: ({ editor, range }) => {
-				editor.chain().focus().deleteRange(range).setBlockquote().run();
+				(editor.chain().focus().deleteRange(range) as AnyChain).setBlockquote().run();
 			},
 		},
 		{
@@ -126,7 +129,7 @@ export const getSuggestionItems = (query: string): CommandItem[] => {
 			icon: 'code',
 			group: 'INSERT',
 			command: ({ editor, range }) => {
-				editor.chain().focus().deleteRange(range).setCodeBlock().run();
+				(editor.chain().focus().deleteRange(range) as AnyChain).setCodeBlock().run();
 			},
 		},
 		{
@@ -135,7 +138,7 @@ export const getSuggestionItems = (query: string): CommandItem[] => {
 			icon: 'minus',
 			group: 'INSERT',
 			command: ({ editor, range }) => {
-				editor.chain().focus().deleteRange(range).setHorizontalRule().run();
+				(editor.chain().focus().deleteRange(range) as AnyChain).setHorizontalRule().run();
 			},
 		},
 	];

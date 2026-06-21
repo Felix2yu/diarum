@@ -16,9 +16,7 @@
 		if (markedConfigured) return;
 		marked.setOptions({
 			gfm: true,
-			breaks: true,
-			mangle: false,
-			headerIds: false
+			breaks: true
 		});
 		markedConfigured = true;
 	}

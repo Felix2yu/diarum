@@ -1,5 +1,7 @@
 import { pb, type Diary } from './client';
 
+export type { Diary };
+
 export type DiaryByDateResult =
 	| { status: 'found'; diary: Diary }
 	| { status: 'not_found'; diary: null }
