@@ -7,16 +7,17 @@
 ## v1.7 - 2026-06-21
 
 > 发布日期：2026-06-21
-> 对比基线：`v1.6 (2068452)` → `v1.7 (2fbf6eb)`
+> 对比基线：`v1.6 (2068452)` → `v1.7 (60407fa)`
 
 ### ✨ 新增 Features
 
 ### 🐛 Bug 修复
 
-- npm ci 回退为 npm install，兼容 workspace 项目（#27）
-
 ### 🔧 技术改进
 
+- **npm ci 构建加速** — 前端依赖安装改用 `npm ci`，跳过依赖解析，构建更快且确定性更强；`site/package-lock.json` 加入 git 跟踪
+- **Dockerfile 构建优化** — 移除 git 依赖（VERSION 通过 ARG 传入）、精简 COPY 仅复制 Go 源码、Go 模块下载与前端构建并行化
+- **移除 MCP Server** — 移除不再维护的 Model Context Protocol 服务器及相关文档
 - **Docker 构建优化** — Dockerfile 多阶段构建优化：COPY 顺序调整（前端构建产物独立于源码缓存）、运行时阶段合并 RUN 层、npm 缓存挂载
 - **GitHub Actions 升级** — 全部 action 升级到支持 Node.js 24 的版本（actions/checkout@v5、docker/build-push-action@v7、docker/login-action@v4、docker/metadata-action@v6、docker/setup-buildx-action@v4），消除 Node.js 20 弃用警告
 - **清理死代码与未使用依赖** — 删除 7 个未引用文件（CommandMenu.svelte、commands.ts、ImageNodeView.ts、SlashCommands.ts、suggestionRenderer.ts、SettingsToc.svelte、chevereto.ts），移除 18 个未使用依赖（17 个 @tiptap/* + lowlight + tslib），减少约 50MB node_modules
