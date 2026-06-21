@@ -121,7 +121,7 @@
 					{#each tagSuggestions as suggestion, i}
 						<button
 							type="button"
-							onmousedown|preventDefault={() => onSuggestionSelect(suggestion)}
+							onmousedown={(e) => { e.preventDefault(); onSuggestionSelect(suggestion); }}
 							class="w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors {i === selectedSuggestionIndex ? 'bg-muted/50 text-foreground' : 'text-muted-foreground'}"
 						>
 							<span class="text-foreground font-medium">{suggestion.slice(0, tagInputValue.trim().length)}</span><span>{suggestion.slice(tagInputValue.trim().length)}</span>
