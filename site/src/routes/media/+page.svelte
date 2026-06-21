@@ -120,44 +120,44 @@
 				</div>
 			</div>
 		{:else}
-			<!-- Timeline View -->
-			<div class="space-y-8">
-				{#each [...groupedMedia.entries()] as [dateKey, items]}
-					<div class="animate-fade-in">
-						<!-- Date Header -->
-						<div class="flex items-center gap-3 mb-4">
-							<div class="text-sm font-medium text-foreground">{formatDisplayDate(dateKey)}</div>
-							<div class="flex-1 h-px bg-border/50"></div>
-							<div class="text-xs text-muted-foreground">{items.length} 项</div>
-						</div>
-
-						<!-- Media Grid -->
-						<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-							{#each items as media}
-								<button
-									class="group relative aspect-square rounded-lg overflow-hidden bg-muted/30 border border-border/50 hover:border-primary/50 transition-all duration-200"
-									on:click={() => openModal(media)}
-								>
-									<img
-										src={getMediaFileUrl(media, '300x300')}
-										alt={media.alt || media.name || '媒体'}
-										class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-										loading="lazy"
-									/>
-									<!-- Overlay -->
-									<div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200"></div>
-									<!-- Diary indicator -->
-									{#if media.expand?.diary && media.expand.diary.length > 0}
-										<div class="absolute bottom-2 left-2 px-2 py-0.5 bg-black/60 rounded text-xs text-white">
-											{media.expand.diary[0].date?.split(' ')[0]}{media.expand.diary.length > 1 ? ` +${media.expand.diary.length - 1}` : ''}
-										</div>
-									{/if}
-								</button>
-							{/each}
-						</div>
+		<!-- Timeline View -->
+		<div class="space-y-8">
+			{#each [...groupedMedia.entries()] as [dateKey, items], gi}
+				<div class="animate-fade-in" style="animation-delay: {gi * 80}ms">
+					<!-- Date Header -->
+					<div class="flex items-center gap-3 mb-4">
+						<div class="text-sm font-medium text-foreground">{formatDisplayDate(dateKey)}</div>
+						<div class="flex-1 h-px bg-border/50"></div>
+						<div class="text-xs text-muted-foreground">{items.length} 项</div>
 					</div>
-				{/each}
-			</div>
+
+					<!-- Media Grid -->
+					<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+						{#each items as media}
+							<button
+								class="group relative aspect-square rounded-xl overflow-hidden bg-muted/30 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all duration-200"
+								on:click={() => openModal(media)}
+							>
+								<img
+									src={getMediaFileUrl(media, '300x300')}
+									alt={media.alt || media.name || '媒体'}
+									class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+									loading="lazy"
+								/>
+								<!-- Overlay -->
+								<div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+								<!-- Diary indicator -->
+								{#if media.expand?.diary && media.expand.diary.length > 0}
+									<div class="absolute bottom-2 left-2 px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded-lg text-xs text-white">
+										{media.expand.diary[0].date?.split(' ')[0]}{media.expand.diary.length > 1 ? ` +${media.expand.diary.length - 1}` : ''}
+									</div>
+								{/if}
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/each}
+		</div>
 
 			<!-- Pagination -->
 			{#if totalPages > 1}
@@ -197,7 +197,7 @@
 		tabindex="-1"
 	>
 		<div
-			class="bg-card rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-scale-in"
+			class="bg-card rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-scale-in"
 			role="document"
 		>
 			<!-- Modal Header -->

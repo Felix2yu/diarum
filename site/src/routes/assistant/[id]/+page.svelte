@@ -272,14 +272,15 @@
 						</div>
 					{:else if messages.length === 0 && !streamingContent}
 						<div class="flex flex-col items-center justify-center h-full text-center py-12">
-							<div class="w-16 h-16 mb-4 rounded-xl bg-muted/50 flex items-center justify-center">
-								<svg class="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<div class="w-20 h-20 mb-4 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+								<svg class="w-10 h-10 text-primary/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
 										d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
 								</svg>
 							</div>
-							<p class="text-muted-foreground text-sm">
-								在下方发送消息以开始对话。
+							<h3 class="text-lg font-medium text-foreground mb-1">开始对话</h3>
+							<p class="text-muted-foreground text-sm max-w-xs">
+								向 AI 助手提问关于你的日记内容
 							</p>
 						</div>
 					{:else}

@@ -120,7 +120,7 @@
 		</div>
 
 		<!-- Search Input -->
-		<div class="relative mb-6 animate-fade-in" style="animation-delay: 50ms">
+		<div class="relative mb-6 animate-fade-in stagger-1">
 			<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
 				<svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -134,7 +134,7 @@
 				on:keydown={handleKeydown}
 				type="text"
 				placeholder="搜索你的日记..."
-				class="w-full pl-12 pr-4 py-3 bg-card border border-border/50 rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-transparent transition-all duration-200"
+				class="w-full pl-12 pr-4 py-3.5 bg-card border border-border/50 rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-transparent shadow-sm transition-all duration-200"
 			/>
 			{#if query.length > 0}
 				<button

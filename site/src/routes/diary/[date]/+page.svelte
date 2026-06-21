@@ -448,9 +448,9 @@
 		<!-- 主内容布局：导航条与编辑器同宽 -->
 		<div class="diary-layout flex gap-6 mx-auto transition-all duration-300 flex-1 min-h-0" class:with-desktop-sidebar={showDesktopToc}>
 			<main class="diary-main w-full min-w-0 flex flex-col min-h-0">
-				<!-- 日期导航：紧贴编辑器上方，宽度随编辑器一致 -->
-				<div class="mb-4">
-					<div class="flex items-center bg-card rounded-xl border border-border/50 px-3 py-2.5 shadow-sm">
+			<!-- 日期导航：紧贴编辑器上方，宽度随编辑器一致 -->
+			<div class="mb-4">
+				<div class="flex items-center bg-card rounded-xl border border-border/50 px-3 py-2.5 shadow-sm hover:shadow-md transition-shadow">
 						<button
 							type="button"
 							on:click={goToPreviousDay}
@@ -498,7 +498,7 @@
 						<div class="text-muted-foreground text-sm">加载中...</div>
 					</div>
 				{:else}
-					<div class="bg-card rounded-xl shadow-sm border border-border/50 overflow-hidden animate-fade-in flex flex-col flex-1 min-h-0 relative">
+					<div class="bg-card rounded-xl shadow-sm border border-border/50 overflow-hidden animate-fade-in flex flex-col flex-1 min-h-0 relative ring-1 ring-border/20">
 						<TiptapEditor
 							{content}
 							bind:selectedContent
@@ -558,8 +558,8 @@
 					{/if}
 					</div>
 
-					<!-- Mobile: Mood, Weather, Tags panel below editor -->
-					<div class="lg:hidden mt-4 space-y-3">
+				<!-- Mobile: Mood, Weather, Tags panel below editor -->
+				<div class="lg:hidden mt-4 space-y-3 animate-slide-up">
 						<!-- AI 整理入口 -->
 						<button
 							type="button"

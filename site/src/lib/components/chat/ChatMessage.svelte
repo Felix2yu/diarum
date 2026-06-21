@@ -62,7 +62,7 @@
 	<div class="max-w-[80%] {message.role === 'user' ? 'order-2' : 'order-1'}">
 		<div
 			class="rounded-2xl px-4 py-3 {message.role === 'user'
-				? 'bg-primary text-primary-foreground rounded-br-md'
+				? 'bg-primary text-primary-foreground rounded-br-md shadow-sm'
 				: 'bg-muted text-foreground rounded-bl-md'}"
 		>
 			{#if message.role === 'user'}

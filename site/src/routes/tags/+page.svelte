@@ -80,7 +80,7 @@
 <div class="flex flex-col min-h-screen min-h-[100dvh] bg-background safe-bottom">
 	<PageHeader title="标签" />
 	<div class="container-responsive py-6 flex-1 flex flex-col">
-		<div class="mb-6">
+		<div class="mb-6 animate-fade-in">
 			<h1 class="text-2xl font-semibold text-foreground">标签云</h1>
 			<p class="text-sm text-muted-foreground mt-1">
 				共 {tags.length} 个标签，涉及 {totalDiaryCount} 条日记
@@ -112,16 +112,16 @@
 		{:else}
 			<div class="flex flex-col gap-6">
 				<!-- Tag cloud -->
-				<div class="bg-card rounded-xl border border-border/50 p-6 shadow-sm">
-					<div class="flex flex-wrap gap-2 items-center justify-center min-h-[8rem]">
+				<div class="bg-card rounded-xl border border-border/50 p-6 shadow-sm animate-fade-in stagger-1">
+					<div class="flex flex-wrap gap-2.5 items-center justify-center min-h-[8rem]">
 						{#each tags as t (t.tag)}
 							<button
 								type="button"
 								onclick={() => loadDiariesForTag(t.tag)}
 								class={
 									selectedTag === t.tag
-										? 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all duration-200 bg-primary text-primary-foreground border-primary'
-										: 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all duration-200 bg-primary/5 text-primary border-primary/20 hover:scale-105'
+										? 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all duration-200 bg-primary text-primary-foreground border-primary shadow-md'
+										: 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border transition-all duration-200 bg-primary/5 text-primary border-primary/20 hover:scale-105 hover:shadow-sm hover:bg-primary/10'
 								}
 								style="font-size: {fontSizeFor(t.count, maxCount)}"
 								title={`${t.tag} · ${t.count} 篇日记`}

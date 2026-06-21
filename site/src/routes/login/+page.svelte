@@ -69,31 +69,35 @@
 				<p class="text-muted-foreground">你的个人日记</p>
 			</div>
 
-			<div class="bg-card rounded-xl shadow-lg border border-border/50 p-8">
+			<div class="bg-card rounded-2xl shadow-xl border border-border/50 p-8">
 				<!-- Tabs -->
-				<div class="flex border-b border-border mb-6">
+				<div class="flex border-b border-border mb-6 relative">
 					<button
-						class="flex-1 py-2 px-4 text-center text-sm font-medium transition-all duration-200
+						class="flex-1 py-2.5 px-4 text-center text-sm font-medium transition-all duration-200
 							   {activeTab === 'login'
-							? 'text-primary border-b-2 border-primary'
+							? 'text-primary'
 							: 'text-muted-foreground hover:text-foreground'}"
 						on:click={() => { activeTab = 'login'; error = ''; }}
 					>
 						登录
 					</button>
 					<button
-						class="flex-1 py-2 px-4 text-center text-sm font-medium transition-all duration-200
+						class="flex-1 py-2.5 px-4 text-center text-sm font-medium transition-all duration-200
 							   {activeTab === 'register'
-							? 'text-primary border-b-2 border-primary'
+							? 'text-primary'
 							: 'text-muted-foreground hover:text-foreground'}"
 						on:click={() => { activeTab = 'register'; error = ''; }}
 					>
 						注册
 					</button>
+					<div
+						class="absolute bottom-0 h-0.5 bg-primary rounded-full transition-all duration-300 ease-out"
+						style="width: 50%; left: {activeTab === 'login' ? '0%' : '50%'};"
+					></div>
 				</div>
 
 				{#if error}
-					<div class="mb-4 p-3 bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 rounded-lg text-sm animate-fade-in">
+					<div class="mb-4 p-3 bg-destructive/10 border border-destructive/20 text-destructive rounded-xl text-sm animate-fade-in">
 						{error}
 					</div>
 				{/if}
@@ -109,7 +113,7 @@
 								type="text"
 								bind:value={loginForm.usernameOrEmail}
 								required
-								class="w-full px-3 py-2 bg-background border border-border rounded-lg
+								class="w-full px-4 py-2.5 bg-background border border-border rounded-xl
 									   focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
 									   text-foreground placeholder:text-muted-foreground transition-all duration-200"
 								placeholder="输入你的用户名或邮箱"
@@ -125,7 +129,7 @@
 								type="password"
 								bind:value={loginForm.password}
 								required
-								class="w-full px-3 py-2 bg-background border border-border rounded-lg
+								class="w-full px-4 py-2.5 bg-background border border-border rounded-xl
 									   focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
 									   text-foreground placeholder:text-muted-foreground transition-all duration-200"
 								placeholder="输入你的密码"
@@ -135,8 +139,8 @@
 						<button
 							type="submit"
 							disabled={loading}
-							class="w-full py-2.5 px-4 bg-primary text-primary-foreground rounded-lg font-medium
-								   hover:opacity-90 transition-all duration-200 disabled:opacity-50"
+							class="w-full py-3 px-4 bg-primary text-primary-foreground rounded-xl font-medium
+								   hover:opacity-90 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 shadow-sm"
 						>
 							{loading ? '登录中...' : '登录'}
 						</button>
@@ -153,7 +157,7 @@
 								bind:value={registerForm.username}
 								required
 								minlength="3"
-								class="w-full px-3 py-2 bg-background border border-border rounded-lg
+								class="w-full px-4 py-2.5 bg-background border border-border rounded-xl
 									   focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
 									   text-foreground placeholder:text-muted-foreground transition-all duration-200"
 								placeholder="选择一个用户名"
@@ -169,7 +173,7 @@
 								type="email"
 								bind:value={registerForm.email}
 								required
-								class="w-full px-3 py-2 bg-background border border-border rounded-lg
+								class="w-full px-4 py-2.5 bg-background border border-border rounded-xl
 									   focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
 									   text-foreground placeholder:text-muted-foreground transition-all duration-200"
 								placeholder="输入你的邮箱"
@@ -186,7 +190,7 @@
 								bind:value={registerForm.password}
 								required
 								minlength="8"
-								class="w-full px-3 py-2 bg-background border border-border rounded-lg
+								class="w-full px-4 py-2.5 bg-background border border-border rounded-xl
 									   focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
 									   text-foreground placeholder:text-muted-foreground transition-all duration-200"
 								placeholder="选择一个密码（至少 8 个字符）"
@@ -202,7 +206,7 @@
 								type="password"
 								bind:value={registerForm.passwordConfirm}
 								required
-								class="w-full px-3 py-2 bg-background border border-border rounded-lg
+								class="w-full px-4 py-2.5 bg-background border border-border rounded-xl
 									   focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary
 									   text-foreground placeholder:text-muted-foreground transition-all duration-200"
 								placeholder="再次输入密码"
@@ -212,8 +216,8 @@
 						<button
 							type="submit"
 							disabled={loading}
-							class="w-full py-2.5 px-4 bg-primary text-primary-foreground rounded-lg font-medium
-								   hover:opacity-90 transition-all duration-200 disabled:opacity-50"
+							class="w-full py-3 px-4 bg-primary text-primary-foreground rounded-xl font-medium
+								   hover:opacity-90 active:scale-[0.98] transition-all duration-200 disabled:opacity-50 shadow-sm"
 						>
 							{loading ? '创建账户中...' : '创建账户'}
 						</button>
