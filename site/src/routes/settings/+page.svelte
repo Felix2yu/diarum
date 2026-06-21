@@ -710,7 +710,7 @@
 	<title>设置 - 吾身</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background safe-bottom">
+<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background">
 	<PageHeader title="设置" />
 
 	<!-- Main Content -->

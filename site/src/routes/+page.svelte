@@ -75,7 +75,7 @@
 		<p class="text-muted-foreground">加载中...</p>
 	</div>
 {:else}
-	<div class="min-h-screen min-h-[100dvh] flex flex-col bg-background safe-bottom">
+	<div class="min-h-screen min-h-[100dvh] flex flex-col bg-background">
 		<!-- Navigation -->
 		<nav class="fixed top-0 left-0 right-0 z-50 glass border-b border-border/50 safe-top">
 			<div class="container-responsive h-16">

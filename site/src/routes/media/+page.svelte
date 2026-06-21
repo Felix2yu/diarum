@@ -92,7 +92,7 @@
 	<title>媒体库 - 吾身</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background safe-bottom">
+<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background">
 	<PageHeader title="媒体库">
 		<span slot="subtitle" class="text-sm text-muted-foreground">
 			{#if !loading}({totalItems}){/if}

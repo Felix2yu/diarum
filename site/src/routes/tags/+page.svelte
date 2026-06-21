@@ -77,7 +77,7 @@
 	<title>标签云 - 吾身</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background safe-bottom">
+<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background">
 	<PageHeader title="标签" />
 	<div class="container-responsive py-6 flex-1 flex flex-col">
 		<div class="mb-6 animate-fade-in">

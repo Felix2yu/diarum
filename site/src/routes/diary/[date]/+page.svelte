@@ -441,7 +441,7 @@
 	<title>{formatDisplayDate(date)} - 吾身</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background safe-bottom">
+<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background">
 	<PageHeader title="日记" />
 <!-- Main Content -->
 	<div class="container-responsive py-6 flex-1 flex flex-col">

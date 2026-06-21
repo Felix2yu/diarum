@@ -10,7 +10,7 @@
 	} = $props();
 </script>
 
-<footer class="border-t border-border/50 mt-auto">
+<footer class="border-t border-border/50 mt-auto safe-bottom">
 	<div class="container-responsive py-4">
 		<div class="flex flex-row items-center justify-center sm:justify-between gap-2 sm:gap-4 flex-wrap">
 			<div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-muted-foreground/80">
