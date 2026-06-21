@@ -43,7 +43,7 @@
 ## v1.6 - 2026-06-21
 
 > 发布日期：2026-06-21
-> 对比基线：`v1.3 (131a141)` → `v1.6 (c49b479)`
+> 对比基线：`v1.5 (8a8774e)` → `v1.6 (c49b479)`
 
 ### ✨ 新增 Features
 
@@ -79,6 +79,60 @@
 - **SvelteKit 依赖更新** — 更新 Svelte 及相关依赖包至最新版本（#25）
 - **Docker 构建优化** — 新增 GitHub Actions CI/CD 自动构建 Docker 镜像
 - **非 root 用户运行** — Docker 容器内以 UID:1000 非 root 用户运行
+
+---
+
+## v1.5 - 2026-06-20
+
+> 发布日期：2026-06-20
+> 对比基线：`v1.4 (62e6772)` → `v1.5 (8a8774e)`
+
+### ✨ 新增 Features
+
+- **PWA 离线访问修复** — 修复 PWA 离线访问功能异常，改进 Service Worker 缓存策略与离线状态提示（#20）
+
+### 🔧 技术改进
+
+- **PWA Service Worker 优化** — 改进 `pwa.ts` 缓存策略，增强离线场景下的资源可用性
+- **在线状态提示** — 新增 `OnlineStatusBanner` 组件，网络恢复时自动提示刷新
+
+### 📁 主要变更文件
+
+- `site/src/lib/utils/pwa.ts` — PWA 缓存策略优化
+- `site/src/lib/components/OnlineStatusBanner.svelte` — 在线状态提示组件
+- `site/vite.config.ts` — Vite PWA 配置调整
+
+---
+
+## v1.4 - 2026-06-20
+
+> 发布日期：2026-06-20
+> 对比基线：`v1.3 (131a141)` → `v1.4 (62e6772)`
+
+### ✨ 新增 Features
+
+- **AI 日记分析增强** — 支持自定义时间范围与关键词过滤，分析结果按日期正序呈现以辅助识别趋势变化（#20）
+- **自定义分析按钮** — 日历头部新增独立的自定义分析入口，与周/月分析互不干扰
+
+### 🎨 UI 优化
+
+- **界面简化** — 精简 assistant、diary、search、settings 页面冗余代码（#19）
+- **页面标题居中** — PageHeader 改用浮动层布局，标题在整行水平居中
+- **日期导航居中** — diary 页面日期导航在整行容器中居中显示
+
+### 🔧 技术改进
+
+- **数据库 Schema 升级** — `period_analyses` 表增加 `keywords` 字段与唯一索引，自动升级
+- **API 扩展** — `POST /api/v1/ai/analysis` 新增 `period=custom` 模式与 `keywords` 参数
+
+### 📁 主要变更文件
+
+- `internal/api/ai.go` — AI 分析 API 扩展
+- `internal/store/store.go` — 数据库 schema 升级
+- `site/src/lib/api/ai.ts` — 前端 API 调用适配
+- `site/src/lib/components/calendar/Calendar.svelte` — 自定义分析按钮
+- `site/src/lib/components/calendar/CalendarAnalysis.svelte` — 筛选条件面板重构
+- `site/src/lib/components/ui/PageHeader.svelte` — 标题居中布局
 
 ---
 
