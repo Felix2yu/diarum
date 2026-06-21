@@ -257,6 +257,7 @@ func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.Em
 	}
 	var exportJSON []byte
 	mediaFiles := make(map[string][]byte)
+	mdFiles := make(map[string][]byte)
 	for _, zf := range zipReader.File {
 		if !isValidZipPath(zf.Name) || zf.UncompressedSize64 > maxSingleFileSize {
 			continue
@@ -278,14 +279,29 @@ func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.Em
 			if name != "" {
 				mediaFiles[name] = data
 			}
+		case strings.HasSuffix(zf.Name, ".md"):
+			mdFiles[zf.Name] = data
 		}
 	}
-	if exportJSON == nil {
-		return badRequest("ZIP missing diarum_export.json", nil)
-	}
 	var data exportData
-	if err := json.Unmarshal(exportJSON, &data); err != nil {
-		return badRequest("Failed to parse diarum_export.json", err)
+	if exportJSON != nil {
+		if err := json.Unmarshal(exportJSON, &data); err != nil {
+			return badRequest("Failed to parse diarum_export.json", err)
+		}
+	} else if len(mdFiles) > 0 {
+		diaries := make([]exportDiary, 0)
+		for name, content := range mdFiles {
+			diary := parseMarkdownFile(name, content)
+			if diary != nil {
+				diaries = append(diaries, *diary)
+			}
+		}
+		if len(diaries) == 0 {
+			return badRequest("No valid diary entries found in .md files", nil)
+		}
+		data = exportData{Version: 1, Diaries: diaries, Media: make([]exportMedia, 0), Conversations: make([]exportConversation, 0)}
+	} else {
+		return badRequest("ZIP missing diarum_export.json or .md files", nil)
 	}
 	stats := importStats{Diaries: importCounters{Total: len(data.Diaries)}, Media: importCounters{Total: len(data.Media)}, Conversations: importCounters{Total: len(data.Conversations)}}
 	diaryIDMap := make(map[string]string)
@@ -373,6 +389,60 @@ func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.Em
 
 func isValidZipPath(name string) bool {
 	return !strings.Contains(name, "..") && !strings.HasPrefix(name, "/") && !strings.HasPrefix(name, "\\")
+}
+
+func parseMarkdownFile(name string, content []byte) *exportDiary {
+	text := string(content)
+	lines := strings.Split(text, "\n")
+
+	var date string
+	base := filepath.Base(name)
+	ext := filepath.Ext(base)
+	nameWithoutExt := strings.TrimSuffix(base, ext)
+	parts := strings.SplitN(nameWithoutExt, "_", 2)
+	candidate := strings.TrimSpace(parts[0])
+	if len(candidate) == 10 {
+		if _, err := time.Parse("2006-01-02", candidate); err == nil {
+			date = candidate
+		}
+	}
+	if date == "" {
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "# ") {
+				datePart := strings.TrimSpace(strings.TrimPrefix(trimmed, "# "))
+				if len(datePart) >= 10 {
+					if _, err := time.Parse("2006-01-02", datePart[:10]); err == nil {
+						date = datePart[:10]
+						break
+					}
+				}
+			}
+		}
+	}
+	if date == "" {
+		return nil
+	}
+	mood := ""
+	weather := ""
+	contentLines := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "# ") {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "**Mood:**") || strings.HasPrefix(trimmed, "**mood:**") {
+			mood = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(trimmed, "**Mood:**"), "**mood:**"))
+			continue
+		}
+		if strings.HasPrefix(trimmed, "**Weather:**") || strings.HasPrefix(trimmed, "**weather:**") {
+			weather = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(trimmed, "**Weather:**"), "**weather:**"))
+			continue
+		}
+		contentLines = append(contentLines, line)
+	}
+	content = []byte(strings.TrimSpace(strings.Join(contentLines, "\n")))
+	return &exportDiary{Date: date, Content: string(content), Mood: mood, Weather: weather}
 }
 
 func generateMarkdown(d exportDiary) string {

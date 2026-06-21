@@ -1965,7 +1965,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 					<!-- 导入 -->
 					<div class="py-4">
 						<div class="font-medium text-foreground mb-1">导入</div>
-						<div class="text-sm text-muted-foreground mb-3">从之前导出的 ZIP 文件中恢复日记数据。日期已存在的日记将被跳过。</div>
+						<div class="text-sm text-muted-foreground mb-3">从 ZIP 文件中恢复日记数据，支持导出的 ZIP 或包含多个 .md 文件的 ZIP。日期已存在的日记将被跳过。</div>
 
 						{#if importError}
 							<div class="mb-3 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
