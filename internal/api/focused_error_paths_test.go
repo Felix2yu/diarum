@@ -158,7 +158,7 @@ func TestAIRoutesHappyPath(t *testing.T) {
 	}
 
 	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"2024-01-01","end":"2024-01-31","keywords":"travel,food"}`), map[string]string{"Content-Type": "application/json"})
-	if rec.Code != http.StatusBadRequest {
+	if rec.Code != http.StatusOK {
 		t.Fatalf("POST /ai/analysis with keywords status = %d", rec.Code)
 	}
 
