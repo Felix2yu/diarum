@@ -2161,3 +2161,141 @@ func TestSaveUploadedFileOpenError(t *testing.T) {
 		t.Fatal("expected SaveUploadedFile to fail when parent is a file")
 	}
 }
+
+func TestGetDiariesByMonthDay(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	if _, err := s.InsertImportedDiary(user.ID, "d1", "2023-06-15", "去年今天", "", "", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.InsertImportedDiary(user.ID, "d2", "2024-06-15", "今年今天", "", "", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.InsertImportedDiary(user.ID, "d3", "2023-06-16", "不是同天", "", "", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	diaries, err := s.GetDiariesByMonthDay(user.ID, "2024-06-15")
+	if err != nil {
+		t.Fatalf("GetDiariesByMonthDay: %v", err)
+	}
+	if len(diaries) != 1 || diaries[0].ID != "d1" {
+		t.Fatalf("GetDiariesByMonthDay = %+v, want [d1]", diaries)
+	}
+
+	empty, err := s.GetDiariesByMonthDay(user.ID, "short")
+	if err != nil || len(empty) != 0 {
+		t.Fatalf("GetDiariesByMonthDay short = %+v, %v", empty, err)
+	}
+}
+
+func TestGetRandomDiary(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	if _, err := s.InsertImportedDiary(user.ID, "r1", "2024-01-01", "content", "happy", "", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.InsertImportedDiary(user.ID, "r2", "2024-02-01", "other", "calm", "", nil); err != nil {
+		t.Fatal(err)
+	}
+	d, err := s.GetRandomDiary(user.ID, "")
+	if err != nil || d == nil {
+		t.Fatalf("GetRandomDiary = %+v, %v", d, err)
+	}
+
+	d2, err := s.GetRandomDiary(user.ID, "2024-01-01")
+	if err != nil || d2 == nil {
+		t.Fatalf("GetRandomDiary exclude: %+v, %v", d2, err)
+	}
+	if d2.ID == "r1" {
+		t.Fatalf("GetRandomDiary exclude should not return r1")
+	}
+}
+
+func TestListTagCountsAndDiariesByTag(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	if _, err := s.InsertImportedDiary(user.ID, "t1", "2024-01-01", "a", "", "", []string{"work", "urgent"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.InsertImportedDiary(user.ID, "t2", "2024-01-02", "b", "", "", []string{"work"}); err != nil {
+		t.Fatal(err)
+	}
+
+	counts, err := s.ListTagCounts(user.ID)
+	if err != nil {
+		t.Fatalf("ListTagCounts: %v", err)
+	}
+	if len(counts) != 2 {
+		t.Fatalf("ListTagCounts len = %d, want 2", len(counts))
+	}
+	if counts[0].Tag != "work" || counts[0].Count != 2 {
+		t.Fatalf("ListTagCounts[0] = %+v, want work:2", counts[0])
+	}
+
+	byTag, err := s.ListDiariesByTag(user.ID, "urgent")
+	if err != nil {
+		t.Fatalf("ListDiariesByTag: %v", err)
+	}
+	if len(byTag) != 1 || byTag[0].ID != "t1" {
+		t.Fatalf("ListDiariesByTag = %+v, want [t1]", byTag)
+	}
+
+	empty, err := s.ListDiariesByTag(user.ID, "")
+	if err != nil || len(empty) != 0 {
+		t.Fatalf("ListDiariesByTag empty = %+v, %v", empty, err)
+	}
+}
+
+func TestPeriodAnalysisCRUD(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	a, err := s.SavePeriodAnalysis(user.ID, "month", "2024-01-01", "2024-01-31", 10, "summary", "prompt", "prefix", "work")
+	if err != nil {
+		t.Fatalf("SavePeriodAnalysis: %v", err)
+	}
+	if a.DiaryCount != 10 || a.Summary != "summary" {
+		t.Fatalf("SavePeriodAnalysis = %+v", a)
+	}
+
+	got, err := s.GetPeriodAnalysis(user.ID, "month", "2024-01-01", "2024-01-31", "work")
+	if err != nil || got.ID != a.ID {
+		t.Fatalf("GetPeriodAnalysis = %+v, %v", got, err)
+	}
+
+	a2, err := s.SavePeriodAnalysis(user.ID, "month", "2024-01-01", "2024-01-31", 20, "updated", "prompt", "prefix", "work")
+	if err != nil {
+		t.Fatalf("SavePeriodAnalysis update: %v", err)
+	}
+	if a2.DiaryCount != 20 {
+		t.Fatalf("SavePeriodAnalysis update DiaryCount = %d, want 20", a2.DiaryCount)
+	}
+
+	list, err := s.ListSavedAnalyses(user.ID, "month", 10)
+	if err != nil {
+		t.Fatalf("ListSavedAnalyses: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("ListSavedAnalyses len = %d, want 1", len(list))
+	}
+
+	all, err := s.ListSavedAnalyses(user.ID, "all", 0)
+	if err != nil {
+		t.Fatalf("ListSavedAnalyses all: %v", err)
+	}
+	if len(all) != 1 {
+		t.Fatalf("ListSavedAnalyses all len = %d, want 1", len(all))
+	}
+
+	none, err := s.ListSavedAnalyses(user.ID, "week", 10)
+	if err != nil {
+		t.Fatalf("ListSavedAnalyses week: %v", err)
+	}
+	if len(none) != 0 {
+		t.Fatalf("ListSavedAnalyses week len = %d, want 0", len(none))
+	}
+}

@@ -645,3 +645,23 @@ func TestChatServiceNew(t *testing.T) {
 		t.Fatal("NewChatService should return non-nil")
 	}
 }
+
+func TestResolveLocation(t *testing.T) {
+	t.Setenv("TZ", "Asia/Shanghai")
+	loc := resolveLocation()
+	if loc.String() != "Asia/Shanghai" {
+		t.Errorf("resolveLocation with TZ=Asia/Shanghai = %q, want Asia/Shanghai", loc.String())
+	}
+
+	t.Setenv("TZ", "Invalid/Zone")
+	loc2 := resolveLocation()
+	if loc2 == nil {
+		t.Fatal("resolveLocation should not return nil")
+	}
+
+	t.Setenv("TZ", "")
+	loc3 := resolveLocation()
+	if loc3 == nil {
+		t.Fatal("resolveLocation with empty TZ should not return nil")
+	}
+}

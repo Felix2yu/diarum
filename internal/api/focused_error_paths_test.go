@@ -53,6 +53,181 @@ func TestFocusedAIRouteErrors(t *testing.T) {
 	}
 }
 
+func TestAIRoutesHappyPath(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	e := echo.New()
+	RegisterAIRoutes(e, s, authMiddlewareFor(user), nil)
+
+	rec := performRequest(t, e, http.MethodGet, "/api/v1/ai/settings", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /ai/settings status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/ai/settings", strings.NewReader(`{"enabled":false}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT /ai/settings status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	withMockTransport(t, func(req *http.Request) (*http.Response, error) {
+		return httpResponse(http.StatusOK, `{"object":"list","data":[{"id":"m1","object":"model"}]}`), nil
+	})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/models", strings.NewReader(`{"api_key":"k","base_url":"https://mock.local"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /ai/models status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/models", strings.NewReader(`{"api_key":"","base_url":""}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/models empty key status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/conversations", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /ai/conversations status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/conversations", strings.NewReader(`{"title":"Test Conv"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /ai/conversations status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	convPayload := decodeJSONBody(t, rec)
+	convID := convPayload["id"].(string)
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/conversations/"+convID, nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /ai/conversations/:id status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/conversations/nonexistent", nil, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("GET /ai/conversations/nonexistent status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/ai/conversations/"+convID, strings.NewReader(`{"title":"Updated"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT /ai/conversations/:id status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/ai/conversations/nonexistent", strings.NewReader(`{"title":"x"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("PUT /ai/conversations/nonexistent status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodDelete, "/api/v1/ai/conversations/"+convID, nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("DELETE /ai/conversations/:id status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodDelete, "/api/v1/ai/conversations/nonexistent", nil, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("DELETE /ai/conversations/nonexistent status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/chat", strings.NewReader(`{"conversation_id":"x","content":"hi"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("POST /ai/chat not found status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/chat", strings.NewReader(`{}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/chat empty status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"2024-01-01","end":"2024-01-31"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /ai/analysis empty status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	if _, err := s.InsertImportedDiary(user.ID, "", "2024-01-15", "some content", "happy", "", nil); err != nil {
+		t.Fatalf("InsertImportedDiary: %v", err)
+	}
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"2024-01-01","end":"2024-01-31"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/analysis disabled with diaries status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analyses?period=month", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /ai/analyses status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analysis?period=month&start=2024-01-01&end=2024-01-31", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /ai/analysis status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"2024-01-01","end":"2024-01-31","keywords":"travel,food"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /ai/analysis with keywords status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/vectors/stats", nil, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("GET /ai/vectors/stats nil service status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/vectors/build", nil, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/vectors/build nil status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/vectors/build-incremental", nil, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/vectors/build-incremental nil status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/transcribe", nil, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/transcribe no provider status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"bad","start":"2024-01-01","end":"2024-01-31"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/analysis bad period status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"","end":""}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/analysis missing start/end status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"bad-date","end":"2024-01-31"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/analysis bad start date status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"2024-01-01","end":"bad-date"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/analysis bad end date status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analysis?period=bad&start=2024-01-01&end=2024-01-31", nil, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("GET /ai/analysis bad period status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analysis?period=month", nil, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("GET /ai/analysis missing start/end status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analyses?period=bad", nil, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("GET /ai/analyses bad period status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analyses?period=all", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /ai/analyses all status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/polish", strings.NewReader(`{}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/polish status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
 func TestFocusedAIVectorRouteServiceErrors(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
@@ -618,5 +793,228 @@ func TestFetchModelsAdditionalErrors(t *testing.T) {
 	})
 	if _, err := fetchModels("https://mock.local", "key"); err == nil {
 		t.Fatal("expected response decode error")
+	}
+}
+
+func TestParseMarkdownFile(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		filename string
+		content  string
+		wantNil  bool
+		wantDate string
+		wantMood string
+		wantWx   string
+	}{
+		{
+			name:     "date from filename",
+			filename: "2024-03-15.md",
+			content:  "Hello world",
+			wantDate: "2024-03-15",
+		},
+		{
+			name:     "date from filename with mood suffix",
+			filename: "2024-03-15_happy.md",
+			content:  "Hello world",
+			wantDate: "2024-03-15",
+		},
+		{
+			name:     "date from heading",
+			filename: "diary.md",
+			content:  "# 2024-05-01\n\nContent here",
+			wantDate: "2024-05-01",
+		},
+		{
+			name:     "mood and weather from content",
+			filename: "2024-01-01.md",
+			content:  "# 2024-01-01\n\n**Mood:** excited\n**Weather:** rainy\n\nBody text",
+			wantDate: "2024-01-01",
+			wantMood: "excited",
+			wantWx:   "rainy",
+		},
+		{
+			name:     "no date returns nil",
+			filename: "notes.md",
+			content:  "Just some notes",
+			wantNil:  true,
+		},
+		{
+			name:     "nested path extracts date",
+			filename: "markdown/2024-07-04_mood.md",
+			content:  "content",
+			wantDate: "2024-07-04",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			result := parseMarkdownFile(tc.filename, []byte(tc.content))
+			if tc.wantNil {
+				if result != nil {
+					t.Fatalf("expected nil, got %+v", result)
+				}
+				return
+			}
+			if result == nil {
+				t.Fatal("expected non-nil result")
+			}
+			if result.Date != tc.wantDate {
+				t.Errorf("Date = %q, want %q", result.Date, tc.wantDate)
+			}
+			if tc.wantMood != "" && result.Mood != tc.wantMood {
+				t.Errorf("Mood = %q, want %q", result.Mood, tc.wantMood)
+			}
+			if tc.wantWx != "" && result.Weather != tc.wantWx {
+				t.Errorf("Weather = %q, want %q", result.Weather, tc.wantWx)
+			}
+		})
+	}
+}
+
+func TestResolveConflictRoutes(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	e := echo.New()
+	RegisterExportImportRoutes(e, s, authMiddlewareFor(user), nil)
+
+	if _, err := s.InsertImportedDiary(user.ID, "old", "2024-06-01", "old content", "sad", "", nil); err != nil {
+		t.Fatalf("InsertImportedDiary: %v", err)
+	}
+
+	body, _ := json.Marshal(resolveConflictRequest{Date: "", Action: "keep_old"})
+	rec := performRequest(t, e, http.MethodPost, "/api/v1/import/resolve", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("empty date status = %d", rec.Code)
+	}
+
+	body, _ = json.Marshal(resolveConflictRequest{Date: "2024-06-01", Action: "invalid"})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/import/resolve", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid action status = %d", rec.Code)
+	}
+
+	body, _ = json.Marshal(resolveConflictRequest{Date: "2024-06-01", Action: "keep_old"})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/import/resolve", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("keep_old status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	body, _ = json.Marshal(resolveConflictRequest{Date: "2024-06-01", Action: "replace", Content: "new content", Mood: "happy", Weather: "sunny"})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/import/resolve", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("replace status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSONBody(t, rec)
+	if payload["status"] != "replaced" {
+		t.Fatalf("replace payload = %#v", payload)
+	}
+	existing, _ := s.GetDiaryByDate(user.ID, "2024-06-01 00:00:00.000Z", "2024-06-01 23:59:59.999Z")
+	if existing == nil || existing.Content != "new content" || existing.Mood != "happy" {
+		t.Fatalf("diary after replace = %+v", existing)
+	}
+
+	body, _ = json.Marshal(resolveConflictRequest{Date: "2024-09-99", Action: "replace", Content: "x"})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/import/resolve", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("replace no existing status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	body = []byte(`{}`)
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/import/resolve", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid bind status = %d", rec.Code)
+	}
+}
+
+func TestImportMdZipFallback(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	e := echo.New()
+	RegisterExportImportRoutes(e, s, authMiddlewareFor(user), nil)
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	w, _ := zw.Create("2024-08-10.md")
+	_, _ = w.Write([]byte("# 2024-08-10\n\n**Mood:** calm\n**Weather:** foggy\n\nA quiet day"))
+	w, _ = zw.Create("2024-08-11.md")
+	_, _ = w.Write([]byte("# 2024-08-11\n\nJust a normal entry"))
+	_ = zw.Close()
+
+	body, contentType := multipartRequestBody(t, "file", "diaries.zip", buf.Bytes(), nil)
+	rec := performRequest(t, e, http.MethodPost, "/api/v1/import", body, map[string]string{"Content-Type": contentType})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST import md zip status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSONBody(t, rec)
+	diaries := payload["diaries"].(map[string]any)
+	if diaries["imported"] != float64(2) {
+		t.Fatalf("imported = %v, want 2", diaries["imported"])
+	}
+}
+
+func TestResolveConflictWithEmbedding(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	vectorDB, err := embedding.NewVectorDB(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewVectorDB: %v", err)
+	}
+	t.Cleanup(func() { _ = vectorDB.Close() })
+	service := embedding.NewEmbeddingService(s, vectorDB)
+	if err := config.NewConfigService(s).Set(user.ID, "ai.enabled", true); err != nil {
+		t.Fatalf("Set ai.enabled: %v", err)
+	}
+	e := echo.New()
+	RegisterExportImportRoutes(e, s, authMiddlewareFor(user), service)
+
+	body, _ := json.Marshal(resolveConflictRequest{Date: "2024-07-04", Action: "replace", Content: "new with embedding"})
+	rec := performRequest(t, e, http.MethodPost, "/api/v1/import/resolve", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("replace with embedding status = %d body=%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestImageUploadSettingsRoutes(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	e := echo.New()
+	RegisterImageUploadRoutes(e, s, authMiddlewareFor(user))
+
+	rec := performRequest(t, e, http.MethodGet, "/api/v1/image-upload/settings", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /image-upload/settings status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/image-upload/settings", strings.NewReader(`{"provider":"local","local":{"path":"/tmp/img"}}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT /image-upload/settings local status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/image-upload/settings", strings.NewReader(`{"provider":"s3","s3":{"bucket":"b","region":"us-east-1","endpoint":"https://s3.amazonaws.com","access_key":"ak","secret":"sk"}}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT /image-upload/settings s3 status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/image-upload/settings", strings.NewReader(`{"provider":"chevereto","chevereto":{"domain":"https://example.com","api_key":"ck"}}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT /image-upload/settings chevereto status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/image-upload/settings", strings.NewReader(`{`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("PUT /image-upload/settings invalid json status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/image-upload/settings", strings.NewReader(`{"provider":"s3","s3":{}}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("PUT /image-upload/settings s3 missing fields status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/image-upload/settings", strings.NewReader(`{"provider":"chevereto","chevereto":{}}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("PUT /image-upload/settings chevereto missing fields status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/image-upload/settings", strings.NewReader(`{"provider":"unknown"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("PUT /image-upload/settings unknown provider status = %d", rec.Code)
 	}
 }

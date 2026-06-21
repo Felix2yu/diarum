@@ -15,7 +15,7 @@
 		type ApiTokenStatus
 	} from '$lib/api/settings';
 	import { getAISettings, saveAISettings, fetchModels, buildVectors, buildVectorsIncremental, getVectorStats, DEFAULT_ANALYSIS_SYSTEM_PROMPT, type AISettings, type ModelInfo, type BuildVectorsResult, type VectorStats } from '$lib/api/ai';
-	import { exportDiaries, importDiaries, type ExportStats, type ImportStats, type ExportOptions } from '$lib/api/exportImport';
+	import { exportDiaries, importDiaries, resolveConflict, type ExportStats, type ImportStats, type ImportDiaryDetail, type ExportOptions } from '$lib/api/exportImport';
 	import { defaultImageUploadSettings, getImageUploadSettings, saveImageUploadSettings, testCheveretoConnection, type ImageUploadProvider, type ImageUploadSettings } from '$lib/api/imageUpload';
 	import { loadImageUploadSettings } from '$lib/stores/imageUpload';
 	import Footer from '$lib/components/ui/Footer.svelte';
@@ -145,6 +145,9 @@
 	let importStats: ImportStats | null = null;
 	let importError = '';
 	let importFile: File | null = null;
+	let resolvingConflict = false;
+	let expandedConflictDate: string | null = null;
+	let conflictViewMode: 'diff' | 'side' = 'diff';
 
 	// Export options
 	let exportOptions: ExportOptions = {
@@ -672,6 +675,91 @@
 			importError = e instanceof Error ? e.message : '导入失败';
 		}
 		importing = false;
+	}
+
+	interface DiffSegment {
+		type: 'same' | 'added' | 'removed';
+		text: string;
+	}
+
+	function computeLineDiff(oldText: string, newText: string): DiffSegment[] {
+		const oldLines = oldText.split('\n');
+		const newLines = newText.split('\n');
+		const result: DiffSegment[] = [];
+		let oi = 0;
+		let ni = 0;
+
+		while (oi < oldLines.length || ni < newLines.length) {
+			if (oi < oldLines.length && ni < newLines.length && oldLines[oi] === newLines[ni]) {
+				result.push({ type: 'same', text: oldLines[oi] });
+				oi++;
+				ni++;
+			} else if (ni >= newLines.length || (oi < oldLines.length && (ni >= newLines.length || oldLines[oi] < newLines[ni]))) {
+				result.push({ type: 'removed', text: oldLines[oi] });
+				oi++;
+			} else {
+				result.push({ type: 'added', text: newLines[ni] });
+				ni++;
+			}
+		}
+		return result;
+	}
+
+	function computeWordDiff(oldText: string, newText: string): DiffSegment[] {
+		const oldWords = oldText.split(/(\s+)/);
+		const newWords = newText.split(/(\s+)/);
+		const result: DiffSegment[] = [];
+		let oi = 0;
+		let ni = 0;
+
+		while (oi < oldWords.length || ni < newWords.length) {
+			if (oi < oldWords.length && ni < newWords.length && oldWords[oi] === newWords[ni]) {
+				result.push({ type: 'same', text: oldWords[oi] });
+				oi++;
+				ni++;
+			} else if (ni >= newWords.length || (oi < oldWords.length && (ni >= newWords.length))) {
+				result.push({ type: 'removed', text: oldWords[oi] });
+				oi++;
+			} else {
+				result.push({ type: 'added', text: newWords[ni] });
+				ni++;
+			}
+		}
+		return result;
+	}
+
+	function hasContentChanged(oldC: string | undefined, newC: string | undefined): boolean {
+		return (oldC || '') !== (newC || '');
+	}
+
+	function hasMoodChanged(oldM: string | undefined, newM: string | undefined): boolean {
+		return (oldM || '') !== (newM || '');
+	}
+
+	function hasWeatherChanged(oldW: string | undefined, newW: string | undefined): boolean {
+		return (oldW || '') !== (newW || '');
+	}
+
+	async function handleResolveConflict(detail: ImportDiaryDetail, action: 'keep_old' | 'replace') {
+		if (!importStats) return;
+		resolvingConflict = true;
+		try {
+			await resolveConflict(detail.date, action, detail.new_content, detail.new_mood, detail.new_weather);
+			if (action === 'replace') {
+				importStats.diaries.conflict--;
+				importStats.diaries.imported++;
+			} else {
+				importStats.diaries.conflict--;
+				importStats.diaries.skipped++;
+			}
+			importStats.diary_details = importStats.diary_details?.map(d =>
+				d.date === detail.date ? { ...d, status: action === 'replace' ? 'imported' : 'skipped' } : d
+			);
+			importStats = { ...importStats };
+		} catch (e) {
+			importError = e instanceof Error ? e.message : '解决冲突失败';
+		}
+		resolvingConflict = false;
 	}
 
 	onMount(() => {
@@ -1965,7 +2053,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 					<!-- 导入 -->
 					<div class="py-4">
 						<div class="font-medium text-foreground mb-1">导入</div>
-						<div class="text-sm text-muted-foreground mb-3">从之前导出的 ZIP 文件中恢复日记数据。日期已存在的日记将被跳过。</div>
+						<div class="text-sm text-muted-foreground mb-3">从 ZIP 文件中恢复日记数据，支持导出的 ZIP 或包含多个 .md 文件的 ZIP。日期冲突时可选择保留哪个版本。</div>
 
 						{#if importError}
 							<div class="mb-3 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
@@ -2013,6 +2101,9 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 										{#if importStats.diaries.skipped > 0}
 											, <span class="text-amber-600 font-medium">{importStats.diaries.skipped} 已跳过</span>
 										{/if}
+										{#if importStats.diaries.conflict > 0}
+											, <span class="text-orange-500 font-medium">{importStats.diaries.conflict} 日期冲突</span>
+										{/if}
 										{#if importStats.diaries.failed > 0}
 											, <span class="text-destructive font-medium">{importStats.diaries.failed} 失败</span>
 										{/if}
@@ -2041,6 +2132,157 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 										<span class="text-muted-foreground">（共 {importStats.conversations.total} 条）</span>
 									</div>
 								</div>
+
+								{#if importStats.diary_details && importStats.diary_details.length > 0}
+									<div class="mt-3 border-t border-border pt-3">
+										<div class="font-medium text-foreground mb-2">详细结果</div>
+										<div class="space-y-1">
+											{#each importStats.diary_details as detail}
+												{#if detail.status === 'imported'}
+													<div class="flex items-center gap-2 text-green-600">
+														<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+														<span>{detail.date}</span>
+														<span class="text-muted-foreground">已导入</span>
+													</div>
+												{:else if detail.status === 'skipped'}
+													<div class="flex items-center gap-2 text-amber-600">
+														<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+														<span>{detail.date}</span>
+														<span class="text-muted-foreground">已跳过（保留旧版本）</span>
+													</div>
+												{:else if detail.status === 'conflict'}
+													<div class="border border-orange-300 rounded-lg bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800">
+														<button
+															class="w-full flex items-center justify-between text-left p-3"
+															onclick={() => expandedConflictDate = expandedConflictDate === detail.date ? null : detail.date}
+														>
+															<div class="flex items-center gap-2 text-orange-600">
+																<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+																<span class="font-medium">{detail.date}</span>
+																<span class="text-muted-foreground">日期冲突</span>
+																{#if hasContentChanged(detail.old_content, detail.new_content)}
+																	<span class="text-[10px] px-1.5 py-0.5 bg-orange-200 dark:bg-orange-800 text-orange-700 dark:text-orange-300 rounded">内容不同</span>
+																{/if}
+																{#if hasMoodChanged(detail.old_mood, detail.new_mood)}
+																	<span class="text-[10px] px-1.5 py-0.5 bg-purple-200 dark:bg-purple-800 text-purple-700 dark:text-purple-300 rounded">心情不同</span>
+																{/if}
+																{#if hasWeatherChanged(detail.old_weather, detail.new_weather)}
+																	<span class="text-[10px] px-1.5 py-0.5 bg-blue-200 dark:bg-blue-800 text-blue-700 dark:text-blue-300 rounded">天气不同</span>
+																{/if}
+															</div>
+															<svg class="w-4 h-4 text-muted-foreground transition-transform {expandedConflictDate === detail.date ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+														</button>
+														{#if expandedConflictDate === detail.date}
+															<div class="px-3 pb-3 space-y-3">
+																<div class="flex items-center gap-2 border-t border-orange-200 dark:border-orange-800 pt-2">
+																	<span class="text-xs text-muted-foreground">视图：</span>
+																	<button
+																		onclick={() => conflictViewMode = 'diff'}
+																		class="text-xs px-2 py-1 rounded transition-colors {conflictViewMode === 'diff' ? 'bg-orange-500 text-white' : 'bg-muted hover:bg-muted/80'}"
+																	>
+																		差异对比
+																	</button>
+																	<button
+																		onclick={() => conflictViewMode = 'side'}
+																		class="text-xs px-2 py-1 rounded transition-colors {conflictViewMode === 'side' ? 'bg-orange-500 text-white' : 'bg-muted hover:bg-muted/80'}"
+																	>
+																		并排查看
+																	</button>
+																</div>
+
+																{#if conflictViewMode === 'diff'}
+																	<div class="bg-background rounded border text-xs max-h-60 overflow-y-auto font-mono">
+																		{#each computeLineDiff(detail.old_content || '', detail.new_content || '') as seg}
+																			{#if seg.type === 'same'}
+																				<div class="px-2 py-0.5 whitespace-pre-wrap">{seg.text}</div>
+																			{:else if seg.type === 'removed'}
+																				<div class="px-2 py-0.5 bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 whitespace-pre-wrap border-l-2 border-red-400">- {seg.text}</div>
+																			{:else}
+																				<div class="px-2 py-0.5 bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300 whitespace-pre-wrap border-l-2 border-green-400">+ {seg.text}</div>
+																			{/if}
+																		{/each}
+																		{#if (detail.old_content || '') === (detail.new_content || '')}
+																			<div class="px-2 py-1 text-muted-foreground italic">内容相同</div>
+																		{/if}
+																	</div>
+																{:else}
+																	<div class="grid grid-cols-2 gap-3">
+																		<div class="space-y-1">
+																			<div class="text-xs font-medium text-orange-600 flex items-center gap-1">
+																				<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+																				现有版本
+																			</div>
+																			<div class="p-2 bg-background rounded border text-xs max-h-48 overflow-y-auto whitespace-pre-wrap">{detail.old_content || '（无内容）'}</div>
+																		</div>
+																		<div class="space-y-1">
+																			<div class="text-xs font-medium text-green-600 flex items-center gap-1">
+																				<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+																				导入版本
+																			</div>
+																			<div class="p-2 bg-background rounded border text-xs max-h-48 overflow-y-auto whitespace-pre-wrap">{detail.new_content || '（无内容）'}</div>
+																		</div>
+																	</div>
+																{/if}
+
+																{#if hasMoodChanged(detail.old_mood, detail.new_mood) || hasWeatherChanged(detail.old_weather, detail.new_weather)}
+																	<div class="flex gap-4 text-xs">
+																		{#if hasMoodChanged(detail.old_mood, detail.new_mood)}
+																			<div class="flex items-center gap-2">
+																				<span class="text-muted-foreground">心情：</span>
+																				<span class="px-1.5 py-0.5 bg-red-100 dark:bg-red-950/40 text-red-600 line-through rounded">{detail.old_mood || '无'}</span>
+																				<svg class="w-3 h-3 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+																				<span class="px-1.5 py-0.5 bg-green-100 dark:bg-green-950/40 text-green-600 rounded">{detail.new_mood || '无'}</span>
+																			</div>
+																		{/if}
+																		{#if hasWeatherChanged(detail.old_weather, detail.new_weather)}
+																			<div class="flex items-center gap-2">
+																				<span class="text-muted-foreground">天气：</span>
+																				<span class="px-1.5 py-0.5 bg-red-100 dark:bg-red-950/40 text-red-600 line-through rounded">{detail.old_weather || '无'}</span>
+																				<svg class="w-3 h-3 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+																				<span class="px-1.5 py-0.5 bg-green-100 dark:bg-green-950/40 text-green-600 rounded">{detail.new_weather || '无'}</span>
+																			</div>
+																		{/if}
+																	</div>
+																{/if}
+
+																<div class="flex gap-2 pt-1">
+																	<button
+																		onclick={() => handleResolveConflict(detail, 'keep_old')}
+																		disabled={resolvingConflict}
+																		class="flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-background border border-orange-300 dark:border-orange-700 text-foreground hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded-lg transition-colors disabled:opacity-50"
+																	>
+																		<svg class="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+																		保留现有版本
+																	</button>
+																	<button
+																		onclick={() => handleResolveConflict(detail, 'replace')}
+																		disabled={resolvingConflict}
+																		class="flex items-center gap-1.5 px-4 py-2 text-xs font-medium bg-orange-500 text-white hover:bg-orange-600 rounded-lg transition-colors disabled:opacity-50 shadow-sm"
+																	>
+																		<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0l-4 4m4-4v12"/></svg>
+																		替换为导入版本
+																	</button>
+																	{#if resolvingConflict}
+																		<div class="flex items-center gap-1 text-xs text-muted-foreground">
+																			<svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+																			处理中...
+																		</div>
+																	{/if}
+																</div>
+															</div>
+														{/if}
+													</div>
+												{:else if detail.status === 'failed'}
+													<div class="flex items-center gap-2 text-destructive">
+														<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+														<span>{detail.date || '（无日期）'}</span>
+														<span class="text-muted-foreground">失败：{detail.reason}</span>
+													</div>
+												{/if}
+											{/each}
+										</div>
+									</div>
+								{/if}
 							</div>
 						{/if}
 					</div>

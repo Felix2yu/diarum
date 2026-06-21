@@ -270,3 +270,94 @@ func TestRunServe(t *testing.T) {
 		}
 	})
 }
+
+func TestMimeByExtension(t *testing.T) {
+	tests := []struct{ path, want string }{
+		{"app.js", "application/javascript"},
+		{"style.css", "text/css"},
+		{"page.html", "text/html"},
+		{"icon.svg", "image/svg+xml"},
+		{"photo.png", "image/png"},
+		{"pic.jpg", "image/jpeg"},
+		{"pic.jpeg", "image/jpeg"},
+		{"img.webp", "image/webp"},
+		{"font.woff2", "font/woff2"},
+		{"font.woff", "font/woff"},
+		{"data.json", "application/json"},
+		{"file.txt", "application/octet-stream"},
+		{"", "application/octet-stream"},
+	}
+	for _, tt := range tests {
+		if got := mimeByExtension(tt.path); got != tt.want {
+			t.Errorf("mimeByExtension(%q) = %q, want %q", tt.path, got, tt.want)
+		}
+	}
+}
+
+func TestServeSPACompressed(t *testing.T) {
+	fsys := fstest.MapFS{
+		"index.html":     &fstest.MapFile{Data: []byte("plain")},
+		"app.js":         &fstest.MapFile{Data: []byte("plain-js")},
+		"app.js.zst":     &fstest.MapFile{Data: []byte("zstd-js")},
+		"app.js.br":      &fstest.MapFile{Data: []byte("br-js")},
+		"style.css":      &fstest.MapFile{Data: []byte("plain-css")},
+		"style.css.br":   &fstest.MapFile{Data: []byte("br-css")},
+		"image.png":      &fstest.MapFile{Data: []byte("plain-png")},
+		"image.png.zst":  &fstest.MapFile{Data: []byte("zst-png")},
+	}
+
+	tests := []struct {
+		name       string
+		path       string
+		acceptEnc  string
+		wantBody   string
+		wantEncHdr string
+	}{
+		{name: "zstd preferred", path: "/app.js", acceptEnc: "zstd, br", wantBody: "zstd-js", wantEncHdr: "zstd"},
+		{name: "br fallback", path: "/app.js", acceptEnc: "br", wantBody: "br-js", wantEncHdr: "br"},
+		{name: "no accept-encoding", path: "/app.js", acceptEnc: "", wantBody: "plain-js", wantEncHdr: ""},
+		{name: "br preferred for css", path: "/style.css", acceptEnc: "br, zstd", wantBody: "br-css", wantEncHdr: "br"},
+		{name: "zstd for png", path: "/image.png", acceptEnc: "zstd", wantBody: "zst-png", wantEncHdr: "zstd"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			if tt.acceptEnc != "" {
+				req.Header.Set("Accept-Encoding", tt.acceptEnc)
+			}
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+			if err := serveSPA(c, fs.FS(fsys)); err != nil {
+				t.Fatalf("serveSPA: %v", err)
+			}
+			if body := rec.Body.String(); body != tt.wantBody {
+				t.Errorf("body = %q, want %q", body, tt.wantBody)
+			}
+			if got := rec.Header().Get("Content-Encoding"); got != tt.wantEncHdr {
+				t.Errorf("Content-Encoding = %q, want %q", got, tt.wantEncHdr)
+			}
+		})
+	}
+}
+
+func TestServeSPAStatError(t *testing.T) {
+	fsys := fstest.MapFS{
+		"index.html": &fstest.MapFile{Data: []byte("root")},
+		"dir/":       &fstest.MapFile{Mode: fs.ModeDir},
+	}
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/dir/noindex", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	if err := serveSPA(c, fs.FS(fsys)); err != nil {
+		t.Fatalf("serveSPA dir noindex: %v", err)
+	}
+}
+
+func TestMainFunction(t *testing.T) {
+	if err := run([]string{"version"}, io.Discard); err != nil {
+		t.Fatalf("main version: %v", err)
+	}
+}

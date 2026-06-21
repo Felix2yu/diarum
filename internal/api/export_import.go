@@ -97,6 +97,7 @@ type exportFailedItem struct {
 
 type importStats struct {
 	Diaries       importCounters `json:"diaries"`
+	DiaryDetails  []importDiaryDetail `json:"diary_details,omitempty"`
 	Media         importCounters `json:"media"`
 	Conversations importCounters `json:"conversations"`
 }
@@ -106,12 +107,35 @@ type importCounters struct {
 	Imported int `json:"imported"`
 	Skipped  int `json:"skipped"`
 	Failed   int `json:"failed"`
+	Conflict int `json:"conflict"`
+}
+
+type importDiaryDetail struct {
+	Date      string `json:"date"`
+	Status    string `json:"status"`
+	Reason    string `json:"reason,omitempty"`
+	NewContent string `json:"new_content,omitempty"`
+	NewMood   string `json:"new_mood,omitempty"`
+	NewWeather string `json:"new_weather,omitempty"`
+	OldID     string `json:"old_id,omitempty"`
+	OldContent string `json:"old_content,omitempty"`
+	OldMood   string `json:"old_mood,omitempty"`
+	OldWeather string `json:"old_weather,omitempty"`
+}
+
+type resolveConflictRequest struct {
+	Date    string `json:"date"`
+	Action  string `json:"action"`
+	Content string `json:"content,omitempty"`
+	Mood    string `json:"mood,omitempty"`
+	Weather string `json:"weather,omitempty"`
 }
 
 func RegisterExportImportRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.MiddlewareFunc, embeddingService *embedding.EmbeddingService) {
 	group := e.Group("/api/v1", authMiddleware)
 	group.POST("/export", func(c echo.Context) error { return handleExport(c, s) })
 	group.POST("/import", func(c echo.Context) error { return handleImport(c, s, embeddingService) })
+	group.POST("/import/resolve", func(c echo.Context) error { return handleResolveConflict(c, s, embeddingService) })
 }
 
 func handleExport(c echo.Context, s *store.Store) error {
@@ -257,6 +281,7 @@ func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.Em
 	}
 	var exportJSON []byte
 	mediaFiles := make(map[string][]byte)
+	mdFiles := make(map[string][]byte)
 	for _, zf := range zipReader.File {
 		if !isValidZipPath(zf.Name) || zf.UncompressedSize64 > maxSingleFileSize {
 			continue
@@ -278,34 +303,61 @@ func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.Em
 			if name != "" {
 				mediaFiles[name] = data
 			}
+		case strings.HasSuffix(zf.Name, ".md"):
+			mdFiles[zf.Name] = data
 		}
 	}
-	if exportJSON == nil {
-		return badRequest("ZIP missing diarum_export.json", nil)
-	}
 	var data exportData
-	if err := json.Unmarshal(exportJSON, &data); err != nil {
-		return badRequest("Failed to parse diarum_export.json", err)
+	if exportJSON != nil {
+		if err := json.Unmarshal(exportJSON, &data); err != nil {
+			return badRequest("Failed to parse diarum_export.json", err)
+		}
+	} else if len(mdFiles) > 0 {
+		diaries := make([]exportDiary, 0)
+		for name, content := range mdFiles {
+			diary := parseMarkdownFile(name, content)
+			if diary != nil {
+				diaries = append(diaries, *diary)
+			}
+		}
+		if len(diaries) == 0 {
+			return badRequest("No valid diary entries found in .md files", nil)
+		}
+		data = exportData{Version: 1, Diaries: diaries, Media: make([]exportMedia, 0), Conversations: make([]exportConversation, 0)}
+	} else {
+		return badRequest("ZIP missing diarum_export.json or .md files", nil)
 	}
-	stats := importStats{Diaries: importCounters{Total: len(data.Diaries)}, Media: importCounters{Total: len(data.Media)}, Conversations: importCounters{Total: len(data.Conversations)}}
+	stats := importStats{Diaries: importCounters{Total: len(data.Diaries)}, Media: importCounters{Total: len(data.Media)}, Conversations: importCounters{Total: len(data.Conversations)}, DiaryDetails: make([]importDiaryDetail, 0)}
 	diaryIDMap := make(map[string]string)
 	for _, d := range data.Diaries {
 		if d.Date == "" {
 			stats.Diaries.Failed++
+			stats.DiaryDetails = append(stats.DiaryDetails, importDiaryDetail{Date: d.Date, Status: "failed", Reason: "日期为空"})
 			continue
 		}
 		if s.DiaryExistsByDate(userID, d.Date) {
-			stats.Diaries.Skipped++
+			existing, _ := s.GetDiaryByDate(userID, d.Date+" 00:00:00.000Z", d.Date+" 23:59:59.999Z")
+			detail := importDiaryDetail{Date: d.Date, Status: "conflict", NewContent: d.Content, NewMood: d.Mood, NewWeather: d.Weather}
+			if existing != nil {
+				detail.OldID = existing.ID
+				detail.OldContent = existing.Content
+				detail.OldMood = existing.Mood
+				detail.OldWeather = existing.Weather
+			}
+			stats.Diaries.Conflict++
+			stats.DiaryDetails = append(stats.DiaryDetails, detail)
 			diaryIDMap[d.ID] = ""
 			continue
 		}
 		diary, err := s.InsertImportedDiary(userID, "", d.Date, d.Content, d.Mood, d.Weather, nil)
 		if err != nil {
 			stats.Diaries.Failed++
+			stats.DiaryDetails = append(stats.DiaryDetails, importDiaryDetail{Date: d.Date, Status: "failed", Reason: err.Error()})
 			continue
 		}
 		diaryIDMap[d.ID] = diary.ID
 		stats.Diaries.Imported++
+		stats.DiaryDetails = append(stats.DiaryDetails, importDiaryDetail{Date: d.Date, Status: "imported"})
 	}
 	for _, m := range data.Media {
 		fileBytes, ok := mediaFiles[m.File]
@@ -371,8 +423,98 @@ func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.Em
 	return c.JSON(http.StatusOK, stats)
 }
 
+func handleResolveConflict(c echo.Context, s *store.Store, embeddingService *embedding.EmbeddingService) error {
+	userID := auth.CurrentUser(c).ID
+	var req resolveConflictRequest
+	if err := c.Bind(&req); err != nil {
+		return badRequest("Invalid request", err)
+	}
+	if req.Date == "" || (req.Action != "keep_old" && req.Action != "replace") {
+		return badRequest("date and valid action (keep_old|replace) required", nil)
+	}
+	if req.Action == "keep_old" {
+		return c.JSON(http.StatusOK, map[string]string{"status": "kept"})
+	}
+	existing, _ := s.GetDiaryByDate(userID, req.Date+" 00:00:00.000Z", req.Date+" 23:59:59.999Z")
+	if existing != nil {
+		if err := s.DeleteDiary(existing.ID, userID); err != nil {
+			return badRequest("Failed to delete old diary", err)
+		}
+	}
+	diary, err := s.InsertImportedDiary(userID, "", req.Date, req.Content, req.Mood, req.Weather, nil)
+	if err != nil {
+		return badRequest("Failed to insert new diary", err)
+	}
+	if embeddingService != nil {
+		configService := config.NewConfigService(s)
+		enabled, _ := configService.GetBool(userID, "ai.enabled")
+		if enabled {
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+				defer cancel()
+				_, _ = embeddingService.BuildIncrementalVectors(ctx, userID)
+			}()
+		}
+	}
+	return c.JSON(http.StatusOK, map[string]string{"status": "replaced", "id": diary.ID})
+}
+
 func isValidZipPath(name string) bool {
 	return !strings.Contains(name, "..") && !strings.HasPrefix(name, "/") && !strings.HasPrefix(name, "\\")
+}
+
+func parseMarkdownFile(name string, content []byte) *exportDiary {
+	text := string(content)
+	lines := strings.Split(text, "\n")
+
+	var date string
+	base := filepath.Base(name)
+	ext := filepath.Ext(base)
+	nameWithoutExt := strings.TrimSuffix(base, ext)
+	parts := strings.SplitN(nameWithoutExt, "_", 2)
+	candidate := strings.TrimSpace(parts[0])
+	if len(candidate) == 10 {
+		if _, err := time.Parse("2006-01-02", candidate); err == nil {
+			date = candidate
+		}
+	}
+	if date == "" {
+		for _, line := range lines {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasPrefix(trimmed, "# ") {
+				datePart := strings.TrimSpace(strings.TrimPrefix(trimmed, "# "))
+				if len(datePart) >= 10 {
+					if _, err := time.Parse("2006-01-02", datePart[:10]); err == nil {
+						date = datePart[:10]
+						break
+					}
+				}
+			}
+		}
+	}
+	if date == "" {
+		return nil
+	}
+	mood := ""
+	weather := ""
+	contentLines := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "# ") {
+			continue
+		}
+		if strings.HasPrefix(trimmed, "**Mood:**") || strings.HasPrefix(trimmed, "**mood:**") {
+			mood = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(trimmed, "**Mood:**"), "**mood:**"))
+			continue
+		}
+		if strings.HasPrefix(trimmed, "**Weather:**") || strings.HasPrefix(trimmed, "**weather:**") {
+			weather = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(trimmed, "**Weather:**"), "**weather:**"))
+			continue
+		}
+		contentLines = append(contentLines, line)
+	}
+	content = []byte(strings.TrimSpace(strings.Join(contentLines, "\n")))
+	return &exportDiary{Date: date, Content: string(content), Mood: mood, Weather: weather}
 }
 
 func generateMarkdown(d exportDiary) string {

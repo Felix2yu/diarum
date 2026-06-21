@@ -357,6 +357,32 @@ func TestValidateTokenAndGetUserEdgeCases(t *testing.T) {
 			t.Fatalf("ValidateTokenAndGetUser wrong token user = %q, want empty", userID)
 		}
 	})
+
+	t.Run("valid token with api disabled", func(t *testing.T) {
+		if err := service.Set(user.ID, "api.enabled", false); err != nil {
+			t.Fatalf("Set api.enabled false: %v", err)
+		}
+		userID, err := service.ValidateTokenAndGetUser("secret-token")
+		if !errors.Is(err, ErrAPIDisabled) {
+			t.Fatalf("ValidateTokenAndGetUser disabled err = %v, want ErrAPIDisabled", err)
+		}
+		if userID != "" {
+			t.Fatalf("ValidateTokenAndGetUser disabled user = %q, want empty", userID)
+		}
+		if err := service.Set(user.ID, "api.enabled", true); err != nil {
+			t.Fatalf("Set api.enabled true: %v", err)
+		}
+	})
+
+	t.Run("valid token api enabled", func(t *testing.T) {
+		userID, err := service.ValidateTokenAndGetUser("secret-token")
+		if err != nil {
+			t.Fatalf("ValidateTokenAndGetUser valid: %v", err)
+		}
+		if userID != user.ID {
+			t.Fatalf("ValidateTokenAndGetUser valid user = %q, want %q", userID, user.ID)
+		}
+	})
 }
 
 func TestParseStringValueEmbedded(t *testing.T) {

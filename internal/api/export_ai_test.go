@@ -238,7 +238,7 @@ func TestExportImportRoutesAndHelpers(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("POST /api/v1/import repeat status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	if payload := decodeJSONBody(t, rec); payload["diaries"].(map[string]any)["skipped"] == float64(0) {
+	if payload := decodeJSONBody(t, rec); payload["diaries"].(map[string]any)["conflict"] == float64(0) {
 		t.Fatalf("repeat import payload = %#v", payload)
 	}
 
