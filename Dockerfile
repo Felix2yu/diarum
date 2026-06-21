@@ -1,5 +1,14 @@
 # syntax=docker/dockerfile:1.17
 
+# ---- Go module cache (runs in parallel with frontend) ----
+FROM golang:1.26-alpine AS go-modules
+
+WORKDIR /app
+COPY go.mod go.sum ./
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
 # ---- Frontend build stage ----
 FROM node:24-alpine AS frontend-builder
 
@@ -24,11 +33,7 @@ FROM golang:1.26-alpine AS backend-builder
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
-
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    go mod download
+COPY --from=go-modules /go/pkg/mod /go/pkg/mod
 
 COPY --from=frontend-builder /app/site/build ./internal/static/build
 
@@ -36,8 +41,7 @@ COPY main.go diarum.go ./
 COPY internal/ ./internal/
 
 ARG VERSION=dev
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,target=/root/.cache/go-build \
     echo "Building version: $VERSION" && \
     CGO_ENABLED=0 GOOS=linux go build \
       -trimpath \
