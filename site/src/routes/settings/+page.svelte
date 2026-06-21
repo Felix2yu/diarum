@@ -1049,10 +1049,10 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 										<div
 											draggable="true"
 											role="listitem"
-											on:dragstart={() => handleDragStart('mood', index)}
-											on:dragover={(event) => handleDragOver(event, 'mood', index)}
-											on:drop={() => handleDrop('mood', index)}
-											on:dragend={clearDragState}
+											ondragstart={() => handleDragStart('mood', index)}
+											ondragover={(event) => handleDragOver(event, 'mood', index)}
+											ondrop={() => handleDrop('mood', index)}
+											ondragend={clearDragState}
 											class="relative w-14 h-14 rounded-xl border transition-colors flex items-center justify-center cursor-grab select-none {dragOverType === 'mood' && dragOverIndex === index ? 'border-primary bg-primary/10' : 'bg-muted/70 border-border/60'}"
 											title={option}
 										>
@@ -1070,8 +1070,8 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									{/each}
 									<div
 										role="status"
-										on:dragover={(event) => handleDragOver(event, 'mood', moodOptions.length - 1)}
-										on:drop={() => handleDropToEnd('mood')}
+										ondragover={(event) => handleDragOver(event, 'mood', moodOptions.length - 1)}
+										ondrop={() => handleDropToEnd('mood')}
 										class="h-14 px-3 rounded-xl border border-dashed text-xs text-muted-foreground flex items-center {dragOverType === 'mood' ? 'border-primary bg-primary/5' : 'border-border/60'}"
 									>
 										拖到末尾
@@ -1120,10 +1120,10 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 										<div
 											draggable="true"
 											role="listitem"
-											on:dragstart={() => handleDragStart('weather', index)}
-											on:dragover={(event) => handleDragOver(event, 'weather', index)}
-											on:drop={() => handleDrop('weather', index)}
-											on:dragend={clearDragState}
+											ondragstart={() => handleDragStart('weather', index)}
+											ondragover={(event) => handleDragOver(event, 'weather', index)}
+											ondrop={() => handleDrop('weather', index)}
+											ondragend={clearDragState}
 											class="relative w-14 h-14 rounded-xl border transition-colors flex items-center justify-center cursor-grab select-none {dragOverType === 'weather' && dragOverIndex === index ? 'border-primary bg-primary/10' : 'bg-muted/70 border-border/60'}"
 											title={option}
 										>
@@ -1141,8 +1141,8 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									{/each}
 									<div
 										role="status"
-										on:dragover={(event) => handleDragOver(event, 'weather', weatherOptions.length - 1)}
-										on:drop={() => handleDropToEnd('weather')}
+										ondragover={(event) => handleDragOver(event, 'weather', weatherOptions.length - 1)}
+										ondrop={() => handleDropToEnd('weather')}
 										class="h-14 px-3 rounded-xl border border-dashed text-xs text-muted-foreground flex items-center {dragOverType === 'weather' ? 'border-primary bg-primary/5' : 'border-border/60'}"
 									>
 										拖到末尾
