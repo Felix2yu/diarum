@@ -11,7 +11,7 @@ RUN --mount=type=cache,target=/var/cache/apk \
 COPY site/package*.json ./
 
 RUN --mount=type=cache,target=/root/.npm \
-    npm install --no-audit --no-fund --loglevel=error
+    npm ci --no-audit --no-fund --loglevel=error
 
 COPY site/ ./
 
