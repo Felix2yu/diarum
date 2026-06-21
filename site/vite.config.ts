@@ -7,6 +7,17 @@ import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 const BUILD_REVISION = Date.now().toString();
 
 export default defineConfig({
+	build: {
+		rollupOptions: {
+			output: {
+				manualChunks(id) {
+					if (id.includes('node_modules/marked')) {
+						return 'marked';
+					}
+				}
+			}
+		}
+	},
 	plugins: [
 		sveltekit(),
 		SvelteKitPWA({

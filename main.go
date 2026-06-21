@@ -40,6 +40,10 @@ func getDataDir() string {
 	return "./diarum_data"
 }
 
+func acceptEncoding(r *http.Request, encoding string) bool {
+	return strings.Contains(r.Header.Get("Accept-Encoding"), encoding)
+}
+
 func serveSPA(c echo.Context, fsys fs.FS) error {
 	path := c.Request().URL.Path
 	if strings.HasPrefix(path, "/api/") {
@@ -50,6 +54,26 @@ func serveSPA(c echo.Context, fsys fs.FS) error {
 		path = "/"
 	}
 	path = strings.TrimPrefix(path, "/")
+
+	// Try zstd first (best ratio + fastest decompression), then brotli
+	for _, enc := range []struct{ ext, header string }{
+		{".zst", "zstd"},
+		{".br", "br"},
+	} {
+		if acceptEncoding(c.Request(), enc.header) {
+			compressed := path + enc.ext
+			if f, err := fsys.Open(compressed); err == nil {
+				defer f.Close()
+				if stat, err := f.Stat(); err == nil && !stat.IsDir() {
+					c.Response().Header().Set(echo.HeaderContentEncoding, enc.header)
+					c.Response().Header().Set(echo.HeaderContentType, mimeByExtension(path))
+					http.ServeContent(c.Response(), c.Request(), stat.Name(), stat.ModTime(), f.(io.ReadSeeker))
+					return nil
+				}
+			}
+		}
+	}
+
 	file, err := fsys.Open(path)
 	if err == nil {
 		defer file.Close()
@@ -84,6 +108,33 @@ func serveSPA(c echo.Context, fsys fs.FS) error {
 	}
 	http.ServeContent(c.Response(), c.Request(), "index.html", stat.ModTime(), indexFile.(io.ReadSeeker))
 	return nil
+}
+
+func mimeByExtension(path string) string {
+	switch {
+	case strings.HasSuffix(path, ".js"):
+		return "application/javascript"
+	case strings.HasSuffix(path, ".css"):
+		return "text/css"
+	case strings.HasSuffix(path, ".html"):
+		return "text/html"
+	case strings.HasSuffix(path, ".svg"):
+		return "image/svg+xml"
+	case strings.HasSuffix(path, ".png"):
+		return "image/png"
+	case strings.HasSuffix(path, ".jpg"), strings.HasSuffix(path, ".jpeg"):
+		return "image/jpeg"
+	case strings.HasSuffix(path, ".webp"):
+		return "image/webp"
+	case strings.HasSuffix(path, ".woff2"):
+		return "font/woff2"
+	case strings.HasSuffix(path, ".woff"):
+		return "font/woff"
+	case strings.HasSuffix(path, ".json"):
+		return "application/json"
+	default:
+		return "application/octet-stream"
+	}
 }
 
 func main() {
@@ -183,10 +234,7 @@ func run(args []string, stdout io.Writer) error {
 		e.GET("/*", func(c echo.Context) error { return serveSPA(c, staticFS) })
 	}
 
-	if err := startServer(e, *httpAddr); err != nil && err != http.ErrServerClosed {
-		if errors.Is(err, http.ErrServerClosed) {
-			return nil
-		}
+	if err := startServer(e, *httpAddr); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 	return nil

@@ -5,6 +5,9 @@ FROM node:24-alpine AS frontend-builder
 
 WORKDIR /app/site
 
+RUN --mount=type=cache,target=/var/cache/apk \
+    apk add --no-cache zstd
+
 COPY site/package*.json ./
 
 RUN --mount=type=cache,target=/root/.npm \

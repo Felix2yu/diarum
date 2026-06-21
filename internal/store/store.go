@@ -210,7 +210,7 @@ func Open(dataDir string) (*Store, error) {
 }
 
 func openSQLite(path string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)")
+	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)")
 	if err != nil {
 		return nil, err
 	}
@@ -1132,28 +1132,16 @@ func (s *Store) ListDiariesByTag(owner, tag string) ([]*Diary, error) {
 	if tag == "" {
 		return []*Diary{}, nil
 	}
-	// SQLite JSON_EXTRACT on JSON string column stored as TEXT; we use JSON1 like-condition by scanning.
-	rows, err := s.DB.Query(`SELECT content, created, date, id, mood, owner, updated, weather, tags FROM diaries WHERE owner = ? ORDER BY date DESC`, owner)
+	rows, err := s.DB.Query(
+		`SELECT d.content, d.created, d.date, d.id, d.mood, d.owner, d.updated, d.weather, d.tags
+		 FROM diaries d, json_each(d.tags) j
+		 WHERE d.owner = ? AND j.value = ?
+		 ORDER BY d.date DESC`, owner, tag)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	result := make([]*Diary, 0)
-	for rows.Next() {
-		d := &Diary{}
-		var tagsRaw string
-		if err := rows.Scan(&d.Content, &d.Created, &d.Date, &d.ID, &d.Mood, &d.Owner, &d.Updated, &d.Weather, &tagsRaw); err != nil {
-			return nil, err
-		}
-		d.Tags = decodeStringSlice(tagsRaw)
-		for _, t := range d.Tags {
-			if t == tag {
-				result = append(result, d)
-				break
-			}
-		}
-	}
-	return result, rows.Err()
+	return scanDiaries(rows)
 }
 
 func dayRange(date string) (string, string) {
@@ -1312,38 +1300,35 @@ func (s *Store) GetSettings(userID string) (map[string]any, error) {
 }
 
 func (s *Store) ValidateAPIToken(token string) (string, error) {
-	rows, err := s.DB.Query(`
-		SELECT token.user, token.value, enabled.value
-		FROM user_settings token
-		LEFT JOIN user_settings enabled ON enabled.user = token.user AND enabled.key = 'api.enabled'
-		WHERE token.key = 'api.token'
-	`)
+	var userID string
+	var enabledRaw sql.NullString
+	err := s.DB.QueryRow(`
+		SELECT t.user, e.value
+		FROM user_settings t
+		LEFT JOIN user_settings e ON e.user = t.user AND e.key = 'api.enabled'
+		WHERE t.key = 'api.token'
+		  AND (
+		    t.value = ? OR
+		    t.value = '"' || ? || '"' OR
+		    t.value = json_quote(?)
+		  )
+		LIMIT 1
+	`, token, token, token).Scan(&userID, &enabledRaw)
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
 		return "", err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var userID string
-		var tokenRaw sql.NullString
-		var enabledRaw sql.NullString
-		if err := rows.Scan(&userID, &tokenRaw, &enabledRaw); err != nil {
-			return "", err
-		}
-		var stored string
-		if tokenRaw.Valid {
-			_ = json.Unmarshal([]byte(tokenRaw.String), &stored)
-		}
-		if stored == token {
-			var enabled bool
-			if enabledRaw.Valid {
-				_ = json.Unmarshal([]byte(enabledRaw.String), &enabled)
-			}
-			if enabled {
-				return userID, nil
-			}
-			return "", errors.New("api disabled")
-		}
+	var enabled bool
+	if enabledRaw.Valid {
+		_ = json.Unmarshal([]byte(enabledRaw.String), &enabled)
 	}
+	if !enabled {
+		return "", errors.New("api disabled")
+	}
+	return userID, nil
+}
 	return "", rows.Err()
 }
 
