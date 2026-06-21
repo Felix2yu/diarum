@@ -8,7 +8,7 @@ WORKDIR /app/site
 COPY site/package*.json ./
 
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --no-audit --no-fund --loglevel=error
+    npm install --no-audit --no-fund --loglevel=error
 
 COPY site/ ./
 
