@@ -103,7 +103,7 @@
 				{/if}
 
 				{#if activeTab === 'login'}
-					<form on:submit|preventDefault={handleLogin} class="space-y-4">
+					<form onsubmit={(e) => { e.preventDefault(); handleLogin(); }} class="space-y-4">
 						<div>
 							<label for="usernameOrEmail" class="block text-sm font-medium text-foreground mb-1.5">
 								用户名或邮箱
@@ -146,7 +146,7 @@
 						</button>
 					</form>
 				{:else}
-					<form on:submit|preventDefault={handleRegister} class="space-y-4">
+					<form onsubmit={(e) => { e.preventDefault(); handleRegister(); }} class="space-y-4">
 						<div>
 							<label for="username" class="block text-sm font-medium text-foreground mb-1.5">
 								用户名

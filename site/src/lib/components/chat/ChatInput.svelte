@@ -22,7 +22,7 @@
 	}
 </script>
 
-<form on:submit|preventDefault={handleSubmit} class="flex gap-2 sm:gap-3 items-end">
+<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="flex gap-2 sm:gap-3 items-end">
 	<div class="flex-1">
 		<textarea
 			bind:value={content}
