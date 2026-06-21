@@ -748,7 +748,7 @@
 										{#each tagSuggestions as suggestion, i}
 											<button
 												type="button"
-												on:mousedown|preventDefault={() => applySuggestion(suggestion)}
+												onmousedown|preventDefault={() => applySuggestion(suggestion)}
 												class="w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors {i === selectedSuggestionIndex ? 'bg-muted/50 text-foreground' : 'text-muted-foreground'}"
 											>
 												<span class="text-foreground font-medium">{suggestion.slice(0, tagInput.trim().length)}</span><span>{suggestion.slice(tagInput.trim().length)}</span>
@@ -937,7 +937,7 @@
 					</button>
 
 					<button
-						on:mousedown={captureShareSelection}
+						onmousedown={captureShareSelection}
 						on:click={() => { showDrawer = false; openShareModal(); }}
 						class="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
 					>
