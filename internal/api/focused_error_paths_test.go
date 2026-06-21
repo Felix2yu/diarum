@@ -70,7 +70,7 @@ func TestAIRoutesHappyPath(t *testing.T) {
 	}
 
 	withMockTransport(t, func(req *http.Request) (*http.Response, error) {
-		return httpResponse(http.StatusOK, `[{"id":"m1","object":"model"}]`), nil
+		return httpResponse(http.StatusOK, `{"object":"list","data":[{"id":"m1","object":"model"}]}`), nil
 	})
 	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/models", strings.NewReader(`{"api_key":"k","base_url":"https://mock.local"}`), map[string]string{"Content-Type": "application/json"})
 	if rec.Code != http.StatusOK {
@@ -134,24 +134,19 @@ func TestAIRoutesHappyPath(t *testing.T) {
 		t.Fatalf("POST /ai/chat empty status = %d", rec.Code)
 	}
 
-	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start_date":"2024-01-01","end_date":"2024-01-31"}`), map[string]string{"Content-Type": "application/json"})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"2024-01-01","end":"2024-01-31"}`), map[string]string{"Content-Type": "application/json"})
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("POST /ai/analysis disabled status = %d body=%s", rec.Code, rec.Body.String())
 	}
 
-	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis/save", strings.NewReader(`{"period":"month","start_date":"2024-01-01","end_date":"2024-01-31","summary":"test"}`), map[string]string{"Content-Type": "application/json"})
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analyses?period=month", nil, nil)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("POST /ai/analysis/save status = %d body=%s", rec.Code, rec.Body.String())
+		t.Fatalf("GET /ai/analyses status = %d", rec.Code)
 	}
 
-	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analysis/saved?period=month", nil, nil)
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analysis?period=month&start=2024-01-01&end=2024-01-31", nil, nil)
 	if rec.Code != http.StatusOK {
-		t.Fatalf("GET /ai/analysis/saved status = %d", rec.Code)
-	}
-
-	rec = performRequest(t, e, http.MethodDelete, "/api/v1/ai/analysis/saved/nonexistent", nil, nil)
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("DELETE /ai/analysis/saved/nonexistent status = %d", rec.Code)
+		t.Fatalf("GET /ai/analysis status = %d body=%s", rec.Code, rec.Body.String())
 	}
 
 	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/vectors/stats", nil, nil)
@@ -172,6 +167,41 @@ func TestAIRoutesHappyPath(t *testing.T) {
 	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/transcribe", nil, nil)
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("POST /ai/transcribe no provider status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"bad","start":"2024-01-01","end":"2024-01-31"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/analysis bad period status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"","end":""}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/analysis missing start/end status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analysis?period=bad&start=2024-01-01&end=2024-01-31", nil, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("GET /ai/analysis bad period status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analysis?period=month", nil, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("GET /ai/analysis missing start/end status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analyses?period=bad", nil, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("GET /ai/analyses bad period status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analyses?period=all", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /ai/analyses all status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/polish", strings.NewReader(`{}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/polish status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 
