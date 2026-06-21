@@ -2197,17 +2197,20 @@ func TestGetRandomDiary(t *testing.T) {
 	if _, err := s.InsertImportedDiary(user.ID, "r1", "2024-01-01", "content", "happy", "", nil); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := s.InsertImportedDiary(user.ID, "r2", "2024-02-01", "other", "calm", "", nil); err != nil {
+		t.Fatal(err)
+	}
 	d, err := s.GetRandomDiary(user.ID, "")
-	if err != nil || d == nil || d.ID != "r1" {
+	if err != nil || d == nil {
 		t.Fatalf("GetRandomDiary = %+v, %v", d, err)
 	}
 
 	d2, err := s.GetRandomDiary(user.ID, "2024-01-01")
-	if err != nil {
-		t.Fatalf("GetRandomDiary exclude: %v", err)
+	if err != nil || d2 == nil {
+		t.Fatalf("GetRandomDiary exclude: %+v, %v", d2, err)
 	}
-	if d2 != nil {
-		t.Fatalf("GetRandomDiary exclude should return nil, got %+v", d2)
+	if d2.ID == "r1" {
+		t.Fatalf("GetRandomDiary exclude should not return r1")
 	}
 }
 
