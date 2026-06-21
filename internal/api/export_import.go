@@ -97,6 +97,7 @@ type exportFailedItem struct {
 
 type importStats struct {
 	Diaries       importCounters `json:"diaries"`
+	DiaryDetails  []importDiaryDetail `json:"diary_details,omitempty"`
 	Media         importCounters `json:"media"`
 	Conversations importCounters `json:"conversations"`
 }
@@ -106,12 +107,35 @@ type importCounters struct {
 	Imported int `json:"imported"`
 	Skipped  int `json:"skipped"`
 	Failed   int `json:"failed"`
+	Conflict int `json:"conflict"`
+}
+
+type importDiaryDetail struct {
+	Date      string `json:"date"`
+	Status    string `json:"status"`
+	Reason    string `json:"reason,omitempty"`
+	NewContent string `json:"new_content,omitempty"`
+	NewMood   string `json:"new_mood,omitempty"`
+	NewWeather string `json:"new_weather,omitempty"`
+	OldID     string `json:"old_id,omitempty"`
+	OldContent string `json:"old_content,omitempty"`
+	OldMood   string `json:"old_mood,omitempty"`
+	OldWeather string `json:"old_weather,omitempty"`
+}
+
+type resolveConflictRequest struct {
+	Date    string `json:"date"`
+	Action  string `json:"action"`
+	Content string `json:"content,omitempty"`
+	Mood    string `json:"mood,omitempty"`
+	Weather string `json:"weather,omitempty"`
 }
 
 func RegisterExportImportRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.MiddlewareFunc, embeddingService *embedding.EmbeddingService) {
 	group := e.Group("/api/v1", authMiddleware)
 	group.POST("/export", func(c echo.Context) error { return handleExport(c, s) })
 	group.POST("/import", func(c echo.Context) error { return handleImport(c, s, embeddingService) })
+	group.POST("/import/resolve", func(c echo.Context) error { return handleResolveConflict(c, s, embeddingService) })
 }
 
 func handleExport(c echo.Context, s *store.Store) error {
@@ -303,25 +327,37 @@ func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.Em
 	} else {
 		return badRequest("ZIP missing diarum_export.json or .md files", nil)
 	}
-	stats := importStats{Diaries: importCounters{Total: len(data.Diaries)}, Media: importCounters{Total: len(data.Media)}, Conversations: importCounters{Total: len(data.Conversations)}}
+	stats := importStats{Diaries: importCounters{Total: len(data.Diaries)}, Media: importCounters{Total: len(data.Media)}, Conversations: importCounters{Total: len(data.Conversations)}, DiaryDetails: make([]importDiaryDetail, 0)}
 	diaryIDMap := make(map[string]string)
 	for _, d := range data.Diaries {
 		if d.Date == "" {
 			stats.Diaries.Failed++
+			stats.DiaryDetails = append(stats.DiaryDetails, importDiaryDetail{Date: d.Date, Status: "failed", Reason: "日期为空"})
 			continue
 		}
 		if s.DiaryExistsByDate(userID, d.Date) {
-			stats.Diaries.Skipped++
+			existing, _ := s.GetDiaryByDate(userID, d.Date+" 00:00:00.000Z", d.Date+" 23:59:59.999Z")
+			detail := importDiaryDetail{Date: d.Date, Status: "conflict", NewContent: d.Content, NewMood: d.Mood, NewWeather: d.Weather}
+			if existing != nil {
+				detail.OldID = existing.ID
+				detail.OldContent = existing.Content
+				detail.OldMood = existing.Mood
+				detail.OldWeather = existing.Weather
+			}
+			stats.Diaries.Conflict++
+			stats.DiaryDetails = append(stats.DiaryDetails, detail)
 			diaryIDMap[d.ID] = ""
 			continue
 		}
 		diary, err := s.InsertImportedDiary(userID, "", d.Date, d.Content, d.Mood, d.Weather, nil)
 		if err != nil {
 			stats.Diaries.Failed++
+			stats.DiaryDetails = append(stats.DiaryDetails, importDiaryDetail{Date: d.Date, Status: "failed", Reason: err.Error()})
 			continue
 		}
 		diaryIDMap[d.ID] = diary.ID
 		stats.Diaries.Imported++
+		stats.DiaryDetails = append(stats.DiaryDetails, importDiaryDetail{Date: d.Date, Status: "imported"})
 	}
 	for _, m := range data.Media {
 		fileBytes, ok := mediaFiles[m.File]
@@ -385,6 +421,42 @@ func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.Em
 		}
 	}
 	return c.JSON(http.StatusOK, stats)
+}
+
+func handleResolveConflict(c echo.Context, s *store.Store, embeddingService *embedding.EmbeddingService) error {
+	userID := auth.CurrentUser(c).ID
+	var req resolveConflictRequest
+	if err := c.Bind(&req); err != nil {
+		return badRequest("Invalid request", err)
+	}
+	if req.Date == "" || (req.Action != "keep_old" && req.Action != "replace") {
+		return badRequest("date and valid action (keep_old|replace) required", nil)
+	}
+	if req.Action == "keep_old" {
+		return c.JSON(http.StatusOK, map[string]string{"status": "kept"})
+	}
+	existing, _ := s.GetDiaryByDate(userID, req.Date+" 00:00:00.000Z", req.Date+" 23:59:59.999Z")
+	if existing != nil {
+		if err := s.DeleteDiary(existing.ID, userID); err != nil {
+			return badRequest("Failed to delete old diary", err)
+		}
+	}
+	diary, err := s.InsertImportedDiary(userID, "", req.Date, req.Content, req.Mood, req.Weather, nil)
+	if err != nil {
+		return badRequest("Failed to insert new diary", err)
+	}
+	if embeddingService != nil {
+		configService := config.NewConfigService(s)
+		enabled, _ := configService.GetBool(userID, "ai.enabled")
+		if enabled {
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+				defer cancel()
+				_, _ = embeddingService.BuildIncrementalVectors(ctx, userID)
+			}()
+		}
+	}
+	return c.JSON(http.StatusOK, map[string]string{"status": "replaced", "id": diary.ID})
 }
 
 func isValidZipPath(name string) bool {

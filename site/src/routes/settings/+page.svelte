@@ -15,7 +15,7 @@
 		type ApiTokenStatus
 	} from '$lib/api/settings';
 	import { getAISettings, saveAISettings, fetchModels, buildVectors, buildVectorsIncremental, getVectorStats, DEFAULT_ANALYSIS_SYSTEM_PROMPT, type AISettings, type ModelInfo, type BuildVectorsResult, type VectorStats } from '$lib/api/ai';
-	import { exportDiaries, importDiaries, type ExportStats, type ImportStats, type ExportOptions } from '$lib/api/exportImport';
+	import { exportDiaries, importDiaries, resolveConflict, type ExportStats, type ImportStats, type ImportDiaryDetail, type ExportOptions } from '$lib/api/exportImport';
 	import { defaultImageUploadSettings, getImageUploadSettings, saveImageUploadSettings, testCheveretoConnection, type ImageUploadProvider, type ImageUploadSettings } from '$lib/api/imageUpload';
 	import { loadImageUploadSettings } from '$lib/stores/imageUpload';
 	import Footer from '$lib/components/ui/Footer.svelte';
@@ -145,6 +145,8 @@
 	let importStats: ImportStats | null = null;
 	let importError = '';
 	let importFile: File | null = null;
+	let resolvingConflict = false;
+	let expandedConflictDate: string | null = null;
 
 	// Export options
 	let exportOptions: ExportOptions = {
@@ -672,6 +674,28 @@
 			importError = e instanceof Error ? e.message : '导入失败';
 		}
 		importing = false;
+	}
+
+	async function handleResolveConflict(detail: ImportDiaryDetail, action: 'keep_old' | 'replace') {
+		if (!importStats) return;
+		resolvingConflict = true;
+		try {
+			await resolveConflict(detail.date, action, detail.new_content, detail.new_mood, detail.new_weather);
+			if (action === 'replace') {
+				importStats.diaries.conflict--;
+				importStats.diaries.imported++;
+			} else {
+				importStats.diaries.conflict--;
+				importStats.diaries.skipped++;
+			}
+			importStats.diary_details = importStats.diary_details?.map(d =>
+				d.date === detail.date ? { ...d, status: action === 'replace' ? 'imported' : 'skipped' } : d
+			);
+			importStats = { ...importStats };
+		} catch (e) {
+			importError = e instanceof Error ? e.message : '解决冲突失败';
+		}
+		resolvingConflict = false;
 	}
 
 	onMount(() => {
@@ -1965,7 +1989,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 					<!-- 导入 -->
 					<div class="py-4">
 						<div class="font-medium text-foreground mb-1">导入</div>
-						<div class="text-sm text-muted-foreground mb-3">从 ZIP 文件中恢复日记数据，支持导出的 ZIP 或包含多个 .md 文件的 ZIP。日期已存在的日记将被跳过。</div>
+						<div class="text-sm text-muted-foreground mb-3">从 ZIP 文件中恢复日记数据，支持导出的 ZIP 或包含多个 .md 文件的 ZIP。日期冲突时可选择保留哪个版本。</div>
 
 						{#if importError}
 							<div class="mb-3 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
@@ -2013,6 +2037,9 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 										{#if importStats.diaries.skipped > 0}
 											, <span class="text-amber-600 font-medium">{importStats.diaries.skipped} 已跳过</span>
 										{/if}
+										{#if importStats.diaries.conflict > 0}
+											, <span class="text-orange-500 font-medium">{importStats.diaries.conflict} 日期冲突</span>
+										{/if}
 										{#if importStats.diaries.failed > 0}
 											, <span class="text-destructive font-medium">{importStats.diaries.failed} 失败</span>
 										{/if}
@@ -2041,6 +2068,91 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 										<span class="text-muted-foreground">（共 {importStats.conversations.total} 条）</span>
 									</div>
 								</div>
+
+								{#if importStats.diary_details && importStats.diary_details.length > 0}
+									<div class="mt-3 border-t border-border pt-3">
+										<div class="font-medium text-foreground mb-2">详细结果</div>
+										<div class="space-y-1">
+											{#each importStats.diary_details as detail}
+												{#if detail.status === 'imported'}
+													<div class="flex items-center gap-2 text-green-600">
+														<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+														<span>{detail.date}</span>
+														<span class="text-muted-foreground">已导入</span>
+													</div>
+												{:else if detail.status === 'skipped'}
+													<div class="flex items-center gap-2 text-amber-600">
+														<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+														<span>{detail.date}</span>
+														<span class="text-muted-foreground">已跳过（保留旧版本）</span>
+													</div>
+												{:else if detail.status === 'conflict'}
+													<div class="border border-orange-300 rounded-lg p-3 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800">
+														<button
+															class="w-full flex items-center justify-between text-left"
+															onclick={() => expandedConflictDate = expandedConflictDate === detail.date ? null : detail.date}
+														>
+															<div class="flex items-center gap-2 text-orange-600">
+																<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+																<span class="font-medium">{detail.date}</span>
+																<span class="text-muted-foreground">日期冲突</span>
+															</div>
+															<svg class="w-4 h-4 text-muted-foreground transition-transform {expandedConflictDate === detail.date ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+														</button>
+														{#if expandedConflictDate === detail.date}
+															<div class="mt-3 space-y-3">
+																<div class="grid grid-cols-2 gap-3">
+																	<div class="space-y-1">
+																		<div class="text-xs font-medium text-muted-foreground">现有版本</div>
+																		<div class="p-2 bg-background rounded border text-xs max-h-40 overflow-y-auto whitespace-pre-wrap">{detail.old_content || '（无内容）'}</div>
+																		{#if detail.old_mood || detail.old_weather}
+																			<div class="text-xs text-muted-foreground">
+																				{#if detail.old_mood}心情：{detail.old_mood}{/if}
+																				{#if detail.old_weather} 天气：{detail.old_weather}{/if}
+																			</div>
+																		{/if}
+																	</div>
+																	<div class="space-y-1">
+																		<div class="text-xs font-medium text-muted-foreground">导入版本</div>
+																		<div class="p-2 bg-background rounded border text-xs max-h-40 overflow-y-auto whitespace-pre-wrap">{detail.new_content || '（无内容）'}</div>
+																		{#if detail.new_mood || detail.new_weather}
+																			<div class="text-xs text-muted-foreground">
+																				{#if detail.new_mood}心情：{detail.new_mood}{/if}
+																				{#if detail.new_weather} 天气：{detail.new_weather}{/if}
+																			</div>
+																		{/if}
+																	</div>
+																</div>
+																<div class="flex gap-2">
+																	<button
+																		onclick={() => handleResolveConflict(detail, 'keep_old')}
+																		disabled={resolvingConflict}
+																		class="px-3 py-1.5 text-xs bg-muted hover:bg-muted/80 rounded transition-colors disabled:opacity-50"
+																	>
+																		保留现有版本
+																	</button>
+																	<button
+																		onclick={() => handleResolveConflict(detail, 'replace')}
+																		disabled={resolvingConflict}
+																		class="px-3 py-1.5 text-xs bg-orange-500 text-white hover:bg-orange-600 rounded transition-colors disabled:opacity-50"
+																	>
+																		替换为导入版本
+																	</button>
+																</div>
+															</div>
+														{/if}
+													</div>
+												{:else if detail.status === 'failed'}
+													<div class="flex items-center gap-2 text-destructive">
+														<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+														<span>{detail.date || '（无日期）'}</span>
+														<span class="text-muted-foreground">失败：{detail.reason}</span>
+													</div>
+												{/if}
+											{/each}
+										</div>
+									</div>
+								{/if}
 							</div>
 						{/if}
 					</div>

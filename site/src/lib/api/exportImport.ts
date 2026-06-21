@@ -40,10 +40,25 @@ export interface ImportCounters {
 	imported: number;
 	skipped: number;
 	failed: number;
+	conflict: number;
+}
+
+export interface ImportDiaryDetail {
+	date: string;
+	status: string;
+	reason?: string;
+	new_content?: string;
+	new_mood?: string;
+	new_weather?: string;
+	old_id?: string;
+	old_content?: string;
+	old_mood?: string;
+	old_weather?: string;
 }
 
 export interface ImportStats {
 	diaries: ImportCounters;
+	diary_details?: ImportDiaryDetail[];
 	media: ImportCounters;
 	conversations: ImportCounters;
 }
@@ -130,6 +145,27 @@ export async function importDiaries(file: File): Promise<ImportStats> {
 	if (!response.ok) {
 		const data = await response.json().catch(() => ({}));
 		throw new Error((data as any).message || 'Import failed');
+	}
+
+	return await response.json();
+}
+
+/**
+ * Resolve an import conflict for a specific date.
+ */
+export async function resolveConflict(date: string, action: 'keep_old' | 'replace', content?: string, mood?: string, weather?: string): Promise<{ status: string; id?: string }> {
+	const response = await fetch('/api/v1/import/resolve', {
+		method: 'POST',
+		headers: {
+			'Authorization': `Bearer ${pb.authStore.token}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({ date, action, content, mood, weather })
+	});
+
+	if (!response.ok) {
+		const data = await response.json().catch(() => ({}));
+		throw new Error((data as any).message || 'Resolve failed');
 	}
 
 	return await response.json();
