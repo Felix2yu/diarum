@@ -1329,8 +1329,6 @@ func (s *Store) ValidateAPIToken(token string) (string, error) {
 	}
 	return userID, nil
 }
-	return "", rows.Err()
-}
 
 func (s *Store) ListMedia(owner string, page, perPage int) ([]MediaWithExpand, int, error) {
 	if page <= 0 {
