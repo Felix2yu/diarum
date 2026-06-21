@@ -347,10 +347,10 @@
 				</div>
 
 					<!-- 第二行：紧凑 AI 分析按钮 -->
-				<div class="flex items-center justify-center gap-1.5">
+				<div class="flex items-center justify-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
 					<button
 						onclick={openWeekAnalysis}
-						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200 whitespace-nowrap shrink-0"
 						title="本周 AI 分析"
 					>
 						<span class="inline-flex items-center gap-1">
@@ -362,7 +362,7 @@
 					</button>
 					<button
 						onclick={openMonthAnalysis}
-						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200 whitespace-nowrap shrink-0"
 						title="本月 AI 分析"
 					>
 						<span class="inline-flex items-center gap-1">
@@ -375,7 +375,7 @@
 					<!-- 自定义分析：移到历史分析前面，用普通灰色样式 -->
 					<button
 						onclick={openCustomAnalysis}
-						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200 whitespace-nowrap shrink-0"
 						title="自定义日期范围和关键词分析"
 					>
 						<span class="inline-flex items-center gap-1">
@@ -388,7 +388,7 @@
 					<!-- 历史分析：移到末尾并使用突出样式 -->
 					<button
 						onclick={openHistoryAnalysis}
-						class="ml-1.5 px-3 py-1 text-xs font-medium rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 hover:border-primary/60 transition-all duration-200"
+						class="ml-0.5 px-3 py-1 text-xs font-medium rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 hover:border-primary/60 transition-all duration-200 whitespace-nowrap shrink-0"
 						title="查看历史分析"
 					>
 						<span class="inline-flex items-center gap-1">
