@@ -1,16 +1,19 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import { getAllMedia, getMediaFileUrl, type MediaWithDiary } from '$lib/api/media';
-	import { formatShortDate } from '$lib/utils/date';
 
-	export let onSelect: (media: MediaWithDiary) => void;
-	export let onClose: () => void;
+	let {
+		onSelect = (media: MediaWithDiary) => {},
+		onClose = () => {}
+	}: {
+		onSelect?: (media: MediaWithDiary) => void;
+		onClose?: () => void;
+	} = $props();
 
-	let mediaList: MediaWithDiary[] = [];
-	let loading = true;
-	let currentPage = 1;
-	let totalPages = 1;
-	let searchQuery = '';
+	let mediaList = $state<MediaWithDiary[]>([]);
+	let loading = $state(true);
+	let currentPage = $state(1);
+	let totalPages = $state(1);
+	let searchQuery = $state('');
 
 	async function loadMedia() {
 		loading = true;
@@ -38,27 +41,28 @@
 	}
 
 	function formatDate(dateStr: string): string {
-		return formatShortDate(dateStr);
+		return dateStr?.split(' ')[0] || '';
 	}
 
-	$: filteredMedia = searchQuery
-		? mediaList.filter(m =>
-			m.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-			m.alt?.toLowerCase().includes(searchQuery.toLowerCase())
-		)
-		: mediaList;
+	let filteredMedia = $derived(
+		searchQuery
+			? mediaList.filter(
+					(m: MediaWithDiary) =>
+						m.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+						m.alt?.toLowerCase().includes(searchQuery.toLowerCase())
+				)
+			: mediaList
+	);
 
-	onMount(() => {
-		loadMedia();
-	});
+	loadMedia();
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} />
 
 <div
 	class="media-picker-overlay"
-	on:click={handleOverlayClick}
-	on:keydown={handleKeydown}
+	onclick={handleOverlayClick}
+	onkeydown={handleKeydown}
 	role="dialog"
 	tabindex="-1"
 >
@@ -68,8 +72,8 @@
 	>
 		<!-- Header -->
 		<div class="media-picker-header">
-			<h3>从图库选择</h3>
-			<button class="close-btn" on:click={onClose} title="关闭">
+			<h3>从媒体库选择</h3>
+			<button class="close-btn" onclick={onClose} title="关闭">
 				<svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
 				</svg>
@@ -90,7 +94,7 @@
 			{#if loading}
 				<div class="loading-state">
 					<svg class="spinner" viewBox="0 0 24 24">
-						<circle class="spinner-bg" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+						<circle class="spinner-bg" cx="12" cy="12" r="10" stroke-width="4" stroke="currentColor"></circle>
 						<path class="spinner-fg" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 					</svg>
 					<span>加载中...</span>
@@ -100,14 +104,14 @@
 					<svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
 					</svg>
-					<p>{searchQuery ? '未找到匹配的图片' : '图库中暂无图片'}</p>
+					<p>{searchQuery ? '未找到匹配的图片' : '媒体库中暂无图片'}</p>
 				</div>
 			{:else}
 				<div class="media-grid">
 					{#each filteredMedia as media}
 						<button
 							class="media-item"
-							on:click={() => handleSelect(media)}
+							onclick={() => handleSelect(media)}
 							title={media.name || '选择图片'}
 						>
 							<img
@@ -129,14 +133,14 @@
 			<div class="media-picker-footer">
 				<button
 					disabled={currentPage === 1}
-					on:click={() => { currentPage--; loadMedia(); }}
+					onclick={() => { currentPage--; loadMedia(); }}
 				>
 					上一页
 				</button>
 				<span>{currentPage} / {totalPages}</span>
 				<button
 					disabled={currentPage === totalPages}
-					on:click={() => { currentPage++; loadMedia(); }}
+					onclick={() => { currentPage++; loadMedia(); }}
 				>
 					下一页
 				</button>
