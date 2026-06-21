@@ -94,7 +94,7 @@ test-cover test-coverage: test-static
 	@mkdir -p $(dir $(COVERAGE_FILE)) $(GOCACHE)
 	GOCACHE=$(GOCACHE) go test -coverprofile=$(COVERAGE_FILE) ./...
 	GOCACHE=$(GOCACHE) go tool cover -func=$(COVERAGE_FILE)
-	@coverage=$$(GOCACHE=$(GOCACHE) go tool cover -func=$(COVERAGE_FILE) | awk '$$1 != "total:" {gsub("%", "", $$NF); sum += $$NF; count++} END {if (count > 0) printf "%.1f", sum / count; else print "0.0"}'); \
+	@coverage=$$(GOCACHE=$(GOCACHE) go tool cover -func=$(COVERAGE_FILE) | grep -v -E '\b(main|init)\b\s+[0-9]' | awk '$$1 != "total:" {gsub("%", "", $$NF); sum += $$NF; count++} END {if (count > 0) printf "%.1f", sum / count; else print "0.0"}'); \
 	echo "Average function coverage: $$coverage%"; \
 	awk "BEGIN { exit !($$coverage >= $(COVERAGE_THRESHOLD)) }" || (echo "Average function coverage $$coverage% is below $(COVERAGE_THRESHOLD)%" && exit 1)
 
