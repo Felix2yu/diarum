@@ -72,7 +72,7 @@
 		{#each sections as section, i}
 			<li style="animation-delay: {i * 50}ms" class="animate-fade-in opacity-0">
 				<button
-					on:click={() => scrollToSection(section.id)}
+					onclick={() => scrollToSection(section.id)}
 					class="w-full text-left px-2 py-1.5 text-sm rounded-md flex items-center gap-2
 						   transition-all duration-200 truncate
 						   {activeSection === section.id

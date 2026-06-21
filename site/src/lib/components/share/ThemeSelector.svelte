@@ -11,7 +11,7 @@
 	{#each themeList as theme}
 		<button
 			type="button"
-			on:click={() => onSelect(theme.id)}
+			onclick={() => onSelect(theme.id)}
 			class="relative p-3 rounded-lg border-2 transition-all duration-200 text-left
 				{selected === theme.id
 					? 'border-primary ring-2 ring-primary/20'

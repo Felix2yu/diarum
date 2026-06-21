@@ -94,7 +94,7 @@
 	<PageHeader title="AI 助手" sticky={false}>
 		<button
 			slot="actions"
-			on:click={() => sidebarOpen = !sidebarOpen}
+			onclick={() => sidebarOpen = !sidebarOpen}
 			class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200 lg:hidden"
 			aria-label="切换侧边栏"
 		>
@@ -134,7 +134,7 @@
 			{#if sidebarOpen}
 				<button
 					class="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 lg:hidden"
-					on:click={() => sidebarOpen = false}
+					onclick={() => sidebarOpen = false}
 					aria-label="关闭侧边栏"
 				></button>
 			{/if}
@@ -162,7 +162,7 @@
 							<span class="font-semibold text-foreground">AI 助手</span>
 						</div>
 						<button
-							on:click={() => sidebarOpen = false}
+							onclick={() => sidebarOpen = false}
 							class="p-2 hover:bg-muted rounded-lg transition-colors"
 							aria-label="关闭"
 						>
@@ -183,7 +183,7 @@
 								<a
 									href="/diary"
 									class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
-									on:click={() => sidebarOpen = false}
+									onclick={() => sidebarOpen = false}
 								>
 									<div class="p-1.5 rounded-md bg-green-500/10 text-green-500 group-hover:bg-green-500/20 transition-colors">
 										<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -200,7 +200,7 @@
 								<a
 									href="/search"
 									class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
-									on:click={() => sidebarOpen = false}
+									onclick={() => sidebarOpen = false}
 								>
 									<div class="p-1.5 rounded-md bg-blue-500/10 text-blue-500 group-hover:bg-blue-500/20 transition-colors">
 										<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -216,7 +216,7 @@
 								<a
 									href="/media"
 									class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
-									on:click={() => sidebarOpen = false}
+									onclick={() => sidebarOpen = false}
 								>
 									<div class="p-1.5 rounded-md bg-purple-500/10 text-purple-500 group-hover:bg-purple-500/20 transition-colors">
 										<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -232,7 +232,7 @@
 								<a
 									href="/settings"
 									class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
-									on:click={() => sidebarOpen = false}
+									onclick={() => sidebarOpen = false}
 								>
 									<div class="p-1.5 rounded-md bg-gray-500/10 text-gray-500 group-hover:bg-gray-500/20 transition-colors">
 										<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -293,7 +293,7 @@
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 								</svg>
 								<span>{chatError}</span>
-								<button on:click={() => chatError = ''} class="ml-auto p-0.5 hover:bg-destructive/20 rounded" aria-label="关闭错误">
+								<button onclick={() => chatError = ''} class="ml-auto p-0.5 hover:bg-destructive/20 rounded" aria-label="关闭错误">
 									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
 									</svg>

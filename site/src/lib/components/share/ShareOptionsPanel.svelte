@@ -43,7 +43,7 @@
 				<input
 					type="checkbox"
 					checked={options.showDate}
-					on:change={(e) => updateOption('showDate', e.currentTarget.checked)}
+					onchange={(e) => updateOption('showDate', e.currentTarget.checked)}
 					class="w-4 h-4 rounded border-border text-primary focus:ring-primary"
 				/>
 				<span class="text-sm text-foreground">显示日期</span>
@@ -52,7 +52,7 @@
 				<input
 					type="checkbox"
 					checked={options.showImages}
-					on:change={(e) => updateOption('showImages', e.currentTarget.checked)}
+					onchange={(e) => updateOption('showImages', e.currentTarget.checked)}
 					class="w-4 h-4 rounded border-border text-primary focus:ring-primary"
 				/>
 				<span class="text-sm text-foreground">显示图片</span>
@@ -61,7 +61,7 @@
 				<input
 					type="checkbox"
 					checked={options.showBranding}
-					on:change={(e) => updateOption('showBranding', e.currentTarget.checked)}
+					onchange={(e) => updateOption('showBranding', e.currentTarget.checked)}
 					class="w-4 h-4 rounded border-border text-primary focus:ring-primary"
 				/>
 				<span class="text-sm text-foreground">显示吾身品牌标识</span>
@@ -75,7 +75,7 @@
 			<h4 class="text-sm font-medium text-foreground mb-2">宽度</h4>
 			<select
 				value={options.width}
-				on:change={(e) => updateOption('width', parseInt(e.currentTarget.value))}
+				onchange={(e) => updateOption('width', parseInt(e.currentTarget.value))}
 				class="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
 			>
 				{#each widthOptions as opt}
@@ -87,7 +87,7 @@
 			<h4 class="text-sm font-medium text-foreground mb-2">质量</h4>
 			<select
 				value={options.scale}
-				on:change={(e) => updateOption('scale', parseInt(e.currentTarget.value))}
+				onchange={(e) => updateOption('scale', parseInt(e.currentTarget.value))}
 				class="w-full px-3 py-2 text-sm bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
 			>
 				{#each scaleOptions as opt}

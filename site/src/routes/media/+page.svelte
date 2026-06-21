@@ -136,7 +136,7 @@
 						{#each items as media}
 							<button
 								class="group relative aspect-square rounded-xl overflow-hidden bg-muted/30 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all duration-200"
-								on:click={() => openModal(media)}
+								onclick={() => openModal(media)}
 							>
 								<img
 									src={getMediaFileUrl(media, '300x300')}
@@ -164,7 +164,7 @@
 				<div class="flex justify-center gap-2 mt-8">
 					<button
 						disabled={currentPage === 1}
-						on:click={() => { currentPage--; loadMedia(); }}
+						onclick={() => { currentPage--; loadMedia(); }}
 						class="px-3 py-1.5 text-sm rounded-lg border border-border/50 hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 					>
 						上一页
@@ -174,7 +174,7 @@
 					</span>
 					<button
 						disabled={currentPage === totalPages}
-						on:click={() => { currentPage++; loadMedia(); }}
+						onclick={() => { currentPage++; loadMedia(); }}
 						class="px-3 py-1.5 text-sm rounded-lg border border-border/50 hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 					>
 						下一页
@@ -191,8 +191,8 @@
 {#if showModal && selectedMedia}
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
-		on:click={handleModalBackdropClick}
-		on:keydown={(e) => e.key === 'Escape' && closeModal()}
+		onclick={handleModalBackdropClick}
+		onkeydown={(e) => e.key === 'Escape' && closeModal()}
 		role="dialog"
 		tabindex="-1"
 	>
@@ -206,7 +206,7 @@
 					{selectedMedia.name || '媒体'}
 				</h3>
 				<button
-					on:click={closeModal}
+					onclick={closeModal}
 					class="p-1.5 hover:bg-muted/50 rounded-lg transition-colors"
 					title="关闭"
 				>
@@ -242,7 +242,7 @@
 							<div class="flex flex-wrap gap-2 mt-2">
 								{#each selectedMedia.expand.diary as diary}
 									<button
-										on:click={() => goToDiary(diary.date.split(' ')[0])}
+										onclick={() => goToDiary(diary.date.split(' ')[0])}
 										class="px-2 py-1 text-sm bg-primary/10 text-primary rounded hover:bg-primary/20 transition-colors"
 									>
 										{diary.date?.split(' ')[0]}
@@ -263,7 +263,7 @@
 			<div class="flex items-center justify-between p-4 border-t border-border/50 bg-muted/20">
 				{#if !showDeleteConfirm}
 					<button
-						on:click={() => showDeleteConfirm = true}
+						onclick={() => showDeleteConfirm = true}
 						class="px-4 py-2 text-sm text-red-600 border border-red-500 hover:bg-red-50 rounded-lg transition-colors font-medium"
 					>
 						删除
@@ -276,14 +276,14 @@
 							<span class="text-sm text-red-600 font-medium">确定删除吗？</span>
 						{/if}
 						<button
-							on:click={handleDelete}
+							onclick={handleDelete}
 							disabled={deleting}
 							class="px-4 py-2 text-sm text-red-600 border border-red-500 hover:bg-red-50 disabled:opacity-50 rounded-lg transition-colors font-medium"
 						>
 							{deleting ? '删除中...' : '确认'}
 						</button>
 						<button
-							on:click={() => showDeleteConfirm = false}
+							onclick={() => showDeleteConfirm = false}
 							class="px-4 py-2 text-sm border border-border hover:bg-muted/50 rounded-lg transition-colors font-medium"
 						>
 							取消
@@ -291,7 +291,7 @@
 					</div>
 				{/if}
 				<button
-					on:click={closeModal}
+					onclick={closeModal}
 					class="px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors border border-border/50"
 				>
 					关闭

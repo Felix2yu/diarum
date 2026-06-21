@@ -54,7 +54,7 @@
 					<div class="mt-3 flex items-center gap-2">
 						<button
 							type="button"
-							on:click={handleInstall}
+							onclick={handleInstall}
 							disabled={installing}
 							class="inline-flex items-center gap-2 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
 						>
@@ -62,7 +62,7 @@
 						</button>
 						<button
 							type="button"
-							on:click={dismiss}
+							onclick={dismiss}
 							class="px-3 py-2 text-sm bg-secondary text-secondary-foreground rounded-lg hover:opacity-90 transition-opacity"
 						>
 							稍后

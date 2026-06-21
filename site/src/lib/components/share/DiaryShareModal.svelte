@@ -108,14 +108,14 @@
 	}
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
+<svelte:window onkeydown={handleKeydown} />
 
 {#if isOpen}
 	<!-- Backdrop -->
 	<div
 		class="fixed inset-0 bg-black/50 z-50 animate-fade-in-only"
-		on:click={handleClose}
-		on:keydown={(e) => e.key === 'Enter' && handleClose()}
+		onclick={handleClose}
+		onkeydown={(e) => e.key === 'Enter' && handleClose()}
 		role="button"
 		tabindex="0"
 	></div>
@@ -130,7 +130,7 @@
 				<h2 class="text-lg font-semibold text-foreground">分享日记</h2>
 				<div class="flex items-center gap-2">
 					<button
-						on:click={() => showOptions = !showOptions}
+						onclick={() => showOptions = !showOptions}
 						class="p-2 hover:bg-muted/50 rounded-lg transition-colors {showOptions ? 'bg-muted/50' : ''}"
 						title="设置"
 					>
@@ -140,7 +140,7 @@
 						</svg>
 					</button>
 					<button
-						on:click={handleClose}
+						onclick={handleClose}
 						class="p-2 hover:bg-muted/50 rounded-lg transition-colors"
 						title="关闭"
 					>
@@ -201,7 +201,7 @@
 				<div class="flex items-center gap-2">
 					{#if canUseShare}
 						<button
-							on:click={handleShare}
+							onclick={handleShare}
 							disabled={isGenerating}
 							class="px-4 py-2 text-sm bg-secondary text-secondary-foreground rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
 						>
@@ -220,7 +220,7 @@
 					{/if}
 
 					<button
-						on:click={handleCopy}
+						onclick={handleCopy}
 						disabled={isGenerating}
 						class="px-4 py-2 text-sm bg-secondary text-secondary-foreground rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
 					>
@@ -238,7 +238,7 @@
 					</button>
 
 					<button
-						on:click={handleDownload}
+						onclick={handleDownload}
 						disabled={isGenerating}
 						class="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center gap-2"
 					>
