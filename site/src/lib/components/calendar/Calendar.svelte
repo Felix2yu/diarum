@@ -1125,6 +1125,9 @@
     padding: 2.5rem 1rem;
     text-align: center;
     color: hsl(var(--muted-foreground));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 .analysis-idle-title {
