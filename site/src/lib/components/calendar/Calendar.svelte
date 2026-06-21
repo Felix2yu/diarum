@@ -954,8 +954,9 @@
 .history-modal-backdrop {
     position: fixed;
     inset: 0;
-    background: hsl(var(--background) / 0.72);
+    background: hsl(0 0% 0% / 0.5);
     backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
     justify-content: center;
