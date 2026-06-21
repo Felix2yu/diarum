@@ -523,7 +523,7 @@
 				<div class="flex items-center bg-card rounded-xl border border-border/50 px-3 py-2.5 shadow-sm hover:shadow-md transition-shadow">
 						<button
 							type="button"
-							on:click={goToPreviousDay}
+							onclick={goToPreviousDay}
 							class="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-lg transition-all duration-200"
 							title="上一天"
 						>
@@ -536,7 +536,7 @@
 						<div class="flex-1 flex items-center justify-center gap-2 min-w-0">
 							<button
 								type="button"
-								on:click={goToCalendar}
+								onclick={goToCalendar}
 								class="text-sm font-semibold text-foreground hover:opacity-80 transition-opacity"
 								title="返回日历"
 							>
@@ -550,7 +550,7 @@
 
 						<button
 							type="button"
-							on:click={goToNextDay}
+							onclick={goToNextDay}
 							class="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-lg transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
 							disabled={!canGoNext}
 							title="下一天"
@@ -587,7 +587,7 @@
 							{#if isRecording}
 								<button
 									type="button"
-									on:click={stopRecording}
+									onclick={stopRecording}
 									title="停止录音并转文字"
 									class="inline-flex items-center gap-2 px-3 py-2 bg-destructive/90 hover:bg-destructive text-destructive-foreground rounded-full text-sm font-medium shadow-lg shadow-destructive/20 transition-all"
 								>
@@ -613,7 +613,7 @@
 							{:else}
 								<button
 									type="button"
-									on:click={startRecording}
+									onclick={startRecording}
 									title="语音输入日记"
 									class="inline-flex items-center gap-2 px-3 py-2 bg-primary/90 hover:bg-primary text-primary-foreground rounded-full text-sm font-medium shadow-lg shadow-primary/20 transition-all"
 								>
@@ -633,7 +633,7 @@
 						<!-- AI 整理入口 -->
 						<button
 							type="button"
-							on:click={handleOpenPolisher}
+							onclick={handleOpenPolisher}
 							class="w-full flex items-center gap-2 bg-card hover:bg-card/80 rounded-xl border border-border/50 p-3 shadow-sm text-left group transition-all"
 						>
 							<div class="p-1.5 rounded-md bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
@@ -653,7 +653,7 @@
 								<div class="text-sm font-semibold text-foreground">心情</div>
 								{#if selectedMood}
 									<button
-										on:click={() => handleMoodSelect(selectedMood)}
+										onclick={() => handleMoodSelect(selectedMood)}
 										class="text-[11px] px-2 py-1 rounded-full bg-muted/70 hover:bg-muted border border-border/70 transition-colors text-muted-foreground"
 									>
 										清除
@@ -663,7 +663,7 @@
 							<div class="grid grid-cols-4 gap-2">
 								{#each moodPresets as option}
 									<button
-										on:click={() => handleMoodSelect(option)}
+										onclick={() => handleMoodSelect(option)}
 										class="emoji-option-mobile {selectedMood === option ? 'emoji-option-active' : ''}"
 										title={option}
 										aria-label={`心情 ${option}`}
@@ -680,7 +680,7 @@
 								<div class="text-sm font-semibold text-foreground">天气</div>
 								{#if selectedWeather}
 									<button
-										on:click={() => handleWeatherSelect(selectedWeather)}
+										onclick={() => handleWeatherSelect(selectedWeather)}
 										class="text-[11px] px-2 py-1 rounded-full bg-muted/70 hover:bg-muted border border-border/70 transition-colors text-muted-foreground"
 									>
 										清除
@@ -690,7 +690,7 @@
 							<div class="grid grid-cols-4 gap-2">
 								{#each weatherPresets as option}
 									<button
-										on:click={() => handleWeatherSelect(option)}
+										onclick={() => handleWeatherSelect(option)}
 										class="emoji-option-mobile {selectedWeather === option ? 'emoji-option-active' : ''}"
 										title={option}
 										aria-label={`天气 ${option}`}
@@ -719,7 +719,7 @@
 										{tag}
 										<button
 											type="button"
-											on:click={() => removeTag(tag)}
+											onclick={() => removeTag(tag)}
 											class="opacity-60 hover:opacity-100 hover:text-destructive transition-opacity flex-shrink-0"
 											aria-label={`移除标签 ${tag}`}
 										>
@@ -736,10 +736,10 @@
 								<input
 									type="text"
 									value={tagInput}
-									on:input={handleTagInput}
-									on:keydown={handleTagKeydown}
-									on:focus={() => updateTagSuggestions(tagInput)}
-									on:blur={hideTagSuggestions}
+									oninput={handleTagInput}
+									onkeydown={handleTagKeydown}
+									onfocus={() => updateTagSuggestions(tagInput)}
+									onblur={hideTagSuggestions}
 									placeholder="添加标签，按回车或逗号确认"
 									class="w-full text-xs px-3 py-2 rounded-lg bg-muted/30 border border-border/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors placeholder:text-muted-foreground/50"
 								/>
@@ -768,7 +768,7 @@
 					<div class="sticky top-11 space-y-3 animate-slide-in-right">
 						<button
 							type="button"
-							on:click={handleOpenPolisher}
+							onclick={handleOpenPolisher}
 							class="w-full flex items-center gap-2 bg-card/50 hover:bg-card rounded-xl border border-border/50 hover:border-primary/30 p-3 shadow-sm transition-all text-left group"
 						>
 							<div class="p-1.5 rounded-md bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
@@ -789,7 +789,7 @@
 								</div>
 								{#if selectedMood}
 									<button
-										on:click={() => handleMoodSelect(selectedMood)}
+										onclick={() => handleMoodSelect(selectedMood)}
 										class="text-[11px] px-2 py-1 rounded-full bg-background/70 hover:bg-background border border-border/70 transition-colors"
 									>
 										清除
@@ -799,7 +799,7 @@
 							<div class="grid grid-cols-4 gap-2">
 								{#each moodPresets as option}
 									<button
-										on:click={() => handleMoodSelect(option)}
+										onclick={() => handleMoodSelect(option)}
 										class="emoji-option {selectedMood === option ? 'emoji-option-active' : ''}"
 										title={option}
 										aria-label={`心情 ${option}`}
@@ -817,7 +817,7 @@
 								</div>
 								{#if selectedWeather}
 									<button
-										on:click={() => handleWeatherSelect(selectedWeather)}
+										onclick={() => handleWeatherSelect(selectedWeather)}
 										class="text-[11px] px-2 py-1 rounded-full bg-background/70 hover:bg-background border border-border/70 transition-colors"
 									>
 										清除
@@ -827,7 +827,7 @@
 							<div class="grid grid-cols-4 gap-2">
 								{#each weatherPresets as option}
 									<button
-										on:click={() => handleWeatherSelect(option)}
+										onclick={() => handleWeatherSelect(option)}
 										class="emoji-option {selectedWeather === option ? 'emoji-option-active' : ''}"
 										title={option}
 										aria-label={`天气 ${option}`}
@@ -871,7 +871,7 @@
 	<!-- Backdrop -->
 	<button
 		class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
-		on:click={() => showDrawer = false}
+		onclick={() => showDrawer = false}
 		aria-label="关闭菜单"
 	></button>
 
@@ -884,7 +884,7 @@
 				<span class="font-semibold text-foreground">菜单</span>
 			</div>
 			<button
-				on:click={() => showDrawer = false}
+				onclick={() => showDrawer = false}
 				class="p-2 hover:bg-muted rounded-lg transition-colors"
 				aria-label="关闭"
 			>
@@ -905,7 +905,7 @@
 					<a
 						href="/assistant"
 						class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
-						on:click={() => showDrawer = false}
+						onclick={() => showDrawer = false}
 					>
 						<div class="p-1.5 rounded-md bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
 							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -922,7 +922,7 @@
 
 					<button
 						type="button"
-						on:click={() => { showDrawer = false; handleOpenPolisher(); }}
+						onclick={() => { showDrawer = false; handleOpenPolisher(); }}
 						class="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group text-left"
 					>
 						<div class="p-1.5 rounded-md bg-purple-500/10 text-purple-500 group-hover:bg-purple-500/20 transition-colors">
@@ -938,7 +938,7 @@
 
 					<button
 						onmousedown={captureShareSelection}
-						on:click={() => { showDrawer = false; openShareModal(); }}
+						onclick={() => { showDrawer = false; openShareModal(); }}
 						class="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
 					>
 						<div class="p-1.5 rounded-md bg-blue-500/10 text-blue-500 group-hover:bg-blue-500/20 transition-colors">
@@ -955,7 +955,7 @@
 					<a
 						href="/diary"
 						class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
-						on:click={() => showDrawer = false}
+						onclick={() => showDrawer = false}
 					>
 						<div class="p-1.5 rounded-md bg-green-500/10 text-green-500 group-hover:bg-green-500/20 transition-colors">
 							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -972,7 +972,7 @@
 					<a
 						href="/tags"
 						class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
-						on:click={() => showDrawer = false}
+						onclick={() => showDrawer = false}
 					>
 						<div class="p-1.5 rounded-md bg-purple-500/10 text-purple-500 group-hover:bg-purple-500/20 transition-colors">
 							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -989,7 +989,7 @@
 					<a
 						href="/settings"
 						class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
-						on:click={() => showDrawer = false}
+						onclick={() => showDrawer = false}
 					>
 						<div class="p-1.5 rounded-md bg-gray-500/10 text-gray-500 group-hover:bg-gray-500/20 transition-colors">
 							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1015,7 +1015,7 @@
 					<div class="grid grid-cols-4 gap-1.5">
 						{#each moodPresets as option}
 							<button
-								on:click={() => handleMoodSelect(option)}
+								onclick={() => handleMoodSelect(option)}
 								class="emoji-option {selectedMood === option ? 'emoji-option-active' : ''}"
 								title={option}
 								aria-label={`心情 ${option}`}
@@ -1031,7 +1031,7 @@
 					<div class="grid grid-cols-4 gap-1.5">
 						{#each weatherPresets as option}
 							<button
-								on:click={() => handleWeatherSelect(option)}
+								onclick={() => handleWeatherSelect(option)}
 								class="emoji-option {selectedWeather === option ? 'emoji-option-active' : ''}"
 								title={option}
 								aria-label={`天气 ${option}`}
