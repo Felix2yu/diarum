@@ -111,7 +111,37 @@
 
 	body {
 		@apply bg-background text-foreground transition-colors duration-300;
+		/* 兼容老浏览器，优先使用动态视口高度（iOS PWA URL 栏会改变视口） */
 		min-height: 100vh;
+		min-height: 100dvh;
+	}
+}
+
+/* iOS/macOS PWA 安全区域内边距工具类，避免内容被状态栏/底部 Home Indicator 遮挡 */
+@layer utilities {
+	.safe-top {
+		padding-top: env(safe-area-inset-top);
+	}
+	.safe-bottom {
+		padding-bottom: env(safe-area-inset-bottom);
+	}
+	.safe-left {
+		padding-left: env(safe-area-inset-left);
+	}
+	.safe-right {
+		padding-right: env(safe-area-inset-right);
+	}
+	.safe-x {
+		padding-left: env(safe-area-inset-left);
+		padding-right: env(safe-area-inset-right);
+	}
+	.safe-y {
+		padding-top: env(safe-area-inset-top);
+		padding-bottom: env(safe-area-inset-bottom);
+	}
+	/* sticky/fixed 元素从安全区下沿开始定位 */
+	.top-safe {
+		top: env(safe-area-inset-top, 0);
 	}
 }
 

@@ -1,5 +1,9 @@
 <script lang="ts">
 	import { marked } from 'marked';
+	import MediaPicker from '$lib/components/editor/MediaPicker.svelte';
+	import { uploadImage, isCheveretoResult, type UploadOptions } from '$lib/utils/uploadImage';
+	import { getMediaFileUrl } from '$lib/api/media';
+	import type { MediaWithDiary } from '$lib/api/media';
 
 	let {
 		content = $bindable(''),
@@ -10,14 +14,17 @@
 		diaryDate = $bindable(undefined as string | undefined)
 	} = $props();
 
-	let textareaEl: $state<HTMLTextAreaElement | null> = null;
+	let textareaEl = $state<HTMLTextAreaElement | null>(null);
 	let isFocused = $state(false);
+	let isUploading = $state(false);
+	let uploadError = $state('');
+	let showMediaPicker = $state(false);
+
+	let fileInput = $state<HTMLInputElement | null>(null);
 
 	marked.setOptions({
 		breaks: true,
-		gfm: true,
-		mangle: false,
-		headerIds: false
+		gfm: true
 	});
 
 	function renderMarkdown(text: string): string {
@@ -73,7 +80,105 @@
 		}
 	}
 
-	// 当父组件从外部替换 content 时，同步到 textarea（避免输入打断）
+	function insertTextAtCursor(textToInsert: string, cursorOffset: number = 0) {
+		if (!textareaEl) {
+			content = (content ?? '') + textToInsert;
+			onChange(content);
+			return;
+		}
+
+		const start = textareaEl.selectionStart ?? content.length;
+		const end = textareaEl.selectionEnd ?? content.length;
+		const currentValue = textareaEl.value;
+
+		const newValue =
+			currentValue.substring(0, start) + textToInsert + currentValue.substring(end);
+
+		textareaEl.value = newValue;
+		content = newValue;
+		onChange(newValue);
+
+		const newCursor = start + textToInsert.length + cursorOffset;
+		requestAnimationFrame(() => {
+			if (textareaEl) {
+				textareaEl.focus();
+				try {
+					textareaEl.setSelectionRange(newCursor, newCursor);
+				} catch (e) {
+					// ignore
+				}
+			}
+		});
+	}
+
+	function triggerFileSelect() {
+		uploadError = '';
+		if (fileInput) {
+			fileInput.value = '';
+			fileInput.click();
+		}
+	}
+
+	function triggerMediaPicker() {
+		uploadError = '';
+		showMediaPicker = true;
+	}
+
+	async function handleFileSelect(e: Event) {
+		const input = e.target as HTMLInputElement;
+		const files = input.files;
+		if (!files || files.length === 0) return;
+
+		const file = files[0];
+		await handleUpload(file);
+	}
+
+	async function handleUpload(file: File) {
+		isUploading = true;
+		uploadError = '';
+
+		try {
+			const options: UploadOptions = {};
+			if (diaryDate) {
+				options.diaryDate = diaryDate;
+			}
+
+			const result = await uploadImage(file, options);
+
+			let imageUrl: string;
+			let altText: string = file.name.replace(/\.[^/.]+$/, '');
+
+			if (isCheveretoResult(result)) {
+				imageUrl = result.cheveretoUrl;
+			} else {
+				imageUrl = getMediaFileUrl(result);
+				if (result.name) {
+					altText = result.name.replace(/\.[^/.]+$/, '');
+				}
+			}
+
+			const markdown = `\n![${altText}](${imageUrl})\n`;
+			insertTextAtCursor(markdown);
+		} catch (error: any) {
+			console.error('Image upload failed:', error);
+			uploadError = error.message || '上传失败，请重试';
+		} finally {
+			isUploading = false;
+		}
+	}
+
+	function handleMediaSelect(media: MediaWithDiary) {
+		const imageUrl = getMediaFileUrl(media);
+		const altText = media.alt || media.name || '图片';
+		const markdown = `\n![${altText}](${imageUrl})\n`;
+		insertTextAtCursor(markdown);
+		showMediaPicker = false;
+	}
+
+	function handleMediaPickerClose() {
+		showMediaPicker = false;
+	}
+
 	$effect(() => {
 		const cur = content;
 		if (textareaEl && textareaEl.value !== cur) {
@@ -97,6 +202,14 @@
 </script>
 
 <div class="markdown-editor">
+	<input
+		type="file"
+		bind:this={fileInput}
+		accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+		onchange={handleFileSelect}
+		class="hidden-file-input"
+	/>
+
 	<textarea
 		bind:this={textareaEl}
 		class="markdown-textarea {isFocused ? 'is-focused' : 'is-blurred'}"
@@ -125,6 +238,55 @@
 			</div>
 		</button>
 	{/if}
+
+	<!-- 左下角：图片上传 + 媒体库（与右下角语音按钮风格一致） -->
+	<div class="absolute bottom-3 left-3 flex items-center gap-2 z-10">
+		{#if uploadError}
+			<div class="px-3 py-1.5 rounded-lg bg-destructive/90 text-destructive-foreground text-xs shadow-md">
+				{uploadError}
+			</div>
+		{/if}
+		{#if isUploading}
+			<button
+				type="button"
+				disabled
+				class="inline-flex items-center gap-2 px-3 py-2 bg-muted/80 text-muted-foreground rounded-full text-sm font-medium shadow-lg transition-all"
+			>
+				<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<circle class="opacity-25" cx="12" cy="12" r="10" stroke-width="4" stroke="currentColor"/>
+					<path class="opacity-75" fill="currentColor" stroke="currentColor" stroke-width="4" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+				</svg>
+				<span class="hidden sm:inline">上传中...</span>
+			</button>
+		{:else}
+			<button
+				type="button"
+				onclick={triggerFileSelect}
+				title="上传图片"
+				class="inline-flex items-center gap-2 px-3 py-2 bg-primary/90 hover:bg-primary text-primary-foreground rounded-full text-sm font-medium shadow-lg shadow-primary/20 transition-all"
+			>
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+				</svg>
+				<span class="hidden sm:inline">上传图片</span>
+			</button>
+			<button
+				type="button"
+				onclick={triggerMediaPicker}
+				title="从媒体库选择"
+				class="inline-flex items-center gap-2 px-3 py-2 bg-muted/80 hover:bg-muted text-foreground rounded-full text-sm font-medium shadow-lg transition-all"
+			>
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+				</svg>
+				<span class="hidden sm:inline">媒体库</span>
+			</button>
+		{/if}
+	</div>
+
+	{#if showMediaPicker}
+		<MediaPicker onSelect={handleMediaSelect} onClose={handleMediaPickerClose} />
+	{/if}
 </div>
 
 <style>
@@ -138,13 +300,19 @@
 		flex-direction: column;
 	}
 
+	.hidden-file-input {
+		display: none;
+	}
+
 	.markdown-textarea {
 		display: block;
 		width: 100%;
 		flex: 1 1 auto;
 		min-height: 500px;
 		padding: 1.5rem 1.75rem;
+		padding-bottom: 3.5rem;
 		border: none;
+		border-radius: 0.75rem;
 		background: transparent;
 		color: hsl(var(--foreground) / 0.92);
 		font-size: 1rem;
@@ -172,6 +340,7 @@
 		position: absolute;
 		inset: 0;
 		padding: 1.5rem 1.75rem;
+		padding-bottom: 3.5rem;
 		overflow-y: auto;
 		cursor: text;
 		color: hsl(var(--foreground) / 0.92);
@@ -304,35 +473,13 @@
 		text-decoration: underline;
 	}
 
-	.markdown-preview :global(table) {
-		width: 100%;
-		border-collapse: collapse;
-		margin: 0.6rem 0 0.9rem;
-		font-size: 0.95rem;
-	}
-
-	.markdown-preview :global(th),
-	.markdown-preview :global(td) {
-		border: 1px solid hsl(var(--border) / 0.5);
-		padding: 0.45rem 0.6rem;
-		text-align: left;
-	}
-
-	.markdown-preview :global(th) {
-		background: hsl(var(--muted) / 0.5);
-		font-weight: 600;
-	}
-
-	.markdown-preview :global(tr:nth-child(even) td) {
-		background: hsl(var(--muted) / 0.15);
-	}
-
 	.markdown-preview :global(img) {
 		max-width: 100%;
 		height: auto;
 		border-radius: 0.5rem;
 		display: block;
 		margin: 0.6rem auto;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 	}
 
 	.empty-state-overlay {

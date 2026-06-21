@@ -10,18 +10,38 @@
 		<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 		<link rel="mask-icon" href="/favicon.svg" color="#8B5A2B" />
 		<link rel="manifest" href="/site.webmanifest" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 
 		<!-- PWA Meta Tags -->
-		<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-		<meta name="theme-color" content="#1a1a1a" media="(prefers-color-scheme: dark)" />
+		<!-- 注意：iOS Safari/PWA 不识别带 media 的 theme-color，只读取不带 media 的主标签。
+		     black-translucent 让页面内容背景色（body bg-background）延伸到状态栏区域，
+		     再配合 meta theme-color 让任务栏/tab 栏图标颜色匹配。 -->
+		<meta name="theme-color" content="#F7F3E8" id="meta-theme-color" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
-		<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 		<meta name="apple-mobile-web-app-title" content="吾身" />
 		<meta name="mobile-web-app-capable" content="yes" />
 		<meta name="application-name" content="吾身" />
 		<meta name="msapplication-TileColor" content="#ffffff" />
 		<meta name="description" content="一款简洁优雅、可自托管的日记应用，具备 AI 洞察能力。" />
+		<script>
+			// 提前根据用户主题设置 theme-color 和 body/html 背景色，
+			// 避免 iOS/macOS PWA 启动时状态栏颜色闪烁（状态栏颜色取决于页面内容+manifest theme_color）
+			(function () {
+				try {
+					var stored = localStorage.getItem('theme') || 'system';
+					var isDark = stored === 'dark' || (stored === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+					var color = isDark ? '#1C1714' : '#F7F3E8';
+					var meta = document.getElementById('meta-theme-color');
+					if (meta) meta.setAttribute('content', color);
+					if (isDark) {
+						document.documentElement.classList.add('dark');
+					}
+					// 让 html/body 在首屏就拥有正确背景色，填满状态栏区域
+					document.documentElement.style.backgroundColor = color;
+				} catch (e) { /* ignore */ }
+			})();
+		</script>
 
 		%sveltekit.head%
 		<!-- Google tag (gtag.js) -->
@@ -36,7 +56,7 @@
 			document.write('<script defer data-domain="diarum.frytea.com" event-domain="' + window.location.hostname + '" src="https://plausible.frytea.com/js/script.pageview-props.js"><\/script>');
 		</script>
 	</head>
-	<body data-sveltekit-preload-data="hover">
+	<body data-sveltekit-preload-data="hover" style="margin: 0;">
 		<div style="display: contents">%sveltekit.body%</div>
 	</body>
 </html>

@@ -5,6 +5,7 @@
 	import TiptapEditor from '$lib/components/editor/TiptapEditor.svelte';
 	import TableOfContents from '$lib/components/ui/TableOfContents.svelte';
 	import TextPolisher from '$lib/components/TextPolisher.svelte';
+	import { getAISettings, transcribeAudio, isSpeechConfigured, type AISettings } from '$lib/api/ai';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import Footer from '$lib/components/ui/Footer.svelte';
 	import DiaryShareModal from '$lib/components/share/DiaryShareModal.svelte';
@@ -50,6 +51,18 @@
 	let selectedWeather = '';
 	let tags: string[] = [];
 	let tagInput = '';
+
+	// Speech recognition
+	let speechSettings: AISettings | null = null;
+	let speechEnabled = false;
+	let speechError = '';
+	let isRecording = false;
+	let isTranscribing = false;
+	let recordingSeconds = 0;
+	let mediaRecorder: MediaRecorder | null = null;
+	let recordedChunks: Blob[] = [];
+	let recordingTimer: ReturnType<typeof setInterval> | null = null;
+	let micSupported = typeof window !== 'undefined' && !!(window as any).navigator?.mediaDevices?.getUserMedia;
 	// Snapshot taken on mousedown (before blur clears selectedContent)
 	let shareSelectedContent = '';
 	let shareOpenedByMouse = false;
@@ -206,6 +219,164 @@
 		});
 	}
 
+	async function loadSpeechSettings() {
+		try {
+			const s = await getAISettings();
+			speechSettings = s;
+			speechEnabled = isSpeechConfigured(s);
+		} catch (e) {
+			speechSettings = null;
+			speechEnabled = false;
+		}
+	}
+
+	function insertTextAtCursor(inserted: string) {
+		if (!inserted) return;
+		const ta = document.querySelector<HTMLTextAreaElement>('.markdown-editor textarea');
+		let base = content || '';
+		let insertAt = base.length;
+		if (ta) {
+			const start = ta.selectionStart ?? base.length;
+			const end = ta.selectionEnd ?? base.length;
+			// Ensure we insert at proper position — if editor is focused use cursor
+			const isInFocus = document.activeElement === ta;
+			if (isInFocus || start !== end || start !== base.length) {
+				insertAt = start;
+			}
+			let before = base.substring(0, Math.min(insertAt, base.length));
+			let after = base.substring(insertAt);
+			// Insert separator (space) if preceding character is non-whitespace and non-empty
+			if (before && !/\s$/.test(before)) {
+				before += ' ';
+			}
+			const newText = before + inserted + after;
+			handleContentChange(newText);
+			// Restore cursor
+			setTimeout(() => {
+				const finalTa = document.querySelector<HTMLTextAreaElement>('.markdown-editor textarea');
+				if (finalTa) {
+					const pos = before.length + inserted.length;
+					finalTa.focus();
+					try {
+						finalTa.setSelectionRange(pos, pos);
+					} catch {
+						// ignore
+					}
+				}
+			}, 0);
+			return;
+		}
+		// Fallback: append
+		let prefix = base && !/\s$/.test(base) ? ' ' : '';
+		handleContentChange(base + prefix + inserted);
+	}
+
+	function stopRecordingTimer() {
+		if (recordingTimer) {
+			clearInterval(recordingTimer);
+			recordingTimer = null;
+		}
+	}
+
+	async function startRecording() {
+		speechError = '';
+		if (!micSupported) {
+			speechError = '当前浏览器不支持录音（需要 HTTPS 或支持 navigator.mediaDevices.getUserMedia）';
+			return;
+		}
+		try {
+			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+			recordedChunks = [];
+			const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+			mediaRecorder = mr;
+			mr.ondataavailable = (e) => {
+				if (e.data && e.data.size > 0) {
+					recordedChunks.push(e.data);
+				}
+			};
+			mr.onstop = async () => {
+				stream.getTracks().forEach((t) => t.stop());
+				isRecording = false;
+				stopRecordingTimer();
+				await transcribeRecording();
+			};
+			recordingSeconds = 0;
+			mr.start();
+			isRecording = true;
+			recordingTimer = setInterval(() => {
+				recordingSeconds += 1;
+				// Safety cap: 5 minutes
+				if (recordingSeconds >= 5 * 60 && mediaRecorder && mediaRecorder.state !== 'inactive') {
+					mediaRecorder.stop();
+				}
+			}, 1000);
+		} catch (e) {
+			speechError = e instanceof Error ? e.message : '无法打开麦克风';
+			isRecording = false;
+			stopRecordingTimer();
+		}
+	}
+
+	async function stopRecording() {
+		if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+			try {
+				mediaRecorder.stop();
+			} catch {
+				isRecording = false;
+				stopRecordingTimer();
+			}
+		} else {
+			isRecording = false;
+			stopRecordingTimer();
+		}
+	}
+
+	async function transcribeRecording() {
+		if (recordedChunks.length === 0) {
+			return;
+		}
+		const audioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+		if (audioBlob.size < 512) {
+			// Too short — likely just silence / click
+			speechError = '录音时间过短，请重新尝试';
+			setTimeout(() => { speechError = ''; }, 2500);
+			return;
+		}
+		isTranscribing = true;
+		speechError = '';
+		try {
+			const result = await transcribeAudio(audioBlob, {
+				language: speechSettings?.speech_language || undefined
+			});
+			let text = (result.text || '').trim();
+			if (text) {
+				// Basic sentence-style capitalization for English if first char is ASCII letter
+				if (/^[a-z]/.test(text)) {
+					text = text.charAt(0).toUpperCase() + text.slice(1);
+				}
+				// Add trailing punctuation if missing
+				if (!/[。.!?！？\s]$/.test(text)) {
+					text += '。';
+				}
+				insertTextAtCursor(text);
+			} else {
+				speechError = '未识别到内容，请重试';
+				setTimeout(() => { speechError = ''; }, 2500);
+			}
+		} catch (e) {
+			speechError = e instanceof Error ? e.message : '语音识别失败';
+			setTimeout(() => { speechError = ''; }, 3000);
+		} finally {
+			isTranscribing = false;
+		}
+	}
+
+	function formatRecordingTime(seconds: number): string {
+		const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+		const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+		return `${m}:${s}`;
+	}
+
 	async function handleManualSave() {
 		await forceSyncNow();
 	}
@@ -247,11 +418,15 @@
 		initDiaryCache();
 		cacheReady = true;
 		void loadDiaryEmojiPresets();
+		void loadSpeechSettings();
 
 		window.addEventListener('keydown', handleKeyboard);
 		return () => {
 			window.removeEventListener('keydown', handleKeyboard);
-			// Note: Don't cleanup diaryCache here as it's shared across pages
+			if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+				try { mediaRecorder.stop(); } catch { /* ignore */ }
+			}
+			stopRecordingTimer();
 		};
 	});
 
@@ -266,7 +441,7 @@
 	<title>{formatDisplayDate(date)} - 吾身</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen bg-background">
+<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background safe-bottom">
 	<PageHeader title="日记" />
 <!-- Main Content -->
 	<div class="container-responsive py-6 flex-1 flex flex-col">
@@ -323,7 +498,7 @@
 						<div class="text-muted-foreground text-sm">加载中...</div>
 					</div>
 				{:else}
-					<div class="bg-card rounded-xl shadow-sm border border-border/50 overflow-hidden animate-fade-in flex flex-col flex-1 min-h-0">
+					<div class="bg-card rounded-xl shadow-sm border border-border/50 overflow-hidden animate-fade-in flex flex-col flex-1 min-h-0 relative">
 						<TiptapEditor
 							{content}
 							bind:selectedContent
@@ -332,6 +507,55 @@
 							emptyStatePrompt="✨ 回顾今天... 这一天你会记住什么？"
 							diaryDate={date}
 						/>
+					{#if speechEnabled || isRecording || isTranscribing}
+						<div class="absolute bottom-3 right-3 flex items-center gap-2 z-10">
+							{#if speechError}
+								<div class="px-3 py-1.5 rounded-lg bg-destructive/90 text-destructive-foreground text-xs shadow-md">
+									{speechError}
+								</div>
+							{/if}
+							{#if isRecording}
+								<button
+									type="button"
+									on:click={stopRecording}
+									title="停止录音并转文字"
+									class="inline-flex items-center gap-2 px-3 py-2 bg-destructive/90 hover:bg-destructive text-destructive-foreground rounded-full text-sm font-medium shadow-lg shadow-destructive/20 transition-all"
+								>
+									<span class="relative flex items-center justify-center w-3 h-3">
+										<span class="absolute inline-flex h-full w-full rounded-full bg-white/70 animate-ping opacity-75"></span>
+										<span class="relative inline-flex rounded-full w-2 h-2 bg-white"></span>
+									</span>
+									<span>停止录音</span>
+									<span class="text-xs text-white/80 tabular-nums">{formatRecordingTime(recordingSeconds)}</span>
+								</button>
+							{:else if isTranscribing}
+								<button
+									type="button"
+									disabled
+									class="inline-flex items-center gap-2 px-3 py-2 bg-primary/90 text-primary-foreground rounded-full text-sm font-medium shadow-lg shadow-primary/20"
+								>
+									<svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+										<circle class="opacity-25" cx="12" cy="12" r="10" stroke-width="4" stroke="currentColor"/>
+										<path class="opacity-75" fill="currentColor" stroke="currentColor" stroke-width="4" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+									</svg>
+									<span>正在转写</span>
+								</button>
+							{:else}
+								<button
+									type="button"
+									on:click={startRecording}
+									title="语音输入日记"
+									class="inline-flex items-center gap-2 px-3 py-2 bg-primary/90 hover:bg-primary text-primary-foreground rounded-full text-sm font-medium shadow-lg shadow-primary/20 transition-all"
+								>
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 1a3 3 0 00-3 3v5a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 10v1a7 7 0 01-14 0v-1M12 18v3M8 21h8"/>
+									</svg>
+									<span>语音输入</span>
+								</button>
+							{/if}
+						</div>
+					{/if}
 					</div>
 
 					<!-- Mobile: Mood, Weather, Tags panel below editor -->

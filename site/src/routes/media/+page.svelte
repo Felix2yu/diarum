@@ -92,7 +92,7 @@
 	<title>媒体库 - 吾身</title>
 </svelte:head>
 
-<div class="min-h-screen bg-background">
+<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background safe-bottom">
 	<PageHeader title="媒体库">
 		<span slot="subtitle" class="text-sm text-muted-foreground">
 			{#if !loading}({totalItems}){/if}
@@ -100,7 +100,7 @@
 	</PageHeader>
 
 	<!-- Main Content -->
-	<main class="container-responsive py-6">
+	<main class="container-responsive py-8 flex-1">
 		{#if loading}
 			<div class="flex flex-col items-center justify-center py-20 gap-3">
 				<svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">

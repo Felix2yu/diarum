@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"strings"
 	"time"
@@ -48,6 +49,11 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		analysisSystemPrompt, _ := configService.GetString(userId, "ai.analysis_system_prompt")
 		analysisUserPrefix, _ := configService.GetString(userId, "ai.analysis_user_prefix")
 		enabled, _ := configService.GetBool(userId, "ai.enabled")
+		speechProvider, _ := configService.GetString(userId, "ai.speech.provider")
+		speechBaseUrl, _ := configService.GetString(userId, "ai.speech.base_url")
+		speechAPIKey, _ := configService.GetString(userId, "ai.speech.api_key")
+		speechModel, _ := configService.GetString(userId, "ai.speech.model")
+		speechLanguage, _ := configService.GetString(userId, "ai.speech.language")
 		return c.JSON(http.StatusOK, map[string]any{
 			"api_key":                 apiKey,
 			"base_url":                baseUrl,
@@ -56,6 +62,11 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			"analysis_system_prompt":  analysisSystemPrompt,
 			"analysis_user_prefix":    analysisUserPrefix,
 			"enabled":                 enabled,
+			"speech_provider":         speechProvider,
+			"speech_base_url":         speechBaseUrl,
+			"speech_api_key":          speechAPIKey,
+			"speech_model":            speechModel,
+			"speech_language":         speechLanguage,
 		})
 	})
 
@@ -69,6 +80,11 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			AnalysisSystemPrompt  string `json:"analysis_system_prompt"`
 			AnalysisUserPrefix    string `json:"analysis_user_prefix"`
 			Enabled               bool   `json:"enabled"`
+			SpeechProvider        string `json:"speech_provider"`
+			SpeechBaseURL         string `json:"speech_base_url"`
+			SpeechAPIKey          string `json:"speech_api_key"`
+			SpeechModel           string `json:"speech_model"`
+			SpeechLanguage        string `json:"speech_language"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
@@ -77,13 +93,18 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			return badRequest("All AI settings must be configured before enabling AI features", nil)
 		}
 		settings := map[string]any{
-			"ai.api_key":               body.APIKey,
-			"ai.base_url":              body.BaseURL,
-			"ai.chat_model":            body.ChatModel,
-			"ai.embedding_model":       body.EmbeddingModel,
-			"ai.analysis_system_prompt": body.AnalysisSystemPrompt,
-			"ai.analysis_user_prefix":  body.AnalysisUserPrefix,
-			"ai.enabled":               body.Enabled,
+			"ai.api_key":                 body.APIKey,
+			"ai.base_url":                body.BaseURL,
+			"ai.chat_model":              body.ChatModel,
+			"ai.embedding_model":         body.EmbeddingModel,
+			"ai.analysis_system_prompt":  body.AnalysisSystemPrompt,
+			"ai.analysis_user_prefix":    body.AnalysisUserPrefix,
+			"ai.enabled":                 body.Enabled,
+			"ai.speech.provider":         body.SpeechProvider,
+			"ai.speech.base_url":         body.SpeechBaseURL,
+			"ai.speech.api_key":          body.SpeechAPIKey,
+			"ai.speech.model":            body.SpeechModel,
+			"ai.speech.language":         body.SpeechLanguage,
 		}
 		if err := configService.SetBatch(userId, settings); err != nil {
 			return badRequest("Failed to save AI settings", err)
@@ -110,6 +131,155 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		return c.JSON(http.StatusOK, map[string]any{"models": models})
 	})
 
+	// Speech transcription: accepts multipart/form-data with a `file` field and
+	// calls an OpenAI-compatible /v1/audio/transcriptions endpoint using the
+	// configured speech credentials. Also supports the optional `prompt`,
+	// `language`, and `model` overrides in the request.
+	group.POST("/transcribe", func(c echo.Context) error {
+		userId := auth.CurrentUser(c).ID
+
+		provider, _ := configService.GetString(userId, "ai.speech.provider")
+		if provider == "" || provider == "none" {
+			return badRequest("Speech recognition is not enabled. Please configure it in Settings.", nil)
+		}
+
+		// Load speech settings; fall back to shared AI settings if the dedicated
+		// speech values are empty so users only have to fill in one API base.
+		baseURL, _ := configService.GetString(userId, "ai.speech.base_url")
+		apiKey, _ := configService.GetString(userId, "ai.speech.api_key")
+		model, _ := configService.GetString(userId, "ai.speech.model")
+		language, _ := configService.GetString(userId, "ai.speech.language")
+
+		if baseURL == "" || apiKey == "" {
+			fallbackBase, _ := configService.GetString(userId, "ai.base_url")
+			fallbackKey, _ := configService.GetString(userId, "ai.api_key")
+			if fallbackBase == "" || fallbackKey == "" {
+				return badRequest("Speech recognition requires a base URL and API key.", nil)
+			}
+			baseURL = fallbackBase
+			apiKey = fallbackKey
+		}
+		if model == "" {
+			model = "whisper-1"
+		}
+
+		// File upload
+		file, err := c.FormFile("file")
+		if err != nil {
+			return badRequest("Missing audio file", err)
+		}
+		if file == nil || file.Size == 0 {
+			return badRequest("Invalid audio file", nil)
+		}
+		// 25MB safety limit (matches OpenAI)
+		if file.Size > 25*1024*1024 {
+			return badRequest("Audio file is too large (max 25MB)", nil)
+		}
+		src, err := file.Open()
+		if err != nil {
+			return badRequest("Failed to read audio file", err)
+		}
+		defer src.Close()
+
+		// Read file content into memory for proxying (audio files are typically small)
+		audioBytes, err := io.ReadAll(src)
+		if err != nil {
+			return badRequest("Failed to read audio file", err)
+		}
+
+		// Let the request override language / prompt if provided
+		if overrideLang := strings.TrimSpace(c.FormValue("language")); overrideLang != "" {
+			language = overrideLang
+		}
+		if overrideModel := strings.TrimSpace(c.FormValue("model")); overrideModel != "" {
+			model = overrideModel
+		}
+		prompt := strings.TrimSpace(c.FormValue("prompt"))
+
+		// Build multipart request body for the upstream provider
+		var requestBody bytes.Buffer
+		boundary := "diarum-boundary-" + fmt.Sprintf("%d", time.Now().UnixNano())
+		writer := multipart.NewWriter(&requestBody)
+
+		if err := writer.SetBoundary(boundary); err != nil {
+			return serverError("Failed to build request", err)
+		}
+
+		if err := writer.WriteField("model", model); err != nil {
+			return serverError("Failed to build request", err)
+		}
+		if language != "" {
+			if err := writer.WriteField("language", language); err != nil {
+				return serverError("Failed to build request", err)
+			}
+		}
+		if prompt != "" {
+			if err := writer.WriteField("prompt", prompt); err != nil {
+				return serverError("Failed to build request", err)
+			}
+		}
+		// Always request JSON text output
+		if err := writer.WriteField("response_format", "json"); err != nil {
+			return serverError("Failed to build request", err)
+		}
+		if err := writer.WriteField("temperature", "0"); err != nil {
+			return serverError("Failed to build request", err)
+		}
+
+		// Derive a reasonable filename / content type for the upstream provider
+		origName := file.Filename
+		if origName == "" {
+			origName = "audio.webm"
+		}
+		part, err := writer.CreateFormFile("file", origName)
+		if err != nil {
+			return serverError("Failed to build request", err)
+		}
+		if _, err := part.Write(audioBytes); err != nil {
+			return serverError("Failed to build request", err)
+		}
+		if err := writer.Close(); err != nil {
+			return serverError("Failed to build request", err)
+		}
+
+		// Build upstream URL
+		baseURL = strings.TrimSuffix(baseURL, "/")
+		transcribeURL := baseURL + "/v1/audio/transcriptions"
+
+		ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Minute)
+		defer cancel()
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, transcribeURL, &requestBody)
+		if err != nil {
+			return serverError("Failed to create speech request", err)
+		}
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		req.Header.Set("Content-Type", writer.FormDataContentType())
+
+		client := &http.Client{Timeout: 5 * time.Minute}
+		resp, err := client.Do(req)
+		if err != nil {
+			return serverError("Speech recognition request failed: "+err.Error(), nil)
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != http.StatusOK {
+			bodyText, _ := io.ReadAll(resp.Body)
+			return serverError(fmt.Sprintf("Speech provider returned status %d: %s", resp.StatusCode, string(bodyText)), nil)
+		}
+
+		var transcript struct {
+			Text string `json:"text"`
+		}
+		if err := json.NewDecoder(resp.Body).Decode(&transcript); err != nil {
+			return serverError("Failed to decode speech response", err)
+		}
+
+		return c.JSON(http.StatusOK, map[string]any{
+			"text": transcript.Text,
+		})
+	})
+
 	group.POST("/vectors/build", func(c echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		if embeddingService == nil {
@@ -123,7 +293,6 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		}
 		return c.JSON(http.StatusOK, result)
 	})
-
 	group.POST("/vectors/build-incremental", func(c echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		if embeddingService == nil {
