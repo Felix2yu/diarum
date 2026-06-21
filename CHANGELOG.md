@@ -11,8 +11,6 @@
 
 ### ✨ 新增 Features
 
-- **MCP Server** — 新增 Model Context Protocol 服务器，支持外部 AI 助手通过 MCP 协议访问日记数据（docs/MCP Server.md）
-
 ### 🐛 Bug 修复
 
 - npm ci 回退为 npm install，兼容 workspace 项目（#27）
@@ -57,8 +55,6 @@
 - **AI 周期分析增强** — 支持自定义时间范围与关键词过滤，分析结果自动保存到历史记录（#20）
 - **语音输入** — 基于 Web Speech API 的录音转文字功能，支持多语言识别（#24）
 - **日历年视图** — 平铺展示全年 12 个月的迷你日历，支持年月快速跳转（#22）
-- **MCP Server** — 新增 Model Context Protocol 服务器，支持外部 AI 助手通过 MCP 协议访问日记数据
-
 ### 🎨 UI 优化
 
 - **全面 UI 重设计** — 改进动画曲线（cubic-bezier），新增 slide-up/scale-in/shimmer 动画及 stagger 工具类（#26）
