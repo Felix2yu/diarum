@@ -1032,6 +1032,7 @@
     flex-direction: column;
     align-items: center;
     gap: 0.25rem;
+    margin: 0 auto;
 }
 
 .analysis-header h3 {
