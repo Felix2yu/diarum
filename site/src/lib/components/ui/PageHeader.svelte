@@ -83,7 +83,7 @@
 				{@const active = item.match($page.url.pathname)}
 				<a
 					href={item.href}
-					class="p-2 rounded-lg transition-all duration-200 {active ? 'bg-primary/15 text-primary ring-1 ring-primary/30' : 'hover:bg-muted/50 text-foreground'}"
+					class="p-2 rounded-lg transition-all duration-200 {active ? 'bg-primary/15 text-primary ring-1 ring-primary/30 shadow-sm' : 'hover:bg-muted/50 text-foreground/70 hover:text-foreground'}"
 					title={item.label}
 					aria-label={item.label}
 					aria-current={active ? 'page' : null}

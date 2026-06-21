@@ -710,7 +710,7 @@
 	<title>设置 - 吾身</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background safe-bottom">
+<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background">
 	<PageHeader title="设置" />
 
 	<!-- Main Content -->
@@ -724,7 +724,7 @@
 							<select
 								id="settings-tab-select"
 								value={activeTab}
-								on:change={(event) => setActiveTab((event.currentTarget as HTMLSelectElement).value as SettingsTab)}
+								onchange={(event) => setActiveTab((event.currentTarget as HTMLSelectElement).value as SettingsTab)}
 								class="w-full pl-3 pr-9 py-2 bg-card border border-border/60 rounded-lg text-sm text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary"
 							>
 								{#each settingsTabs as tab}
@@ -739,7 +739,7 @@
 					<div class="hidden sm:flex gap-2 overflow-x-auto pb-1">
 						{#each settingsTabs as tab}
 							<button
-								on:click={() => setActiveTab(tab.id)}
+								onclick={() => setActiveTab(tab.id)}
 								class="px-3 py-1.5 rounded-lg text-sm whitespace-nowrap border transition-colors {activeTab === tab.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-card text-foreground border-border/60 hover:bg-muted/50'}"
 							>
 								{tab.label}
@@ -772,7 +772,7 @@
 							<div class="text-sm text-muted-foreground">允许外部读取和写入您的日记数据</div>
 						</div>
 						<button
-							on:click={handleToggle}
+							onclick={handleToggle}
 							disabled={toggling}
 							aria-label="切换 API 访问"
 							class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {tokenStatus.enabled ? 'bg-primary' : 'bg-muted'}"
@@ -792,7 +792,7 @@
 									{tokenStatus.token}
 								</code>
 								<button
-									on:click={copyToken}
+									onclick={copyToken}
 									class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
 								>
 									{copied ? '已复制！' : '复制'}
@@ -811,7 +811,7 @@
 									<div class="text-sm text-muted-foreground">生成新的 API token</div>
 								</div>
 								<button
-									on:click={handleReset}
+									onclick={handleReset}
 									disabled={resetting}
 									class="px-4 py-2 text-sm bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-lg transition-colors duration-200 disabled:opacity-50"
 								>
@@ -912,7 +912,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							<div class="text-sm text-muted-foreground">为 Memos 生成专用的 Webhook URL 用于接收同步消息</div>
 						</div>
 						<button
-							on:click={() => memosSettings.enabled = !memosSettings.enabled}
+							onclick={() => memosSettings.enabled = !memosSettings.enabled}
 							aria-label="切换 Memos 同步"
 							class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {memosSettings.enabled ? 'bg-primary' : 'bg-muted'}"
 						>
@@ -942,7 +942,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									{memosSettings.webhook_url}
 								</code>
 								<button
-									on:click={copyMemosWebhookURL}
+									onclick={copyMemosWebhookURL}
 									class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
 								>
 									{memosCopied ? '已复制！' : '复制'}
@@ -958,7 +958,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									<div class="text-sm text-muted-foreground">如果旧 URL 已泄露，请重新生成专用的 Webhook URL</div>
 								</div>
 								<button
-									on:click={handleResetMemosWebhookToken}
+									onclick={handleResetMemosWebhookToken}
 									disabled={memosResetting}
 									class="px-4 py-2 text-sm bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-lg transition-colors duration-200 disabled:opacity-50"
 								>
@@ -970,7 +970,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 
 					<div class="pt-4 flex items-center gap-3">
 						<button
-							on:click={handleSaveMemosSettings}
+							onclick={handleSaveMemosSettings}
 							disabled={memosSaving || !memosSettingsChanged}
 							class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
 						>
@@ -986,7 +986,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 					<div class="flex items-center justify-between gap-3 mb-4">
 						<h2 class="text-lg font-semibold text-foreground">心情与天气</h2>
 						<button
-							on:click={restoreAllDefaults}
+							onclick={restoreAllDefaults}
 							class="px-3 py-1.5 text-xs bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
 						>
 							恢复所有默认值
@@ -1013,7 +1013,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							<div class="flex items-center justify-between gap-3 mb-2">
 								<div class="font-medium text-foreground">心情选项</div>
 								<button
-									on:click={restoreMoodDefaults}
+									onclick={restoreMoodDefaults}
 									class="px-2.5 py-1 text-xs bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
 								>
 									恢复默认值
@@ -1026,7 +1026,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									maxlength={MAX_DIARY_EMOJI_OPTION_LENGTH}
 									placeholder="例如 😊"
 									class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-									on:keydown={(event) => {
+									onkeydown={(event) => {
 										if (event.key === 'Enter') {
 											event.preventDefault();
 											addMoodOption();
@@ -1034,7 +1034,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									}}
 								/>
 								<button
-									on:click={addMoodOption}
+									onclick={addMoodOption}
 									class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
 								>
 									添加
@@ -1049,15 +1049,15 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 										<div
 											draggable="true"
 											role="listitem"
-											on:dragstart={() => handleDragStart('mood', index)}
-											on:dragover={(event) => handleDragOver(event, 'mood', index)}
-											on:drop={() => handleDrop('mood', index)}
-											on:dragend={clearDragState}
+											ondragstart={() => handleDragStart('mood', index)}
+											ondragover={(event) => handleDragOver(event, 'mood', index)}
+											ondrop={() => handleDrop('mood', index)}
+											ondragend={clearDragState}
 											class="relative w-14 h-14 rounded-xl border transition-colors flex items-center justify-center cursor-grab select-none {dragOverType === 'mood' && dragOverIndex === index ? 'border-primary bg-primary/10' : 'bg-muted/70 border-border/60'}"
 											title={option}
 										>
 											<button
-												on:click|stopPropagation={() => removeMoodOption(option)}
+												onclick={(e) => { e.stopPropagation(); removeMoodOption(option); }}
 												class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-background border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors flex items-center justify-center"
 												aria-label={`Remove mood option ${option}`}
 											>
@@ -1070,8 +1070,8 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									{/each}
 									<div
 										role="status"
-										on:dragover={(event) => handleDragOver(event, 'mood', moodOptions.length - 1)}
-										on:drop={() => handleDropToEnd('mood')}
+										ondragover={(event) => handleDragOver(event, 'mood', moodOptions.length - 1)}
+										ondrop={() => handleDropToEnd('mood')}
 										class="h-14 px-3 rounded-xl border border-dashed text-xs text-muted-foreground flex items-center {dragOverType === 'mood' ? 'border-primary bg-primary/5' : 'border-border/60'}"
 									>
 										拖到末尾
@@ -1084,7 +1084,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							<div class="flex items-center justify-between gap-3 mb-2">
 								<div class="font-medium text-foreground">天气选项</div>
 								<button
-									on:click={restoreWeatherDefaults}
+									onclick={restoreWeatherDefaults}
 									class="px-2.5 py-1 text-xs bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
 								>
 									恢复默认值
@@ -1097,7 +1097,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									maxlength={MAX_DIARY_EMOJI_OPTION_LENGTH}
 									placeholder="例如 ☀️"
 									class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-									on:keydown={(event) => {
+									onkeydown={(event) => {
 										if (event.key === 'Enter') {
 											event.preventDefault();
 											addWeatherOption();
@@ -1105,7 +1105,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									}}
 								/>
 								<button
-									on:click={addWeatherOption}
+									onclick={addWeatherOption}
 									class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
 								>
 									添加
@@ -1120,15 +1120,15 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 										<div
 											draggable="true"
 											role="listitem"
-											on:dragstart={() => handleDragStart('weather', index)}
-											on:dragover={(event) => handleDragOver(event, 'weather', index)}
-											on:drop={() => handleDrop('weather', index)}
-											on:dragend={clearDragState}
+											ondragstart={() => handleDragStart('weather', index)}
+											ondragover={(event) => handleDragOver(event, 'weather', index)}
+											ondrop={() => handleDrop('weather', index)}
+											ondragend={clearDragState}
 											class="relative w-14 h-14 rounded-xl border transition-colors flex items-center justify-center cursor-grab select-none {dragOverType === 'weather' && dragOverIndex === index ? 'border-primary bg-primary/10' : 'bg-muted/70 border-border/60'}"
 											title={option}
 										>
 											<button
-												on:click|stopPropagation={() => removeWeatherOption(option)}
+												onclick={(e) => { e.stopPropagation(); removeWeatherOption(option); }}
 												class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-background border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors flex items-center justify-center"
 												aria-label={`Remove weather option ${option}`}
 											>
@@ -1141,8 +1141,8 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									{/each}
 									<div
 										role="status"
-										on:dragover={(event) => handleDragOver(event, 'weather', weatherOptions.length - 1)}
-										on:drop={() => handleDropToEnd('weather')}
+										ondragover={(event) => handleDragOver(event, 'weather', weatherOptions.length - 1)}
+										ondrop={() => handleDropToEnd('weather')}
 										class="h-14 px-3 rounded-xl border border-dashed text-xs text-muted-foreground flex items-center {dragOverType === 'weather' ? 'border-primary bg-primary/5' : 'border-border/60'}"
 									>
 										拖到末尾
@@ -1154,7 +1154,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 
 					<div class="pt-4 flex items-center gap-3">
 						<button
-							on:click={handleSaveEmojiSettings}
+							onclick={handleSaveEmojiSettings}
 							disabled={emojiSettingsSaving || !emojiSettingsChanged}
 							class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
 						>
@@ -1252,7 +1252,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								</svg>
 							</div>
 							<button
-								on:click={handleFetchModels}
+								onclick={handleFetchModels}
 								disabled={fetchingModels}
 								class="p-2 bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 disabled:opacity-50"
 								title="刷新模型列表"
@@ -1285,7 +1285,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								</svg>
 							</div>
 							<button
-								on:click={handleFetchModels}
+								onclick={handleFetchModels}
 								disabled={fetchingModels}
 								class="p-2 bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 disabled:opacity-50"
 								title="刷新模型列表"
@@ -1314,7 +1314,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								</div>
 							</div>
 							<button
-								on:click={() => { if (canEnableAI) aiSettings.enabled = !aiSettings.enabled; }}
+								onclick={() => { if (canEnableAI) aiSettings.enabled = !aiSettings.enabled; }}
 								disabled={!canEnableAI && !aiSettings.enabled}
 								aria-label="切换 AI 功能"
 								class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {aiSettings.enabled ? 'bg-primary' : 'bg-muted'} {!canEnableAI && !aiSettings.enabled ? 'opacity-50 cursor-not-allowed' : ''}"
@@ -1338,7 +1338,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								</div>
 								<div class="flex items-center gap-2">
 									<button
-										on:click={() => handleBuildVectors(true)}
+										onclick={() => handleBuildVectors(true)}
 										disabled={buildingVectors}
 										class="px-3 py-1.5 text-sm bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors duration-200 disabled:opacity-50 flex items-center gap-1.5"
 										title="仅构建新增和过时的条目"
@@ -1356,7 +1356,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 										更新
 									</button>
 									<button
-										on:click={() => handleBuildVectors(false)}
+										onclick={() => handleBuildVectors(false)}
 										disabled={buildingVectors}
 										class="px-3 py-1.5 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 disabled:opacity-50 flex items-center gap-1.5"
 										title="从头重建所有条目"
@@ -1561,7 +1561,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								<label for="analysis-system-prompt" class="text-sm text-muted-foreground">系统提示词 (System Prompt)</label>
 								<button
 									type="button"
-									on:click={() => { aiSettings.analysis_system_prompt = DEFAULT_ANALYSIS_SYSTEM_PROMPT; }}
+									onclick={() => { aiSettings.analysis_system_prompt = DEFAULT_ANALYSIS_SYSTEM_PROMPT; }}
 									class="text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-0.5 rounded hover:bg-primary/10"
 								>
 									恢复默认
@@ -1594,7 +1594,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 					<!-- Save Button -->
 					<div class="pt-4 flex items-center gap-3">
 						<button
-							on:click={handleSaveAISettings}
+							onclick={handleSaveAISettings}
 							disabled={aiSaving || !aiSettingsChanged}
 							class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
 						>
@@ -1650,7 +1650,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							] as option}
 								<button
 									type="button"
-									on:click={() => imageUploadSettingsLocal.provider = option.id as ImageUploadProvider}
+									onclick={() => imageUploadSettingsLocal.provider = option.id as ImageUploadProvider}
 									class="text-left rounded-xl border p-4 transition-colors duration-200 {imageUploadSettingsLocal.provider === option.id ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-border'}"
 								>
 									<div class="font-medium text-foreground">{option.label}</div>
@@ -1745,7 +1745,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									<div class="text-sm text-muted-foreground">保存前请确认您的 Chevereto 服务器可以访问。</div>
 								</div>
 								<button
-									on:click={handleTestChevereto}
+									onclick={handleTestChevereto}
 									disabled={cheveretoTesting || !canTestChevereto}
 									class="px-4 py-2 text-sm bg-background hover:bg-background/80 rounded-lg transition-colors duration-200 disabled:opacity-50 flex items-center gap-2"
 								>
@@ -1772,7 +1772,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 					<!-- Save Button -->
 					<div class="pt-4 flex items-center gap-3">
 						<button
-							on:click={handleSaveImageUploadSettings}
+							onclick={handleSaveImageUploadSettings}
 							disabled={imageUploadSaving || !imageUploadSettingsChanged}
 							class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
 						>
@@ -1811,7 +1811,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 						<div class="flex items-center justify-between mb-1">
 							<div class="font-medium text-foreground">导出</div>
 							<button
-								on:click={() => showExportOptions = !showExportOptions}
+								onclick={() => showExportOptions = !showExportOptions}
 								class="text-xs text-primary hover:underline"
 							>
 								{showExportOptions ? '隐藏选项' : '显示选项'}
@@ -1898,7 +1898,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 						{/if}
 
 						<button
-							on:click={handleExport}
+							onclick={handleExport}
 							disabled={exporting}
 							class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 flex items-center gap-2"
 						>
@@ -1980,11 +1980,11 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									type="file"
 									accept=".zip"
 									class="hidden"
-									on:change={handleImportFileChange}
+									onchange={handleImportFileChange}
 								/>
 							</label>
 							<button
-								on:click={handleImport}
+								onclick={handleImport}
 								disabled={importing || !importFile}
 								class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 flex items-center gap-2"
 							>

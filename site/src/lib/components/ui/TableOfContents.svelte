@@ -8,7 +8,14 @@
 		onTagInput = ((_s: string) => {}) as (s: string) => void,
 		onTagAdd = (() => {}) as () => void,
 		onTagRemove = ((_t: string) => {}) as (t: string) => void,
-		onTagKeydown = ((_e: KeyboardEvent) => {}) as (e: KeyboardEvent) => void
+		onTagKeydown = ((_e: KeyboardEvent) => {}) as (e: KeyboardEvent) => void,
+		allTags = [] as string[],
+		tagSuggestions = [] as string[],
+		showTagSuggestions = false,
+		selectedSuggestionIndex = -1,
+		onSuggestionSelect = ((_t: string) => {}) as (t: string) => void,
+		onSuggestionFocus = (() => {}) as () => void,
+		onSuggestionBlur = (() => {}) as () => void
 	} = $props();
 
 	interface TocItem {
@@ -98,16 +105,30 @@
 				</span>
 			{/each}
 		</div>
-		<div class="flex items-center gap-1">
+		<div class="relative">
 			<input
 				type="text"
 				value={tagInputValue}
 				oninput={handleTagInputChange}
 				onkeydown={onTagKeydown}
-				onblur={onTagAdd}
+				onfocus={onSuggestionFocus}
+				onblur={onSuggestionBlur}
 				placeholder="添加标签，回车或逗号分隔"
 				class="w-full text-xs px-2 py-1.5 rounded-md bg-background border border-border/70 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors placeholder:text-muted-foreground/50"
 			/>
+			{#if showTagSuggestions && tagSuggestions.length > 0}
+				<div class="absolute left-0 right-0 top-full mt-1 bg-card border border-border/50 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
+					{#each tagSuggestions as suggestion, i}
+						<button
+							type="button"
+							onmousedown={(e) => { e.preventDefault(); onSuggestionSelect(suggestion); }}
+							class="w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors {i === selectedSuggestionIndex ? 'bg-muted/50 text-foreground' : 'text-muted-foreground'}"
+						>
+							<span class="text-foreground font-medium">{suggestion.slice(0, tagInputValue.trim().length)}</span><span>{suggestion.slice(tagInputValue.trim().length)}</span>
+						</button>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	</div>
 

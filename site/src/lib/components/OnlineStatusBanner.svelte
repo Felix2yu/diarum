@@ -70,7 +70,7 @@
 			{/if}
 			<button
 				type="button"
-				on:click={handleSync}
+				onclick={handleSync}
 				disabled={syncingNow || pendingSyncCount === 0}
 				class="ml-2 px-3 py-1 bg-secondary text-secondary-foreground rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
 			>

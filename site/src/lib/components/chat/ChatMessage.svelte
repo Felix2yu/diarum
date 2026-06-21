@@ -62,7 +62,7 @@
 	<div class="max-w-[80%] {message.role === 'user' ? 'order-2' : 'order-1'}">
 		<div
 			class="rounded-2xl px-4 py-3 {message.role === 'user'
-				? 'bg-primary text-primary-foreground rounded-br-md'
+				? 'bg-primary text-primary-foreground rounded-br-md shadow-sm'
 				: 'bg-muted text-foreground rounded-bl-md'}"
 		>
 			{#if message.role === 'user'}
@@ -96,7 +96,7 @@
 				<button
 					type="button"
 					class="text-xs text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
-					on:click={toggleExpanded}
+					onclick={toggleExpanded}
 				>
 					<svg
 						class="w-3 h-3 transition-transform {expanded ? 'rotate-90' : ''}"
@@ -120,7 +120,7 @@
 						<button
 							type="button"
 							class="w-full text-left p-2 rounded-lg bg-background/50 border border-border/50 hover:border-border hover:bg-background transition-colors"
-							on:click={() => navigateToDiary(diary.date)}
+							onclick={() => navigateToDiary(diary.date)}
 						>
 							<div class="text-xs font-medium text-foreground">{formatDiaryDate(diary.date)}</div>
 							<div class="text-xs text-muted-foreground mt-1 line-clamp-2">

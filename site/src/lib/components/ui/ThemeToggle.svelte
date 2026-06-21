@@ -22,11 +22,11 @@
 	}
 </script>
 
-<svelte:window on:click={handleClickOutside} />
+<svelte:window onclick={handleClickOutside} />
 
 <div class="theme-toggle relative">
 	<button
-		on:click|stopPropagation={() => (isOpen = !isOpen)}
+		onclick={(e) => { e.stopPropagation(); isOpen = !isOpen; }}
 		class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm
 			   text-muted-foreground hover:text-foreground hover:bg-muted/50
 			   transition-all duration-200"
@@ -58,7 +58,7 @@
 					animate-slide-in-down z-50">
 			{#each themes as t}
 				<button
-					on:click|stopPropagation={() => selectTheme(t.value)}
+					onclick={(e) => { e.stopPropagation(); selectTheme(t.value); }}
 					class="w-full flex items-center gap-2 px-3 py-1.5 text-sm
 						   hover:bg-muted/50 transition-colors
 						   {$theme === t.value ? 'text-primary font-medium' : 'text-muted-foreground'}"

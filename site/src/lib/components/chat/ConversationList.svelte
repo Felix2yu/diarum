@@ -65,10 +65,10 @@
 			</span>
 		</div>
 		<button
-			on:click={() => dispatch('create')}
+			onclick={() => dispatch('create')}
 			class="w-full flex items-center justify-center gap-2 px-4 py-2.5
 				bg-primary text-primary-foreground rounded-xl
-				hover:opacity-90 transition-all text-sm font-medium shadow-sm"
+				hover:opacity-90 active:scale-[0.98] transition-all text-sm font-medium shadow-sm"
 		>
 			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -102,8 +102,8 @@
 					<div
 						role="button"
 						tabindex="0"
-						on:click={() => dispatch('select', conv.id)}
-						on:keydown={(e) => e.key === 'Enter' && dispatch('select', conv.id)}
+						onclick={() => dispatch('select', conv.id)}
+						onkeydown={(e) => e.key === 'Enter' && dispatch('select', conv.id)}
 						class="w-full text-left p-3 rounded-xl transition-all duration-200 group cursor-pointer relative
 							{selectedId === conv.id
 								? 'bg-primary/10 border border-primary/20'
@@ -134,7 +134,7 @@
 							{#if deleteConfirmId === conv.id}
 								<div class="flex items-center gap-1">
 									<button
-										on:click={(e) => handleDelete(e, conv.id)}
+										onclick={(e) => handleDelete(e, conv.id)}
 										class="p-1.5 rounded-lg bg-destructive text-destructive-foreground text-xs font-medium hover:opacity-90 transition-all"
 										title="确认删除"
 									>
@@ -143,7 +143,7 @@
 										</svg>
 									</button>
 									<button
-										on:click={cancelDelete}
+										onclick={cancelDelete}
 										class="p-1.5 rounded-lg bg-muted hover:bg-muted/80 transition-all"
 										title="取消"
 									>
@@ -154,7 +154,7 @@
 								</div>
 							{:else}
 								<button
-									on:click={(e) => handleDelete(e, conv.id)}
+									onclick={(e) => handleDelete(e, conv.id)}
 									class="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 hover:bg-destructive/10 transition-all"
 									title="删除"
 								>

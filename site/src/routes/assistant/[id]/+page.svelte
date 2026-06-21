@@ -195,7 +195,7 @@
 	<PageHeader title="AI 助手" sticky={false}>
 		<button
 			slot="actions"
-			on:click={() => sidebarOpen = !sidebarOpen}
+			onclick={() => sidebarOpen = !sidebarOpen}
 			class="p-1.5 hover:bg-muted/50 rounded-lg transition-all duration-200 lg:hidden"
 			aria-label="切换侧边栏"
 		>
@@ -235,7 +235,7 @@
 			{#if sidebarOpen}
 				<button
 					class="fixed inset-0 bg-black/50 z-30 lg:hidden"
-					on:click={() => sidebarOpen = false}
+					onclick={() => sidebarOpen = false}
 					aria-label="关闭侧边栏"
 				></button>
 			{/if}
@@ -272,14 +272,15 @@
 						</div>
 					{:else if messages.length === 0 && !streamingContent}
 						<div class="flex flex-col items-center justify-center h-full text-center py-12">
-							<div class="w-16 h-16 mb-4 rounded-xl bg-muted/50 flex items-center justify-center">
-								<svg class="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<div class="w-20 h-20 mb-4 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
+								<svg class="w-10 h-10 text-primary/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
 										d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
 								</svg>
 							</div>
-							<p class="text-muted-foreground text-sm">
-								在下方发送消息以开始对话。
+							<h3 class="text-lg font-medium text-foreground mb-1">开始对话</h3>
+							<p class="text-muted-foreground text-sm max-w-xs">
+								向 AI 助手提问关于你的日记内容
 							</p>
 						</div>
 					{:else}
@@ -306,7 +307,7 @@
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 								</svg>
 								<span>{chatError}</span>
-								<button on:click={() => chatError = ''} class="ml-auto p-0.5 hover:bg-destructive/20 rounded" aria-label="关闭错误">
+								<button onclick={() => chatError = ''} class="ml-auto p-0.5 hover:bg-destructive/20 rounded" aria-label="关闭错误">
 									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
 									</svg>

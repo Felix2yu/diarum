@@ -6,6 +6,7 @@
 	import Footer from '$lib/components/ui/Footer.svelte';
 
 	let ready = $state(false);
+	let visibleSections = $state<Set<number>>(new Set());
 
 	onMount(() => {
 		if ($isAuthenticated) {
@@ -15,6 +16,24 @@
 		} else {
 			ready = true;
 		}
+
+		const observer = new IntersectionObserver(
+			(entries) => {
+				entries.forEach((entry) => {
+					if (entry.isIntersecting) {
+						const idx = parseInt(entry.target.getAttribute('data-idx') || '0');
+						visibleSections = new Set([...visibleSections, idx]);
+					}
+				});
+			},
+			{ threshold: 0.1, rootMargin: '0px 0px -50px 0px' }
+		);
+
+		setTimeout(() => {
+			document.querySelectorAll('[data-observe]').forEach((el) => observer.observe(el));
+		}, 100);
+
+		return () => observer.disconnect();
 	});
 
 	const features = [
@@ -56,7 +75,7 @@
 		<p class="text-muted-foreground">加载中...</p>
 	</div>
 {:else}
-	<div class="min-h-screen min-h-[100dvh] flex flex-col bg-background safe-bottom">
+	<div class="min-h-screen min-h-[100dvh] flex flex-col bg-background">
 		<!-- Navigation -->
 		<nav class="fixed top-0 left-0 right-0 z-50 glass border-b border-border/50 safe-top">
 			<div class="container-responsive h-16">
@@ -104,19 +123,17 @@
 		</section>
 
 		<!-- Screenshots Section -->
-		<section class="py-16 bg-muted/30">
+		<section class="py-16 bg-muted/30" data-observe data-idx="0">
 			<div class="container-responsive">
 				<!-- Desktop Screenshots -->
-				<div class="hidden md:block mb-12 animate-fade-in">
+				<div class="hidden md:block mb-12" class:animate-fade-in={visibleSections.has(0)} style:opacity={visibleSections.has(0) ? 1 : 0}>
 					<div class="relative rounded-2xl overflow-hidden shadow-2xl border border-border/50">
-						<!-- Light Mode Screenshot -->
 						<img
 							src="/screenshots/desktop-light.png"
 							alt="吾身桌面界面"
 							class="w-full h-auto dark:hidden"
 							loading="lazy"
 						/>
-						<!-- Dark Mode Screenshot -->
 						<img
 							src="/screenshots/desktop-dark.png"
 							alt="吾身桌面界面"
@@ -127,16 +144,14 @@
 				</div>
 
 				<!-- Mobile Screenshots -->
-				<div class="md:hidden mb-8 animate-fade-in">
+				<div class="md:hidden mb-8" class:animate-fade-in={visibleSections.has(0)} style:opacity={visibleSections.has(0) ? 1 : 0}>
 					<div class="relative rounded-2xl overflow-hidden shadow-2xl border border-border/50 max-w-sm mx-auto">
-						<!-- Light Mode Screenshot -->
 						<img
 							src="/screenshots/mobile-light.png"
 							alt="吾身移动界面"
 							class="w-full h-auto dark:hidden"
 							loading="lazy"
 						/>
-						<!-- Dark Mode Screenshot -->
 						<img
 							src="/screenshots/mobile-dark.png"
 							alt="吾身移动界面"
@@ -148,35 +163,26 @@
 
 				<!-- Feature Highlights -->
 				<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12">
-					<div class="text-center p-6 bg-card/50 rounded-xl border border-border/30">
-						<div class="w-12 h-12 mx-auto mb-4 rounded-xl bg-primary/10 flex items-center justify-center">
-							<svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
-							</svg>
+					{#each [
+						{ icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z', title: '美观的编辑器', desc: '富文本格式化，界面直观无干扰' },
+						{ icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', title: '智能日历', desc: '追踪你的写作连续天数，轻松浏览记录' },
+						{ icon: 'M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z', title: '响应式设计', desc: '在桌面、平板和移动设备上均有完美体验' }
+					] as hl, i}
+						<div
+							class="text-center p-6 bg-card/50 rounded-xl border border-border/30 hover:border-primary/20 hover:shadow-md transition-all duration-300"
+							class:animate-fade-in={visibleSections.has(0)}
+							style:opacity={visibleSections.has(0) ? 1 : 0}
+							style:animation-delay="{(i + 1) * 100}ms"
+						>
+							<div class="w-12 h-12 mx-auto mb-4 rounded-xl bg-primary/10 flex items-center justify-center">
+								<svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={hl.icon}/>
+								</svg>
+							</div>
+							<h3 class="font-semibold text-foreground mb-2">{hl.title}</h3>
+							<p class="text-sm text-muted-foreground">{hl.desc}</p>
 						</div>
-						<h3 class="font-semibold text-foreground mb-2">美观的编辑器</h3>
-						<p class="text-sm text-muted-foreground">富文本格式化，界面直观无干扰</p>
-					</div>
-
-					<div class="text-center p-6 bg-card/50 rounded-xl border border-border/30">
-						<div class="w-12 h-12 mx-auto mb-4 rounded-xl bg-primary/10 flex items-center justify-center">
-							<svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-							</svg>
-						</div>
-						<h3 class="font-semibold text-foreground mb-2">智能日历</h3>
-						<p class="text-sm text-muted-foreground">追踪你的写作连续天数，轻松浏览记录</p>
-					</div>
-
-					<div class="text-center p-6 bg-card/50 rounded-xl border border-border/30">
-						<div class="w-12 h-12 mx-auto mb-4 rounded-xl bg-primary/10 flex items-center justify-center">
-							<svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/>
-							</svg>
-						</div>
-						<h3 class="font-semibold text-foreground mb-2">响应式设计</h3>
-						<p class="text-sm text-muted-foreground">在桌面、平板和移动设备上均有完美体验</p>
-					</div>
+					{/each}
 				</div>
 
 				<p class="mt-6 text-center text-sm text-muted-foreground">
@@ -186,9 +192,13 @@
 		</section>
 
 		<!-- Features Section -->
-		<section id="features" class="py-20 container-responsive">
+		<section id="features" class="py-20 container-responsive" data-observe data-idx="1">
 			<div class="w-full">
-				<div class="text-center mb-16 animate-fade-in">
+				<div
+					class="text-center mb-16"
+					class:animate-fade-in={visibleSections.has(1)}
+					style:opacity={visibleSections.has(1) ? 1 : 0}
+				>
 					<h2 class="text-3xl sm:text-4xl font-bold text-foreground mb-4">
 						写日记所需的一切
 					</h2>
@@ -200,10 +210,12 @@
 				<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 					{#each features as feature, i}
 						<div
-							class="p-6 bg-card rounded-xl border border-border/50 hover:border-primary/30 hover:shadow-lg transition-all duration-300"
-							style="animation-delay: {i * 100}ms"
+							class="p-6 bg-card rounded-xl border border-border/50 hover:border-primary/30 hover:shadow-lg transition-all duration-300 group"
+							class:animate-fade-in={visibleSections.has(1)}
+							style:opacity={visibleSections.has(1) ? 1 : 0}
+							style:animation-delay="{i * 80}ms"
 						>
-							<div class="text-4xl mb-4">{feature.icon}</div>
+							<div class="text-4xl mb-4 group-hover:scale-110 transition-transform duration-300">{feature.icon}</div>
 							<h3 class="text-xl font-semibold text-foreground mb-2">{feature.title}</h3>
 							<p class="text-muted-foreground">{feature.description}</p>
 						</div>
@@ -213,10 +225,13 @@
 		</section>
 
 		<!-- AI Assistant Preview -->
-		<section class="py-20 bg-muted/30">
+		<section class="py-20 bg-muted/30" data-observe data-idx="2">
 			<div class="container-responsive">
 				<div class="grid lg:grid-cols-2 gap-12 items-center">
-					<div class="animate-fade-in">
+					<div
+						class:animate-slide-up={visibleSections.has(2)}
+						style:opacity={visibleSections.has(2) ? 1 : 0}
+					>
 						<h2 class="text-3xl sm:text-4xl font-bold text-foreground mb-6">
 							你的 AI 驱动反思伙伴
 						</h2>
@@ -225,33 +240,31 @@
 							获得洞察，并反思个人成长旅程。
 						</p>
 						<ul class="space-y-4">
-							<li class="flex items-start gap-3">
-								<span class="text-primary text-xl">✓</span>
-								<span class="text-foreground">询问过去记录的相关问题</span>
-							</li>
-							<li class="flex items-start gap-3">
-								<span class="text-primary text-xl">✓</span>
-								<span class="text-foreground">获取个性化写作提示</span>
-							</li>
-							<li class="flex items-start gap-3">
-								<span class="text-primary text-xl">✓</span>
-								<span class="text-foreground">发现情绪模式与趋势</span>
-							</li>
-							<li class="flex items-start gap-3">
-								<span class="text-primary text-xl">✓</span>
-								<span class="text-foreground">私密且安全的对话</span>
-							</li>
+							{#each [
+								'询问过去记录的相关问题',
+								'获取个性化写作提示',
+								'发现情绪模式与趋势',
+								'私密且安全的对话'
+							] as item}
+								<li class="flex items-start gap-3">
+									<span class="text-primary text-xl mt-0.5">✓</span>
+									<span class="text-foreground">{item}</span>
+								</li>
+							{/each}
 						</ul>
 					</div>
-					<div class="relative">
+					<div
+						class="relative"
+						class:animate-slide-in-right={visibleSections.has(2)}
+						style:opacity={visibleSections.has(2) ? 1 : 0}
+					>
 						<div class="bg-card rounded-2xl border border-border/50 shadow-xl overflow-hidden">
-							<!-- Mock Chat Interface -->
 							<div class="bg-secondary/30 px-4 py-3 border-b border-border/50">
 								<span class="font-medium text-foreground">AI 助手</span>
 							</div>
 							<div class="p-4 space-y-4 min-h-[300px]">
 								<div class="flex gap-3">
-									<div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-sm">🤖</div>
+									<div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-sm shrink-0">🤖</div>
 									<div class="flex-1 bg-muted/50 rounded-lg p-3">
 										<p class="text-sm text-foreground">基于你最近的记录，我注意到本周你感觉更加精力充沛。是否愿意探索一下可能带来这一积极变化的因素？</p>
 									</div>
@@ -262,7 +275,7 @@
 									</div>
 								</div>
 								<div class="flex gap-3">
-									<div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-sm">🤖</div>
+									<div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-sm shrink-0">🤖</div>
 									<div class="flex-1 bg-muted/50 rounded-lg p-3">
 										<p class="text-sm text-foreground">回顾你过去两周的记录，我发现你开始了晨间例行活动，并且在锻炼方面更加一致……</p>
 									</div>
@@ -275,8 +288,12 @@
 		</section>
 
 		<!-- CTA Section -->
-		<section class="py-20 container-responsive">
-			<div class="max-w-3xl mx-auto text-center">
+		<section class="py-20 container-responsive" data-observe data-idx="3">
+			<div
+				class="max-w-3xl mx-auto text-center"
+				class:animate-fade-in={visibleSections.has(3)}
+				style:opacity={visibleSections.has(3) ? 1 : 0}
+			>
 				<h2 class="text-3xl sm:text-4xl font-bold text-foreground mb-6">
 					立即开始你的日记旅程
 				</h2>

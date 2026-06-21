@@ -92,7 +92,7 @@
 	<title>媒体库 - 吾身</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background safe-bottom">
+<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background">
 	<PageHeader title="媒体库">
 		<span slot="subtitle" class="text-sm text-muted-foreground">
 			{#if !loading}({totalItems}){/if}
@@ -120,51 +120,51 @@
 				</div>
 			</div>
 		{:else}
-			<!-- Timeline View -->
-			<div class="space-y-8">
-				{#each [...groupedMedia.entries()] as [dateKey, items]}
-					<div class="animate-fade-in">
-						<!-- Date Header -->
-						<div class="flex items-center gap-3 mb-4">
-							<div class="text-sm font-medium text-foreground">{formatDisplayDate(dateKey)}</div>
-							<div class="flex-1 h-px bg-border/50"></div>
-							<div class="text-xs text-muted-foreground">{items.length} 项</div>
-						</div>
-
-						<!-- Media Grid -->
-						<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-							{#each items as media}
-								<button
-									class="group relative aspect-square rounded-lg overflow-hidden bg-muted/30 border border-border/50 hover:border-primary/50 transition-all duration-200"
-									on:click={() => openModal(media)}
-								>
-									<img
-										src={getMediaFileUrl(media, '300x300')}
-										alt={media.alt || media.name || '媒体'}
-										class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-										loading="lazy"
-									/>
-									<!-- Overlay -->
-									<div class="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200"></div>
-									<!-- Diary indicator -->
-									{#if media.expand?.diary && media.expand.diary.length > 0}
-										<div class="absolute bottom-2 left-2 px-2 py-0.5 bg-black/60 rounded text-xs text-white">
-											{media.expand.diary[0].date?.split(' ')[0]}{media.expand.diary.length > 1 ? ` +${media.expand.diary.length - 1}` : ''}
-										</div>
-									{/if}
-								</button>
-							{/each}
-						</div>
+		<!-- Timeline View -->
+		<div class="space-y-8">
+			{#each [...groupedMedia.entries()] as [dateKey, items], gi}
+				<div class="animate-fade-in" style="animation-delay: {gi * 80}ms">
+					<!-- Date Header -->
+					<div class="flex items-center gap-3 mb-4">
+						<div class="text-sm font-medium text-foreground">{formatDisplayDate(dateKey)}</div>
+						<div class="flex-1 h-px bg-border/50"></div>
+						<div class="text-xs text-muted-foreground">{items.length} 项</div>
 					</div>
-				{/each}
-			</div>
+
+					<!-- Media Grid -->
+					<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+						{#each items as media}
+							<button
+								class="group relative aspect-square rounded-xl overflow-hidden bg-muted/30 border border-border/50 hover:border-primary/50 hover:shadow-md transition-all duration-200"
+								onclick={() => openModal(media)}
+							>
+								<img
+									src={getMediaFileUrl(media, '300x300')}
+									alt={media.alt || media.name || '媒体'}
+									class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+									loading="lazy"
+								/>
+								<!-- Overlay -->
+								<div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+								<!-- Diary indicator -->
+								{#if media.expand?.diary && media.expand.diary.length > 0}
+									<div class="absolute bottom-2 left-2 px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded-lg text-xs text-white">
+										{media.expand.diary[0].date?.split(' ')[0]}{media.expand.diary.length > 1 ? ` +${media.expand.diary.length - 1}` : ''}
+									</div>
+								{/if}
+							</button>
+						{/each}
+					</div>
+				</div>
+			{/each}
+		</div>
 
 			<!-- Pagination -->
 			{#if totalPages > 1}
 				<div class="flex justify-center gap-2 mt-8">
 					<button
 						disabled={currentPage === 1}
-						on:click={() => { currentPage--; loadMedia(); }}
+						onclick={() => { currentPage--; loadMedia(); }}
 						class="px-3 py-1.5 text-sm rounded-lg border border-border/50 hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 					>
 						上一页
@@ -174,7 +174,7 @@
 					</span>
 					<button
 						disabled={currentPage === totalPages}
-						on:click={() => { currentPage++; loadMedia(); }}
+						onclick={() => { currentPage++; loadMedia(); }}
 						class="px-3 py-1.5 text-sm rounded-lg border border-border/50 hover:bg-muted/50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
 					>
 						下一页
@@ -191,13 +191,13 @@
 {#if showModal && selectedMedia}
 	<div
 		class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in"
-		on:click={handleModalBackdropClick}
-		on:keydown={(e) => e.key === 'Escape' && closeModal()}
+		onclick={handleModalBackdropClick}
+		onkeydown={(e) => e.key === 'Escape' && closeModal()}
 		role="dialog"
 		tabindex="-1"
 	>
 		<div
-			class="bg-card rounded-xl shadow-xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-scale-in"
+			class="bg-card rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden animate-scale-in"
 			role="document"
 		>
 			<!-- Modal Header -->
@@ -206,7 +206,7 @@
 					{selectedMedia.name || '媒体'}
 				</h3>
 				<button
-					on:click={closeModal}
+					onclick={closeModal}
 					class="p-1.5 hover:bg-muted/50 rounded-lg transition-colors"
 					title="关闭"
 				>
@@ -242,7 +242,7 @@
 							<div class="flex flex-wrap gap-2 mt-2">
 								{#each selectedMedia.expand.diary as diary}
 									<button
-										on:click={() => goToDiary(diary.date.split(' ')[0])}
+										onclick={() => goToDiary(diary.date.split(' ')[0])}
 										class="px-2 py-1 text-sm bg-primary/10 text-primary rounded hover:bg-primary/20 transition-colors"
 									>
 										{diary.date?.split(' ')[0]}
@@ -263,7 +263,7 @@
 			<div class="flex items-center justify-between p-4 border-t border-border/50 bg-muted/20">
 				{#if !showDeleteConfirm}
 					<button
-						on:click={() => showDeleteConfirm = true}
+						onclick={() => showDeleteConfirm = true}
 						class="px-4 py-2 text-sm text-red-600 border border-red-500 hover:bg-red-50 rounded-lg transition-colors font-medium"
 					>
 						删除
@@ -276,14 +276,14 @@
 							<span class="text-sm text-red-600 font-medium">确定删除吗？</span>
 						{/if}
 						<button
-							on:click={handleDelete}
+							onclick={handleDelete}
 							disabled={deleting}
 							class="px-4 py-2 text-sm text-red-600 border border-red-500 hover:bg-red-50 disabled:opacity-50 rounded-lg transition-colors font-medium"
 						>
 							{deleting ? '删除中...' : '确认'}
 						</button>
 						<button
-							on:click={() => showDeleteConfirm = false}
+							onclick={() => showDeleteConfirm = false}
 							class="px-4 py-2 text-sm border border-border hover:bg-muted/50 rounded-lg transition-colors font-medium"
 						>
 							取消
@@ -291,7 +291,7 @@
 					</div>
 				{/if}
 				<button
-					on:click={closeModal}
+					onclick={closeModal}
 					class="px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors border border-border/50"
 				>
 					关闭

@@ -108,7 +108,7 @@
 	<title>搜索 - 吾身</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background safe-bottom">
+<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background">
 	<PageHeader title="搜索" />
 
 	<!-- Main Content -->
@@ -120,7 +120,7 @@
 		</div>
 
 		<!-- Search Input -->
-		<div class="relative mb-6 animate-fade-in" style="animation-delay: 50ms">
+		<div class="relative mb-6 animate-fade-in stagger-1">
 			<div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
 				<svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -130,15 +130,15 @@
 			<input
 				bind:this={inputElement}
 				bind:value={query}
-				on:input={handleInput}
-				on:keydown={handleKeydown}
+				oninput={handleInput}
+				onkeydown={handleKeydown}
 				type="text"
 				placeholder="搜索你的日记..."
-				class="w-full pl-12 pr-4 py-3 bg-card border border-border/50 rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-transparent transition-all duration-200"
+				class="w-full pl-12 pr-4 py-3.5 bg-card border border-border/50 rounded-xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/50 focus:border-transparent shadow-sm transition-all duration-200"
 			/>
 			{#if query.length > 0}
 				<button
-					on:click={() => { query = ''; results = []; searched = false; inputElement?.focus(); }}
+					onclick={() => { query = ''; results = []; searched = false; inputElement?.focus(); }}
 					class="absolute inset-y-0 right-0 pr-4 flex items-center text-muted-foreground hover:text-foreground transition-colors"
 					title="清空搜索"
 				>
@@ -182,7 +182,7 @@
 			<div class="space-y-3">
 				{#each results as result, index}
 					<button
-						on:click={() => navigateToDiary(result.date)}
+						onclick={() => navigateToDiary(result.date)}
 						class="w-full text-left bg-card hover:bg-accent/50 border border-border/50 rounded-xl p-4 transition-all duration-200 hover:shadow-md hover:border-border animate-fade-in group"
 						style="animation-delay: {(index + 1) * 50}ms"
 					>

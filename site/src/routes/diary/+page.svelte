@@ -95,7 +95,7 @@
 	<title>日历 - 吾身</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background safe-bottom">
+<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background">
 	<PageHeader title="日历" />
 
 	<!-- Calendar -->
@@ -124,7 +124,7 @@
 			<div class="lg:w-[340px] xl:w-[380px] flex flex-col gap-4 flex-shrink-0 mx-auto w-full">
 				<!-- Stats -->
 				<div class="grid grid-cols-3 gap-4">
-					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
+					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4 hover:shadow-md transition-shadow">
 						<div class="text-xs text-muted-foreground">{yearViewActive ? '今年' : '本月'}</div>
 						<div class="text-xl font-bold text-foreground mt-1 h-7 flex items-center">
 							{#if yearViewActive}
@@ -137,7 +137,7 @@
 						</div>
 					</div>
 
-					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
+					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4 hover:shadow-md transition-shadow">
 						<div class="text-xs text-muted-foreground">连续天数</div>
 						<div class="text-xl font-bold text-foreground mt-1 h-7 flex items-center">
 							{#if statsLoading}
@@ -148,7 +148,7 @@
 						</div>
 					</div>
 
-					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
+					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4 hover:shadow-md transition-shadow">
 						<div class="text-xs text-muted-foreground">总计</div>
 						<div class="text-xl font-bold text-foreground mt-1 h-7 flex items-center">
 							{#if statsLoading}
@@ -176,7 +176,7 @@
 							{#each recentDiaries as diary}
 								<a
 									href="/diary/{diary.date}"
-									class="block p-3 rounded-lg hover:bg-muted/50 transition-colors border border-border/30"
+									class="block p-3 rounded-lg hover:bg-muted/50 transition-all duration-200 border border-border/30 hover:border-border/60 hover:shadow-sm"
 								>
 									<div class="text-xs text-muted-foreground mb-1">
 										{formatDisplayDate(diary.date)}

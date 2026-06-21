@@ -106,6 +106,52 @@
 		randomState.active = false;
 	}
 
+	// Portal refs for 往昔今朝 / 时空穿越 modals
+	let onThisDayOverlayEl: HTMLDivElement | null = $state(null);
+	let onThisDayHostEl: HTMLDivElement | null = null;
+	let randomOverlayEl: HTMLDivElement | null = $state(null);
+	let randomHostEl: HTMLDivElement | null = null;
+
+	// Portal: mount 往昔今朝 to document.body
+	$effect(() => {
+		if (!onThisDayOverlayEl) return;
+		if (!onThisDayHostEl) {
+			onThisDayHostEl = document.createElement('div');
+			onThisDayHostEl.style.position = 'static';
+		}
+		document.body.appendChild(onThisDayHostEl);
+		onThisDayHostEl.appendChild(onThisDayOverlayEl);
+		return () => {
+			if (onThisDayHostEl && onThisDayHostEl.parentNode) {
+				onThisDayHostEl.parentNode.removeChild(onThisDayHostEl);
+			}
+			if (onThisDayOverlayEl && onThisDayOverlayEl.parentNode) {
+				onThisDayOverlayEl.parentNode.removeChild(onThisDayOverlayEl);
+			}
+			onThisDayHostEl = null;
+		};
+	});
+
+	// Portal: mount 时空穿越 to document.body
+	$effect(() => {
+		if (!randomOverlayEl) return;
+		if (!randomHostEl) {
+			randomHostEl = document.createElement('div');
+			randomHostEl.style.position = 'static';
+		}
+		document.body.appendChild(randomHostEl);
+		randomHostEl.appendChild(randomOverlayEl);
+		return () => {
+			if (randomHostEl && randomHostEl.parentNode) {
+				randomHostEl.parentNode.removeChild(randomHostEl);
+			}
+			if (randomOverlayEl && randomOverlayEl.parentNode) {
+				randomOverlayEl.parentNode.removeChild(randomOverlayEl);
+			}
+			randomHostEl = null;
+		};
+	});
+
 	function formatDisplayDate(dateStr: string): string {
 		const d = parseDate(dateStr);
 		return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
@@ -347,10 +393,10 @@
 				</div>
 
 					<!-- 第二行：紧凑 AI 分析按钮 -->
-				<div class="flex items-center justify-center gap-1.5">
+				<div class="flex items-center justify-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
 					<button
 						onclick={openWeekAnalysis}
-						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200 whitespace-nowrap shrink-0"
 						title="本周 AI 分析"
 					>
 						<span class="inline-flex items-center gap-1">
@@ -362,7 +408,7 @@
 					</button>
 					<button
 						onclick={openMonthAnalysis}
-						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200 whitespace-nowrap shrink-0"
 						title="本月 AI 分析"
 					>
 						<span class="inline-flex items-center gap-1">
@@ -375,7 +421,7 @@
 					<!-- 自定义分析：移到历史分析前面，用普通灰色样式 -->
 					<button
 						onclick={openCustomAnalysis}
-						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200 whitespace-nowrap shrink-0"
 						title="自定义日期范围和关键词分析"
 					>
 						<span class="inline-flex items-center gap-1">
@@ -388,7 +434,7 @@
 					<!-- 历史分析：移到末尾并使用突出样式 -->
 					<button
 						onclick={openHistoryAnalysis}
-						class="ml-1.5 px-3 py-1 text-xs font-medium rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 hover:border-primary/60 transition-all duration-200"
+						class="ml-0.5 px-3 py-1 text-xs font-medium rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 hover:border-primary/60 transition-all duration-200 whitespace-nowrap shrink-0"
 						title="查看历史分析"
 					>
 						<span class="inline-flex items-center gap-1">
@@ -614,54 +660,51 @@
 
 	<!-- 往昔今朝 Modal -->
 {#if onThisDay.active}
-    <div class="history-modal-backdrop" onclick={closeOnThisDay}>
-        <div class="history-modal-panel" onclick={(e) => e.stopPropagation()}>
-            <div class="history-modal-header">
-                <div class="history-modal-header-main">
+    <div class="analysis-overlay" bind:this={onThisDayOverlayEl} onclick={closeOnThisDay}>
+        <div class="analysis-panel" onclick={(e) => e.stopPropagation()}>
+            <div class="analysis-header">
+                <div class="analysis-header-main">
                     <div class="flex items-center gap-2 justify-center">
                         <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <h3 class="history-modal-title">往昔今朝</h3>
+                        <h3>往昔今朝</h3>
                     </div>
-                    <p class="history-modal-sub">{formatDisplayDate(onThisDay.date)}</p>
+                    <p class="analysis-header-sub">{formatDisplayDate(onThisDay.date)}</p>
                 </div>
-                <button class="history-modal-close" onclick={closeOnThisDay} aria-label="关闭">×</button>
+                <button class="analysis-close" onclick={closeOnThisDay} aria-label="关闭">×</button>
             </div>
 
-            <div class="history-modal-body">
+            <div class="analysis-body">
                 {#if onThisDay.loading}
-                    <div class="history-loading">
-                        <svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
+                    <div class="analysis-loading">
+                        <div class="spinner" aria-hidden="true"></div>
                         <p>正在翻找往年的日记…</p>
                     </div>
                 {:else if onThisDay.diaries.length === 0}
-                    <div class="history-idle">
-                        <p class="history-idle-title">这一天在往年还没有日记</p>
-                        <p class="history-idle-sub">继续记录每一天，明年的今天就会有可以回顾的内容了。</p>
+                    <div class="analysis-idle">
+                        <p class="analysis-idle-title">这一天在往年还没有日记</p>
+                        <p class="analysis-idle-sub">继续记录每一天，明年的今天就会有可以回顾的内容了。</p>
                     </div>
                 {:else}
-                    <div class="history-meta">共 {onThisDay.diaries.length} 个不同年份的今日</div>
-                    <div class="history-list">
+                    <div class="analysis-idle-sub" style="margin-bottom:0.75rem">共 {onThisDay.diaries.length} 个不同年份的今日</div>
+                    <div class="analysis-list">
                         {#each onThisDay.diaries as diary}
-                            <a href="/diary/{diary.date}" class="history-list-item">
-                                <div class="history-list-head">
-                                    <span class="history-list-date">{formatDisplayDate(diary.date)}</span>
+                            <a href="/diary/{diary.date}" class="analysis-list-item">
+                                <div class="analysis-list-head">
+                                    <span class="analysis-list-date">{formatDisplayDate(diary.date)}</span>
                                     <div class="flex items-center gap-2 text-xs text-muted-foreground">
                                         {#if diary.mood}<span title="心情">{diary.mood}</span>{/if}
                                         {#if diary.weather}<span title="天气">{diary.weather}</span>{/if}
                                     </div>
                                 </div>
                                 {#if diary.content}
-                                    <p class="history-list-preview">{diaryContentPreview(diary.content)}</p>
+                                    <p class="analysis-list-preview">{diaryContentPreview(diary.content)}</p>
                                 {/if}
                                 {#if diary.tags && diary.tags.length > 0}
                                     <div class="flex flex-wrap gap-1 mt-2">
                                         {#each diary.tags as tag}
-                                            <span class="history-list-tag">#{tag}</span>
+                                            <span class="analysis-list-tag">#{tag}</span>
                                         {/each}
                                     </div>
                                 {/if}
@@ -676,23 +719,23 @@
 
 <!-- 时空穿越 Modal -->
 {#if randomState.active}
-    <div class="history-modal-backdrop" onclick={closeRandom}>
-        <div class="history-modal-panel" onclick={(e) => e.stopPropagation()}>
-            <div class="history-modal-header">
-                <div class="history-modal-header-main">
+    <div class="analysis-overlay" bind:this={randomOverlayEl} onclick={closeRandom}>
+        <div class="analysis-panel" onclick={(e) => e.stopPropagation()}>
+            <div class="analysis-header">
+                <div class="analysis-header-main">
                     <div class="flex items-center gap-2 justify-center">
                         <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
                         </svg>
-                        <h3 class="history-modal-title">时空穿越</h3>
+                        <h3>时空穿越</h3>
                     </div>
-                    <p class="history-modal-sub">随机翻阅一条过去的日记</p>
+                    <p class="analysis-header-sub">随机翻阅一条过去的日记</p>
                 </div>
-                <button class="history-modal-close" onclick={closeRandom} aria-label="关闭">×</button>
+                <button class="analysis-close" onclick={closeRandom} aria-label="关闭">×</button>
             </div>
 
-            <div class="history-modal-toolbar">
-                <button class="history-modal-btn" onclick={rerollRandom}>
+            <div class="analysis-toolbar">
+                <button class="analysis-toggle" onclick={rerollRandom}>
                     <span class="inline-flex items-center gap-1.5">
                         <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
@@ -702,41 +745,38 @@
                 </button>
                 <a
                     href={randomState.diary ? `/diary/${randomState.diary.date}` : ''}
-                    class="history-modal-btn history-modal-btn--primary"
+                    class="analysis-toggle analysis-toggle--active ml-auto"
                 >
                     查看完整日记
                 </a>
             </div>
 
-            <div class="history-modal-body">
+            <div class="analysis-body">
                 {#if randomState.loading}
-                    <div class="history-loading">
-                        <svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
+                    <div class="analysis-loading">
+                        <div class="spinner" aria-hidden="true"></div>
                         <p>随机抽取一段过往日记…</p>
                     </div>
                 {:else if !randomState.exists || !randomState.diary}
-                    <div class="history-idle">
-                        <p class="history-idle-title">还没有可翻阅的日记</p>
-                        <p class="history-idle-sub">先开始记录你的生活吧，有了足够的日记后再试试这个功能。</p>
+                    <div class="analysis-idle">
+                        <p class="analysis-idle-title">还没有可翻阅的日记</p>
+                        <p class="analysis-idle-sub">先开始记录你的生活吧，有了足够的日记后再试试这个功能。</p>
                     </div>
                 {:else}
-                    <div class="history-meta">{formatDisplayDate(randomState.diary.date)}</div>
-                    <div class="history-summary">
-                        {#if randomState.diary.content}
+                    <div class="analysis-idle-sub" style="margin-bottom:0.75rem">{formatDisplayDate(randomState.diary.date)}</div>
+                    <div class="analysis-list">
+                        <div class="analysis-list-item">
                             <div class="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
                                 {diaryContentPreview(randomState.diary.content, 280)}
                             </div>
-                        {/if}
-                        {#if randomState.diary.tags && randomState.diary.tags.length > 0}
-                            <div class="flex flex-wrap gap-1 mt-3">
-                                {#each randomState.diary.tags as tag}
-                                    <span class="history-list-tag">#{tag}</span>
-                                {/each}
-                            </div>
-                        {/if}
+                            {#if randomState.diary.tags && randomState.diary.tags.length > 0}
+                                <div class="flex flex-wrap gap-1 mt-3">
+                                    {#each randomState.diary.tags as tag}
+                                        <span class="analysis-list-tag">#{tag}</span>
+                                    {/each}
+                                </div>
+                            {/if}
+                        </div>
                     </div>
                 {/if}
             </div>
@@ -949,22 +989,22 @@
 		aspect-ratio: 1;
 	}
 
-	/* Modal: 往昔今朝 / 时空穿越 */
-/* 往昔今朝 / 时空穿越 */
-.history-modal-backdrop {
+	/* 分析弹窗 / 往昔今朝 / 时空穿越 — 复用 CalendarAnalysis 样式 */
+.analysis-overlay {
     position: fixed;
     inset: 0;
-    background: hsl(var(--background) / 0.72);
+    background: hsl(0 0% 0% / 0.5);
     backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
     justify-content: center;
+    z-index: 2147483647;
     padding: 1rem;
-    z-index: 60;
     animation: fade-in 0.15s ease-out both;
 }
 
-.history-modal-panel {
+.analysis-panel {
     background: hsl(var(--card));
     border: 1px solid hsl(var(--border) / 0.6);
     border-radius: 1rem;
@@ -975,37 +1015,45 @@
     display: flex;
     flex-direction: column;
     box-shadow: 0 20px 60px hsl(0 0% 0% / 0.25);
-    animation: panel-in 0.2s ease-out both;
+    animation: panel-in 0.2s ease-out;
+    position: relative;
+    z-index: 1;
 }
 
-.history-modal-header {
+.analysis-header {
     padding: 1rem 3rem 1rem 1.25rem;
     border-bottom: 1px solid hsl(var(--border) / 0.5);
     text-align: center;
     position: relative;
 }
 
-.history-modal-header-main {
+.analysis-header-main {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 0.25rem;
+    margin: 0 auto;
 }
 
-.history-modal-title {
+.analysis-header h3 {
     margin: 0;
     font-size: 1.05rem;
     font-weight: 600;
     color: hsl(var(--foreground));
 }
 
-.history-modal-sub {
+.analysis-header-sub {
     margin: 0;
     color: hsl(var(--muted-foreground));
     font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
 }
 
-.history-modal-close {
+.analysis-close {
     position: absolute;
     top: 0.6rem;
     right: 0.6rem;
@@ -1020,12 +1068,12 @@
     transition: background 0.15s ease;
 }
 
-.history-modal-close:hover {
+.analysis-close:hover {
     background: hsl(var(--muted) / 0.6);
     color: hsl(var(--foreground));
 }
 
-.history-modal-toolbar {
+.analysis-toolbar {
     padding: 0.75rem 1.25rem;
     display: flex;
     justify-content: flex-end;
@@ -1034,7 +1082,7 @@
     border-bottom: 1px solid hsl(var(--border) / 0.4);
 }
 
-.history-modal-btn {
+.analysis-toggle {
     padding: 0.4rem 0.85rem;
     font-size: 0.8rem;
     border: 1px solid hsl(var(--border) / 0.7);
@@ -1043,75 +1091,73 @@
     border-radius: 0.5rem;
     cursor: pointer;
     transition: background 0.15s ease, color 0.15s ease;
+    text-decoration: none;
 }
 
-.history-modal-btn:hover {
+.analysis-toggle:hover {
     background: hsl(var(--muted) / 0.7);
     color: hsl(var(--foreground));
 }
 
-.history-modal-btn--primary {
+.analysis-toggle--active {
     border-color: hsl(var(--primary) / 0.3);
     background: hsl(var(--primary) / 0.1);
     color: hsl(var(--primary));
     font-weight: 500;
 }
 
-.history-modal-btn--primary:hover {
-    background: hsl(var(--primary) / 0.2);
-    color: hsl(var(--primary));
-}
-
-.history-modal-body {
+.analysis-body {
     padding: 1.25rem;
     overflow-y: auto;
     flex: 1;
+}
+
+.analysis-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2.5rem 1rem;
+    color: hsl(var(--muted-foreground));
+    gap: 0.75rem;
+}
+
+.analysis-idle {
+    padding: 2.5rem 1rem;
+    text-align: center;
+    color: hsl(var(--muted-foreground));
     display: flex;
     flex-direction: column;
     align-items: center;
 }
 
-.history-loading,
-.history-idle {
-    padding: 2rem 1rem;
-    text-align: center;
-    color: hsl(var(--muted-foreground));
-}
-
-.history-loading p,
-.history-idle p {
-    margin-top: 0.75rem;
-}
-
-.history-idle-title {
+.analysis-idle-title {
     margin: 0 0 0.5rem;
     font-size: 1rem;
     font-weight: 600;
     color: hsl(var(--foreground));
 }
 
-.history-idle-sub {
+.analysis-idle-sub {
     margin: 0;
     font-size: 0.9rem;
     line-height: 1.6;
     max-width: 36rem;
 }
 
-.history-meta {
-    font-size: 0.8rem;
-    color: hsl(var(--muted-foreground));
-    margin-bottom: 0.75rem;
+.spinner {
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 3px solid hsl(var(--border));
+    border-top-color: hsl(var(--primary));
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
 }
 
-.history-summary {
-    line-height: 1.75;
-    color: hsl(var(--foreground) / 0.9);
-    font-size: 0.95rem;
-    max-width: 40rem;
-    width: 100%;
+@keyframes spin {
+    to { transform: rotate(360deg); }
 }
 
-.history-list {
+.analysis-list {
     width: 100%;
     list-style: none;
     padding: 0;
@@ -1121,7 +1167,7 @@
     gap: 0.6rem;
 }
 
-.history-list-item {
+.analysis-list-item {
     padding: 0.85rem 1rem;
     border: 1px solid hsl(var(--border) / 0.55);
     border-radius: 0.65rem;
@@ -1132,12 +1178,12 @@
     color: inherit;
 }
 
-.history-list-item:hover {
+.analysis-list-item:hover {
     background: hsl(var(--muted) / 0.5);
     border-color: hsl(var(--primary) / 0.35);
 }
 
-.history-list-head {
+.analysis-list-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1146,13 +1192,13 @@
     margin-bottom: 0.35rem;
 }
 
-.history-list-date {
+.analysis-list-date {
     font-size: 0.9rem;
     color: hsl(var(--foreground));
     font-weight: 500;
 }
 
-.history-list-preview {
+.analysis-list-preview {
     margin: 0.15rem 0 0.4rem;
     font-size: 0.85rem;
     line-height: 1.55;
@@ -1160,7 +1206,7 @@
     white-space: pre-wrap;
 }
 
-.history-list-tag {
+.analysis-list-tag {
     display: inline-flex;
     align-items: center;
     gap: 0.15rem;

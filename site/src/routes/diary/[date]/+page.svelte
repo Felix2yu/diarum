@@ -9,7 +9,7 @@
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import Footer from '$lib/components/ui/Footer.svelte';
 	import DiaryShareModal from '$lib/components/share/DiaryShareModal.svelte';
-	import { getDiaryByDate } from '$lib/api/diaries';
+	import { getDiaryByDate, getTagCloud } from '$lib/api/diaries';
 	import { isAuthenticated } from '$lib/api/client';
 	import { getDiaryEmojiSettings } from '$lib/api/settings';
 	import {
@@ -51,6 +51,10 @@
 	let selectedWeather = '';
 	let tags: string[] = [];
 	let tagInput = '';
+	let allTags: string[] = [];
+	let tagSuggestions: string[] = [];
+	let showTagSuggestions = false;
+	let selectedSuggestionIndex = -1;
 
 	// Speech recognition
 	let speechSettings: AISettings | null = null;
@@ -109,7 +113,72 @@
 	function handleTagKeydown(e: KeyboardEvent) {
 		if (e.key === 'Enter' || e.key === ',') {
 			e.preventDefault();
-			addTagFromInput();
+			if (showTagSuggestions && selectedSuggestionIndex >= 0) {
+				applySuggestion(tagSuggestions[selectedSuggestionIndex]);
+			} else {
+				addTagFromInput();
+			}
+		} else if (e.key === 'ArrowDown') {
+			e.preventDefault();
+			if (showTagSuggestions) {
+				selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, tagSuggestions.length - 1);
+			}
+		} else if (e.key === 'ArrowUp') {
+			e.preventDefault();
+			if (showTagSuggestions) {
+				selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, -1);
+			}
+		} else if (e.key === 'Escape') {
+			showTagSuggestions = false;
+			selectedSuggestionIndex = -1;
+		}
+	}
+
+	function handleTagInput(e: Event) {
+		const value = (e.target as HTMLInputElement).value;
+		tagInput = value;
+		updateTagSuggestions(value);
+	}
+
+	function updateTagSuggestions(value: string) {
+		const q = value.trim().toLowerCase();
+		if (!q || q.length < 1) {
+			tagSuggestions = [];
+			showTagSuggestions = false;
+			selectedSuggestionIndex = -1;
+			return;
+		}
+		const existingSet = new Set(tags);
+		tagSuggestions = allTags
+			.filter(t => t.toLowerCase().includes(q) && !existingSet.has(t))
+			.slice(0, 6);
+		showTagSuggestions = tagSuggestions.length > 0;
+		selectedSuggestionIndex = -1;
+	}
+
+	function applySuggestion(tag: string) {
+		if (!tags.includes(tag)) {
+			tags = [...tags, tag];
+			updateLocalCache(date, { content, mood: selectedMood, weather: selectedWeather, tags });
+		}
+		tagInput = '';
+		showTagSuggestions = false;
+		selectedSuggestionIndex = -1;
+	}
+
+	function hideTagSuggestions() {
+		setTimeout(() => {
+			showTagSuggestions = false;
+			selectedSuggestionIndex = -1;
+		}, 150);
+	}
+
+	async function loadAllTags() {
+		try {
+			const result = await getTagCloud();
+			allTags = result.map(t => t.tag);
+		} catch {
+			allTags = [];
 		}
 	}
 
@@ -419,6 +488,7 @@
 		cacheReady = true;
 		void loadDiaryEmojiPresets();
 		void loadSpeechSettings();
+		void loadAllTags();
 
 		window.addEventListener('keydown', handleKeyboard);
 		return () => {
@@ -441,19 +511,19 @@
 	<title>{formatDisplayDate(date)} - 吾身</title>
 </svelte:head>
 
-<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background safe-bottom">
+<div class="flex flex-col min-h-screen min-h-[100dvh] bg-background">
 	<PageHeader title="日记" />
 <!-- Main Content -->
 	<div class="container-responsive py-6 flex-1 flex flex-col">
 		<!-- 主内容布局：导航条与编辑器同宽 -->
 		<div class="diary-layout flex gap-6 mx-auto transition-all duration-300 flex-1 min-h-0" class:with-desktop-sidebar={showDesktopToc}>
 			<main class="diary-main w-full min-w-0 flex flex-col min-h-0">
-				<!-- 日期导航：紧贴编辑器上方，宽度随编辑器一致 -->
-				<div class="mb-4">
-					<div class="flex items-center bg-card rounded-xl border border-border/50 px-3 py-2.5 shadow-sm">
+			<!-- 日期导航：紧贴编辑器上方，宽度随编辑器一致 -->
+			<div class="mb-4">
+				<div class="flex items-center bg-card rounded-xl border border-border/50 px-3 py-2.5 shadow-sm hover:shadow-md transition-shadow">
 						<button
 							type="button"
-							on:click={goToPreviousDay}
+							onclick={goToPreviousDay}
 							class="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-lg transition-all duration-200"
 							title="上一天"
 						>
@@ -466,7 +536,7 @@
 						<div class="flex-1 flex items-center justify-center gap-2 min-w-0">
 							<button
 								type="button"
-								on:click={goToCalendar}
+								onclick={goToCalendar}
 								class="text-sm font-semibold text-foreground hover:opacity-80 transition-opacity"
 								title="返回日历"
 							>
@@ -480,7 +550,7 @@
 
 						<button
 							type="button"
-							on:click={goToNextDay}
+							onclick={goToNextDay}
 							class="flex items-center gap-1 px-3 py-1.5 text-sm text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-lg transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed"
 							disabled={!canGoNext}
 							title="下一天"
@@ -498,7 +568,7 @@
 						<div class="text-muted-foreground text-sm">加载中...</div>
 					</div>
 				{:else}
-					<div class="bg-card rounded-xl shadow-sm border border-border/50 overflow-hidden animate-fade-in flex flex-col flex-1 min-h-0 relative">
+					<div class="bg-card rounded-xl shadow-sm border border-border/50 overflow-hidden animate-fade-in flex flex-col flex-1 min-h-0 relative ring-1 ring-border/20">
 						<TiptapEditor
 							{content}
 							bind:selectedContent
@@ -517,7 +587,7 @@
 							{#if isRecording}
 								<button
 									type="button"
-									on:click={stopRecording}
+									onclick={stopRecording}
 									title="停止录音并转文字"
 									class="inline-flex items-center gap-2 px-3 py-2 bg-destructive/90 hover:bg-destructive text-destructive-foreground rounded-full text-sm font-medium shadow-lg shadow-destructive/20 transition-all"
 								>
@@ -543,7 +613,7 @@
 							{:else}
 								<button
 									type="button"
-									on:click={startRecording}
+									onclick={startRecording}
 									title="语音输入日记"
 									class="inline-flex items-center gap-2 px-3 py-2 bg-primary/90 hover:bg-primary text-primary-foreground rounded-full text-sm font-medium shadow-lg shadow-primary/20 transition-all"
 								>
@@ -558,12 +628,12 @@
 					{/if}
 					</div>
 
-					<!-- Mobile: Mood, Weather, Tags panel below editor -->
-					<div class="lg:hidden mt-4 space-y-3">
+				<!-- Mobile: Mood, Weather, Tags panel below editor -->
+				<div class="lg:hidden mt-4 space-y-3 animate-slide-up">
 						<!-- AI 整理入口 -->
 						<button
 							type="button"
-							on:click={handleOpenPolisher}
+							onclick={handleOpenPolisher}
 							class="w-full flex items-center gap-2 bg-card hover:bg-card/80 rounded-xl border border-border/50 p-3 shadow-sm text-left group transition-all"
 						>
 							<div class="p-1.5 rounded-md bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
@@ -583,7 +653,7 @@
 								<div class="text-sm font-semibold text-foreground">心情</div>
 								{#if selectedMood}
 									<button
-										on:click={() => handleMoodSelect(selectedMood)}
+										onclick={() => handleMoodSelect(selectedMood)}
 										class="text-[11px] px-2 py-1 rounded-full bg-muted/70 hover:bg-muted border border-border/70 transition-colors text-muted-foreground"
 									>
 										清除
@@ -593,7 +663,7 @@
 							<div class="grid grid-cols-4 gap-2">
 								{#each moodPresets as option}
 									<button
-										on:click={() => handleMoodSelect(option)}
+										onclick={() => handleMoodSelect(option)}
 										class="emoji-option-mobile {selectedMood === option ? 'emoji-option-active' : ''}"
 										title={option}
 										aria-label={`心情 ${option}`}
@@ -610,7 +680,7 @@
 								<div class="text-sm font-semibold text-foreground">天气</div>
 								{#if selectedWeather}
 									<button
-										on:click={() => handleWeatherSelect(selectedWeather)}
+										onclick={() => handleWeatherSelect(selectedWeather)}
 										class="text-[11px] px-2 py-1 rounded-full bg-muted/70 hover:bg-muted border border-border/70 transition-colors text-muted-foreground"
 									>
 										清除
@@ -620,7 +690,7 @@
 							<div class="grid grid-cols-4 gap-2">
 								{#each weatherPresets as option}
 									<button
-										on:click={() => handleWeatherSelect(option)}
+										onclick={() => handleWeatherSelect(option)}
 										class="emoji-option-mobile {selectedWeather === option ? 'emoji-option-active' : ''}"
 										title={option}
 										aria-label={`天气 ${option}`}
@@ -649,7 +719,7 @@
 										{tag}
 										<button
 											type="button"
-											on:click={() => removeTag(tag)}
+											onclick={() => removeTag(tag)}
 											class="opacity-60 hover:opacity-100 hover:text-destructive transition-opacity flex-shrink-0"
 											aria-label={`移除标签 ${tag}`}
 										>
@@ -662,14 +732,31 @@
 									<div class="text-xs text-muted-foreground/60">尚未添加标签</div>
 								{/each}
 							</div>
-							<input
-								type="text"
-								bind:value={tagInput}
-								on:keydown={handleTagKeydown}
-								on:blur={addTagFromInput}
-								placeholder="添加标签，按回车或逗号确认"
-								class="w-full text-xs px-3 py-2 rounded-lg bg-muted/30 border border-border/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors placeholder:text-muted-foreground/50"
-							/>
+							<div class="relative">
+								<input
+									type="text"
+									value={tagInput}
+									oninput={handleTagInput}
+									onkeydown={handleTagKeydown}
+									onfocus={() => updateTagSuggestions(tagInput)}
+									onblur={hideTagSuggestions}
+									placeholder="添加标签，按回车或逗号确认"
+									class="w-full text-xs px-3 py-2 rounded-lg bg-muted/30 border border-border/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/30 transition-colors placeholder:text-muted-foreground/50"
+								/>
+								{#if showTagSuggestions && tagSuggestions.length > 0}
+									<div class="absolute left-0 right-0 top-full mt-1 bg-card border border-border/50 rounded-lg shadow-lg z-50 max-h-40 overflow-y-auto">
+										{#each tagSuggestions as suggestion, i}
+											<button
+												type="button"
+												onmousedown={(e) => { e.preventDefault(); applySuggestion(suggestion); }}
+												class="w-full text-left px-3 py-1.5 text-xs hover:bg-muted/50 transition-colors {i === selectedSuggestionIndex ? 'bg-muted/50 text-foreground' : 'text-muted-foreground'}"
+											>
+												<span class="text-foreground font-medium">{suggestion.slice(0, tagInput.trim().length)}</span><span>{suggestion.slice(tagInput.trim().length)}</span>
+											</button>
+										{/each}
+									</div>
+								{/if}
+							</div>
 						</div>
 					</div>
 				{/if}
@@ -681,7 +768,7 @@
 					<div class="sticky top-11 space-y-3 animate-slide-in-right">
 						<button
 							type="button"
-							on:click={handleOpenPolisher}
+							onclick={handleOpenPolisher}
 							class="w-full flex items-center gap-2 bg-card/50 hover:bg-card rounded-xl border border-border/50 hover:border-primary/30 p-3 shadow-sm transition-all text-left group"
 						>
 							<div class="p-1.5 rounded-md bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
@@ -702,7 +789,7 @@
 								</div>
 								{#if selectedMood}
 									<button
-										on:click={() => handleMoodSelect(selectedMood)}
+										onclick={() => handleMoodSelect(selectedMood)}
 										class="text-[11px] px-2 py-1 rounded-full bg-background/70 hover:bg-background border border-border/70 transition-colors"
 									>
 										清除
@@ -712,7 +799,7 @@
 							<div class="grid grid-cols-4 gap-2">
 								{#each moodPresets as option}
 									<button
-										on:click={() => handleMoodSelect(option)}
+										onclick={() => handleMoodSelect(option)}
 										class="emoji-option {selectedMood === option ? 'emoji-option-active' : ''}"
 										title={option}
 										aria-label={`心情 ${option}`}
@@ -730,7 +817,7 @@
 								</div>
 								{#if selectedWeather}
 									<button
-										on:click={() => handleWeatherSelect(selectedWeather)}
+										onclick={() => handleWeatherSelect(selectedWeather)}
 										class="text-[11px] px-2 py-1 rounded-full bg-background/70 hover:bg-background border border-border/70 transition-colors"
 									>
 										清除
@@ -740,7 +827,7 @@
 							<div class="grid grid-cols-4 gap-2">
 								{#each weatherPresets as option}
 									<button
-										on:click={() => handleWeatherSelect(option)}
+										onclick={() => handleWeatherSelect(option)}
 										class="emoji-option {selectedWeather === option ? 'emoji-option-active' : ''}"
 										title={option}
 										aria-label={`天气 ${option}`}
@@ -756,10 +843,17 @@
 								{content}
 								tags={tags}
 								tagInputValue={tagInput}
-								onTagInput={(v) => (tagInput = v)}
+								onTagInput={(v) => { tagInput = v; updateTagSuggestions(v); }}
 								onTagAdd={addTagFromInput}
 								onTagRemove={removeTag}
 								onTagKeydown={handleTagKeydown}
+								{allTags}
+								{tagSuggestions}
+								{showTagSuggestions}
+								{selectedSuggestionIndex}
+								onSuggestionSelect={applySuggestion}
+								onSuggestionFocus={() => updateTagSuggestions(tagInput)}
+								onSuggestionBlur={hideTagSuggestions}
 							/>
 						</div>
 					</div>
@@ -777,7 +871,7 @@
 	<!-- Backdrop -->
 	<button
 		class="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 lg:hidden"
-		on:click={() => showDrawer = false}
+		onclick={() => showDrawer = false}
 		aria-label="关闭菜单"
 	></button>
 
@@ -790,7 +884,7 @@
 				<span class="font-semibold text-foreground">菜单</span>
 			</div>
 			<button
-				on:click={() => showDrawer = false}
+				onclick={() => showDrawer = false}
 				class="p-2 hover:bg-muted rounded-lg transition-colors"
 				aria-label="关闭"
 			>
@@ -811,7 +905,7 @@
 					<a
 						href="/assistant"
 						class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
-						on:click={() => showDrawer = false}
+						onclick={() => showDrawer = false}
 					>
 						<div class="p-1.5 rounded-md bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
 							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -828,7 +922,7 @@
 
 					<button
 						type="button"
-						on:click={() => { showDrawer = false; handleOpenPolisher(); }}
+						onclick={() => { showDrawer = false; handleOpenPolisher(); }}
 						class="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group text-left"
 					>
 						<div class="p-1.5 rounded-md bg-purple-500/10 text-purple-500 group-hover:bg-purple-500/20 transition-colors">
@@ -843,8 +937,8 @@
 					</button>
 
 					<button
-						on:mousedown={captureShareSelection}
-						on:click={() => { showDrawer = false; openShareModal(); }}
+						onmousedown={captureShareSelection}
+						onclick={() => { showDrawer = false; openShareModal(); }}
 						class="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
 					>
 						<div class="p-1.5 rounded-md bg-blue-500/10 text-blue-500 group-hover:bg-blue-500/20 transition-colors">
@@ -861,7 +955,7 @@
 					<a
 						href="/diary"
 						class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
-						on:click={() => showDrawer = false}
+						onclick={() => showDrawer = false}
 					>
 						<div class="p-1.5 rounded-md bg-green-500/10 text-green-500 group-hover:bg-green-500/20 transition-colors">
 							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -878,7 +972,7 @@
 					<a
 						href="/tags"
 						class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
-						on:click={() => showDrawer = false}
+						onclick={() => showDrawer = false}
 					>
 						<div class="p-1.5 rounded-md bg-purple-500/10 text-purple-500 group-hover:bg-purple-500/20 transition-colors">
 							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -895,7 +989,7 @@
 					<a
 						href="/settings"
 						class="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-muted/70 transition-all duration-200 group"
-						on:click={() => showDrawer = false}
+						onclick={() => showDrawer = false}
 					>
 						<div class="p-1.5 rounded-md bg-gray-500/10 text-gray-500 group-hover:bg-gray-500/20 transition-colors">
 							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -921,7 +1015,7 @@
 					<div class="grid grid-cols-4 gap-1.5">
 						{#each moodPresets as option}
 							<button
-								on:click={() => handleMoodSelect(option)}
+								onclick={() => handleMoodSelect(option)}
 								class="emoji-option {selectedMood === option ? 'emoji-option-active' : ''}"
 								title={option}
 								aria-label={`心情 ${option}`}
@@ -937,7 +1031,7 @@
 					<div class="grid grid-cols-4 gap-1.5">
 						{#each weatherPresets as option}
 							<button
-								on:click={() => handleWeatherSelect(option)}
+								onclick={() => handleWeatherSelect(option)}
 								class="emoji-option {selectedWeather === option ? 'emoji-option-active' : ''}"
 								title={option}
 								aria-label={`天气 ${option}`}
@@ -955,11 +1049,18 @@
 					{content}
 					tags={tags}
 					tagInputValue={tagInput}
-					onTagInput={(v) => (tagInput = v)}
+					onTagInput={(v) => { tagInput = v; updateTagSuggestions(v); }}
 					onTagAdd={addTagFromInput}
 					onTagRemove={removeTag}
 					onTagKeydown={handleTagKeydown}
 					onNavigate={() => showDrawer = false}
+					{allTags}
+					{tagSuggestions}
+					{showTagSuggestions}
+					{selectedSuggestionIndex}
+					onSuggestionSelect={applySuggestion}
+					onSuggestionFocus={() => updateTagSuggestions(tagInput)}
+					onSuggestionBlur={hideTagSuggestions}
 				/>
 			</div>
 		</div>
