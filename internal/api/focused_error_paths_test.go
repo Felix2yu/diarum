@@ -971,3 +971,50 @@ func TestResolveConflictWithEmbedding(t *testing.T) {
 		t.Fatalf("replace with embedding status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestImageUploadSettingsRoutes(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	e := echo.New()
+	RegisterImageUploadRoutes(e, s, authMiddlewareFor(user))
+
+	rec := performRequest(t, e, http.MethodGet, "/api/v1/image-upload/settings", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /image-upload/settings status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/image-upload/settings", strings.NewReader(`{"provider":"local","local":{"path":"/tmp/img"}}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT /image-upload/settings local status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/image-upload/settings", strings.NewReader(`{"provider":"s3","s3":{"bucket":"b","region":"us-east-1","endpoint":"https://s3.amazonaws.com","access_key":"ak","secret":"sk"}}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT /image-upload/settings s3 status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/image-upload/settings", strings.NewReader(`{"provider":"chevereto","chevereto":{"domain":"https://example.com","api_key":"ck"}}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT /image-upload/settings chevereto status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/image-upload/settings", strings.NewReader(`{`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("PUT /image-upload/settings invalid json status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/image-upload/settings", strings.NewReader(`{"provider":"s3","s3":{}}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("PUT /image-upload/settings s3 missing fields status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/image-upload/settings", strings.NewReader(`{"provider":"chevereto","chevereto":{}}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("PUT /image-upload/settings chevereto missing fields status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/image-upload/settings", strings.NewReader(`{"provider":"unknown"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("PUT /image-upload/settings unknown provider status = %d", rec.Code)
+	}
+}
