@@ -5,16 +5,13 @@ FROM node:24-alpine AS frontend-builder
 
 WORKDIR /app/site
 
-# Install only dependencies needed for build
 COPY site/package*.json ./
 
-# Cache npm downloads across builds (install since no lockfile is committed)
 RUN --mount=type=cache,target=/root/.npm \
-    npm install --no-audit --no-fund --loglevel=error
+    npm ci --no-audit --no-fund --loglevel=error
 
 COPY site/ ./
 
-# Cache vite build cache
 RUN --mount=type=cache,target=/app/site/.svelte-kit \
     --mount=type=cache,target=/app/site/node_modules/.vite \
     npm run build
@@ -24,21 +21,18 @@ FROM golang:1.26-alpine AS backend-builder
 
 WORKDIR /app
 
-# Install git for version detection (cached apk cache)
 RUN --mount=type=cache,target=/var/cache/apk \
     apk add --no-cache git
 
 COPY go.mod go.sum ./
 
-# Cache Go module downloads
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
     go mod download
 
-COPY . .
-
-# Bring in the built frontend (embedded via //go:embed)
 COPY --from=frontend-builder /app/site/build ./internal/static/build
+
+COPY . .
 
 ARG VERSION
 RUN --mount=type=cache,target=/go/pkg/mod \
@@ -59,12 +53,11 @@ WORKDIR /app
 
 RUN --mount=type=cache,target=/var/cache/apk \
     apk add --no-cache ca-certificates tzdata && \
-    adduser -D -H -u 1000 diarum
+    adduser -D -H -u 1000 diarum && \
+    mkdir -p /app/data && \
+    chown -R diarum:diarum /app
 
 COPY --from=backend-builder /app/diarum /app/diarum
-
-RUN mkdir -p /app/data && \
-    chown -R diarum:diarum /app
 
 ENV TZ=Asia/Shanghai
 ENV DIARUM_DATA_PATH=/app/data

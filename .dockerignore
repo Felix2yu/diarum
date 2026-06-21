@@ -16,9 +16,6 @@ build/
 site/node_modules/
 site/build/
 site/.svelte-kit/
-site/package-lock.json
-site/pnpm-lock.yaml
-yarn.lock
 
 # IDE / Editor
 .vscode/
