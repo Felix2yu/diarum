@@ -33,7 +33,7 @@ build: frontend backend
 # Build frontend
 frontend:
 	@echo "Building frontend..."
-	cd site && npm install && npm run build
+	cd site && npm ci && npm run build
 
 # Build backend
 backend: frontend
@@ -50,7 +50,7 @@ dev:
 
 dev-frontend:
 	@echo "Installing frontend dependencies..."
-	@cd site && npm install
+	@cd site && npm ci
 	@echo "Starting frontend dev server..."
 	cd site && npm run dev
 
@@ -105,4 +105,4 @@ docker:
 # Install dependencies
 deps:
 	go mod download
-	cd site && npm install
+	cd site && npm ci

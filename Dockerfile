@@ -1,5 +1,14 @@
 # syntax=docker/dockerfile:1.17
 
+# ---- Go module cache (runs in parallel with frontend) ----
+FROM golang:1.26-alpine AS go-modules
+
+WORKDIR /app
+COPY go.mod go.sum ./
+
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
+
 # ---- Frontend build stage ----
 FROM node:24-alpine AS frontend-builder
 
@@ -11,7 +20,7 @@ RUN --mount=type=cache,target=/var/cache/apk \
 COPY site/package*.json ./
 
 RUN --mount=type=cache,target=/root/.npm \
-    npm install --no-audit --no-fund --loglevel=error
+    npm ci --no-audit --no-fund --loglevel=error
 
 COPY site/ ./
 
@@ -24,25 +33,19 @@ FROM golang:1.26-alpine AS backend-builder
 
 WORKDIR /app
 
-RUN --mount=type=cache,target=/var/cache/apk \
-    apk add --no-cache git
-
 COPY go.mod go.sum ./
 
 RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
     go mod download
 
 COPY --from=frontend-builder /app/site/build ./internal/static/build
 
-COPY . .
+COPY main.go diarum.go ./
+COPY internal/ ./internal/
 
-ARG VERSION
+ARG VERSION=dev
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    if [ -z "$VERSION" ]; then \
-      VERSION=$(git describe --dirty --always --tags --abbrev=7 2>/dev/null || echo "docker"); \
-    fi && \
     echo "Building version: $VERSION" && \
     CGO_ENABLED=0 GOOS=linux go build \
       -trimpath \
