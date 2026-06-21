@@ -4,6 +4,43 @@
 
 ---
 
+## v1.7 - 2026-06-21
+
+> 发布日期：2026-06-21
+> 对比基线：`v1.6 (2068452)` → `v1.7 (2fbf6eb)`
+
+### ✨ 新增 Features
+
+- **MCP Server** — 新增 Model Context Protocol 服务器，支持外部 AI 助手通过 MCP 协议访问日记数据（docs/MCP Server.md）
+
+### 🐛 Bug 修复
+
+- npm ci 回退为 npm install，兼容 workspace 项目（#27）
+
+### 🔧 技术改进
+
+- **Docker 构建优化** — Dockerfile 多阶段构建优化：COPY 顺序调整（前端构建产物独立于源码缓存）、运行时阶段合并 RUN 层、npm 缓存挂载
+- **GitHub Actions 升级** — 全部 action 升级到支持 Node.js 24 的版本（actions/checkout@v5、docker/build-push-action@v7、docker/login-action@v4、docker/metadata-action@v6、docker/setup-buildx-action@v4），消除 Node.js 20 弃用警告
+- **清理死代码与未使用依赖** — 删除 7 个未引用文件（CommandMenu.svelte、commands.ts、ImageNodeView.ts、SlashCommands.ts、suggestionRenderer.ts、SettingsToc.svelte、chevereto.ts），移除 18 个未使用依赖（17 个 @tiptap/* + lowlight + tslib），减少约 50MB node_modules
+- **静态资源压缩** — 启用 zstd + brotli 预压缩，静态资源传输体积减少 75-78%
+- **Go 服务端压缩支持** — serveSPA 按 Accept-Encoding 优先返回 .zst → .br → 原始文件
+- **SQLite WAL 模式** — 启用 Write-Ahead Logging 提升并发读性能
+- **数据库查询优化** — ListDiariesByTag 使用 json_each() SQL 级过滤替代全表扫描；ValidateAPIToken 使用 SQL 级 token 匹配替代遍历
+- **Vite 代码分割** — marked 拆分到独立 chunk
+- **@types/node 升级** — 从 v22 升级到 v24 匹配运行时版本
+
+### 📁 主要变更文件
+
+- `Dockerfile` — 构建优化、安装 zstd
+- `main.go` — serveSPA 压缩支持、冗余错误检查修复
+- `internal/store/store.go` — WAL 模式、查询优化
+- `site/package.json` — 移除死依赖、zstd 预压缩脚本
+- `site/svelte.config.js` — brotli 预压缩
+- `site/vite.config.ts` — 代码分割
+- `.github/workflows/docker-build.yml` — action 升级
+
+---
+
 ## v1.6 - 2026-06-21
 
 > 发布日期：2026-06-21
