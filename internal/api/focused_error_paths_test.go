@@ -53,6 +53,128 @@ func TestFocusedAIRouteErrors(t *testing.T) {
 	}
 }
 
+func TestAIRoutesHappyPath(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	e := echo.New()
+	RegisterAIRoutes(e, s, authMiddlewareFor(user), nil)
+
+	rec := performRequest(t, e, http.MethodGet, "/api/v1/ai/settings", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /ai/settings status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/ai/settings", strings.NewReader(`{"enabled":false}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT /ai/settings status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	withMockTransport(t, func(req *http.Request) (*http.Response, error) {
+		return httpResponse(http.StatusOK, `[{"id":"m1","object":"model"}]`), nil
+	})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/models", strings.NewReader(`{"api_key":"k","base_url":"https://mock.local"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /ai/models status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/models", strings.NewReader(`{"api_key":"","base_url":""}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/models empty key status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/conversations", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /ai/conversations status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/conversations", strings.NewReader(`{"title":"Test Conv"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /ai/conversations status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	convPayload := decodeJSONBody(t, rec)
+	convID := convPayload["id"].(string)
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/conversations/"+convID, nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /ai/conversations/:id status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/conversations/nonexistent", nil, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("GET /ai/conversations/nonexistent status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/ai/conversations/"+convID, strings.NewReader(`{"title":"Updated"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT /ai/conversations/:id status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPut, "/api/v1/ai/conversations/nonexistent", strings.NewReader(`{"title":"x"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("PUT /ai/conversations/nonexistent status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodDelete, "/api/v1/ai/conversations/"+convID, nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("DELETE /ai/conversations/:id status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodDelete, "/api/v1/ai/conversations/nonexistent", nil, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("DELETE /ai/conversations/nonexistent status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/chat", strings.NewReader(`{"conversation_id":"x","content":"hi"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("POST /ai/chat not found status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/chat", strings.NewReader(`{}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/chat empty status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start_date":"2024-01-01","end_date":"2024-01-31"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/analysis disabled status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis/save", strings.NewReader(`{"period":"month","start_date":"2024-01-01","end_date":"2024-01-31","summary":"test"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /ai/analysis/save status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analysis/saved?period=month", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /ai/analysis/saved status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodDelete, "/api/v1/ai/analysis/saved/nonexistent", nil, nil)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("DELETE /ai/analysis/saved/nonexistent status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/vectors/stats", nil, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("GET /ai/vectors/stats nil service status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/vectors/build", nil, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/vectors/build nil status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/vectors/build-incremental", nil, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/vectors/build-incremental nil status = %d", rec.Code)
+	}
+
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/transcribe", nil, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("POST /ai/transcribe no provider status = %d", rec.Code)
+	}
+}
+
 func TestFocusedAIVectorRouteServiceErrors(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
