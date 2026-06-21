@@ -843,7 +843,7 @@
 								{content}
 								tags={tags}
 								tagInputValue={tagInput}
-								onTagInput={(v) => (tagInput = v)}
+								onTagInput={(v) => { tagInput = v; updateTagSuggestions(v); }}
 								onTagAdd={addTagFromInput}
 								onTagRemove={removeTag}
 								onTagKeydown={handleTagKeydown}
@@ -1049,7 +1049,7 @@
 					{content}
 					tags={tags}
 					tagInputValue={tagInput}
-					onTagInput={(v) => (tagInput = v)}
+					onTagInput={(v) => { tagInput = v; updateTagSuggestions(v); }}
 					onTagAdd={addTagFromInput}
 					onTagRemove={removeTag}
 					onTagKeydown={handleTagKeydown}
