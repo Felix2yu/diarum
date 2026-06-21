@@ -110,7 +110,7 @@
 	}
 
 	// 打开时：根据 mode 决定加载什么内容
-	async function tryLoadSingle(per: PeriodType, s: string, e: string, kw?: string) {
+	async function tryLoadSingle(per: PeriodType, s: string, e: string, kw: string | undefined) {
 		resetSingleState();
 		customPeriod = per;
 		customStart = s;
