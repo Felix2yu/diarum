@@ -967,6 +967,30 @@ func TestDiaryRoutesSearchStatsAndAccessBranches(t *testing.T) {
 		t.Fatalf("search payload = %#v", payload)
 	}
 
+	// Test filter endpoint
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/diaries/filter?mood=5", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /diaries/filter mood status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	payload = decodeJSONBody(t, rec)
+	if len(payload["results"].([]any)) != 1 {
+		t.Fatalf("filter mood payload = %#v", payload)
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/diaries/filter?scenario=work", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /diaries/filter scenario status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	payload = decodeJSONBody(t, rec)
+	if len(payload["results"].([]any)) != 0 {
+		t.Fatalf("filter scenario empty payload = %#v", payload)
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/diaries/filter", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /diaries/filter empty status = %d body=%s", rec.Code, rec.Body.String())
+	}
+
 	rec = performRequest(t, e, http.MethodPost, "/api/v1/diaries/by-ids", strings.NewReader(`{"ids":["`+diaryToday.ID+`","`+otherDiary.ID+`","missing"]}`), map[string]string{"Content-Type": "application/json"})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("POST /diaries/by-ids status = %d body=%s", rec.Code, rec.Body.String())
