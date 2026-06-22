@@ -70,15 +70,16 @@ type User struct {
 }
 
 type Diary struct {
-	ID      string   `json:"id"`
-	Date    string   `json:"date"`
-	Content string   `json:"content"`
-	Mood    int      `json:"mood"`
-	Weather string   `json:"weather"`
-	Owner   string   `json:"owner"`
-	Tags    []string `json:"tags"`
-	Created string   `json:"created"`
-	Updated string   `json:"updated"`
+	ID         string   `json:"id"`
+	Date       string   `json:"date"`
+	Content    string   `json:"content"`
+	Mood       int      `json:"mood"`
+	MoodStates []string `json:"mood_states"`
+	Weather    string   `json:"weather"`
+	Owner      string   `json:"owner"`
+	Tags       []string `json:"tags"`
+	Created    string   `json:"created"`
+	Updated    string   `json:"updated"`
 }
 
 // MoodToEmoji converts a numeric mood value (1-5) to its display emoji.
@@ -369,7 +370,7 @@ func createSchema(db *sql.DB) error {
 			emojiToMood := map[string]int{
 				"😞": 1, "😔": 2, "😐": 3, "😊": 4, "🤩": 5,
 				// Legacy mappings from old configurable mood options
-				"😊": 4, "😌": 4, "🥳": 5, "💪": 5, "🤔": 3, "😴": 2, "😔": 2, "😤": 1,
+				"😌": 4, "🥳": 5, "💪": 5, "🤔": 3, "😴": 2, "😤": 1,
 			}
 			rows, err := db.Query(`SELECT id, mood FROM diaries WHERE mood != ''`)
 			if err == nil {
@@ -415,6 +416,25 @@ func createSchema(db *sql.DB) error {
 			}
 			_, _ = db.Exec(`INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(2, datetime('now'))`)
 			logger.Info("[Store] migration v2 completed: mood TEXT -> INTEGER")
+		}
+	}
+
+	// ---- Migration v3: add mood_states column ----
+	{
+		var currentVersion int
+		_ = db.QueryRow(`SELECT COALESCE(MAX(version), 0) FROM schema_migrations`).Scan(&currentVersion)
+		if currentVersion < 3 {
+			var hasMoodStates bool
+			_ = db.QueryRow(`SELECT 1 FROM pragma_table_info('diaries') WHERE name = 'mood_states'`).Scan(&hasMoodStates)
+			if !hasMoodStates {
+				if _, err := db.Exec(`ALTER TABLE diaries ADD COLUMN mood_states JSON DEFAULT '[]' NOT NULL`); err != nil {
+					logger.Warn("[Store] failed to add mood_states column to diaries: %v", err)
+				} else {
+					logger.Info("[Store] diaries: added mood_states column")
+				}
+			}
+			_, _ = db.Exec(`INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(3, datetime('now'))`)
+			logger.Info("[Store] migration v3 completed: added mood_states column")
 		}
 	}
 
@@ -962,12 +982,12 @@ func scanUser(row interface{ Scan(dest ...any) error }) (*User, error) {
 	return user, nil
 }
 
-func (s *Store) UpsertDiary(owner, date, content string, mood int, weather string, tags []string) (*Diary, bool, error) {
+func (s *Store) UpsertDiary(owner, date, content string, mood int, moodStates []string, weather string, tags []string) (*Diary, bool, error) {
 	start, end := dayRange(date)
 	existing, err := s.GetDiaryByDate(owner, start, end)
 	if err == nil && existing != nil {
 		now := nowString()
-		_, err := s.DB.Exec(`UPDATE diaries SET content = ?, mood = ?, weather = ?, tags = ?, updated = ? WHERE id = ? AND owner = ?`, content, mood, weather, encodeJSON(normalizeTags(tags)), now, existing.ID, owner)
+		_, err := s.DB.Exec(`UPDATE diaries SET content = ?, mood = ?, mood_states = ?, weather = ?, tags = ?, updated = ? WHERE id = ? AND owner = ?`, content, mood, encodeJSON(moodStates), weather, encodeJSON(normalizeTags(tags)), now, existing.ID, owner)
 		if err != nil {
 			return nil, false, err
 		}
@@ -982,7 +1002,7 @@ func (s *Store) UpsertDiary(owner, date, content string, mood int, weather strin
 		return nil, false, err
 	}
 	now := nowString()
-	_, err = s.DB.Exec(`INSERT INTO diaries(content, created, date, id, mood, owner, updated, weather, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`, content, now, date+" 00:00:00.000Z", id, mood, owner, now, weather, encodeJSON(normalizeTags(tags)))
+	_, err = s.DB.Exec(`INSERT INTO diaries(content, created, date, id, mood, mood_states, owner, updated, weather, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, content, now, date+" 00:00:00.000Z", id, mood, encodeJSON(moodStates), owner, now, weather, encodeJSON(normalizeTags(tags)))
 	if err != nil {
 		return nil, true, err
 	}
@@ -991,7 +1011,7 @@ func (s *Store) UpsertDiary(owner, date, content string, mood int, weather strin
 }
 
 func (s *Store) GetDiaryByDate(owner, start, end string) (*Diary, error) {
-	return scanDiary(s.DB.QueryRow(`SELECT content, created, date, id, mood, owner, updated, weather, tags FROM diaries WHERE date >= ? AND date <= ? AND owner = ? LIMIT 1`, start, end, owner))
+	return scanDiary(s.DB.QueryRow(`SELECT content, created, date, id, mood, mood_states, owner, updated, weather, tags FROM diaries WHERE date >= ? AND date <= ? AND owner = ? LIMIT 1`, start, end, owner))
 }
 
 // GetDiariesByMonthDay returns diaries from previous years that share the
@@ -1028,10 +1048,10 @@ func (s *Store) GetRandomDiary(owner, excludeDate string) (*Diary, error) {
 		args = append(args, excludeDate[:10])
 	}
 	// 偏好有内容的日记： content 非空 或 mood 非空 或 weather 非空 或 tags != '[]'
-	where += " AND (trim(content) != '' OR trim(mood) != '' OR trim(weather) != '' OR tags != '[]')"
+	where += " AND (trim(content) != '' OR mood != 0 OR trim(weather) != '' OR tags != '[]')"
 	// SQLite 的 RANDOM() 返回 -9223372036854775808 到 9223372036854775807，取一条
 	rows, err := s.DB.Query(
-		`SELECT content, created, date, id, mood, owner, updated, weather, tags
+		`SELECT content, created, date, id, mood, mood_states, owner, updated, weather, tags
 		 FROM diaries `+where+`
 		 ORDER BY RANDOM() LIMIT 1`,
 		args...,
@@ -1051,7 +1071,7 @@ func (s *Store) GetRandomDiary(owner, excludeDate string) (*Diary, error) {
 }
 
 func (s *Store) GetDiaryByID(id string) (*Diary, error) {
-	return scanDiary(s.DB.QueryRow(`SELECT content, created, date, id, mood, owner, updated, weather, tags FROM diaries WHERE id = ?`, id))
+	return scanDiary(s.DB.QueryRow(`SELECT content, created, date, id, mood, mood_states, owner, updated, weather, tags FROM diaries WHERE id = ?`, id))
 }
 
 func (s *Store) DeleteDiary(id, owner string) error {
@@ -1067,7 +1087,7 @@ func (s *Store) DeleteDiary(id, owner string) error {
 }
 
 func (s *Store) ListDiaries(owner, start, end, order string, limit int) ([]*Diary, error) {
-	query := `SELECT content, created, date, id, mood, owner, updated, weather, tags FROM diaries WHERE owner = ?`
+	query := `SELECT content, created, date, id, mood, mood_states, owner, updated, weather, tags FROM diaries WHERE owner = ?`
 	args := []any{owner}
 	if start != "" {
 		query += ` AND date >= ?`
@@ -1122,12 +1142,14 @@ func (s *Store) CountDiaries(owner string) int {
 func scanDiary(row interface{ Scan(dest ...any) error }) (*Diary, error) {
 	diary := &Diary{}
 	var tagsRaw string
+	var moodStatesRaw string
 	var moodVal int
-	err := row.Scan(&diary.Content, &diary.Created, &diary.Date, &diary.ID, &moodVal, &diary.Owner, &diary.Updated, &diary.Weather, &tagsRaw)
+	err := row.Scan(&diary.Content, &diary.Created, &diary.Date, &diary.ID, &moodVal, &moodStatesRaw, &diary.Owner, &diary.Updated, &diary.Weather, &tagsRaw)
 	if err != nil {
 		return nil, err
 	}
 	diary.Mood = moodVal
+	diary.MoodStates = decodeStringSlice(moodStatesRaw)
 	diary.Tags = decodeStringSlice(tagsRaw)
 	return diary, nil
 }
@@ -1137,11 +1159,13 @@ func scanDiaries(rows *sql.Rows) ([]*Diary, error) {
 	for rows.Next() {
 		item := &Diary{}
 		var tagsRaw string
+		var moodStatesRaw string
 		var moodVal int
-		if err := rows.Scan(&item.Content, &item.Created, &item.Date, &item.ID, &moodVal, &item.Owner, &item.Updated, &item.Weather, &tagsRaw); err != nil {
+		if err := rows.Scan(&item.Content, &item.Created, &item.Date, &item.ID, &moodVal, &moodStatesRaw, &item.Owner, &item.Updated, &item.Weather, &tagsRaw); err != nil {
 			return nil, err
 		}
 		item.Mood = moodVal
+		item.MoodStates = decodeStringSlice(moodStatesRaw)
 		item.Tags = decodeStringSlice(tagsRaw)
 		items = append(items, item)
 	}
@@ -1826,7 +1850,7 @@ func scanMessageRow(rows *sql.Rows) (*Message, error) {
 	return scanMessage(rows)
 }
 
-func (s *Store) InsertImportedDiary(owner, id, date, content string, mood int, weather string, tags []string) (*Diary, error) {
+func (s *Store) InsertImportedDiary(owner, id, date, content string, mood int, moodStates []string, weather string, tags []string) (*Diary, error) {
 	if id == "" {
 		var err error
 		id, err = GenerateID()
@@ -1835,7 +1859,7 @@ func (s *Store) InsertImportedDiary(owner, id, date, content string, mood int, w
 		}
 	}
 	now := nowString()
-	_, err := s.DB.Exec(`INSERT INTO diaries(content, created, date, id, mood, owner, updated, weather, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)`, content, now, date+" 00:00:00.000Z", id, mood, owner, now, weather, encodeJSON(normalizeTags(tags)))
+	_, err := s.DB.Exec(`INSERT INTO diaries(content, created, date, id, mood, mood_states, owner, updated, weather, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, content, now, date+" 00:00:00.000Z", id, mood, encodeJSON(moodStates), owner, now, weather, encodeJSON(normalizeTags(tags)))
 	if err != nil {
 		return nil, err
 	}
