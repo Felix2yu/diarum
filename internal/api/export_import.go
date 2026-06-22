@@ -180,7 +180,7 @@ func handleExport(c echo.Context, s *store.Store) error {
 		for _, d := range allDiaries {
 			date := store.DateOnly(d.Date)
 			if isDateInRange(date, startDate, endDate) {
-				exportDiaries = append(exportDiaries, exportDiary{ID: d.ID, Date: date, Content: d.Content, Mood: d.Mood, Weather: d.Weather})
+				exportDiaries = append(exportDiaries, exportDiary{ID: d.ID, Date: date, Content: d.Content, Mood: d.Mood, MoodStates: d.MoodStates, Scenarios: d.Scenarios, Weather: d.Weather})
 			}
 		}
 	}
@@ -389,7 +389,7 @@ func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.Em
 			diaryIDMap[d.ID] = ""
 			continue
 		}
-		diary, err := s.InsertImportedDiary(userID, "", d.Date, d.Content, d.Mood, nil, nil, d.Weather, nil)
+		diary, err := s.InsertImportedDiary(userID, "", d.Date, d.Content, d.Mood, d.MoodStates, d.Scenarios, d.Weather, nil)
 		if err != nil {
 			stats.Diaries.Failed++
 			stats.DiaryDetails = append(stats.DiaryDetails, importDiaryDetail{Date: d.Date, Status: "failed", Reason: err.Error()})
@@ -579,37 +579,94 @@ func parseMarkdownFile(name string, content []byte) *exportDiary {
 	}
 	mood := 0
 	weather := ""
+	moodStates := make([]string, 0)
+	scenarios := make([]string, 0)
 	contentLines := make([]string, 0, len(lines))
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "# ") {
 			continue
 		}
-		if strings.HasPrefix(trimmed, "**Mood:**") || strings.HasPrefix(trimmed, "**mood:**") {
-			moodStr := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(trimmed, "**Mood:**"), "**mood:**"))
-			mood = emojiToMoodInt(moodStr)
+		if strings.HasPrefix(trimmed, "**心情：**") || strings.HasPrefix(trimmed, "**心情:**") || strings.HasPrefix(trimmed, "**Mood:**") || strings.HasPrefix(trimmed, "**mood:**") {
+			val := trimmed
+			for _, prefix := range []string{"**心情：**", "**心情:**", "**Mood:**", "**mood:**"} {
+				if strings.HasPrefix(val, prefix) {
+					val = strings.TrimSpace(strings.TrimPrefix(val, prefix))
+					break
+				}
+			}
+			mood = emojiToMoodInt(val)
 			continue
 		}
-		if strings.HasPrefix(trimmed, "**Weather:**") || strings.HasPrefix(trimmed, "**weather:**") {
-			weather = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(trimmed, "**Weather:**"), "**weather:**"))
+		if strings.HasPrefix(trimmed, "**心情状态：**") || strings.HasPrefix(trimmed, "**心情状态:**") || strings.HasPrefix(trimmed, "**MoodStates:**") || strings.HasPrefix(trimmed, "**mood_states:**") {
+			val := trimmed
+			for _, prefix := range []string{"**心情状态：**", "**心情状态:**", "**MoodStates:**", "**mood_states:**"} {
+				if strings.HasPrefix(val, prefix) {
+					val = strings.TrimSpace(strings.TrimPrefix(val, prefix))
+					break
+				}
+			}
+			if val != "" {
+				for _, s := range strings.Split(val, ",") {
+					s = strings.TrimSpace(s)
+					if s != "" {
+						moodStates = append(moodStates, s)
+					}
+				}
+			}
+			continue
+		}
+		if strings.HasPrefix(trimmed, "**情景：**") || strings.HasPrefix(trimmed, "**情景:**") || strings.HasPrefix(trimmed, "**Scenarios:**") || strings.HasPrefix(trimmed, "**scenarios:**") {
+			val := trimmed
+			for _, prefix := range []string{"**情景：**", "**情景:**", "**Scenarios:**", "**scenarios:**"} {
+				if strings.HasPrefix(val, prefix) {
+					val = strings.TrimSpace(strings.TrimPrefix(val, prefix))
+					break
+				}
+			}
+			if val != "" {
+				for _, s := range strings.Split(val, ",") {
+					s = strings.TrimSpace(s)
+					if s != "" {
+						scenarios = append(scenarios, s)
+					}
+				}
+			}
+			continue
+		}
+		if strings.HasPrefix(trimmed, "**天气：**") || strings.HasPrefix(trimmed, "**天气:**") || strings.HasPrefix(trimmed, "**Weather:**") || strings.HasPrefix(trimmed, "**weather:**") {
+			val := trimmed
+			for _, prefix := range []string{"**天气：**", "**天气:**", "**Weather:**", "**weather:**"} {
+				if strings.HasPrefix(val, prefix) {
+					val = strings.TrimSpace(strings.TrimPrefix(val, prefix))
+					break
+				}
+			}
+			weather = val
 			continue
 		}
 		contentLines = append(contentLines, line)
 	}
 	content = []byte(strings.TrimSpace(strings.Join(contentLines, "\n")))
-	return &exportDiary{Date: date, Content: string(content), Mood: mood, Weather: weather}
+	return &exportDiary{Date: date, Content: string(content), Mood: mood, MoodStates: moodStates, Scenarios: scenarios, Weather: weather}
 }
 
 func generateMarkdown(d exportDiary) string {
 	var sb strings.Builder
 	sb.WriteString("# " + d.Date + "\n\n")
 	if d.Mood != 0 {
-		sb.WriteString("**Mood:** " + store.MoodToEmoji(d.Mood) + "\n")
+		sb.WriteString("**心情：** " + store.MoodToEmoji(d.Mood) + "\n")
+	}
+	if len(d.MoodStates) > 0 {
+		sb.WriteString("**心情状态：** " + strings.Join(d.MoodStates, ", ") + "\n")
+	}
+	if len(d.Scenarios) > 0 {
+		sb.WriteString("**情景：** " + strings.Join(d.Scenarios, ", ") + "\n")
 	}
 	if d.Weather != "" {
-		sb.WriteString("**Weather:** " + d.Weather + "\n")
+		sb.WriteString("**天气：** " + d.Weather + "\n")
 	}
-	if d.Mood != 0 || d.Weather != "" {
+	if d.Mood != 0 || d.Weather != "" || len(d.MoodStates) > 0 || len(d.Scenarios) > 0 {
 		sb.WriteString("\n")
 	}
 	sb.WriteString(d.Content)
