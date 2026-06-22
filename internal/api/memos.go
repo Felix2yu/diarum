@@ -442,7 +442,7 @@ func upsertMemosBlock(s *store.Store, userID, memoID, date, block string) (bool,
 		return false, err
 	}
 	if diary == nil {
-		_, _, err := s.UpsertDiary(userID, date, block, "", nil, "", nil)
+		_, _, err := s.UpsertDiary(userID, date, block, 0, nil, "", nil)
 		return err == nil, err
 	}
 	content, replaced := replaceMemosBlock(diary.Content, memoID, block)
