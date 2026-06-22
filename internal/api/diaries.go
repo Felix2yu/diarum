@@ -165,8 +165,8 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		results := make([]map[string]any, 0, len(diaries))
 		for _, diary := range diaries {
 			snippet := diary.Content
-			if len(snippet) > 200 {
-				snippet = snippet[:200] + "..."
+			if runes := []rune(snippet); len(runes) > 200 {
+				snippet = string(runes[:200]) + "..."
 			}
 			tags := diary.Tags
 			if tags == nil {
@@ -185,6 +185,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, map[string]any{"results": results, "total": len(results)})
 	})
 
+	// Filter by mood and/or scenario
 	group.GET("/filter", func(c echo.Context) error {
 		user := auth.CurrentUser(c)
 		moodStr := c.QueryParam("mood")
@@ -200,8 +201,8 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		results := make([]map[string]any, 0, len(diaries))
 		for _, diary := range diaries {
 			snippet := diary.Content
-			if len(snippet) > 200 {
-				snippet = snippet[:200] + "..."
+			if runes := []rune(snippet); len(runes) > 200 {
+				snippet = string(runes[:200]) + "..."
 			}
 			tags := diary.Tags
 			if tags == nil {
