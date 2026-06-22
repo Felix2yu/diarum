@@ -3,6 +3,7 @@ package api
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -160,6 +161,41 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		diaries, err := s.SearchDiaries(user.ID, query, scenario, 50)
 		if err != nil {
 			return serverError("Search failed", err)
+		}
+		results := make([]map[string]any, 0, len(diaries))
+		for _, diary := range diaries {
+			snippet := diary.Content
+			if len(snippet) > 200 {
+				snippet = snippet[:200] + "..."
+			}
+			tags := diary.Tags
+			if tags == nil {
+				tags = []string{}
+			}
+			results = append(results, map[string]any{
+				"id":        diary.ID,
+				"date":      store.DateOnly(diary.Date),
+				"snippet":   snippet,
+				"mood":      diary.Mood,
+				"scenarios": diary.Scenarios,
+				"weather":   diary.Weather,
+				"tags":      tags,
+			})
+		}
+		return c.JSON(http.StatusOK, map[string]any{"results": results, "total": len(results)})
+	})
+
+	group.GET("/filter", func(c echo.Context) error {
+		user := auth.CurrentUser(c)
+		moodStr := c.QueryParam("mood")
+		scenario := c.QueryParam("scenario")
+		var mood int
+		if moodStr != "" {
+			fmt.Sscanf(moodStr, "%d", &mood)
+		}
+		diaries, err := s.FilterDiaries(user.ID, mood, scenario, 100)
+		if err != nil {
+			return serverError("Filter failed", err)
 		}
 		results := make([]map[string]any, 0, len(diaries))
 		for _, diary := range diaries {

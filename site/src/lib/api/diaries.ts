@@ -336,6 +336,29 @@ export async function searchDiaries(query: string, scenario?: string) {
 	}
 }
 
+export async function filterDiaries(mood?: number, scenario?: string) {
+	try {
+		const params = new URLSearchParams();
+		if (mood) params.set('mood', String(mood));
+		if (scenario) params.set('scenario', scenario);
+		const response = await fetch(`/api/v1/diaries/filter?${params.toString()}`, {
+			headers: {
+				'Authorization': `Bearer ${pb.authStore.token}`
+			}
+		});
+
+		if (!response.ok) {
+			return [];
+		}
+
+		const data = await response.json();
+		return data.results || [];
+	} catch (error) {
+		console.error('Error filtering diaries:', error);
+		return [];
+	}
+}
+
 /**
  * Get diary stats (streak and total)
  */

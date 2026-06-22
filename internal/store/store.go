@@ -1164,6 +1164,33 @@ func (s *Store) SearchDiaries(owner, query string, scenario string, limit int) (
 	return scanDiaries(rows)
 }
 
+func (s *Store) FilterDiaries(owner string, mood int, scenario string, limit int) ([]*Diary, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	where := "WHERE owner = ?"
+	args := []any{owner}
+	if mood > 0 {
+		where += " AND mood = ?"
+		args = append(args, mood)
+	}
+	if scenario != "" {
+		where += " AND scenarios LIKE ?"
+		args = append(args, "%\""+scenario+"\"%")
+	}
+	args = append(args, limit)
+	rows, err := s.DB.Query(
+		`SELECT content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, tags
+		 FROM diaries `+where+` ORDER BY date DESC LIMIT ?`,
+		args...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanDiaries(rows)
+}
+
 func (s *Store) CountDiaries(owner string) int {
 	var total int
 	_ = s.DB.QueryRow(`SELECT COUNT(*) FROM diaries WHERE owner = ?`, owner).Scan(&total)
