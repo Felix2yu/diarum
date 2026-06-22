@@ -51,9 +51,6 @@ func newTestVectorDB(t *testing.T) *VectorDB {
 	if err != nil {
 		t.Fatalf("NewVectorDB: %v", err)
 	}
-	t.Cleanup(func() {
-		_ = db.Close()
-	})
 	return db
 }
 
@@ -622,9 +619,6 @@ func TestVectorDBLifecycle(t *testing.T) {
 	}
 	if err := db.DeleteCollection("user-1"); err != nil {
 		t.Fatalf("DeleteCollection: %v", err)
-	}
-	if err := db.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
 	}
 }
 

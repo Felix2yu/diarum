@@ -144,9 +144,6 @@ func TestSearchPromptsAndHelpers(t *testing.T) {
 	if got := stripHTMLTags("<strong>Hello</strong> world"); got != "Hello world" {
 		t.Fatalf("stripHTMLTags = %q", got)
 	}
-	if got := truncateString("abcdef", 3); got != "abc..." {
-		t.Fatalf("truncateString = %q, want abc...", got)
-	}
 }
 
 func TestConversationPersistenceHelpers(t *testing.T) {

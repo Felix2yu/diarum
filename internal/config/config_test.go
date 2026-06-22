@@ -198,12 +198,9 @@ func TestConfigServiceStoreErrorEdges(t *testing.T) {
 	if got, err := service.GetBool(user.ID, "api.enabled"); err != nil || got {
 		t.Fatalf("GetBool default after store error = %v, %v, want false", got, err)
 	}
-	settings, err := service.GetBatch(user.ID)
-	if err != nil {
-		t.Fatalf("GetBatch after store error: %v", err)
-	}
-	if len(settings) != 0 {
-		t.Fatalf("GetBatch after store error = %#v, want empty", settings)
+	_, err := service.GetBatch(user.ID)
+	if err == nil {
+		t.Fatal("GetBatch after store error should return error")
 	}
 	if err := service.SetBatch(user.ID, map[string]any{"api.enabled": true}); err == nil {
 		t.Fatal("SetBatch should return store error after close")

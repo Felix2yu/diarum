@@ -584,7 +584,7 @@ func TestStoreClosedDatabaseErrorBranches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InsertImportedConversation before close: %v", err)
 	}
-	msg, err := s.InsertImportedMessage(user.ID, "closed-msg", conv.ID, "user", "hello", []string{diary.ID})
+	_, err = s.InsertImportedMessage(user.ID, "closed-msg", conv.ID, "user", "hello", []string{diary.ID})
 	if err != nil {
 		t.Fatalf("InsertImportedMessage before close: %v", err)
 	}
