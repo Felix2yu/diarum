@@ -139,7 +139,7 @@ func TestAIRoutesHappyPath(t *testing.T) {
 		t.Fatalf("POST /ai/analysis empty status = %d body=%s", rec.Code, rec.Body.String())
 	}
 
-	if _, err := s.InsertImportedDiary(user.ID, "", "2024-01-15", "some content", "happy", "", nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "", "2024-01-15", "some content", 4, nil, nil, "", nil); err != nil {
 		t.Fatalf("InsertImportedDiary: %v", err)
 	}
 	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"2024-01-01","end":"2024-01-31"}`), map[string]string{"Content-Type": "application/json"})
@@ -587,10 +587,10 @@ func TestFocusedExportImportEdges(t *testing.T) {
 	e := echo.New()
 	RegisterExportImportRoutes(e, s, authMiddlewareFor(user), nil)
 
-	if _, err := s.InsertImportedDiary(user.ID, "export-old", "2024-01-01", "old diary", "", "", nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "export-old", "2024-01-01", "old diary", 0, nil, nil, "", nil); err != nil {
 		t.Fatalf("InsertImportedDiary old: %v", err)
 	}
-	if _, err := s.InsertImportedDiary(user.ID, "export-new", "2024-02-02", "new diary", "", "", nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "export-new", "2024-02-02", "new diary", 0, nil, nil, "", nil); err != nil {
 		t.Fatalf("InsertImportedDiary new: %v", err)
 	}
 	missingMedia, err := s.InsertImportedMedia(user.ID, "export-missing-media", "missing.png", "Missing", "", nil)
@@ -699,7 +699,7 @@ func TestImportTriggersEmbeddingBranch(t *testing.T) {
 		Version:    1,
 		ExportedAt: "2024-02-01T00:00:00Z",
 		Diaries: []exportDiary{
-			{ID: "diary", Date: "2024-03-01", Content: "Imported with embedding", Mood: "ok", Weather: "sun"},
+			{ID: "diary", Date: "2024-03-01", Content: "Imported with embedding", Mood: 3, Weather: "sun"},
 		},
 	}, nil)
 	body, contentType := multipartRequestBody(t, "file", "embedding.zip", zipBytes, nil)
@@ -803,7 +803,7 @@ func TestParseMarkdownFile(t *testing.T) {
 		content  string
 		wantNil  bool
 		wantDate string
-		wantMood string
+		wantMood int
 		wantWx   string
 	}{
 		{
@@ -829,8 +829,6 @@ func TestParseMarkdownFile(t *testing.T) {
 			filename: "2024-01-01.md",
 			content:  "# 2024-01-01\n\n**Mood:** excited\n**Weather:** rainy\n\nBody text",
 			wantDate: "2024-01-01",
-			wantMood: "excited",
-			wantWx:   "rainy",
 		},
 		{
 			name:     "no date returns nil",
@@ -859,8 +857,8 @@ func TestParseMarkdownFile(t *testing.T) {
 			if result.Date != tc.wantDate {
 				t.Errorf("Date = %q, want %q", result.Date, tc.wantDate)
 			}
-			if tc.wantMood != "" && result.Mood != tc.wantMood {
-				t.Errorf("Mood = %q, want %q", result.Mood, tc.wantMood)
+			if tc.wantMood != 0 && result.Mood != tc.wantMood {
+				t.Errorf("Mood = %d, want %d", result.Mood, tc.wantMood)
 			}
 			if tc.wantWx != "" && result.Weather != tc.wantWx {
 				t.Errorf("Weather = %q, want %q", result.Weather, tc.wantWx)
@@ -875,7 +873,7 @@ func TestResolveConflictRoutes(t *testing.T) {
 	e := echo.New()
 	RegisterExportImportRoutes(e, s, authMiddlewareFor(user), nil)
 
-	if _, err := s.InsertImportedDiary(user.ID, "old", "2024-06-01", "old content", "sad", "", nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "old", "2024-06-01", "old content", 2, nil, nil, "", nil); err != nil {
 		t.Fatalf("InsertImportedDiary: %v", err)
 	}
 
@@ -897,7 +895,7 @@ func TestResolveConflictRoutes(t *testing.T) {
 		t.Fatalf("keep_old status = %d body=%s", rec.Code, rec.Body.String())
 	}
 
-	body, _ = json.Marshal(resolveConflictRequest{Date: "2024-06-01", Action: "replace", Content: "new content", Mood: "happy", Weather: "sunny"})
+	body, _ = json.Marshal(resolveConflictRequest{Date: "2024-06-01", Action: "replace", Content: "new content", Mood: 4, Weather: "sunny"})
 	rec = performRequest(t, e, http.MethodPost, "/api/v1/import/resolve", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("replace status = %d body=%s", rec.Code, rec.Body.String())
@@ -907,7 +905,7 @@ func TestResolveConflictRoutes(t *testing.T) {
 		t.Fatalf("replace payload = %#v", payload)
 	}
 	existing, _ := s.GetDiaryByDate(user.ID, "2024-06-01 00:00:00.000Z", "2024-06-01 23:59:59.999Z")
-	if existing == nil || existing.Content != "new content" || existing.Mood != "happy" {
+	if existing == nil || existing.Content != "new content" || existing.Mood != 4 {
 		t.Fatalf("diary after replace = %+v", existing)
 	}
 

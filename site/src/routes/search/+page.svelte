@@ -1,17 +1,20 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import Footer from '$lib/components/ui/Footer.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import { searchDiaries } from '$lib/api/diaries';
 	import { isAuthenticated } from '$lib/api/client';
 	import { formatDisplayDate, formatShortDate, getDayOfWeek } from '$lib/utils/date';
+	import { moodToEmoji } from '$lib/utils/diaryEmoji';
 
 	interface SearchResult {
 		id: string;
 		date: string;
 		snippet: string;
-		mood?: string;
+		mood?: number;
+		scenarios?: string[];
 		weather?: string;
 		tags?: string[];
 	}
@@ -23,7 +26,6 @@
 	let searchTimeout: ReturnType<typeof setTimeout>;
 	let inputElement: HTMLInputElement;
 
-	// Debounced search
 	function handleInput() {
 		clearTimeout(searchTimeout);
 		if (query.trim().length === 0) {
@@ -50,8 +52,9 @@
 			results = data.map((item: any) => ({
 				id: item.id,
 				date: item.date?.split(' ')[0] || item.date,
-				snippet: cleanSnippet(item.snippet || '', query.trim()),
-				mood: item.mood || '',
+				snippet: (item.snippet || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
+				mood: item.mood || 0,
+				scenarios: Array.isArray(item.scenarios) ? item.scenarios : [],
 				weather: item.weather || '',
 				tags: Array.isArray(item.tags) ? item.tags : []
 			}));
@@ -63,30 +66,10 @@
 		}
 	}
 
-	function cleanSnippet(snippet: string, searchQuery: string): string {
-		// Strip HTML tags and clean up whitespace
-		return snippet.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-	}
-
-	function highlightMatch(text: string, searchQuery: string): string {
-		if (!searchQuery) return text;
-		const regex = new RegExp(`(${escapeRegex(searchQuery)})`, 'gi');
-		return text.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-800/60 px-0.5 rounded">$1</mark>');
-	}
-
-	function escapeRegex(str: string): string {
-		return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-	}
-
-	function handleKeydown(event: KeyboardEvent) {
-		if (event.key === 'Enter') {
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter' && query.trim().length >= 2) {
 			clearTimeout(searchTimeout);
 			performSearch();
-		}
-		if (event.key === 'Escape') {
-			query = '';
-			results = [];
-			searched = false;
 		}
 	}
 
@@ -99,8 +82,13 @@
 			goto('/login');
 			return;
 		}
-		// Auto focus search input
-		inputElement?.focus();
+		const q = $page.url.searchParams.get('q');
+		if (q) {
+			query = q;
+			performSearch();
+		} else {
+			inputElement?.focus();
+		}
 	});
 </script>
 
@@ -111,9 +99,7 @@
 <div class="flex flex-col min-h-screen min-h-[100dvh] bg-background">
 	<PageHeader title="搜索" />
 
-	<!-- Main Content -->
 	<main class="container-responsive py-8 flex-1">
-		<!-- Search Header -->
 		<div class="mb-8 animate-fade-in">
 			<h1 class="text-2xl font-bold text-foreground mb-2">搜索日记</h1>
 			<p class="text-sm text-muted-foreground">通过关键词查找你的日记条目</p>
@@ -159,7 +145,6 @@
 				<div class="text-muted-foreground text-sm">正在搜索...</div>
 			</div>
 		{:else if searched && results.length === 0}
-			<!-- No Results -->
 			<div class="flex flex-col items-center justify-center py-12 gap-4 animate-fade-in">
 				<div class="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center">
 					<svg class="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -168,34 +153,28 @@
 					</svg>
 				</div>
 				<div class="text-center">
-					<p class="text-foreground font-medium">未找到结果</p>
-					<p class="text-sm text-muted-foreground mt-1">尝试不同的关键词或检查拼写</p>
+					<p class="text-foreground font-medium">未找到匹配的日记</p>
+					<p class="text-sm text-muted-foreground mt-1">试试其他关键词</p>
 				</div>
 			</div>
-		{:else if results.length > 0}
-			<!-- Results Count -->
+		{:else if searched && results.length > 0}
 			<div class="mb-4 text-sm text-muted-foreground animate-fade-in">
-				找到 <span class="font-medium text-foreground">{results.length}</span> {results.length === 1 ? '条记录' : '条记录'}
+				找到 {results.length} 条匹配的日记
 			</div>
-
-			<!-- Results List -->
 			<div class="space-y-3">
-				{#each results as result, index}
+				{#each results as result (result.id)}
 					<button
 						onclick={() => navigateToDiary(result.date)}
-						class="w-full text-left bg-card hover:bg-accent/50 border border-border/50 rounded-xl p-4 transition-all duration-200 hover:shadow-md hover:border-border animate-fade-in group"
-						style="animation-delay: {(index + 1) * 50}ms"
+						class="w-full text-left bg-card rounded-xl shadow-sm border border-border/50 p-4 hover:shadow-md hover:border-primary/30 transition-all duration-200 group animate-fade-in"
 					>
-						<!-- Date Header -->
 						<div class="flex items-center justify-between mb-2">
 							<div class="flex items-center gap-2">
 								<span class="text-sm font-medium text-foreground">
-									<span class="hidden sm:inline">{formatDisplayDate(result.date)}</span>
-									<span class="sm:hidden">{formatShortDate(result.date)}</span>
+									{formatDisplayDate(result.date)}
 								</span>
 								<span class="text-xs text-muted-foreground">周{getDayOfWeek(result.date)}</span>
 								{#if result.mood}
-									<span class="text-sm">{result.mood}</span>
+									<span class="text-sm">{moodToEmoji(result.mood)}</span>
 								{/if}
 								{#if result.weather}
 									<span class="text-sm">{result.weather}</span>
@@ -205,33 +184,21 @@
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
 							</svg>
 						</div>
-						<!-- Snippet -->
-						<p class="text-sm text-muted-foreground leading-relaxed line-clamp-3">
-							{@html highlightMatch(result.snippet, query)}
-						</p>
-						<!-- Tags -->
-						{#if result.tags && result.tags.length > 0}
-							<div class="flex flex-wrap gap-1.5 mt-3">
-								{#each result.tags as tag (tag)}
-									{@const matched = tag.toLowerCase().includes(query.toLowerCase())}
-									<span
-										class="inline-flex text-[11px] px-2 py-0.5 rounded-full border transition-colors"
-										style={matched
-											? 'background-color: hsl(var(--primary) / 0.1); color: hsl(var(--primary)); border-color: hsl(var(--primary) / 0.2)'
-											: 'background-color: hsl(var(--muted) / 0.6); color: hsl(var(--muted-foreground)); border-color: hsl(var(--border))'
-										}
-									>
-										#{tag}
-									</span>
+						{#if result.scenarios && result.scenarios.length > 0}
+							<div class="flex flex-wrap gap-1 mb-2">
+								{#each result.scenarios as scenario}
+									<span class="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded-full">{scenario}</span>
 								{/each}
 							</div>
 						{/if}
+						<p class="text-sm text-muted-foreground leading-relaxed line-clamp-2">
+							{result.snippet}
+						</p>
 					</button>
 				{/each}
 			</div>
 		{:else}
-			<!-- Initial State -->
-			<div class="flex flex-col items-center justify-center py-12 gap-4 animate-fade-in" style="animation-delay: 100ms">
+			<div class="flex flex-col items-center justify-center py-12 gap-4 animate-fade-in">
 				<div class="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center">
 					<svg class="w-8 h-8 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
@@ -239,38 +206,21 @@
 					</svg>
 				</div>
 				<div class="text-center">
-					<p class="text-foreground font-medium">开始搜索</p>
-					<p class="text-sm text-muted-foreground mt-1">请至少输入 2 个字符进行搜索</p>
+					<p class="text-foreground font-medium">输入关键词搜索日记</p>
+					<p class="text-sm text-muted-foreground mt-1">支持全文内容搜索</p>
 				</div>
 			</div>
 		{/if}
-
-		<!-- Keyboard Shortcuts Hint -->
-		<div class="mt-8 flex justify-center gap-4 text-xs text-muted-foreground animate-fade-in" style="animation-delay: 150ms">
-			<span>
-				<kbd class="px-1.5 py-0.5 bg-muted rounded text-[10px]">Enter</kbd>
-				<span class="ml-1">开始搜索</span>
-			</span>
-			<span>
-				<kbd class="px-1.5 py-0.5 bg-muted rounded text-[10px]">Esc</kbd>
-				<span class="ml-1">清空内容</span>
-			</span>
-		</div>
 	</main>
 
-	<!-- Footer -->
-	<Footer tagline="穿越你的记忆" />
+	<Footer />
 </div>
 
 <style>
-	kbd {
-		font-family: ui-monospace, monospace;
-	}
-
-	.line-clamp-3 {
+	.line-clamp-2 {
 		display: -webkit-box;
-		-webkit-line-clamp: 3;
-		line-clamp: 3;
+		-webkit-line-clamp: 2;
+		line-clamp: 2;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
 	}

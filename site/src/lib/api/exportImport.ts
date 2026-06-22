@@ -48,11 +48,11 @@ export interface ImportDiaryDetail {
 	status: string;
 	reason?: string;
 	new_content?: string;
-	new_mood?: string;
+	new_mood?: number;
 	new_weather?: string;
 	old_id?: string;
 	old_content?: string;
-	old_mood?: string;
+	old_mood?: number;
 	old_weather?: string;
 }
 
@@ -153,7 +153,7 @@ export async function importDiaries(file: File): Promise<ImportStats> {
 /**
  * Resolve an import conflict for a specific date.
  */
-export async function resolveConflict(date: string, action: 'keep_old' | 'replace', content?: string, mood?: string, weather?: string): Promise<{ status: string; id?: string }> {
+export async function resolveConflict(date: string, action: 'keep_old' | 'replace', content?: string, mood?: number, weather?: string): Promise<{ status: string; id?: string }> {
 	const response = await fetch('/api/v1/import/resolve', {
 		method: 'POST',
 		headers: {

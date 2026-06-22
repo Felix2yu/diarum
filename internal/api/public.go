@@ -39,7 +39,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			}
 			results := make([]map[string]any, 0, len(diaries))
 			for _, diary := range diaries {
-				results = append(results, map[string]any{"id": diary.ID, "date": store.DateOnly(diary.Date), "content": diary.Content, "mood": diary.Mood, "weather": diary.Weather})
+				results = append(results, map[string]any{"id": diary.ID, "date": store.DateOnly(diary.Date), "content": diary.Content, "mood": diary.Mood, "scenarios": diary.Scenarios, "weather": diary.Weather})
 			}
 			return c.JSON(http.StatusOK, map[string]any{"diaries": results, "total": len(results)})
 		}
@@ -55,11 +55,13 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 		}
 
 		var body struct {
-			Date    string   `json:"date"`
-			Content string   `json:"content"`
-			Mood    string   `json:"mood"`
-			Weather string   `json:"weather"`
-			Tags    []string `json:"tags"`
+			Date       string   `json:"date"`
+			Content    string   `json:"content"`
+			Mood       int      `json:"mood"`
+			MoodStates []string `json:"mood_states"`
+			Scenarios  []string `json:"scenarios"`
+			Weather    string   `json:"weather"`
+			Tags       []string `json:"tags"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
@@ -71,7 +73,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			body.Tags = []string{}
 		}
 
-		diary, created, err := s.UpsertDiary(userId, body.Date, body.Content, body.Mood, body.Weather, body.Tags)
+		diary, created, err := s.UpsertDiary(userId, body.Date, body.Content, body.Mood, body.MoodStates, body.Scenarios, body.Weather, body.Tags)
 		if err != nil {
 			return serverError("Failed to save diary", err)
 		}
@@ -96,10 +98,12 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 		}
 
 		var body struct {
-			Content string   `json:"content"`
-			Mood    string   `json:"mood"`
-			Weather string   `json:"weather"`
-			Tags    []string `json:"tags"`
+			Content    string   `json:"content"`
+			Mood       int      `json:"mood"`
+			MoodStates []string `json:"mood_states"`
+			Scenarios  []string `json:"scenarios"`
+			Weather    string   `json:"weather"`
+			Tags       []string `json:"tags"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
@@ -110,8 +114,16 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			content = existing.Content
 		}
 		mood := body.Mood
-		if mood == "" {
+		if mood == 0 {
 			mood = existing.Mood
+		}
+		moodStates := body.MoodStates
+		if moodStates == nil {
+			moodStates = existing.MoodStates
+		}
+		scenarios := body.Scenarios
+		if scenarios == nil {
+			scenarios = existing.Scenarios
 		}
 		weather := body.Weather
 		if weather == "" {
@@ -122,7 +134,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			tags = existing.Tags
 		}
 
-		diary, _, err := s.UpsertDiary(userId, store.DateOnly(existing.Date), content, mood, weather, tags)
+		diary, _, err := s.UpsertDiary(userId, store.DateOnly(existing.Date), content, mood, moodStates, scenarios, weather, tags)
 		if err != nil {
 			return serverError("Failed to update diary", err)
 		}

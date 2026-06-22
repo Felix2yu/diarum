@@ -442,14 +442,14 @@ func upsertMemosBlock(s *store.Store, userID, memoID, date, block string) (bool,
 		return false, err
 	}
 	if diary == nil {
-		_, _, err := s.UpsertDiary(userID, date, block, "", "", nil)
+		_, _, err := s.UpsertDiary(userID, date, block, 0, nil, nil, "", nil)
 		return err == nil, err
 	}
 	content, replaced := replaceMemosBlock(diary.Content, memoID, block)
 	if !replaced {
 		content = appendMemosBlock(diary.Content, block)
 	}
-	_, _, err = s.UpsertDiary(userID, store.DateOnly(diary.Date), content, diary.Mood, diary.Weather, diary.Tags)
+	_, _, err = s.UpsertDiary(userID, store.DateOnly(diary.Date), content, diary.Mood, nil, nil, diary.Weather, diary.Tags)
 	return err == nil, err
 }
 
@@ -465,7 +465,7 @@ func removeMemosBlock(s *store.Store, userID, memoID, date string) (bool, error)
 	if !removed {
 		return false, nil
 	}
-	_, _, err = s.UpsertDiary(userID, store.DateOnly(diary.Date), strings.TrimSpace(content), diary.Mood, diary.Weather, diary.Tags)
+	_, _, err = s.UpsertDiary(userID, store.DateOnly(diary.Date), strings.TrimSpace(content), diary.Mood, nil, nil, diary.Weather, diary.Tags)
 	return err == nil, err
 }
 

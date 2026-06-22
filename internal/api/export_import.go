@@ -43,11 +43,13 @@ type exportData struct {
 }
 
 type exportDiary struct {
-	ID      string `json:"id"`
-	Date    string `json:"date"`
-	Content string `json:"content"`
-	Mood    string `json:"mood,omitempty"`
-	Weather string `json:"weather,omitempty"`
+	ID         string   `json:"id"`
+	Date       string   `json:"date"`
+	Content    string   `json:"content"`
+	Mood       int      `json:"mood,omitempty"`
+	MoodStates []string `json:"mood_states,omitempty"`
+	Scenarios  []string `json:"scenarios,omitempty"`
+	Weather    string   `json:"weather,omitempty"`
 }
 
 type exportMedia struct {
@@ -111,15 +113,15 @@ type importCounters struct {
 }
 
 type importDiaryDetail struct {
-	Date      string `json:"date"`
-	Status    string `json:"status"`
-	Reason    string `json:"reason,omitempty"`
+	Date       string `json:"date"`
+	Status     string `json:"status"`
+	Reason     string `json:"reason,omitempty"`
 	NewContent string `json:"new_content,omitempty"`
-	NewMood   string `json:"new_mood,omitempty"`
+	NewMood    int    `json:"new_mood,omitempty"`
 	NewWeather string `json:"new_weather,omitempty"`
-	OldID     string `json:"old_id,omitempty"`
+	OldID      string `json:"old_id,omitempty"`
 	OldContent string `json:"old_content,omitempty"`
-	OldMood   string `json:"old_mood,omitempty"`
+	OldMood    int    `json:"old_mood,omitempty"`
 	OldWeather string `json:"old_weather,omitempty"`
 }
 
@@ -127,7 +129,7 @@ type resolveConflictRequest struct {
 	Date    string `json:"date"`
 	Action  string `json:"action"`
 	Content string `json:"content,omitempty"`
-	Mood    string `json:"mood,omitempty"`
+	Mood    int    `json:"mood,omitempty"`
 	Weather string `json:"weather,omitempty"`
 }
 
@@ -217,8 +219,8 @@ func handleExport(c echo.Context, s *store.Store) error {
 	}
 	for _, d := range exportDiaries {
 		filename := d.Date + ".md"
-		if d.Mood != "" {
-			filename = d.Date + "_" + d.Mood + ".md"
+		if d.Mood != 0 {
+			filename = d.Date + "_" + fmt.Sprintf("%d", d.Mood) + ".md"
 		}
 		if w, err := zipWriter.Create("markdown/" + filename); err == nil {
 			_, _ = w.Write([]byte(generateMarkdown(d)))
@@ -349,7 +351,7 @@ func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.Em
 			diaryIDMap[d.ID] = ""
 			continue
 		}
-		diary, err := s.InsertImportedDiary(userID, "", d.Date, d.Content, d.Mood, d.Weather, nil)
+		diary, err := s.InsertImportedDiary(userID, "", d.Date, d.Content, d.Mood, nil, nil, d.Weather, nil)
 		if err != nil {
 			stats.Diaries.Failed++
 			stats.DiaryDetails = append(stats.DiaryDetails, importDiaryDetail{Date: d.Date, Status: "failed", Reason: err.Error()})
@@ -441,7 +443,7 @@ func handleResolveConflict(c echo.Context, s *store.Store, embeddingService *emb
 			return badRequest("Failed to delete old diary", err)
 		}
 	}
-	diary, err := s.InsertImportedDiary(userID, "", req.Date, req.Content, req.Mood, req.Weather, nil)
+	diary, err := s.InsertImportedDiary(userID, "", req.Date, req.Content, req.Mood, nil, nil, req.Weather, nil)
 	if err != nil {
 		return badRequest("Failed to insert new diary", err)
 	}
@@ -495,7 +497,7 @@ func parseMarkdownFile(name string, content []byte) *exportDiary {
 	if date == "" {
 		return nil
 	}
-	mood := ""
+	mood := 0
 	weather := ""
 	contentLines := make([]string, 0, len(lines))
 	for _, line := range lines {
@@ -504,7 +506,8 @@ func parseMarkdownFile(name string, content []byte) *exportDiary {
 			continue
 		}
 		if strings.HasPrefix(trimmed, "**Mood:**") || strings.HasPrefix(trimmed, "**mood:**") {
-			mood = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(trimmed, "**Mood:**"), "**mood:**"))
+			moodStr := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(trimmed, "**Mood:**"), "**mood:**"))
+			mood = emojiToMoodInt(moodStr)
 			continue
 		}
 		if strings.HasPrefix(trimmed, "**Weather:**") || strings.HasPrefix(trimmed, "**weather:**") {
@@ -520,13 +523,13 @@ func parseMarkdownFile(name string, content []byte) *exportDiary {
 func generateMarkdown(d exportDiary) string {
 	var sb strings.Builder
 	sb.WriteString("# " + d.Date + "\n\n")
-	if d.Mood != "" {
-		sb.WriteString("**Mood:** " + d.Mood + "\n")
+	if d.Mood != 0 {
+		sb.WriteString("**Mood:** " + store.MoodToEmoji(d.Mood) + "\n")
 	}
 	if d.Weather != "" {
 		sb.WriteString("**Weather:** " + d.Weather + "\n")
 	}
-	if d.Mood != "" || d.Weather != "" {
+	if d.Mood != 0 || d.Weather != "" {
 		sb.WriteString("\n")
 	}
 	sb.WriteString(d.Content)
@@ -577,4 +580,21 @@ func isDateInRange(dateStr string, start, end time.Time) bool {
 		return false
 	}
 	return !date.Before(start) && !date.After(end)
+}
+
+func emojiToMoodInt(emoji string) int {
+	switch emoji {
+	case "😞":
+		return 1
+	case "😔":
+		return 2
+	case "😐":
+		return 3
+	case "😊":
+		return 4
+	case "🤩":
+		return 5
+	default:
+		return 0
+	}
 }

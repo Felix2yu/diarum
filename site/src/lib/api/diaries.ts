@@ -9,7 +9,7 @@ export type DiaryByDateResult =
 
 export interface CalendarDiaryMeta {
 	date: string;
-	mood?: string;
+	mood?: number;
 	weather?: string;
 }
 
@@ -194,14 +194,18 @@ export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
 		// but mood/weather still have values on the server.
 		const effectiveContent = diary.content !== undefined ? diary.content : existing?.content;
 		const effectiveMood = diary.mood !== undefined ? diary.mood : existing?.mood;
+		const effectiveMoodStates = diary.mood_states !== undefined ? diary.mood_states : existing?.mood_states ?? [];
+		const effectiveScenarios = diary.scenarios !== undefined ? diary.scenarios : existing?.scenarios ?? [];
 		const effectiveWeather = diary.weather !== undefined ? diary.weather : existing?.weather;
 		const effectiveTags = diary.tags !== undefined ? diary.tags : existing?.tags ?? [];
 
-		const allEmpty =
-			isContentEmpty(effectiveContent) &&
-			!effectiveMood?.trim() &&
-			!effectiveWeather?.trim() &&
-			(effectiveTags.length === 0);
+	const allEmpty =
+		isContentEmpty(effectiveContent) &&
+		!effectiveMood &&
+		!effectiveMoodStates?.length &&
+		!effectiveScenarios?.length &&
+		!effectiveWeather?.trim() &&
+		(effectiveTags.length === 0);
 
 		if (existing && existing.id) {
 			if (allEmpty) {
@@ -224,7 +228,9 @@ export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
 			body: JSON.stringify({
 				date: diary.date,
 				content: diary.content ?? existing?.content ?? '',
-				mood: diary.mood ?? existing?.mood ?? '',
+				mood: diary.mood ?? existing?.mood ?? 0,
+				mood_states: effectiveMoodStates,
+				scenarios: effectiveScenarios,
 				weather: diary.weather ?? existing?.weather ?? '',
 				tags: effectiveTags
 			})
@@ -307,9 +313,12 @@ export async function getRecentDiaries(limit: number = 5): Promise<Array<{ date:
 /**
  * Search diaries
  */
-export async function searchDiaries(query: string) {
+export async function searchDiaries(query: string, scenario?: string) {
 	try {
-		const response = await fetch(`/api/v1/diaries/search?q=${encodeURIComponent(query)}`, {
+		const params = new URLSearchParams();
+		if (query) params.set('q', query);
+		if (scenario) params.set('scenario', scenario);
+		const response = await fetch(`/api/v1/diaries/search?${params.toString()}`, {
 			headers: {
 				'Authorization': `Bearer ${pb.authStore.token}`
 			}
@@ -323,6 +332,29 @@ export async function searchDiaries(query: string) {
 		return data.results || [];
 	} catch (error) {
 		console.error('Error searching diaries:', error);
+		return [];
+	}
+}
+
+export async function filterDiaries(mood?: number, scenario?: string) {
+	try {
+		const params = new URLSearchParams();
+		if (mood) params.set('mood', String(mood));
+		if (scenario) params.set('scenario', scenario);
+		const response = await fetch(`/api/v1/diaries/filter?${params.toString()}`, {
+			headers: {
+				'Authorization': `Bearer ${pb.authStore.token}`
+			}
+		});
+
+		if (!response.ok) {
+			return [];
+		}
+
+		const data = await response.json();
+		return data.results || [];
+	} catch (error) {
+		console.error('Error filtering diaries:', error);
 		return [];
 	}
 }

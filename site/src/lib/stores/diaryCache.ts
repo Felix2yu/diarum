@@ -12,7 +12,9 @@ import { checkOnlineStatus, initOnlineStatus } from './onlineStatus';
 
 export interface CacheEntry {
 	content: string;
-	mood: string;
+	mood: number;
+	mood_states: string[];
+	scenarios: string[];
 	weather: string;
 	tags: string[];
 	localUpdatedAt: number;
@@ -91,7 +93,9 @@ function reloadFromStorage(): void {
 
 		cache[date] = {
 			content: entry.content,
-			mood: entry.mood || '',
+			mood: entry.mood || 0,
+			mood_states: Array.isArray(entry.mood_states) ? entry.mood_states : [],
+			scenarios: Array.isArray(entry.scenarios) ? entry.scenarios : [],
 			weather: entry.weather || '',
 			tags: Array.isArray(entry.tags) ? entry.tags : [],
 			localUpdatedAt: entry.localUpdatedAt,
@@ -219,13 +223,15 @@ export function getCachedContent(date: string): CacheEntry | null {
  */
 export function updateLocalCache(
 	date: string,
-	updates: { content: string; mood?: string; weather?: string; tags?: string[] }
+	updates: { content: string; mood?: number; mood_states?: string[]; scenarios?: string[]; weather?: string; tags?: string[] }
 ): void {
 	const existing = getCachedContent(date);
 
 	const entry: CacheEntry = {
 		content: updates.content,
-		mood: updates.mood ?? existing?.mood ?? '',
+		mood: updates.mood ?? existing?.mood ?? 0,
+		mood_states: Array.isArray(updates.mood_states) ? updates.mood_states : existing?.mood_states ?? [],
+		scenarios: Array.isArray(updates.scenarios) ? updates.scenarios : existing?.scenarios ?? [],
 		weather: updates.weather ?? existing?.weather ?? '',
 		tags: Array.isArray(updates.tags) ? updates.tags : existing?.tags ?? [],
 		localUpdatedAt: Date.now(),
@@ -243,6 +249,8 @@ export function updateLocalCache(
 		date,
 		content: entry.content,
 		mood: entry.mood,
+		mood_states: entry.mood_states,
+		scenarios: entry.scenarios,
 		weather: entry.weather,
 		tags: entry.tags,
 		localUpdatedAt: entry.localUpdatedAt,
@@ -293,7 +301,9 @@ export function hasDirtyCache(date: string): boolean {
 export function getDirtyEntries(): {
 	date: string;
 	content: string;
-	mood: string;
+	mood: number;
+	mood_states: string[];
+	scenarios: string[];
 	weather: string;
 	tags: string[];
 }[] {
@@ -303,7 +313,9 @@ export function getDirtyEntries(): {
 		.map(([date, entry]) => ({
 			date,
 			content: entry.content,
-			mood: entry.mood || '',
+			mood: entry.mood || 0,
+			mood_states: entry.mood_states || [],
+			scenarios: entry.scenarios || [],
 			weather: entry.weather || '',
 			tags: entry.tags || []
 		}));

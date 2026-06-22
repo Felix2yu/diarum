@@ -287,6 +287,8 @@ func (s *EmbeddingService) processDiary(ctx context.Context, collection *chromem
 	diaryID := diary.ID
 	dateStr := extractDate(diary.Date)
 	mood := diary.Mood
+	moodStatesJSON, _ := json.Marshal(diary.MoodStates)
+	scenariosJSON, _ := json.Marshal(diary.Scenarios)
 	weather := diary.Weather
 	builtAt := time.Now().UTC().Format(time.RFC3339Nano)
 
@@ -302,10 +304,12 @@ func (s *EmbeddingService) processDiary(ctx context.Context, collection *chromem
 		Content:   content,
 		Embedding: embedding,
 		Metadata: map[string]string{
-			"date":     dateStr,
-			"mood":     mood,
-			"weather":  weather,
-			"built_at": builtAt,
+			"date":        dateStr,
+			"mood":        fmt.Sprintf("%d", mood),
+			"mood_states": string(moodStatesJSON),
+			"scenarios":   string(scenariosJSON),
+			"weather":     weather,
+			"built_at":    builtAt,
 		},
 	}
 
@@ -371,12 +375,14 @@ func (s *EmbeddingService) needsBuildVector(ctx context.Context, collection *chr
 
 // DiarySearchResult represents a diary found by vector search
 type DiarySearchResult struct {
-	ID      string  `json:"id"`
-	Date    string  `json:"date"`
-	Content string  `json:"content"`
-	Mood    string  `json:"mood,omitempty"`
-	Weather string  `json:"weather,omitempty"`
-	Score   float32 `json:"score"`
+	ID         string   `json:"id"`
+	Date       string   `json:"date"`
+	Content    string   `json:"content"`
+	Mood       int      `json:"mood,omitempty"`
+	MoodStates []string `json:"mood_states,omitempty"`
+	Scenarios  []string `json:"scenarios,omitempty"`
+	Weather    string   `json:"weather,omitempty"`
+	Score      float32  `json:"score"`
 }
 
 // QuerySimilar finds diaries similar to the given query
@@ -422,13 +428,21 @@ func (s *EmbeddingService) QuerySimilar(ctx context.Context, userID, query strin
 	// Convert to DiarySearchResult
 	searchResults := make([]DiarySearchResult, 0, len(results))
 	for _, result := range results {
+		moodInt := 0
+		fmt.Sscanf(result.Metadata["mood"], "%d", &moodInt)
+		var moodStates []string
+		_ = json.Unmarshal([]byte(result.Metadata["mood_states"]), &moodStates)
+		var scenarios []string
+		_ = json.Unmarshal([]byte(result.Metadata["scenarios"]), &scenarios)
 		searchResults = append(searchResults, DiarySearchResult{
-			ID:      result.ID,
-			Date:    result.Metadata["date"],
-			Content: result.Content,
-			Mood:    result.Metadata["mood"],
-			Weather: result.Metadata["weather"],
-			Score:   result.Similarity,
+			ID:         result.ID,
+			Date:       result.Metadata["date"],
+			Content:    result.Content,
+			Mood:       moodInt,
+			MoodStates: moodStates,
+			Scenarios:  scenarios,
+			Weather:    result.Metadata["weather"],
+			Score:      result.Similarity,
 		})
 	}
 

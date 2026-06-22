@@ -185,11 +185,13 @@ func (s *ChatService) SearchDiariesByDateRange(ctx context.Context, userID strin
 			dateStr = dateStr[:10]
 		}
 		results = append(results, embedding.DiarySearchResult{
-			ID:      diary.ID,
-			Date:    dateStr,
-			Content: diary.Content,
-			Mood:    diary.Mood,
-			Weather: diary.Weather,
+			ID:         diary.ID,
+			Date:       dateStr,
+			Content:    diary.Content,
+			Mood:       diary.Mood,
+			MoodStates: diary.MoodStates,
+			Scenarios:  diary.Scenarios,
+			Weather:    diary.Weather,
 		})
 	}
 
@@ -237,14 +239,20 @@ func (s *ChatService) buildSystemPrompt(diaries []embedding.DiarySearchResult) s
 			if t, err := time.Parse("2006-01-02", diary.Date); err == nil {
 				weekday = t.Weekday().String()
 			}
-			sb.WriteString(fmt.Sprintf("--- Diary Entry %d (Date: %s, %s) ---\n", i+1, diary.Date, weekday))
-			if diary.Mood != "" {
-				sb.WriteString(fmt.Sprintf("Mood: %s\n", diary.Mood))
-			}
-			if diary.Weather != "" {
-				sb.WriteString(fmt.Sprintf("Weather: %s\n", diary.Weather))
-			}
-			sb.WriteString(fmt.Sprintf("Content:\n%s\n\n", diary.Content))
+		sb.WriteString(fmt.Sprintf("--- Diary Entry %d (Date: %s, %s) ---\n", i+1, diary.Date, weekday))
+		if diary.Mood != 0 {
+			sb.WriteString(fmt.Sprintf("Mood: %s\n", store.MoodToEmoji(diary.Mood)))
+		}
+		if len(diary.MoodStates) > 0 {
+			sb.WriteString(fmt.Sprintf("Mood States: %s\n", strings.Join(diary.MoodStates, ", ")))
+		}
+		if len(diary.Scenarios) > 0 {
+			sb.WriteString(fmt.Sprintf("Scenarios: %s\n", strings.Join(diary.Scenarios, ", ")))
+		}
+		if diary.Weather != "" {
+			sb.WriteString(fmt.Sprintf("Weather: %s\n", diary.Weather))
+		}
+		sb.WriteString(fmt.Sprintf("Content:\n%s\n\n", diary.Content))
 		}
 		sb.WriteString("Use these diary entries to provide personalized and relevant responses. ")
 		sb.WriteString("When referencing specific entries, mention the date.\n")
@@ -647,8 +655,14 @@ func (s *ChatService) formatDiariesForContext(diaries []embedding.DiarySearchRes
 			weekday = t.Weekday().String()
 		}
 		sb.WriteString(fmt.Sprintf("--- Diary Entry %d (Date: %s, %s) ---\n", i+1, diary.Date, weekday))
-		if diary.Mood != "" {
-			sb.WriteString(fmt.Sprintf("Mood: %s\n", diary.Mood))
+		if diary.Mood != 0 {
+			sb.WriteString(fmt.Sprintf("Mood: %s\n", store.MoodToEmoji(diary.Mood)))
+		}
+		if len(diary.MoodStates) > 0 {
+			sb.WriteString(fmt.Sprintf("Mood States: %s\n", strings.Join(diary.MoodStates, ", ")))
+		}
+		if len(diary.Scenarios) > 0 {
+			sb.WriteString(fmt.Sprintf("Scenarios: %s\n", strings.Join(diary.Scenarios, ", ")))
 		}
 		if diary.Weather != "" {
 			sb.WriteString(fmt.Sprintf("Weather: %s\n", diary.Weather))

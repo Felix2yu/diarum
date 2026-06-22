@@ -53,7 +53,6 @@ var ConfigRegistry = map[string]ConfigMeta{
 	"image_upload.s3.force_path_style": {Type: "bool", Default: false, Encrypted: false},
 
 	// Diary editor presets
-	"diary.mood_options":    {Type: "json", Default: []string{"😊", "😌", "🥳", "💪", "🤔", "😴", "😔", "😤"}, Encrypted: false},
 	"diary.weather_options": {Type: "json", Default: []string{"☀️", "⛅", "☁️", "🌧️", "⛈️", "🌫️", "❄️", "🌬️"}, Encrypted: false},
 }
 

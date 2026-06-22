@@ -3,6 +3,7 @@ package api
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -20,11 +21,13 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 	group.POST("/upsert", func(c echo.Context) error {
 		user := auth.CurrentUser(c)
 		var body struct {
-			Date    string   `json:"date"`
-			Content string   `json:"content"`
-			Mood    string   `json:"mood"`
-			Weather string   `json:"weather"`
-			Tags    []string `json:"tags"`
+			Date       string   `json:"date"`
+			Content    string   `json:"content"`
+			Mood       int      `json:"mood"`
+			MoodStates []string `json:"mood_states"`
+			Scenarios  []string `json:"scenarios"`
+			Weather    string   `json:"weather"`
+			Tags       []string `json:"tags"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
@@ -36,7 +39,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 			body.Tags = []string{}
 		}
 
-		diary, _, err := s.UpsertDiary(user.ID, body.Date, body.Content, body.Mood, body.Weather, body.Tags)
+		diary, _, err := s.UpsertDiary(user.ID, body.Date, body.Content, body.Mood, body.MoodStates, body.Scenarios, body.Weather, body.Tags)
 		if err != nil {
 			return badRequest("Failed to save diary", err)
 		}
@@ -103,11 +106,11 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 			return serverError("Failed to query diaries", err)
 		}
 		dates := make([]string, 0, len(diaries))
-		entries := make([]map[string]string, 0, len(diaries))
+		entries := make([]map[string]any, 0, len(diaries))
 		for _, diary := range diaries {
 			date := store.DateOnly(diary.Date)
 			dates = append(dates, date)
-			entries = append(entries, map[string]string{"date": date, "mood": diary.Mood, "weather": diary.Weather})
+			entries = append(entries, map[string]any{"date": date, "mood": diary.Mood, "weather": diary.Weather})
 		}
 		return c.JSON(http.StatusOK, map[string]any{"dates": dates, "entries": entries})
 	})
@@ -151,30 +154,68 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 	group.GET("/search", func(c echo.Context) error {
 		user := auth.CurrentUser(c)
 		query := c.QueryParam("q")
-		if query == "" {
-			return badRequest("Query parameter 'q' is required", nil)
+		scenario := c.QueryParam("scenario")
+		if query == "" && scenario == "" {
+			return badRequest("Query parameter 'q' or 'scenario' is required", nil)
 		}
-		diaries, err := s.SearchDiaries(user.ID, query, 50)
+		diaries, err := s.SearchDiaries(user.ID, query, scenario, 50)
 		if err != nil {
 			return serverError("Search failed", err)
 		}
 		results := make([]map[string]any, 0, len(diaries))
 		for _, diary := range diaries {
 			snippet := diary.Content
-			if len(snippet) > 200 {
-				snippet = snippet[:200] + "..."
+			if runes := []rune(snippet); len(runes) > 200 {
+				snippet = string(runes[:200]) + "..."
 			}
 			tags := diary.Tags
 			if tags == nil {
 				tags = []string{}
 			}
 			results = append(results, map[string]any{
-				"id":      diary.ID,
-				"date":    store.DateOnly(diary.Date),
-				"snippet": snippet,
-				"mood":    diary.Mood,
-				"weather": diary.Weather,
-				"tags":    tags,
+				"id":        diary.ID,
+				"date":      store.DateOnly(diary.Date),
+				"snippet":   snippet,
+				"mood":      diary.Mood,
+				"scenarios": diary.Scenarios,
+				"weather":   diary.Weather,
+				"tags":      tags,
+			})
+		}
+		return c.JSON(http.StatusOK, map[string]any{"results": results, "total": len(results)})
+	})
+
+	// Filter by mood and/or scenario
+	group.GET("/filter", func(c echo.Context) error {
+		user := auth.CurrentUser(c)
+		moodStr := c.QueryParam("mood")
+		scenario := c.QueryParam("scenario")
+		var mood int
+		if moodStr != "" {
+			fmt.Sscanf(moodStr, "%d", &mood)
+		}
+		diaries, err := s.FilterDiaries(user.ID, mood, scenario, 100)
+		if err != nil {
+			return serverError("Filter failed", err)
+		}
+		results := make([]map[string]any, 0, len(diaries))
+		for _, diary := range diaries {
+			snippet := diary.Content
+			if runes := []rune(snippet); len(runes) > 200 {
+				snippet = string(runes[:200]) + "..."
+			}
+			tags := diary.Tags
+			if tags == nil {
+				tags = []string{}
+			}
+			results = append(results, map[string]any{
+				"id":        diary.ID,
+				"date":      store.DateOnly(diary.Date),
+				"snippet":   snippet,
+				"mood":      diary.Mood,
+				"scenarios": diary.Scenarios,
+				"weather":   diary.Weather,
+				"tags":      tags,
 			})
 		}
 		return c.JSON(http.StatusOK, map[string]any{"results": results, "total": len(results)})
@@ -276,16 +317,26 @@ func diaryResponse(diary *store.Diary, date string, exists bool) map[string]any 
 	if tags == nil {
 		tags = []string{}
 	}
+	moodStates := diary.MoodStates
+	if moodStates == nil {
+		moodStates = []string{}
+	}
+	scenarios := diary.Scenarios
+	if scenarios == nil {
+		scenarios = []string{}
+	}
 	return map[string]any{
-		"id":      diary.ID,
-		"date":    date,
-		"content": diary.Content,
-		"mood":    diary.Mood,
-		"weather": diary.Weather,
-		"tags":    tags,
-		"owner":   diary.Owner,
-		"created": diary.Created,
-		"updated": diary.Updated,
-		"exists":  exists,
+		"id":         diary.ID,
+		"date":       date,
+		"content":    diary.Content,
+		"mood":       diary.Mood,
+		"mood_states": moodStates,
+		"scenarios":  scenarios,
+		"weather":    diary.Weather,
+		"tags":       tags,
+		"owner":      diary.Owner,
+		"created":    diary.Created,
+		"updated":    diary.Updated,
+		"exists":     exists,
 	}
 }

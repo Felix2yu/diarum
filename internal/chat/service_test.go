@@ -94,11 +94,11 @@ func TestSearchPromptsAndHelpers(t *testing.T) {
 	user := newTestUser(t, s)
 	service := NewChatService(s, nil)
 
-	first, err := s.InsertImportedDiary(user.ID, "", "2024-01-01", "A very sunny day", "happy", "sunny", nil)
+	first, err := s.InsertImportedDiary(user.ID, "", "2024-01-01", "A very sunny day", 4, nil, nil, "sunny", nil)
 	if err != nil {
 		t.Fatalf("InsertImportedDiary first: %v", err)
 	}
-	_, err = s.InsertImportedDiary(user.ID, "", "2024-01-02", "A rainy day", "sad", "rainy", nil)
+	_, err = s.InsertImportedDiary(user.ID, "", "2024-01-02", "A rainy day", 2, nil, nil, "rainy", nil)
 	if err != nil {
 		t.Fatalf("InsertImportedDiary second: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestSearchPromptsAndHelpers(t *testing.T) {
 	}
 
 	systemPrompt := service.buildSystemPrompt(results)
-	if !strings.Contains(systemPrompt, "A very sunny day") || !strings.Contains(systemPrompt, "Mood: happy") {
+	if !strings.Contains(systemPrompt, "A very sunny day") || !strings.Contains(systemPrompt, "Mood:") {
 		t.Fatalf("buildSystemPrompt = %q", systemPrompt)
 	}
 	if !strings.Contains(service.buildSystemPrompt(nil), "No relevant diary entries") {
@@ -296,7 +296,7 @@ func TestStreamChatWithToolCall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateConversation: %v", err)
 	}
-	diary, err := s.InsertImportedDiary(user.ID, "", "2024-01-01", "First diary", "happy", "sunny", nil)
+	diary, err := s.InsertImportedDiary(user.ID, "", "2024-01-01", "First diary", 4, nil, nil, "sunny", nil)
 	if err != nil {
 		t.Fatalf("InsertImportedDiary: %v", err)
 	}
@@ -371,7 +371,7 @@ func TestSearchAndQueryRelevantDiariesEdges(t *testing.T) {
 	}
 
 	for i := 0; i < 12; i++ {
-		if _, err := s.InsertImportedDiary(user.ID, "", fmt.Sprintf("2024-02-%02d", i+1), "sunny topic", "", "", nil); err != nil {
+		if _, err := s.InsertImportedDiary(user.ID, "", fmt.Sprintf("2024-02-%02d", i+1), "sunny topic", 0, nil, nil, "", nil); err != nil {
 			t.Fatalf("InsertImportedDiary %d: %v", i, err)
 		}
 	}
@@ -627,7 +627,7 @@ func TestUpdateConversationTitleErrors(t *testing.T) {
 func TestFormatDiariesForContextWeekdayParse(t *testing.T) {
 	service := &ChatService{}
 	result := service.formatDiariesForContext([]embedding.DiarySearchResult{
-		{ID: "d1", Date: "2024-06-01", Content: "test", Mood: "happy", Weather: "sunny"},
+		{ID: "d1", Date: "2024-06-01", Content: "test", Mood: 4, Weather: "sunny"},
 	})
 	if !strings.Contains(result, "Saturday") {
 		t.Fatalf("formatDiariesForContext weekday missing: %s", result)
