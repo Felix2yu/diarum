@@ -2299,3 +2299,75 @@ func TestPeriodAnalysisCRUD(t *testing.T) {
 		t.Fatalf("ListSavedAnalyses week len = %d, want 0", len(none))
 	}
 }
+
+func TestMoodToEmoji(t *testing.T) {
+	tests := []struct {
+		mood int
+		want string
+	}{
+		{1, "😞"}, {2, "😔"}, {3, "😐"}, {4, "😊"}, {5, "🤩"},
+		{0, ""}, {-1, ""}, {6, ""},
+	}
+	for _, tt := range tests {
+		if got := MoodToEmoji(tt.mood); got != tt.want {
+			t.Errorf("MoodToEmoji(%d) = %q, want %q", tt.mood, got, tt.want)
+		}
+	}
+}
+
+func TestUpsertDiaryWithMoodStates(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	states := []string{"开心", "满足"}
+	diary, created, err := s.UpsertDiary(user.ID, "2024-09-01", "test mood states", 4, states, "sunny", []string{"work"})
+	if err != nil {
+		t.Fatalf("UpsertDiary: %v", err)
+	}
+	if !created {
+		t.Fatal("expected created = true")
+	}
+	if len(diary.MoodStates) != 2 || diary.MoodStates[0] != "开心" {
+		t.Fatalf("MoodStates = %v", diary.MoodStates)
+	}
+
+	fetched, err := s.GetDiaryByDate(user.ID, "2024-09-01 00:00:00.000Z", "2024-09-01 23:59:59.999Z")
+	if err != nil {
+		t.Fatalf("GetDiaryByDate: %v", err)
+	}
+	if len(fetched.MoodStates) != 2 {
+		t.Fatalf("fetched MoodStates = %v", fetched.MoodStates)
+	}
+
+	states2 := []string{"兴奋"}
+	diary2, created, err := s.UpsertDiary(user.ID, "2024-09-01", "updated", 5, states2, "rain", nil)
+	if err != nil {
+		t.Fatalf("UpsertDiary update: %v", err)
+	}
+	if created {
+		t.Fatal("expected created = false for update")
+	}
+	if len(diary2.MoodStates) != 1 || diary2.MoodStates[0] != "兴奋" {
+		t.Fatalf("updated MoodStates = %v", diary2.MoodStates)
+	}
+}
+
+func TestGetRandomDiaryWithMoodStates(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_, err := s.InsertImportedDiary(user.ID, "", "2025-01-15", "stateful day", 5, []string{"自信", "感恩"}, "sunny", nil)
+	if err != nil {
+		t.Fatalf("InsertImportedDiary: %v", err)
+	}
+	d, err := s.GetRandomDiary(user.ID, "")
+	if err != nil {
+		t.Fatalf("GetRandomDiary: %v", err)
+	}
+	if d == nil {
+		t.Fatal("expected non-nil diary")
+	}
+	if len(d.MoodStates) != 2 {
+		t.Fatalf("MoodStates = %v", d.MoodStates)
+	}
+}
