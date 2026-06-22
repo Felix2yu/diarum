@@ -193,6 +193,17 @@ func TestExportImportRoutesAndHelpers(t *testing.T) {
 	if serverError("oops", nil).(*echo.HTTPError).Code != http.StatusInternalServerError {
 		t.Fatal("serverError without wrapped error should return 500")
 	}
+	for _, tc := range []struct {
+		emoji string
+		want  int
+	}{
+		{"😞", 1}, {"😔", 2}, {"😐", 3}, {"😊", 4}, {"🤩", 5},
+		{"", 0}, {"unknown", 0},
+	} {
+		if got := emojiToMoodInt(tc.emoji); got != tc.want {
+			t.Errorf("emojiToMoodInt(%q) = %d, want %d", tc.emoji, got, tc.want)
+		}
+	}
 
 	importStore := newTestStore(t)
 	importUser := newTestUser(t, importStore)
