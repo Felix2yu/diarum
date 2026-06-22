@@ -185,11 +185,12 @@ func (s *ChatService) SearchDiariesByDateRange(ctx context.Context, userID strin
 			dateStr = dateStr[:10]
 		}
 		results = append(results, embedding.DiarySearchResult{
-			ID:      diary.ID,
-			Date:    dateStr,
-			Content: diary.Content,
-			Mood:    diary.Mood,
-			Weather: diary.Weather,
+			ID:         diary.ID,
+			Date:       dateStr,
+			Content:    diary.Content,
+			Mood:       diary.Mood,
+			MoodStates: diary.MoodStates,
+			Weather:    diary.Weather,
 		})
 	}
 

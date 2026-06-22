@@ -218,8 +218,8 @@ func handleExport(c echo.Context, s *store.Store) error {
 	}
 	for _, d := range exportDiaries {
 		filename := d.Date + ".md"
-		if d.Mood != "" {
-			filename = d.Date + "_" + d.Mood + ".md"
+		if d.Mood != 0 {
+			filename = d.Date + "_" + fmt.Sprintf("%d", d.Mood) + ".md"
 		}
 		if w, err := zipWriter.Create("markdown/" + filename); err == nil {
 			_, _ = w.Write([]byte(generateMarkdown(d)))

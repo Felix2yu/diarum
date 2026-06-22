@@ -373,12 +373,13 @@ func (s *EmbeddingService) needsBuildVector(ctx context.Context, collection *chr
 
 // DiarySearchResult represents a diary found by vector search
 type DiarySearchResult struct {
-	ID      string  `json:"id"`
-	Date    string  `json:"date"`
-	Content string  `json:"content"`
-	Mood    int     `json:"mood,omitempty"`
-	Weather string  `json:"weather,omitempty"`
-	Score   float32 `json:"score"`
+	ID         string   `json:"id"`
+	Date       string   `json:"date"`
+	Content    string   `json:"content"`
+	Mood       int      `json:"mood,omitempty"`
+	MoodStates []string `json:"mood_states,omitempty"`
+	Weather    string   `json:"weather,omitempty"`
+	Score      float32  `json:"score"`
 }
 
 // QuerySimilar finds diaries similar to the given query
@@ -426,13 +427,16 @@ func (s *EmbeddingService) QuerySimilar(ctx context.Context, userID, query strin
 	for _, result := range results {
 		moodInt := 0
 		fmt.Sscanf(result.Metadata["mood"], "%d", &moodInt)
+		var moodStates []string
+		_ = json.Unmarshal([]byte(result.Metadata["mood_states"]), &moodStates)
 		searchResults = append(searchResults, DiarySearchResult{
-			ID:      result.ID,
-			Date:    result.Metadata["date"],
-			Content: result.Content,
-			Mood:    moodInt,
-			Weather: result.Metadata["weather"],
-			Score:   result.Similarity,
+			ID:         result.ID,
+			Date:       result.Metadata["date"],
+			Content:    result.Content,
+			Mood:       moodInt,
+			MoodStates: moodStates,
+			Weather:    result.Metadata["weather"],
+			Score:      result.Similarity,
 		})
 	}
 
