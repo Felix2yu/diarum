@@ -39,7 +39,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			}
 			results := make([]map[string]any, 0, len(diaries))
 			for _, diary := range diaries {
-				results = append(results, map[string]any{"id": diary.ID, "date": store.DateOnly(diary.Date), "content": diary.Content, "mood": diary.Mood, "weather": diary.Weather})
+				results = append(results, map[string]any{"id": diary.ID, "date": store.DateOnly(diary.Date), "content": diary.Content, "mood": diary.Mood, "scenarios": diary.Scenarios, "weather": diary.Weather})
 			}
 			return c.JSON(http.StatusOK, map[string]any{"diaries": results, "total": len(results)})
 		}
@@ -59,6 +59,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			Content    string   `json:"content"`
 			Mood       int      `json:"mood"`
 			MoodStates []string `json:"mood_states"`
+			Scenarios  []string `json:"scenarios"`
 			Weather    string   `json:"weather"`
 			Tags       []string `json:"tags"`
 		}
@@ -72,7 +73,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			body.Tags = []string{}
 		}
 
-		diary, created, err := s.UpsertDiary(userId, body.Date, body.Content, body.Mood, body.MoodStates, body.Weather, body.Tags)
+		diary, created, err := s.UpsertDiary(userId, body.Date, body.Content, body.Mood, body.MoodStates, body.Scenarios, body.Weather, body.Tags)
 		if err != nil {
 			return serverError("Failed to save diary", err)
 		}
@@ -100,6 +101,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			Content    string   `json:"content"`
 			Mood       int      `json:"mood"`
 			MoodStates []string `json:"mood_states"`
+			Scenarios  []string `json:"scenarios"`
 			Weather    string   `json:"weather"`
 			Tags       []string `json:"tags"`
 		}
@@ -119,6 +121,10 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 		if moodStates == nil {
 			moodStates = existing.MoodStates
 		}
+		scenarios := body.Scenarios
+		if scenarios == nil {
+			scenarios = existing.Scenarios
+		}
 		weather := body.Weather
 		if weather == "" {
 			weather = existing.Weather
@@ -128,7 +134,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			tags = existing.Tags
 		}
 
-		diary, _, err := s.UpsertDiary(userId, store.DateOnly(existing.Date), content, mood, moodStates, weather, tags)
+		diary, _, err := s.UpsertDiary(userId, store.DateOnly(existing.Date), content, mood, moodStates, scenarios, weather, tags)
 		if err != nil {
 			return serverError("Failed to update diary", err)
 		}

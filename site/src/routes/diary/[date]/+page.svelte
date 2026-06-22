@@ -33,7 +33,7 @@
 		cleanupDiaryCache
 	} from '$lib/stores/diaryCache';
 	import { onlineState } from '$lib/stores/onlineStatus';
-	import { MOOD_SCALE, moodToEmoji, getMoodStatesForLevel, DEFAULT_WEATHER_OPTIONS } from '$lib/utils/diaryEmoji';
+	import { MOOD_SCALE, moodToEmoji, getMoodStatesForLevel, SCENARIO_OPTIONS, DEFAULT_WEATHER_OPTIONS } from '$lib/utils/diaryEmoji';
 
 	let weatherPresets: string[] = [...DEFAULT_WEATHER_OPTIONS];
 
@@ -48,6 +48,7 @@
 	let selectedContent = '';
 	let selectedMood: number = 0;
 	let selectedMoodStates: string[] = [];
+	let selectedScenarios: string[] = [];
 	let selectedWeather = '';
 	let tags: string[] = [];
 	let tagInput = '';
@@ -102,12 +103,12 @@
 		}
 		tags = merged;
 		tagInput = '';
-		updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, weather: selectedWeather, tags });
+		updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, tags });
 	}
 
 	function removeTag(tag: string) {
 		tags = tags.filter(t => t !== tag);
-		updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, weather: selectedWeather, tags });
+		updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, tags });
 	}
 
 	function handleTagKeydown(e: KeyboardEvent) {
@@ -159,7 +160,7 @@
 	function applySuggestion(tag: string) {
 		if (!tags.includes(tag)) {
 			tags = [...tags, tag];
-			updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, weather: selectedWeather, tags });
+			updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, tags });
 		}
 		tagInput = '';
 		showTagSuggestions = false;
@@ -214,6 +215,7 @@
 			content = cached.content;
 			selectedMood = cached.mood || 0;
 			selectedMoodStates = cached.mood_states || [];
+			selectedScenarios = cached.scenarios || [];
 			selectedWeather = cached.weather || '';
 			tags = cached.tags || [];
 			loading = false;
@@ -223,6 +225,7 @@
 		content = '';
 		selectedMood = 0;
 		selectedMoodStates = [];
+		selectedScenarios = [];
 		selectedWeather = '';
 		tags = [];
 
@@ -236,6 +239,7 @@
 			content = diary?.content || '';
 			selectedMood = diary?.mood || 0;
 			selectedMoodStates = diary?.mood_states || [];
+			selectedScenarios = diary?.scenarios || [];
 			selectedWeather = diary?.weather || '';
 			tags = diary?.tags || [];
 		} catch (error) {
@@ -245,6 +249,7 @@
 				content = cached.content;
 				selectedMood = cached.mood || 0;
 				selectedMoodStates = cached.mood_states || [];
+				selectedScenarios = cached.scenarios || [];
 				selectedWeather = cached.weather || '';
 				tags = cached.tags || [];
 			}
@@ -267,6 +272,7 @@
 			content,
 			mood: selectedMood,
 			mood_states: selectedMoodStates,
+			scenarios: selectedScenarios,
 			weather: selectedWeather,
 			tags
 		});
@@ -280,6 +286,7 @@
 			content,
 			mood: selectedMood,
 			mood_states: selectedMoodStates,
+			scenarios: selectedScenarios,
 			weather: selectedWeather,
 			tags
 		});
@@ -295,6 +302,23 @@
 			content,
 			mood: selectedMood,
 			mood_states: selectedMoodStates,
+			scenarios: selectedScenarios,
+			weather: selectedWeather,
+			tags
+		});
+	}
+
+	function handleScenarioToggle(scenario: string) {
+		if (selectedScenarios.includes(scenario)) {
+			selectedScenarios = selectedScenarios.filter(s => s !== scenario);
+		} else {
+			selectedScenarios = [...selectedScenarios, scenario];
+		}
+		updateLocalCache(date, {
+			content,
+			mood: selectedMood,
+			mood_states: selectedMoodStates,
+			scenarios: selectedScenarios,
 			weather: selectedWeather,
 			tags
 		});
@@ -305,6 +329,8 @@
 		updateLocalCache(date, {
 			content,
 			mood: selectedMood,
+			mood_states: selectedMoodStates,
+			scenarios: selectedScenarios,
 			weather: selectedWeather,
 			tags
 		});
@@ -721,6 +747,31 @@
 					{/if}
 				</div>
 
+					<!-- Scenarios -->
+					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
+						<div class="flex items-center justify-between mb-2">
+							<div class="text-sm font-semibold text-foreground">情景</div>
+							{#if selectedScenarios.length > 0}
+								<button
+									onclick={() => { selectedScenarios = []; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: [], weather: selectedWeather, tags }); }}
+									class="text-[11px] px-2 py-1 rounded-full bg-muted/70 hover:bg-muted border border-border/70 transition-colors text-muted-foreground"
+								>
+									清除
+								</button>
+							{/if}
+						</div>
+						<div class="flex flex-wrap gap-1.5">
+							{#each SCENARIO_OPTIONS as scenario}
+								<button
+									onclick={() => handleScenarioToggle(scenario)}
+									class="mood-state-chip {selectedScenarios.includes(scenario) ? 'mood-state-chip-active' : ''}"
+								>
+									{scenario}
+								</button>
+							{/each}
+						</div>
+					</div>
+
 						<!-- Weather -->
 						<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
 							<div class="flex items-center justify-between mb-2">
@@ -881,6 +932,31 @@
 							{/if}
 						{/if}
 					</div>
+
+						<!-- Scenarios -->
+						<div class="bg-card/50 rounded-xl border border-border/50 p-4 shadow-sm">
+							<div class="flex items-center justify-between mb-2">
+								<div class="text-sm font-semibold text-foreground">情景</div>
+								{#if selectedScenarios.length > 0}
+									<button
+										onclick={() => { selectedScenarios = []; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: [], weather: selectedWeather, tags }); }}
+										class="text-[11px] px-2 py-1 rounded-full bg-background/70 hover:bg-background border border-border/70 transition-colors"
+									>
+										清除
+									</button>
+								{/if}
+							</div>
+							<div class="flex flex-wrap gap-1.5">
+								{#each SCENARIO_OPTIONS as scenario}
+									<button
+										onclick={() => handleScenarioToggle(scenario)}
+										class="mood-state-chip {selectedScenarios.includes(scenario) ? 'mood-state-chip-active' : ''}"
+									>
+										{scenario}
+									</button>
+								{/each}
+							</div>
+						</div>
 
 						<div class="bg-card/50 rounded-xl border border-border/50 p-4 shadow-sm">
 							<div class="flex items-center justify-between mb-2">
@@ -1116,6 +1192,20 @@
 							</div>
 						{/if}
 					{/if}
+				</div>
+
+				<div>
+					<div class="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-1">情景</div>
+					<div class="flex flex-wrap gap-1">
+						{#each SCENARIO_OPTIONS as scenario}
+							<button
+								onclick={() => handleScenarioToggle(scenario)}
+								class="mood-state-chip text-[11px] {selectedScenarios.includes(scenario) ? 'mood-state-chip-active' : ''}"
+							>
+								{scenario}
+							</button>
+						{/each}
+					</div>
 				</div>
 
 				<div>

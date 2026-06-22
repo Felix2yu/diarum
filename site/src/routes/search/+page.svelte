@@ -6,18 +6,20 @@
 	import { searchDiaries } from '$lib/api/diaries';
 	import { isAuthenticated } from '$lib/api/client';
 	import { formatDisplayDate, formatShortDate, getDayOfWeek } from '$lib/utils/date';
-	import { moodToEmoji } from '$lib/utils/diaryEmoji';
+	import { moodToEmoji, SCENARIO_OPTIONS } from '$lib/utils/diaryEmoji';
 
 	interface SearchResult {
 		id: string;
 		date: string;
 		snippet: string;
 		mood?: number;
+		scenarios?: string[];
 		weather?: string;
 		tags?: string[];
 	}
 
 	let query = '';
+	let selectedScenario = '';
 	let results: SearchResult[] = [];
 	let loading = false;
 	let searched = false;
@@ -27,12 +29,12 @@
 	// Debounced search
 	function handleInput() {
 		clearTimeout(searchTimeout);
-		if (query.trim().length === 0) {
+		if (query.trim().length === 0 && !selectedScenario) {
 			results = [];
 			searched = false;
 			return;
 		}
-		if (query.trim().length < 2) {
+		if (query.trim().length > 0 && query.trim().length < 2) {
 			return;
 		}
 		searchTimeout = setTimeout(() => {
@@ -40,19 +42,25 @@
 		}, 300);
 	}
 
+	function handleScenarioFilter(scenario: string) {
+		selectedScenario = selectedScenario === scenario ? '' : scenario;
+		performSearch();
+	}
+
 	async function performSearch() {
-		if (query.trim().length < 2) return;
+		if (query.trim().length === 0 && !selectedScenario) return;
 
 		loading = true;
 		searched = true;
 
 		try {
-			const data = await searchDiaries(query.trim());
+			const data = await searchDiaries(query.trim(), selectedScenario || undefined);
 			results = data.map((item: any) => ({
 				id: item.id,
 				date: item.date?.split(' ')[0] || item.date,
 				snippet: cleanSnippet(item.snippet || '', query.trim()),
 				mood: item.mood || 0,
+				scenarios: Array.isArray(item.scenarios) ? item.scenarios : [],
 				weather: item.weather || '',
 				tags: Array.isArray(item.tags) ? item.tags : []
 			}));
@@ -150,6 +158,21 @@
 			{/if}
 		</div>
 
+		<!-- Scenario Filters -->
+		<div class="mb-6 animate-fade-in stagger-2">
+			<div class="text-xs text-muted-foreground mb-2">按情景筛选</div>
+			<div class="flex flex-wrap gap-1.5">
+				{#each SCENARIO_OPTIONS as scenario}
+					<button
+						onclick={() => handleScenarioFilter(scenario)}
+						class="mood-state-chip {selectedScenario === scenario ? 'mood-state-chip-active' : ''}"
+					>
+						{scenario}
+					</button>
+				{/each}
+			</div>
+		</div>
+
 		<!-- Loading State -->
 		{#if loading}
 			<div class="flex flex-col items-center justify-center py-12 gap-3 animate-fade-in">
@@ -202,6 +225,13 @@
 									<span class="text-sm">{result.weather}</span>
 								{/if}
 							</div>
+							{#if result.scenarios && result.scenarios.length > 0}
+								<div class="flex flex-wrap gap-1 mt-1">
+									{#each result.scenarios as scenario}
+										<span class="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded-full">{scenario}</span>
+									{/each}
+								</div>
+							{/if}
 							<svg class="w-4 h-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
 							</svg>
@@ -274,5 +304,31 @@
 		line-clamp: 3;
 		-webkit-box-orient: vertical;
 		overflow: hidden;
+	}
+
+	:global(.mood-state-chip) {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.2rem 0.5rem;
+		border-radius: 9999px;
+		border: 1px solid hsl(var(--border) / 0.5);
+		background: hsl(var(--muted) / 0.3);
+		font-size: 0.7rem;
+		color: hsl(var(--muted-foreground));
+		cursor: pointer;
+		transition: all 0.15s ease;
+		white-space: nowrap;
+	}
+
+	:global(.mood-state-chip:hover) {
+		background: hsl(var(--muted) / 0.6);
+		border-color: hsl(var(--primary) / 0.3);
+	}
+
+	:global(.mood-state-chip-active) {
+		background: hsl(var(--primary) / 0.12);
+		border-color: hsl(var(--primary) / 0.5);
+		color: hsl(var(--primary));
+		font-weight: 500;
 	}
 </style>

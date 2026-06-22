@@ -75,6 +75,7 @@ type Diary struct {
 	Content    string   `json:"content"`
 	Mood       int      `json:"mood"`
 	MoodStates []string `json:"mood_states"`
+	Scenarios  []string `json:"scenarios"`
 	Weather    string   `json:"weather"`
 	Owner      string   `json:"owner"`
 	Tags       []string `json:"tags"`
@@ -435,6 +436,25 @@ func createSchema(db *sql.DB) error {
 			}
 			_, _ = db.Exec(`INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(3, datetime('now'))`)
 			logger.Info("[Store] migration v3 completed: added mood_states column")
+		}
+	}
+
+	// ---- Migration v4: add scenarios column ----
+	{
+		var currentVersion int
+		_ = db.QueryRow(`SELECT COALESCE(MAX(version), 0) FROM schema_migrations`).Scan(&currentVersion)
+		if currentVersion < 4 {
+			var hasScenarios bool
+			_ = db.QueryRow(`SELECT 1 FROM pragma_table_info('diaries') WHERE name = 'scenarios'`).Scan(&hasScenarios)
+			if !hasScenarios {
+				if _, err := db.Exec(`ALTER TABLE diaries ADD COLUMN scenarios JSON DEFAULT '[]' NOT NULL`); err != nil {
+					logger.Warn("[Store] failed to add scenarios column to diaries: %v", err)
+				} else {
+					logger.Info("[Store] diaries: added scenarios column")
+				}
+			}
+			_, _ = db.Exec(`INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(4, datetime('now'))`)
+			logger.Info("[Store] migration v4 completed: added scenarios column")
 		}
 	}
 
@@ -982,12 +1002,12 @@ func scanUser(row interface{ Scan(dest ...any) error }) (*User, error) {
 	return user, nil
 }
 
-func (s *Store) UpsertDiary(owner, date, content string, mood int, moodStates []string, weather string, tags []string) (*Diary, bool, error) {
+func (s *Store) UpsertDiary(owner, date, content string, mood int, moodStates []string, scenarios []string, weather string, tags []string) (*Diary, bool, error) {
 	start, end := dayRange(date)
 	existing, err := s.GetDiaryByDate(owner, start, end)
 	if err == nil && existing != nil {
 		now := nowString()
-		_, err := s.DB.Exec(`UPDATE diaries SET content = ?, mood = ?, mood_states = ?, weather = ?, tags = ?, updated = ? WHERE id = ? AND owner = ?`, content, mood, encodeJSON(moodStates), weather, encodeJSON(normalizeTags(tags)), now, existing.ID, owner)
+		_, err := s.DB.Exec(`UPDATE diaries SET content = ?, mood = ?, mood_states = ?, scenarios = ?, weather = ?, tags = ?, updated = ? WHERE id = ? AND owner = ?`, content, mood, encodeJSON(moodStates), encodeJSON(scenarios), weather, encodeJSON(normalizeTags(tags)), now, existing.ID, owner)
 		if err != nil {
 			return nil, false, err
 		}
@@ -1002,7 +1022,7 @@ func (s *Store) UpsertDiary(owner, date, content string, mood int, moodStates []
 		return nil, false, err
 	}
 	now := nowString()
-	_, err = s.DB.Exec(`INSERT INTO diaries(content, created, date, id, mood, mood_states, owner, updated, weather, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, content, now, date+" 00:00:00.000Z", id, mood, encodeJSON(moodStates), owner, now, weather, encodeJSON(normalizeTags(tags)))
+	_, err = s.DB.Exec(`INSERT INTO diaries(content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, content, now, date+" 00:00:00.000Z", id, mood, encodeJSON(moodStates), encodeJSON(scenarios), owner, now, weather, encodeJSON(normalizeTags(tags)))
 	if err != nil {
 		return nil, true, err
 	}
@@ -1011,7 +1031,7 @@ func (s *Store) UpsertDiary(owner, date, content string, mood int, moodStates []
 }
 
 func (s *Store) GetDiaryByDate(owner, start, end string) (*Diary, error) {
-	return scanDiary(s.DB.QueryRow(`SELECT content, created, date, id, mood, mood_states, owner, updated, weather, tags FROM diaries WHERE date >= ? AND date <= ? AND owner = ? LIMIT 1`, start, end, owner))
+	return scanDiary(s.DB.QueryRow(`SELECT content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, tags FROM diaries WHERE date >= ? AND date <= ? AND owner = ? LIMIT 1`, start, end, owner))
 }
 
 // GetDiariesByMonthDay returns diaries from previous years that share the
@@ -1023,7 +1043,7 @@ func (s *Store) GetDiariesByMonthDay(owner, dateStr string) ([]*Diary, error) {
 	}
 	monthDay := dateStr[5:10] // MM-DD
 	rows, err := s.DB.Query(
-		`SELECT content, created, date, id, mood, mood_states, owner, updated, weather, tags
+		`SELECT content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, tags
 		 FROM diaries
 		 WHERE owner = ? AND substr(date, 6, 5) = ? AND substr(date, 1, 10) != ?
 		 ORDER BY date DESC`,
@@ -1051,7 +1071,7 @@ func (s *Store) GetRandomDiary(owner, excludeDate string) (*Diary, error) {
 	where += " AND (trim(content) != '' OR mood != 0 OR trim(weather) != '' OR tags != '[]')"
 	// SQLite 的 RANDOM() 返回 -9223372036854775808 到 9223372036854775807，取一条
 	rows, err := s.DB.Query(
-		`SELECT content, created, date, id, mood, mood_states, owner, updated, weather, tags
+		`SELECT content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, tags
 		 FROM diaries `+where+`
 		 ORDER BY RANDOM() LIMIT 1`,
 		args...,
@@ -1071,7 +1091,7 @@ func (s *Store) GetRandomDiary(owner, excludeDate string) (*Diary, error) {
 }
 
 func (s *Store) GetDiaryByID(id string) (*Diary, error) {
-	return scanDiary(s.DB.QueryRow(`SELECT content, created, date, id, mood, mood_states, owner, updated, weather, tags FROM diaries WHERE id = ?`, id))
+	return scanDiary(s.DB.QueryRow(`SELECT content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, tags FROM diaries WHERE id = ?`, id))
 }
 
 func (s *Store) DeleteDiary(id, owner string) error {
@@ -1087,7 +1107,7 @@ func (s *Store) DeleteDiary(id, owner string) error {
 }
 
 func (s *Store) ListDiaries(owner, start, end, order string, limit int) ([]*Diary, error) {
-	query := `SELECT content, created, date, id, mood, mood_states, owner, updated, weather, tags FROM diaries WHERE owner = ?`
+	query := `SELECT content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, tags FROM diaries WHERE owner = ?`
 	args := []any{owner}
 	if start != "" {
 		query += ` AND date >= ?`
@@ -1116,15 +1136,26 @@ func (s *Store) ListDiaries(owner, start, end, order string, limit int) ([]*Diar
 	return scanDiaries(rows)
 }
 
-func (s *Store) SearchDiaries(owner, query string, limit int) ([]*Diary, error) {
+func (s *Store) SearchDiaries(owner, query string, scenario string, limit int) ([]*Diary, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-	searchPattern := "%" + query + "%"
+	where := "WHERE owner = ?"
+	args := []any{owner}
+	if query != "" {
+		searchPattern := "%" + query + "%"
+		where += " AND (content LIKE ? OR tags LIKE ?)"
+		args = append(args, searchPattern, searchPattern)
+	}
+	if scenario != "" {
+		where += " AND scenarios LIKE ?"
+		args = append(args, "%\""+scenario+"\"%")
+	}
+	args = append(args, limit)
 	rows, err := s.DB.Query(
-		`SELECT content, created, date, id, mood, mood_states, owner, updated, weather, tags
-		 FROM diaries WHERE owner = ? AND (content LIKE ? OR tags LIKE ?) ORDER BY date DESC LIMIT ?`,
-		owner, searchPattern, searchPattern, limit,
+		`SELECT content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, tags
+		 FROM diaries `+where+` ORDER BY date DESC LIMIT ?`,
+		args...,
 	)
 	if err != nil {
 		return nil, err
@@ -1143,13 +1174,15 @@ func scanDiary(row interface{ Scan(dest ...any) error }) (*Diary, error) {
 	diary := &Diary{}
 	var tagsRaw string
 	var moodStatesRaw string
+	var scenariosRaw string
 	var moodVal int
-	err := row.Scan(&diary.Content, &diary.Created, &diary.Date, &diary.ID, &moodVal, &moodStatesRaw, &diary.Owner, &diary.Updated, &diary.Weather, &tagsRaw)
+	err := row.Scan(&diary.Content, &diary.Created, &diary.Date, &diary.ID, &moodVal, &moodStatesRaw, &scenariosRaw, &diary.Owner, &diary.Updated, &diary.Weather, &tagsRaw)
 	if err != nil {
 		return nil, err
 	}
 	diary.Mood = moodVal
 	diary.MoodStates = decodeStringSlice(moodStatesRaw)
+	diary.Scenarios = decodeStringSlice(scenariosRaw)
 	diary.Tags = decodeStringSlice(tagsRaw)
 	return diary, nil
 }
@@ -1160,12 +1193,14 @@ func scanDiaries(rows *sql.Rows) ([]*Diary, error) {
 		item := &Diary{}
 		var tagsRaw string
 		var moodStatesRaw string
+		var scenariosRaw string
 		var moodVal int
-		if err := rows.Scan(&item.Content, &item.Created, &item.Date, &item.ID, &moodVal, &moodStatesRaw, &item.Owner, &item.Updated, &item.Weather, &tagsRaw); err != nil {
+		if err := rows.Scan(&item.Content, &item.Created, &item.Date, &item.ID, &moodVal, &moodStatesRaw, &scenariosRaw, &item.Owner, &item.Updated, &item.Weather, &tagsRaw); err != nil {
 			return nil, err
 		}
 		item.Mood = moodVal
 		item.MoodStates = decodeStringSlice(moodStatesRaw)
+		item.Scenarios = decodeStringSlice(scenariosRaw)
 		item.Tags = decodeStringSlice(tagsRaw)
 		items = append(items, item)
 	}
@@ -1238,7 +1273,7 @@ func (s *Store) ListDiariesByTag(owner, tag string) ([]*Diary, error) {
 		return []*Diary{}, nil
 	}
 	rows, err := s.DB.Query(
-		`SELECT d.content, d.created, d.date, d.id, d.mood, d.mood_states, d.owner, d.updated, d.weather, d.tags
+		`SELECT d.content, d.created, d.date, d.id, d.mood, d.mood_states, d.scenarios, d.owner, d.updated, d.weather, d.tags
 		 FROM diaries d, json_each(d.tags) j
 		 WHERE d.owner = ? AND j.value = ?
 		 ORDER BY d.date DESC`, owner, tag)
@@ -1850,7 +1885,7 @@ func scanMessageRow(rows *sql.Rows) (*Message, error) {
 	return scanMessage(rows)
 }
 
-func (s *Store) InsertImportedDiary(owner, id, date, content string, mood int, moodStates []string, weather string, tags []string) (*Diary, error) {
+func (s *Store) InsertImportedDiary(owner, id, date, content string, mood int, moodStates []string, scenarios []string, weather string, tags []string) (*Diary, error) {
 	if id == "" {
 		var err error
 		id, err = GenerateID()
@@ -1859,7 +1894,7 @@ func (s *Store) InsertImportedDiary(owner, id, date, content string, mood int, m
 		}
 	}
 	now := nowString()
-	_, err := s.DB.Exec(`INSERT INTO diaries(content, created, date, id, mood, mood_states, owner, updated, weather, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, content, now, date+" 00:00:00.000Z", id, mood, encodeJSON(moodStates), owner, now, weather, encodeJSON(normalizeTags(tags)))
+	_, err := s.DB.Exec(`INSERT INTO diaries(content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, content, now, date+" 00:00:00.000Z", id, mood, encodeJSON(moodStates), encodeJSON(scenarios), owner, now, weather, encodeJSON(normalizeTags(tags)))
 	if err != nil {
 		return nil, err
 	}

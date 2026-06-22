@@ -139,7 +139,7 @@ func TestAIRoutesHappyPath(t *testing.T) {
 		t.Fatalf("POST /ai/analysis empty status = %d body=%s", rec.Code, rec.Body.String())
 	}
 
-	if _, err := s.InsertImportedDiary(user.ID, "", "2024-01-15", "some content", 4, nil, "", nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "", "2024-01-15", "some content", 4, nil, nil, "", nil); err != nil {
 		t.Fatalf("InsertImportedDiary: %v", err)
 	}
 	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"2024-01-01","end":"2024-01-31"}`), map[string]string{"Content-Type": "application/json"})
@@ -587,10 +587,10 @@ func TestFocusedExportImportEdges(t *testing.T) {
 	e := echo.New()
 	RegisterExportImportRoutes(e, s, authMiddlewareFor(user), nil)
 
-	if _, err := s.InsertImportedDiary(user.ID, "export-old", "2024-01-01", "old diary", 0, nil, "", nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "export-old", "2024-01-01", "old diary", 0, nil, nil, "", nil); err != nil {
 		t.Fatalf("InsertImportedDiary old: %v", err)
 	}
-	if _, err := s.InsertImportedDiary(user.ID, "export-new", "2024-02-02", "new diary", 0, nil, "", nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "export-new", "2024-02-02", "new diary", 0, nil, nil, "", nil); err != nil {
 		t.Fatalf("InsertImportedDiary new: %v", err)
 	}
 	missingMedia, err := s.InsertImportedMedia(user.ID, "export-missing-media", "missing.png", "Missing", "", nil)
@@ -873,7 +873,7 @@ func TestResolveConflictRoutes(t *testing.T) {
 	e := echo.New()
 	RegisterExportImportRoutes(e, s, authMiddlewareFor(user), nil)
 
-	if _, err := s.InsertImportedDiary(user.ID, "old", "2024-06-01", "old content", 2, nil, "", nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "old", "2024-06-01", "old content", 2, nil, nil, "", nil); err != nil {
 		t.Fatalf("InsertImportedDiary: %v", err)
 	}
 

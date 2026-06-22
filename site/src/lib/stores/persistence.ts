@@ -7,6 +7,7 @@ export interface PersistedEntry {
 	content: string;
 	mood?: number;
 	mood_states?: string[];
+	scenarios?: string[];
 	weather?: string;
 	tags?: string[];
 	localUpdatedAt: number;

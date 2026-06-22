@@ -195,6 +195,7 @@ export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
 		const effectiveContent = diary.content !== undefined ? diary.content : existing?.content;
 		const effectiveMood = diary.mood !== undefined ? diary.mood : existing?.mood;
 		const effectiveMoodStates = diary.mood_states !== undefined ? diary.mood_states : existing?.mood_states ?? [];
+		const effectiveScenarios = diary.scenarios !== undefined ? diary.scenarios : existing?.scenarios ?? [];
 		const effectiveWeather = diary.weather !== undefined ? diary.weather : existing?.weather;
 		const effectiveTags = diary.tags !== undefined ? diary.tags : existing?.tags ?? [];
 
@@ -202,6 +203,7 @@ export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
 		isContentEmpty(effectiveContent) &&
 		!effectiveMood &&
 		!effectiveMoodStates?.length &&
+		!effectiveScenarios?.length &&
 		!effectiveWeather?.trim() &&
 		(effectiveTags.length === 0);
 
@@ -228,6 +230,7 @@ export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
 				content: diary.content ?? existing?.content ?? '',
 				mood: diary.mood ?? existing?.mood ?? 0,
 				mood_states: effectiveMoodStates,
+				scenarios: effectiveScenarios,
 				weather: diary.weather ?? existing?.weather ?? '',
 				tags: effectiveTags
 			})
@@ -310,9 +313,12 @@ export async function getRecentDiaries(limit: number = 5): Promise<Array<{ date:
 /**
  * Search diaries
  */
-export async function searchDiaries(query: string) {
+export async function searchDiaries(query: string, scenario?: string) {
 	try {
-		const response = await fetch(`/api/v1/diaries/search?q=${encodeURIComponent(query)}`, {
+		const params = new URLSearchParams();
+		if (query) params.set('q', query);
+		if (scenario) params.set('scenario', scenario);
+		const response = await fetch(`/api/v1/diaries/search?${params.toString()}`, {
 			headers: {
 				'Authorization': `Bearer ${pb.authStore.token}`
 			}

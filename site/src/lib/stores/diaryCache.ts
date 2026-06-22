@@ -14,6 +14,7 @@ export interface CacheEntry {
 	content: string;
 	mood: number;
 	mood_states: string[];
+	scenarios: string[];
 	weather: string;
 	tags: string[];
 	localUpdatedAt: number;
@@ -94,6 +95,7 @@ function reloadFromStorage(): void {
 			content: entry.content,
 			mood: entry.mood || 0,
 			mood_states: Array.isArray(entry.mood_states) ? entry.mood_states : [],
+			scenarios: Array.isArray(entry.scenarios) ? entry.scenarios : [],
 			weather: entry.weather || '',
 			tags: Array.isArray(entry.tags) ? entry.tags : [],
 			localUpdatedAt: entry.localUpdatedAt,
@@ -221,7 +223,7 @@ export function getCachedContent(date: string): CacheEntry | null {
  */
 export function updateLocalCache(
 	date: string,
-	updates: { content: string; mood?: number; mood_states?: string[]; weather?: string; tags?: string[] }
+	updates: { content: string; mood?: number; mood_states?: string[]; scenarios?: string[]; weather?: string; tags?: string[] }
 ): void {
 	const existing = getCachedContent(date);
 
@@ -229,6 +231,7 @@ export function updateLocalCache(
 		content: updates.content,
 		mood: updates.mood ?? existing?.mood ?? 0,
 		mood_states: Array.isArray(updates.mood_states) ? updates.mood_states : existing?.mood_states ?? [],
+		scenarios: Array.isArray(updates.scenarios) ? updates.scenarios : existing?.scenarios ?? [],
 		weather: updates.weather ?? existing?.weather ?? '',
 		tags: Array.isArray(updates.tags) ? updates.tags : existing?.tags ?? [],
 		localUpdatedAt: Date.now(),
@@ -247,6 +250,7 @@ export function updateLocalCache(
 		content: entry.content,
 		mood: entry.mood,
 		mood_states: entry.mood_states,
+		scenarios: entry.scenarios,
 		weather: entry.weather,
 		tags: entry.tags,
 		localUpdatedAt: entry.localUpdatedAt,
@@ -299,6 +303,7 @@ export function getDirtyEntries(): {
 	content: string;
 	mood: number;
 	mood_states: string[];
+	scenarios: string[];
 	weather: string;
 	tags: string[];
 }[] {
@@ -310,6 +315,7 @@ export function getDirtyEntries(): {
 			content: entry.content,
 			mood: entry.mood || 0,
 			mood_states: entry.mood_states || [],
+			scenarios: entry.scenarios || [],
 			weather: entry.weather || '',
 			tags: entry.tags || []
 		}));

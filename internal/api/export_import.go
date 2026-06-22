@@ -48,6 +48,7 @@ type exportDiary struct {
 	Content    string   `json:"content"`
 	Mood       int      `json:"mood,omitempty"`
 	MoodStates []string `json:"mood_states,omitempty"`
+	Scenarios  []string `json:"scenarios,omitempty"`
 	Weather    string   `json:"weather,omitempty"`
 }
 
@@ -350,7 +351,7 @@ func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.Em
 			diaryIDMap[d.ID] = ""
 			continue
 		}
-		diary, err := s.InsertImportedDiary(userID, "", d.Date, d.Content, d.Mood, nil, d.Weather, nil)
+		diary, err := s.InsertImportedDiary(userID, "", d.Date, d.Content, d.Mood, nil, nil, d.Weather, nil)
 		if err != nil {
 			stats.Diaries.Failed++
 			stats.DiaryDetails = append(stats.DiaryDetails, importDiaryDetail{Date: d.Date, Status: "failed", Reason: err.Error()})
@@ -442,7 +443,7 @@ func handleResolveConflict(c echo.Context, s *store.Store, embeddingService *emb
 			return badRequest("Failed to delete old diary", err)
 		}
 	}
-	diary, err := s.InsertImportedDiary(userID, "", req.Date, req.Content, req.Mood, nil, req.Weather, nil)
+	diary, err := s.InsertImportedDiary(userID, "", req.Date, req.Content, req.Mood, nil, nil, req.Weather, nil)
 	if err != nil {
 		return badRequest("Failed to insert new diary", err)
 	}

@@ -245,6 +245,9 @@ func (s *ChatService) buildSystemPrompt(diaries []embedding.DiarySearchResult) s
 		if len(diary.MoodStates) > 0 {
 			sb.WriteString(fmt.Sprintf("Mood States: %s\n", strings.Join(diary.MoodStates, ", ")))
 		}
+		if len(diary.Scenarios) > 0 {
+			sb.WriteString(fmt.Sprintf("Scenarios: %s\n", strings.Join(diary.Scenarios, ", ")))
+		}
 		if diary.Weather != "" {
 			sb.WriteString(fmt.Sprintf("Weather: %s\n", diary.Weather))
 		}
@@ -656,6 +659,9 @@ func (s *ChatService) formatDiariesForContext(diaries []embedding.DiarySearchRes
 		}
 		if len(diary.MoodStates) > 0 {
 			sb.WriteString(fmt.Sprintf("Mood States: %s\n", strings.Join(diary.MoodStates, ", ")))
+		}
+		if len(diary.Scenarios) > 0 {
+			sb.WriteString(fmt.Sprintf("Scenarios: %s\n", strings.Join(diary.Scenarios, ", ")))
 		}
 		if diary.Weather != "" {
 			sb.WriteString(fmt.Sprintf("Weather: %s\n", diary.Weather))
