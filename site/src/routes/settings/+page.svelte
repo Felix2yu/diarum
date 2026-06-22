@@ -144,17 +144,30 @@
 	let resolvingConflict = false;
 	let expandedConflictDate: string | null = null;
 	let conflictViewMode: 'diff' | 'side' = 'diff';
+	let isDragOver = false;
 
 	// Export options
-	let exportOptions: ExportOptions = {
+	const EXPORT_OPTIONS_KEY = 'diarum_export_options';
+	const savedExportOptions = (() => {
+		try {
+			const raw = localStorage.getItem(EXPORT_OPTIONS_KEY);
+			return raw ? JSON.parse(raw) : null;
+		} catch { return null; }
+	})();
+	let exportOptions: ExportOptions = savedExportOptions || {
 		date_range: '3m',
 		include_diaries: true,
 		include_media: true,
-		include_conversations: true
+		include_conversations: true,
+		include_analysis: false
 	};
 	let customStartDate = '';
 	let customEndDate = '';
 	let showExportOptions = true;
+
+	function persistExportOptions() {
+		try { localStorage.setItem(EXPORT_OPTIONS_KEY, JSON.stringify(exportOptions)); } catch {}
+	}
 
 	async function loadTokenStatus() {
 		tokenStatus = await getApiToken();
@@ -609,6 +622,33 @@
 		importFile = input.files?.[0] || null;
 	}
 
+	function handleImportDragOver(e: DragEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		isDragOver = true;
+	}
+
+	function handleImportDragLeave(e: DragEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		isDragOver = false;
+	}
+
+	function handleImportDrop(e: DragEvent) {
+		e.preventDefault();
+		e.stopPropagation();
+		isDragOver = false;
+		const files = e.dataTransfer?.files;
+		if (files && files.length > 0) {
+			const file = files[0];
+			if (file.name.endsWith('.zip')) {
+				importFile = file;
+			} else {
+				importError = '请拖入 .zip 格式的文件';
+			}
+		}
+	}
+
 	async function handleImport() {
 		if (!importFile) return;
 		importing = true;
@@ -808,7 +848,7 @@
 							onclick={handleToggle}
 							disabled={toggling}
 							aria-label="切换 API 访问"
-							class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {tokenStatus.enabled ? 'bg-primary' : 'bg-muted'}"
+							class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {tokenStatus.enabled ? 'bg-primary' : 'bg-border'}"
 						>
 							<span
 								class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {tokenStatus.enabled ? 'translate-x-6' : 'translate-x-1'}"
@@ -947,7 +987,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 						<button
 							onclick={() => memosSettings.enabled = !memosSettings.enabled}
 							aria-label="切换 Memos 同步"
-							class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {memosSettings.enabled ? 'bg-primary' : 'bg-muted'}"
+							class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {memosSettings.enabled ? 'bg-primary' : 'bg-border'}"
 						>
 							<span
 								class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {memosSettings.enabled ? 'translate-x-6' : 'translate-x-1'}"
@@ -1277,7 +1317,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								onclick={() => { if (canEnableAI) aiSettings.enabled = !aiSettings.enabled; }}
 								disabled={!canEnableAI && !aiSettings.enabled}
 								aria-label="切换 AI 功能"
-								class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {aiSettings.enabled ? 'bg-primary' : 'bg-muted'} {!canEnableAI && !aiSettings.enabled ? 'opacity-50 cursor-not-allowed' : ''}"
+								class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {aiSettings.enabled ? 'bg-primary' : 'bg-border'} {!canEnableAI && !aiSettings.enabled ? 'opacity-50 cursor-not-allowed' : ''}"
 							>
 								<span
 									class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {aiSettings.enabled ? 'translate-x-6' : 'translate-x-1'}"
@@ -1792,6 +1832,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 										<select
 											id="export-date-range"
 											bind:value={exportOptions.date_range}
+											onchange={persistExportOptions}
 											class="w-full pl-3 pr-9 py-2 bg-background rounded-lg text-sm text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
 										>
 											<option value="1m">过去 1 个月</option>
@@ -1835,15 +1876,19 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									<div class="block text-sm font-medium text-foreground mb-2">要导出的内容</div>
 									<div class="space-y-2">
 										<label class="flex items-center gap-2 cursor-pointer">
-											<input type="checkbox" bind:checked={exportOptions.include_diaries} class="rounded" />
+											<input type="checkbox" bind:checked={exportOptions.include_diaries} onchange={persistExportOptions} class="rounded" />
 											<span class="text-sm text-foreground">日记</span>
 										</label>
 										<label class="flex items-center gap-2 cursor-pointer">
-											<input type="checkbox" bind:checked={exportOptions.include_media} class="rounded" />
+											<input type="checkbox" bind:checked={exportOptions.include_media} onchange={persistExportOptions} class="rounded" />
 											<span class="text-sm text-foreground">媒体文件</span>
 										</label>
 										<label class="flex items-center gap-2 cursor-pointer">
-											<input type="checkbox" bind:checked={exportOptions.include_conversations} class="rounded" />
+											<input type="checkbox" bind:checked={exportOptions.include_analysis} onchange={persistExportOptions} class="rounded" />
+											<span class="text-sm text-foreground">分析报告</span>
+										</label>
+										<label class="flex items-center gap-2 cursor-pointer">
+											<input type="checkbox" bind:checked={exportOptions.include_conversations} onchange={persistExportOptions} class="rounded" />
 											<span class="text-sm text-foreground">AI 对话</span>
 										</label>
 									</div>
@@ -1933,16 +1978,45 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							</div>
 						{/if}
 
-						<div class="flex items-center gap-3 flex-wrap">
-							<label class="px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 cursor-pointer">
-								<span>{importFile ? importFile.name : '选择文件'}</span>
-								<input
-									type="file"
-									accept=".zip"
-									class="hidden"
-									onchange={handleImportFileChange}
-								/>
-							</label>
+						<div
+							class="border-2 border-dashed rounded-lg p-6 text-center transition-colors duration-200 {isDragOver ? 'border-primary bg-primary/5' : 'border-border/50 hover:border-primary/50'}"
+							ondragover={handleImportDragOver}
+							ondragleave={handleImportDragLeave}
+							ondrop={handleImportDrop}
+							role="region"
+							aria-label="拖放区域"
+						>
+							{#if importFile}
+								<div class="flex items-center justify-center gap-2 mb-3">
+									<svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+									</svg>
+									<span class="text-sm font-medium text-foreground">{importFile.name}</span>
+									<button
+										onclick={() => { importFile = null; importStats = null; importError = ''; }}
+										class="text-xs text-muted-foreground hover:text-destructive transition-colors"
+									>
+										移除
+									</button>
+								</div>
+							{:else}
+								<svg class="w-8 h-8 mx-auto text-muted-foreground mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+								</svg>
+								<p class="text-sm text-muted-foreground mb-1">拖放 .zip 文件到此处，或</p>
+								<label class="inline-block px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 cursor-pointer">
+									<span>选择文件</span>
+									<input
+										type="file"
+										accept=".zip"
+										class="hidden"
+										onchange={handleImportFileChange}
+									/>
+								</label>
+							{/if}
+						</div>
+
+						<div class="flex items-center gap-3 flex-wrap mt-3">
 							<button
 								onclick={handleImport}
 								disabled={importing || !importFile}

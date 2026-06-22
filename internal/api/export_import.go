@@ -32,6 +32,7 @@ type ExportRequest struct {
 	IncludeDiaries       bool   `json:"include_diaries"`
 	IncludeMedia         bool   `json:"include_media"`
 	IncludeConversations bool   `json:"include_conversations"`
+	IncludeAnalysis      bool   `json:"include_analysis"`
 }
 
 type exportData struct {
@@ -40,6 +41,18 @@ type exportData struct {
 	Diaries       []exportDiary        `json:"diaries"`
 	Media         []exportMedia        `json:"media"`
 	Conversations []exportConversation `json:"conversations"`
+	Analyses      []exportAnalysis     `json:"analyses,omitempty"`
+}
+
+type exportAnalysis struct {
+	ID         string `json:"id"`
+	Period     string `json:"period"`
+	StartDate  string `json:"start_date"`
+	EndDate    string `json:"end_date"`
+	DiaryCount int    `json:"diary_count"`
+	Summary    string `json:"summary"`
+	Keywords   string `json:"keywords,omitempty"`
+	Created    string `json:"created"`
 }
 
 type exportDiary struct {
@@ -167,7 +180,7 @@ func handleExport(c echo.Context, s *store.Store) error {
 		for _, d := range allDiaries {
 			date := store.DateOnly(d.Date)
 			if isDateInRange(date, startDate, endDate) {
-				exportDiaries = append(exportDiaries, exportDiary{ID: d.ID, Date: date, Content: d.Content, Mood: d.Mood, Weather: d.Weather})
+				exportDiaries = append(exportDiaries, exportDiary{ID: d.ID, Date: date, Content: d.Content, Mood: d.Mood, MoodStates: d.MoodStates, Scenarios: d.Scenarios, Weather: d.Weather})
 			}
 		}
 	}
@@ -206,7 +219,20 @@ func handleExport(c echo.Context, s *store.Store) error {
 	stats.Conversations.ShouldExport = len(exportConvs)
 	stats.Conversations.ActualExported = len(exportConvs)
 
-	data := exportData{Version: 1, ExportedAt: time.Now().UTC().Format(time.RFC3339), Diaries: exportDiaries, Media: exportMediaList, Conversations: exportConvs}
+	exportAnalyses := make([]exportAnalysis, 0)
+	if req.IncludeAnalysis {
+		analyses, _ := s.ListSavedAnalyses(userID, "all", 1000)
+		for _, a := range analyses {
+			if isDateInRange(a.StartDate, startDate, endDate) || isDateInRange(a.EndDate, startDate, endDate) {
+				exportAnalyses = append(exportAnalyses, exportAnalysis{
+					ID: a.ID, Period: a.Period, StartDate: a.StartDate, EndDate: a.EndDate,
+					DiaryCount: a.DiaryCount, Summary: a.Summary, Keywords: a.Keywords, Created: a.Created,
+				})
+			}
+		}
+	}
+
+	data := exportData{Version: 1, ExportedAt: time.Now().UTC().Format(time.RFC3339), Diaries: exportDiaries, Media: exportMediaList, Conversations: exportConvs, Analyses: exportAnalyses}
 	jsonBytes, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return badRequest("Failed to serialize export data", err)
@@ -219,11 +245,17 @@ func handleExport(c echo.Context, s *store.Store) error {
 	}
 	for _, d := range exportDiaries {
 		filename := d.Date + ".md"
-		if d.Mood != 0 {
-			filename = d.Date + "_" + fmt.Sprintf("%d", d.Mood) + ".md"
-		}
 		if w, err := zipWriter.Create("markdown/" + filename); err == nil {
 			_, _ = w.Write([]byte(generateMarkdown(d)))
+		}
+	}
+	for _, a := range exportAnalyses {
+		filename := a.StartDate + "_" + a.EndDate + ".md"
+		if a.Keywords != "" {
+			filename = a.StartDate + "_" + a.EndDate + "_" + a.Keywords + ".md"
+		}
+		if w, err := zipWriter.Create("analysis/" + filename); err == nil {
+			_, _ = w.Write([]byte(generateAnalysisMarkdown(a)))
 		}
 	}
 	mediaExportedCount := 0
@@ -284,6 +316,7 @@ func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.Em
 	var exportJSON []byte
 	mediaFiles := make(map[string][]byte)
 	mdFiles := make(map[string][]byte)
+	analysisFiles := make(map[string][]byte)
 	for _, zf := range zipReader.File {
 		if !isValidZipPath(zf.Name) || zf.UncompressedSize64 > maxSingleFileSize {
 			continue
@@ -304,6 +337,11 @@ func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.Em
 			name := strings.TrimPrefix(zf.Name, "media/")
 			if name != "" {
 				mediaFiles[name] = data
+			}
+		case strings.HasPrefix(zf.Name, "analysis/"):
+			name := strings.TrimPrefix(zf.Name, "analysis/")
+			if name != "" {
+				analysisFiles[name] = data
 			}
 		case strings.HasSuffix(zf.Name, ".md"):
 			mdFiles[zf.Name] = data
@@ -351,7 +389,7 @@ func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.Em
 			diaryIDMap[d.ID] = ""
 			continue
 		}
-		diary, err := s.InsertImportedDiary(userID, "", d.Date, d.Content, d.Mood, nil, nil, d.Weather, nil)
+		diary, err := s.InsertImportedDiary(userID, "", d.Date, d.Content, d.Mood, d.MoodStates, d.Scenarios, d.Weather, nil)
 		if err != nil {
 			stats.Diaries.Failed++
 			stats.DiaryDetails = append(stats.DiaryDetails, importDiaryDetail{Date: d.Date, Status: "failed", Reason: err.Error()})
@@ -411,6 +449,15 @@ func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.Em
 		}
 		stats.Conversations.Imported++
 	}
+	for _, a := range data.Analyses {
+		_, _ = s.SavePeriodAnalysis(userID, a.Period, a.StartDate, a.EndDate, a.DiaryCount, a.Summary, "", "", a.Keywords)
+	}
+	for _, content := range analysisFiles {
+		a := parseAnalysisMarkdown(content)
+		if a != nil {
+			_, _ = s.SavePeriodAnalysis(userID, a.Period, a.StartDate, a.EndDate, a.DiaryCount, a.Summary, "", "", a.Keywords)
+		}
+	}
 	if embeddingService != nil {
 		configService := config.NewConfigService(s)
 		enabled, _ := configService.GetBool(userID, "ai.enabled")
@@ -465,6 +512,39 @@ func isValidZipPath(name string) bool {
 	return !strings.Contains(name, "..") && !strings.HasPrefix(name, "/") && !strings.HasPrefix(name, "\\")
 }
 
+func parseAnalysisMarkdown(content []byte) *exportAnalysis {
+	lines := strings.Split(string(content), "\n")
+	a := &exportAnalysis{}
+	summaryLines := make([]string, 0)
+	inSummary := false
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "**Period:**") {
+			a.Period = strings.TrimSpace(strings.TrimPrefix(trimmed, "**Period:**"))
+		} else if strings.HasPrefix(trimmed, "**Diary Count:**") {
+			fmt.Sscanf(strings.TrimSpace(strings.TrimPrefix(trimmed, "**Diary Count:**")), "%d", &a.DiaryCount)
+		} else if strings.HasPrefix(trimmed, "**Keywords:**") {
+			a.Keywords = strings.TrimSpace(strings.TrimPrefix(trimmed, "**Keywords:**"))
+		} else if strings.HasPrefix(trimmed, "**Created:**") {
+			a.Created = strings.TrimSpace(strings.TrimPrefix(trimmed, "**Created:**"))
+		} else if strings.HasPrefix(trimmed, "# Analysis:") {
+			parts := strings.SplitN(strings.TrimPrefix(trimmed, "# Analysis:"), "~", 2)
+			if len(parts) == 2 {
+				a.StartDate = strings.TrimSpace(parts[0])
+				a.EndDate = strings.TrimSpace(parts[1])
+			}
+			inSummary = true
+		} else if inSummary && trimmed != "" && !strings.HasPrefix(trimmed, "**") {
+			summaryLines = append(summaryLines, line)
+		}
+	}
+	a.Summary = strings.TrimSpace(strings.Join(summaryLines, "\n"))
+	if a.StartDate == "" || a.EndDate == "" {
+		return nil
+	}
+	return a
+}
+
 func parseMarkdownFile(name string, content []byte) *exportDiary {
 	text := string(content)
 	lines := strings.Split(text, "\n")
@@ -499,40 +579,110 @@ func parseMarkdownFile(name string, content []byte) *exportDiary {
 	}
 	mood := 0
 	weather := ""
+	moodStates := make([]string, 0)
+	scenarios := make([]string, 0)
 	contentLines := make([]string, 0, len(lines))
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "# ") {
 			continue
 		}
-		if strings.HasPrefix(trimmed, "**Mood:**") || strings.HasPrefix(trimmed, "**mood:**") {
-			moodStr := strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(trimmed, "**Mood:**"), "**mood:**"))
-			mood = emojiToMoodInt(moodStr)
+		if strings.HasPrefix(trimmed, "**心情：**") || strings.HasPrefix(trimmed, "**心情:**") || strings.HasPrefix(trimmed, "**Mood:**") || strings.HasPrefix(trimmed, "**mood:**") {
+			val := trimmed
+			for _, prefix := range []string{"**心情：**", "**心情:**", "**Mood:**", "**mood:**"} {
+				if strings.HasPrefix(val, prefix) {
+					val = strings.TrimSpace(strings.TrimPrefix(val, prefix))
+					break
+				}
+			}
+			mood = emojiToMoodInt(val)
 			continue
 		}
-		if strings.HasPrefix(trimmed, "**Weather:**") || strings.HasPrefix(trimmed, "**weather:**") {
-			weather = strings.TrimSpace(strings.TrimPrefix(strings.TrimPrefix(trimmed, "**Weather:**"), "**weather:**"))
+		if strings.HasPrefix(trimmed, "**心情状态：**") || strings.HasPrefix(trimmed, "**心情状态:**") || strings.HasPrefix(trimmed, "**MoodStates:**") || strings.HasPrefix(trimmed, "**mood_states:**") {
+			val := trimmed
+			for _, prefix := range []string{"**心情状态：**", "**心情状态:**", "**MoodStates:**", "**mood_states:**"} {
+				if strings.HasPrefix(val, prefix) {
+					val = strings.TrimSpace(strings.TrimPrefix(val, prefix))
+					break
+				}
+			}
+			if val != "" {
+				for _, s := range strings.Split(val, ",") {
+					s = strings.TrimSpace(s)
+					if s != "" {
+						moodStates = append(moodStates, s)
+					}
+				}
+			}
+			continue
+		}
+		if strings.HasPrefix(trimmed, "**情景：**") || strings.HasPrefix(trimmed, "**情景:**") || strings.HasPrefix(trimmed, "**Scenarios:**") || strings.HasPrefix(trimmed, "**scenarios:**") {
+			val := trimmed
+			for _, prefix := range []string{"**情景：**", "**情景:**", "**Scenarios:**", "**scenarios:**"} {
+				if strings.HasPrefix(val, prefix) {
+					val = strings.TrimSpace(strings.TrimPrefix(val, prefix))
+					break
+				}
+			}
+			if val != "" {
+				for _, s := range strings.Split(val, ",") {
+					s = strings.TrimSpace(s)
+					if s != "" {
+						scenarios = append(scenarios, s)
+					}
+				}
+			}
+			continue
+		}
+		if strings.HasPrefix(trimmed, "**天气：**") || strings.HasPrefix(trimmed, "**天气:**") || strings.HasPrefix(trimmed, "**Weather:**") || strings.HasPrefix(trimmed, "**weather:**") {
+			val := trimmed
+			for _, prefix := range []string{"**天气：**", "**天气:**", "**Weather:**", "**weather:**"} {
+				if strings.HasPrefix(val, prefix) {
+					val = strings.TrimSpace(strings.TrimPrefix(val, prefix))
+					break
+				}
+			}
+			weather = val
 			continue
 		}
 		contentLines = append(contentLines, line)
 	}
 	content = []byte(strings.TrimSpace(strings.Join(contentLines, "\n")))
-	return &exportDiary{Date: date, Content: string(content), Mood: mood, Weather: weather}
+	return &exportDiary{Date: date, Content: string(content), Mood: mood, MoodStates: moodStates, Scenarios: scenarios, Weather: weather}
 }
 
 func generateMarkdown(d exportDiary) string {
 	var sb strings.Builder
 	sb.WriteString("# " + d.Date + "\n\n")
 	if d.Mood != 0 {
-		sb.WriteString("**Mood:** " + store.MoodToEmoji(d.Mood) + "\n")
+		sb.WriteString("**心情：** " + store.MoodToEmoji(d.Mood) + "\n")
+	}
+	if len(d.MoodStates) > 0 {
+		sb.WriteString("**心情状态：** " + strings.Join(d.MoodStates, ", ") + "\n")
+	}
+	if len(d.Scenarios) > 0 {
+		sb.WriteString("**情景：** " + strings.Join(d.Scenarios, ", ") + "\n")
 	}
 	if d.Weather != "" {
-		sb.WriteString("**Weather:** " + d.Weather + "\n")
+		sb.WriteString("**天气：** " + d.Weather + "\n")
 	}
-	if d.Mood != 0 || d.Weather != "" {
+	if d.Mood != 0 || d.Weather != "" || len(d.MoodStates) > 0 || len(d.Scenarios) > 0 {
 		sb.WriteString("\n")
 	}
 	sb.WriteString(d.Content)
+	return sb.String()
+}
+
+func generateAnalysisMarkdown(a exportAnalysis) string {
+	var sb strings.Builder
+	sb.WriteString("# Analysis: " + a.StartDate + " ~ " + a.EndDate + "\n\n")
+	sb.WriteString("**Period:** " + a.Period + "\n")
+	sb.WriteString("**Diary Count:** " + fmt.Sprintf("%d", a.DiaryCount) + "\n")
+	if a.Keywords != "" {
+		sb.WriteString("**Keywords:** " + a.Keywords + "\n")
+	}
+	sb.WriteString("**Created:** " + a.Created + "\n\n")
+	sb.WriteString(a.Summary)
 	return sb.String()
 }
 

@@ -442,7 +442,7 @@ async function syncDirtyEntries(): Promise<void> {
 		isSyncing: true,
 		currentDate: dirtyEntries[0].date,
 		status: 'saving',
-		message: 'Saving...'
+		message: '正在保存...'
 	});
 
 	const { saveDiary, getDiaryByDateResult } = await import('$lib/api/diaries');
@@ -452,7 +452,7 @@ async function syncDirtyEntries(): Promise<void> {
 	let failedDates: string[] = [];
 	let encounteredRetryable = false;
 	let encounteredNonRetryable = false;
-	let latestMessage = 'Saved';
+	let latestMessage = '已保存';
 
 	for (const entry of dirtyEntries) {
 		try {
@@ -460,6 +460,8 @@ async function syncDirtyEntries(): Promise<void> {
 				date: entry.date,
 				content: entry.content,
 				mood: entry.mood,
+				mood_states: entry.mood_states,
+				scenarios: entry.scenarios,
 				weather: entry.weather,
 				tags: entry.tags
 			});
@@ -509,7 +511,7 @@ async function syncDirtyEntries(): Promise<void> {
 			isSyncing: false,
 			currentDate: null,
 			status: 'saved',
-			message: 'Saved'
+			message: '已保存'
 		});
 
 		setTimeout(() => {
@@ -588,7 +590,7 @@ export async function forceSyncNow(): Promise<boolean> {
 		isSyncing: true,
 		currentDate: dirtyEntries[0].date,
 		status: 'saving',
-		message: 'Saving...'
+		message: '正在保存...'
 	});
 
 	const { saveDiary, getDiaryByDateResult } = await import('$lib/api/diaries');
@@ -602,6 +604,8 @@ export async function forceSyncNow(): Promise<boolean> {
 				date: entry.date,
 				content: entry.content,
 				mood: entry.mood,
+				mood_states: entry.mood_states,
+				scenarios: entry.scenarios,
 				weather: entry.weather,
 				tags: entry.tags
 			});
@@ -634,7 +638,7 @@ export async function forceSyncNow(): Promise<boolean> {
 		currentDate: null,
 		status: overallSuccess ? 'saved' : 'error',
 		message: overallSuccess
-			? 'Saved'
+			? '已保存'
 			: `已同步 ${syncedCount} 条，${failedCount} 条失败`
 	});
 
