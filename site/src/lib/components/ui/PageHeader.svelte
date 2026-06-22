@@ -1,9 +1,19 @@
 <script lang="ts">
 	import { page } from '$app/stores';
+	import { goto } from '$app/navigation';
+	import { searchDiaries } from '$lib/api/diaries';
+	import { moodToEmoji } from '$lib/utils/diaryEmoji';
 
 	export let title: string = '';
 	export let sticky: boolean = true;
 	export let showTitle: boolean = true;
+
+	let showSearchOverlay = false;
+	let searchQuery = '';
+	let searchResults: any[] = [];
+	let searchLoading = false;
+	let searchTimeout: ReturnType<typeof setTimeout>;
+	let searchInput: HTMLInputElement;
 
 	const navItems = [
 		{
@@ -16,13 +26,7 @@
 			href: '/filter',
 			label: '心情筛选',
 			match: (path: string) => path.startsWith('/filter'),
-			svg: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>`
-		},
-		{
-			href: '/search',
-			label: '搜索',
-			match: (path: string) => path.startsWith('/search'),
-			svg: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>`
+			svg: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>`
 		},
 		{
 			href: '/tags',
@@ -49,6 +53,63 @@
 			svg: `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>`
 		}
 	];
+
+	function openSearch() {
+		showSearchOverlay = true;
+		searchQuery = '';
+		searchResults = [];
+		setTimeout(() => searchInput?.focus(), 50);
+	}
+
+	function closeSearch() {
+		showSearchOverlay = false;
+		searchQuery = '';
+		searchResults = [];
+	}
+
+	function handleSearchInput() {
+		clearTimeout(searchTimeout);
+		if (searchQuery.trim().length < 2) {
+			searchResults = [];
+			return;
+		}
+		searchTimeout = setTimeout(async () => {
+			searchLoading = true;
+			try {
+				const data = await searchDiaries(searchQuery.trim());
+				searchResults = data.slice(0, 8).map((item: any) => ({
+					id: item.id,
+					date: item.date?.split(' ')[0] || item.date,
+					snippet: (item.snippet || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(),
+					mood: item.mood || 0
+				}));
+			} catch {
+				searchResults = [];
+			} finally {
+				searchLoading = false;
+			}
+		}, 300);
+	}
+
+	function goToSearch() {
+		if (searchQuery.trim()) {
+			goto(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
+			closeSearch();
+		}
+	}
+
+	function goToResult(date: string) {
+		goto(`/diary/${date}`);
+		closeSearch();
+	}
+
+	function handleKeydown(e: KeyboardEvent) {
+		if (e.key === 'Escape') {
+			closeSearch();
+		} else if (e.key === 'Enter' && searchQuery.trim()) {
+			goToSearch();
+		}
+	}
 </script>
 
 <header class="glass border-b border-border/50 flex-shrink-0 z-20 safe-top {sticky ? 'sticky top-0' : ''}">
@@ -61,18 +122,14 @@
 			</a>
 		</div>
 
-		<!-- 中间：标题
-		     · 桌面端（sm 及以上）：绝对定位，在整个 header 宽度上居中显示
-		     · 手机端（sm 以下）：在剩余空间内三栏 flex，避免与两侧导航图标重叠 -->
+		<!-- 中间：标题 -->
 		{#if showTitle && title}
-			<!-- 桌面：绝对居中 -->
 			<div class="hidden sm:flex absolute inset-0 items-center justify-center px-48 pointer-events-none">
 				<div class="flex items-center justify-center gap-2 min-w-0 max-w-full overflow-hidden pointer-events-auto">
 					<div class="text-sm font-medium text-foreground truncate">{title}</div>
 					<slot name="subtitle" />
 				</div>
 			</div>
-			<!-- 手机：flex 占剩余空间，在剩余空间内居中 -->
 			<div class="flex-1 min-w-0 flex sm:hidden items-center justify-center px-2">
 				<div class="flex items-center justify-center gap-2 min-w-0 max-w-full overflow-hidden">
 					<div class="text-sm font-medium text-foreground truncate">{title}</div>
@@ -97,7 +154,111 @@
 					{@html item.svg}
 				</a>
 			{/each}
+			<!-- 搜索按钮 -->
+			<button
+				onclick={openSearch}
+				class="p-2 rounded-lg transition-all duration-200 hover:bg-muted/50 text-foreground/70 hover:text-foreground"
+				title="搜索"
+				aria-label="搜索"
+			>
+				<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+			</button>
 			<slot name="actions" />
 		</div>
 	</div>
 </header>
+
+<!-- 搜索弹窗 -->
+{#if showSearchOverlay}
+	<div class="fixed inset-0 z-50 flex items-start justify-center pt-16 animate-fade-in-only">
+		<!-- 背景遮罩 -->
+		<button
+			class="absolute inset-0 bg-black/40 backdrop-blur-sm"
+			onclick={closeSearch}
+			aria-label="关闭搜索"
+		></button>
+
+		<!-- 搜索面板 -->
+		<div class="relative w-full max-w-lg mx-4 bg-card rounded-xl shadow-2xl border border-border/50 overflow-hidden animate-slide-down">
+			<!-- 搜索输入 -->
+			<div class="flex items-center gap-3 px-4 py-3 border-b border-border/50">
+				<svg class="w-5 h-5 text-muted-foreground flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+				</svg>
+				<input
+					bind:this={searchInput}
+					bind:value={searchQuery}
+					oninput={handleSearchInput}
+					onkeydown={handleKeydown}
+					type="text"
+					placeholder="搜索日记内容..."
+					class="flex-1 bg-transparent text-foreground placeholder:text-muted-foreground focus:outline-none text-sm"
+				/>
+				{#if searchQuery.length > 0}
+					<button
+						onclick={() => { searchQuery = ''; searchResults = []; }}
+						class="p-1 rounded hover:bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
+					>
+						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+						</svg>
+					</button>
+				{/if}
+				<button
+					onclick={closeSearch}
+					class="text-xs text-muted-foreground hover:text-foreground transition-colors"
+				>
+					ESC
+				</button>
+			</div>
+
+			<!-- 搜索结果 -->
+			{#if searchLoading}
+				<div class="px-4 py-6 text-center text-sm text-muted-foreground">
+					搜索中...
+				</div>
+			{:else if searchResults.length > 0}
+				<div class="max-h-80 overflow-y-auto">
+					{#each searchResults as result}
+						<button
+							onclick={() => goToResult(result.date)}
+							class="w-full text-left px-4 py-3 hover:bg-muted/50 transition-colors border-b border-border/30 last:border-0"
+						>
+							<div class="flex items-center gap-2 mb-1">
+								<span class="text-xs font-medium text-foreground">{result.date}</span>
+								{#if result.mood}
+									<span class="text-xs">{moodToEmoji(result.mood)}</span>
+								{/if}
+							</div>
+							<p class="text-xs text-muted-foreground line-clamp-1">{result.snippet}</p>
+						</button>
+					{/each}
+				</div>
+				<button
+					onclick={goToSearch}
+					class="w-full px-4 py-3 text-center text-sm text-primary hover:bg-muted/30 transition-colors border-t border-border/50"
+				>
+					查看全部搜索结果 →
+				</button>
+			{:else if searchQuery.length >= 2}
+				<div class="px-4 py-6 text-center text-sm text-muted-foreground">
+					未找到匹配的日记
+				</div>
+			{:else}
+				<div class="px-4 py-6 text-center text-sm text-muted-foreground">
+					输入至少 2 个字符开始搜索
+				</div>
+			{/if}
+		</div>
+	</div>
+{/if}
+
+<style>
+	.line-clamp-1 {
+		display: -webkit-box;
+		-webkit-line-clamp: 1;
+		line-clamp: 1;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+</style>
