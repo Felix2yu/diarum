@@ -8,6 +8,7 @@ export interface ExportOptions {
 	include_diaries: boolean;
 	include_media: boolean;
 	include_conversations: boolean;
+	include_analysis: boolean;
 }
 
 // Export count detail for each data type
@@ -73,7 +74,8 @@ export async function exportDiaries(options?: ExportOptions): Promise<ExportStat
 		date_range: '3m',
 		include_diaries: true,
 		include_media: true,
-		include_conversations: true
+		include_conversations: true,
+		include_analysis: false
 	};
 
 	const response = await fetch('/api/v1/export', {
