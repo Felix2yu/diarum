@@ -494,3 +494,24 @@ func TestResolveLocation(t *testing.T) {
 		t.Fatal("resolveLocation with empty TZ should not return nil")
 	}
 }
+
+func TestFormatDiariesForContextEmpty(t *testing.T) {
+	service := &ChatService{}
+	got := service.formatDiariesForContext(nil)
+	if got != "No diary entries found for the specified criteria." {
+		t.Fatalf("formatDiariesForContext nil = %q", got)
+	}
+	got = service.formatDiariesForContext([]embedding.DiarySearchResult{})
+	if got != "No diary entries found for the specified criteria." {
+		t.Fatalf("formatDiariesForContext empty = %q", got)
+	}
+}
+
+func TestUpdateConversationTitleNotFound(t *testing.T) {
+	s := newTestStore(t)
+	service := NewChatService(s, nil)
+	err := service.UpdateConversationTitle("nonexistent-id", "title")
+	if err == nil || !strings.Contains(err.Error(), "failed to find conversation") {
+		t.Fatalf("UpdateConversationTitle nonexistent = %v", err)
+	}
+}

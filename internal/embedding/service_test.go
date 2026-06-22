@@ -622,6 +622,20 @@ func TestVectorDBLifecycle(t *testing.T) {
 	}
 }
 
+func TestGetCollectionNonExistent(t *testing.T) {
+	db := newTestVectorDB(t)
+	if got := db.GetCollection("nonexistent-user"); got != nil {
+		t.Fatalf("GetCollection nonexistent = %v, want nil", got)
+	}
+}
+
+func TestDeleteCollectionNonExistent(t *testing.T) {
+	db := newTestVectorDB(t)
+	if err := db.DeleteCollection("nonexistent-user"); err != nil {
+		t.Fatalf("DeleteCollection nonexistent: %v", err)
+	}
+}
+
 func TestCreateEmbeddingFuncMissingConfigs(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)

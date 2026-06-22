@@ -2408,3 +2408,248 @@ func TestGetRandomDiaryWithMoodStates(t *testing.T) {
 		t.Fatalf("MoodStates = %v", d.MoodStates)
 	}
 }
+
+func TestNormalizeTags(t *testing.T) {
+	if got := normalizeTags([]string{"a", " b ", "a", "", "c"}); len(got) != 3 || got[0] != "a" || got[1] != "b" || got[2] != "c" {
+		t.Fatalf("normalizeTags = %#v", got)
+	}
+	if got := normalizeTags(nil); len(got) != 0 {
+		t.Fatalf("normalizeTags nil = %#v", got)
+	}
+	if got := normalizeTags([]string{"", "  ", ""}); len(got) != 0 {
+		t.Fatalf("normalizeTags all-empty = %#v", got)
+	}
+}
+
+func TestSavePeriodAnalysisUpdate(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	a1, err := s.SavePeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", 5, "summary1", "sp1", "up1", "")
+	if err != nil {
+		t.Fatalf("SavePeriodAnalysis first: %v", err)
+	}
+	if a1 == nil || a1.Summary != "summary1" {
+		t.Fatalf("first save = %#v", a1)
+	}
+
+	a2, err := s.SavePeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", 5, "summary2", "sp2", "up2", "")
+	if err != nil {
+		t.Fatalf("SavePeriodAnalysis update: %v", err)
+	}
+	if a2 == nil || a2.Summary != "summary2" {
+		t.Fatalf("update save = %#v", a2)
+	}
+	if a2.ID != a1.ID {
+		t.Fatalf("update should reuse ID: %s != %s", a2.ID, a1.ID)
+	}
+}
+
+func TestSavePeriodAnalysisWithKeywords(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_, err := s.SavePeriodAnalysis(user.ID, "month", "2024-01-01", "2024-01-31", 3, "kw summary", "", "", "travel,work")
+	if err != nil {
+		t.Fatalf("SavePeriodAnalysis with keywords: %v", err)
+	}
+	a, err := s.GetPeriodAnalysis(user.ID, "month", "2024-01-01", "2024-01-31", "travel,work")
+	if err != nil {
+		t.Fatalf("GetPeriodAnalysis: %v", err)
+	}
+	if a.Keywords != "travel,work" {
+		t.Fatalf("Keywords = %q, want travel,work", a.Keywords)
+	}
+}
+
+func TestListSavedAnalysesFilters(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_, _ = s.SavePeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", 1, "w1", "", "", "")
+	_, _ = s.SavePeriodAnalysis(user.ID, "month", "2024-01-01", "2024-01-31", 2, "m1", "", "", "")
+
+	all, err := s.ListSavedAnalyses(user.ID, "", 100)
+	if err != nil {
+		t.Fatalf("ListSavedAnalyses all: %v", err)
+	}
+	if len(all) != 2 {
+		t.Fatalf("ListSavedAnalyses all = %d, want 2", len(all))
+	}
+
+	weeks, err := s.ListSavedAnalyses(user.ID, "week", 100)
+	if err != nil {
+		t.Fatalf("ListSavedAnalyses week: %v", err)
+	}
+	if len(weeks) != 1 {
+		t.Fatalf("ListSavedAnalyses week = %d, want 1", len(weeks))
+	}
+
+	none, err := s.ListSavedAnalyses(user.ID, "custom", 100)
+	if err != nil {
+		t.Fatalf("ListSavedAnalyses custom: %v", err)
+	}
+	if len(none) != 0 {
+		t.Fatalf("ListSavedAnalyses custom = %d, want 0", len(none))
+	}
+
+	limitResult, err := s.ListSavedAnalyses(user.ID, "all", 1)
+	if err != nil {
+		t.Fatalf("ListSavedAnalyses limit: %v", err)
+	}
+	if len(limitResult) != 1 {
+		t.Fatalf("ListSavedAnalyses limit = %d, want 1", len(limitResult))
+	}
+}
+
+func TestGetPeriodAnalysisNotFound(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_, err := s.GetPeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", "")
+	if err == nil {
+		t.Fatal("GetPeriodAnalysis should fail for missing record")
+	}
+}
+
+func TestCreateMediaAndMessage(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	media, err := s.CreateMedia(user.ID, "photo.png", "Photo", "Alt text", nil)
+	if err != nil {
+		t.Fatalf("CreateMedia: %v", err)
+	}
+	if media.ID == "" || media.File != "photo.png" {
+		t.Fatalf("CreateMedia = %#v", media)
+	}
+
+	conv, err := s.CreateConversation(user.ID, "Test Conv")
+	if err != nil {
+		t.Fatalf("CreateConversation: %v", err)
+	}
+	if conv.Title != "Test Conv" {
+		t.Fatalf("CreateConversation title = %q", conv.Title)
+	}
+
+	msg, err := s.CreateMessage(user.ID, conv.ID, "user", "hello world", []string{media.ID})
+	if err != nil {
+		t.Fatalf("CreateMessage: %v", err)
+	}
+	if msg.Role != "user" || msg.Content != "hello world" {
+		t.Fatalf("CreateMessage = %#v", msg)
+	}
+	if len(msg.ReferencedDiaries) != 1 || msg.ReferencedDiaries[0] != media.ID {
+		t.Fatalf("CreateMessage refs = %v", msg.ReferencedDiaries)
+	}
+}
+
+func TestUserLocalMediaDirPaths(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	defaultDir := s.userLocalMediaDir(user.ID)
+	if defaultDir != filepath.Join(s.DataDir, "storage", DefaultMediaCollectionID) {
+		t.Fatalf("default userLocalMediaDir = %q", defaultDir)
+	}
+
+	if err := s.SetSetting(user.ID, "image_upload.local.path", "/custom/path", false); err != nil {
+		t.Fatalf("SetSetting: %v", err)
+	}
+	customDir := s.userLocalMediaDir(user.ID)
+	if customDir != "/custom/path" {
+		t.Fatalf("custom userLocalMediaDir = %q, want /custom/path", customDir)
+	}
+
+	if err := s.SetSetting(user.ID, "image_upload.local.path", "relative/path", false); err != nil {
+		t.Fatalf("SetSetting: %v", err)
+	}
+	relDir := s.userLocalMediaDir(user.ID)
+	if relDir != filepath.Join(s.DataDir, "relative/path") {
+		t.Fatalf("relative userLocalMediaDir = %q", relDir)
+	}
+
+	emptyUserDir := s.userLocalMediaDir("")
+	if emptyUserDir != filepath.Join(s.DataDir, "storage", DefaultMediaCollectionID) {
+		t.Fatalf("empty user userLocalMediaDir = %q", emptyUserDir)
+	}
+}
+
+func TestSetSettingAndGetSettings(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	if err := s.SetSetting(user.ID, "test.key", "test-value", false); err != nil {
+		t.Fatalf("SetSetting: %v", err)
+	}
+	val, err := s.GetSetting(user.ID, "test.key")
+	if err != nil {
+		t.Fatalf("GetSetting: %v", err)
+	}
+	if val != "test-value" {
+		t.Fatalf("GetSetting = %v, want test-value", val)
+	}
+
+	all, err := s.GetSettings(user.ID)
+	if err != nil {
+		t.Fatalf("GetSettings: %v", err)
+	}
+	if all["test.key"] != "test-value" {
+		t.Fatalf("GetSettings test.key = %v", all["test.key"])
+	}
+
+	if err := s.DeleteSetting(user.ID, "test.key"); err != nil {
+		t.Fatalf("DeleteSetting: %v", err)
+	}
+	deleted, err := s.GetSetting(user.ID, "test.key")
+	if err == nil && deleted != nil {
+		t.Fatalf("GetSetting after delete = %v, want nil", deleted)
+	}
+}
+
+func TestUserSettingHelpers(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_ = s.SetSetting(user.ID, "str.key", "hello", false)
+	if got := s.userStringSetting(user.ID, "str.key"); got != "hello" {
+		t.Fatalf("userStringSetting = %q", got)
+	}
+	if got := s.userStringSetting(user.ID, "missing"); got != "" {
+		t.Fatalf("userStringSetting missing = %q", got)
+	}
+
+	_ = s.SetSetting(user.ID, "bool.key", true, false)
+	if !s.userBoolSetting(user.ID, "bool.key") {
+		t.Fatal("userBoolSetting should be true")
+	}
+	if s.userBoolSetting(user.ID, "missing") {
+		t.Fatal("userBoolSetting missing should be false")
+	}
+}
+
+func TestValidateAPITokenDisabled(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_ = s.SetSetting(user.ID, "api.token", "my-token", false)
+	_ = s.SetSetting(user.ID, "api.enabled", false, false)
+
+	_, err := s.ValidateAPIToken("my-token")
+	if err == nil || err.Error() != "api disabled" {
+		t.Fatalf("ValidateAPIToken disabled = %v, want 'api disabled'", err)
+	}
+}
+
+func TestListMediaEmptyOwner(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	items, total, err := s.ListMedia(user.ID, 1, 10)
+	if err != nil {
+		t.Fatalf("ListMedia: %v", err)
+	}
+	if total != 0 || len(items) != 0 {
+		t.Fatalf("ListMedia empty = total=%d, items=%d", total, len(items))
+	}
+}
