@@ -147,7 +147,14 @@
 	let isDragOver = false;
 
 	// Export options
-	let exportOptions: ExportOptions = {
+	const EXPORT_OPTIONS_KEY = 'diarum_export_options';
+	const savedExportOptions = (() => {
+		try {
+			const raw = localStorage.getItem(EXPORT_OPTIONS_KEY);
+			return raw ? JSON.parse(raw) : null;
+		} catch { return null; }
+	})();
+	let exportOptions: ExportOptions = savedExportOptions || {
 		date_range: '3m',
 		include_diaries: true,
 		include_media: true,
@@ -157,6 +164,10 @@
 	let customStartDate = '';
 	let customEndDate = '';
 	let showExportOptions = true;
+
+	function persistExportOptions() {
+		try { localStorage.setItem(EXPORT_OPTIONS_KEY, JSON.stringify(exportOptions)); } catch {}
+	}
 
 	async function loadTokenStatus() {
 		tokenStatus = await getApiToken();
@@ -1821,6 +1832,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 										<select
 											id="export-date-range"
 											bind:value={exportOptions.date_range}
+											onchange={persistExportOptions}
 											class="w-full pl-3 pr-9 py-2 bg-background rounded-lg text-sm text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
 										>
 											<option value="1m">过去 1 个月</option>
@@ -1864,20 +1876,20 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									<div class="block text-sm font-medium text-foreground mb-2">要导出的内容</div>
 									<div class="space-y-2">
 										<label class="flex items-center gap-2 cursor-pointer">
-											<input type="checkbox" bind:checked={exportOptions.include_diaries} class="rounded" />
+											<input type="checkbox" bind:checked={exportOptions.include_diaries} onchange={persistExportOptions} class="rounded" />
 											<span class="text-sm text-foreground">日记</span>
 										</label>
 										<label class="flex items-center gap-2 cursor-pointer">
-											<input type="checkbox" bind:checked={exportOptions.include_media} class="rounded" />
+											<input type="checkbox" bind:checked={exportOptions.include_media} onchange={persistExportOptions} class="rounded" />
 											<span class="text-sm text-foreground">媒体文件</span>
 										</label>
 										<label class="flex items-center gap-2 cursor-pointer">
-											<input type="checkbox" bind:checked={exportOptions.include_conversations} class="rounded" />
-											<span class="text-sm text-foreground">AI 对话</span>
+											<input type="checkbox" bind:checked={exportOptions.include_analysis} onchange={persistExportOptions} class="rounded" />
+											<span class="text-sm text-foreground">分析报告</span>
 										</label>
 										<label class="flex items-center gap-2 cursor-pointer">
-											<input type="checkbox" bind:checked={exportOptions.include_analysis} class="rounded" />
-											<span class="text-sm text-foreground">AI 分析报告</span>
+											<input type="checkbox" bind:checked={exportOptions.include_conversations} onchange={persistExportOptions} class="rounded" />
+											<span class="text-sm text-foreground">AI 对话</span>
 										</label>
 									</div>
 								</div>
