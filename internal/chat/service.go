@@ -190,6 +190,7 @@ func (s *ChatService) SearchDiariesByDateRange(ctx context.Context, userID strin
 			Content:    diary.Content,
 			Mood:       diary.Mood,
 			MoodStates: diary.MoodStates,
+			Scenarios:  diary.Scenarios,
 			Weather:    diary.Weather,
 		})
 	}

@@ -380,6 +380,7 @@ type DiarySearchResult struct {
 	Content    string   `json:"content"`
 	Mood       int      `json:"mood,omitempty"`
 	MoodStates []string `json:"mood_states,omitempty"`
+	Scenarios  []string `json:"scenarios,omitempty"`
 	Weather    string   `json:"weather,omitempty"`
 	Score      float32  `json:"score"`
 }
@@ -431,12 +432,15 @@ func (s *EmbeddingService) QuerySimilar(ctx context.Context, userID, query strin
 		fmt.Sscanf(result.Metadata["mood"], "%d", &moodInt)
 		var moodStates []string
 		_ = json.Unmarshal([]byte(result.Metadata["mood_states"]), &moodStates)
+		var scenarios []string
+		_ = json.Unmarshal([]byte(result.Metadata["scenarios"]), &scenarios)
 		searchResults = append(searchResults, DiarySearchResult{
 			ID:         result.ID,
 			Date:       result.Metadata["date"],
 			Content:    result.Content,
 			Mood:       moodInt,
 			MoodStates: moodStates,
+			Scenarios:  scenarios,
 			Weather:    result.Metadata["weather"],
 			Score:      result.Similarity,
 		})
