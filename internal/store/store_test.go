@@ -2250,6 +2250,57 @@ func TestListTagCountsAndDiariesByTag(t *testing.T) {
 	}
 }
 
+func TestFilterDiaries(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	if _, err := s.InsertImportedDiary(user.ID, "", "2024-01-01", "happy day", 4, nil, []string{"工作"}, "sunny", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.InsertImportedDiary(user.ID, "", "2024-01-02", "sad day", 2, nil, []string{"家人"}, "rain", nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.InsertImportedDiary(user.ID, "", "2024-01-03", "work day", 4, nil, []string{"工作", "健身"}, "cloudy", nil); err != nil {
+		t.Fatal(err)
+	}
+
+	// Filter by mood
+	results, err := s.FilterDiaries(user.ID, 4, "", 100)
+	if err != nil {
+		t.Fatalf("FilterDiaries mood: %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("FilterDiaries mood len = %d, want 2", len(results))
+	}
+
+	// Filter by scenario
+	results, err = s.FilterDiaries(user.ID, 0, "工作", 100)
+	if err != nil {
+		t.Fatalf("FilterDiaries scenario: %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("FilterDiaries scenario len = %d, want 2", len(results))
+	}
+
+	// Filter by both
+	results, err = s.FilterDiaries(user.ID, 4, "工作", 100)
+	if err != nil {
+		t.Fatalf("FilterDiaries both: %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("FilterDiaries both len = %d, want 2", len(results))
+	}
+
+	// No match
+	results, err = s.FilterDiaries(user.ID, 1, "", 100)
+	if err != nil {
+		t.Fatalf("FilterDiaries no match: %v", err)
+	}
+	if len(results) != 0 {
+		t.Fatalf("FilterDiaries no match len = %d, want 0", len(results))
+	}
+}
+
 func TestPeriodAnalysisCRUD(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
