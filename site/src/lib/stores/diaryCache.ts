@@ -460,6 +460,8 @@ async function syncDirtyEntries(): Promise<void> {
 				date: entry.date,
 				content: entry.content,
 				mood: entry.mood,
+				mood_states: entry.mood_states,
+				scenarios: entry.scenarios,
 				weather: entry.weather,
 				tags: entry.tags
 			});
@@ -602,6 +604,8 @@ export async function forceSyncNow(): Promise<boolean> {
 				date: entry.date,
 				content: entry.content,
 				mood: entry.mood,
+				mood_states: entry.mood_states,
+				scenarios: entry.scenarios,
 				weather: entry.weather,
 				tags: entry.tags
 			});
