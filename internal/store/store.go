@@ -1217,18 +1217,10 @@ func scanDiary(row interface{ Scan(dest ...any) error }) (*Diary, error) {
 func scanDiaries(rows *sql.Rows) ([]*Diary, error) {
 	items := make([]*Diary, 0)
 	for rows.Next() {
-		item := &Diary{}
-		var tagsRaw string
-		var moodStatesRaw string
-		var scenariosRaw string
-		var moodVal int
-		if err := rows.Scan(&item.Content, &item.Created, &item.Date, &item.ID, &moodVal, &moodStatesRaw, &scenariosRaw, &item.Owner, &item.Updated, &item.Weather, &tagsRaw); err != nil {
+		item, err := scanDiary(rows)
+		if err != nil {
 			return nil, err
 		}
-		item.Mood = moodVal
-		item.MoodStates = decodeStringSlice(moodStatesRaw)
-		item.Scenarios = decodeStringSlice(scenariosRaw)
-		item.Tags = decodeStringSlice(tagsRaw)
 		items = append(items, item)
 	}
 	return items, rows.Err()
@@ -1516,7 +1508,7 @@ func (s *Store) ListMedia(owner string, page, perPage int) ([]MediaWithExpand, i
 	items := make([]MediaWithExpand, 0)
 	diaryIDs := make(map[string]struct{})
 	for rows.Next() {
-		media, err := scanMediaRow(rows)
+		media, err := scanMedia(rows)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -1527,9 +1519,6 @@ func (s *Store) ListMedia(owner string, page, perPage int) ([]MediaWithExpand, i
 		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, 0, err
-	}
-	if err := rows.Close(); err != nil {
 		return nil, 0, err
 	}
 
@@ -1620,10 +1609,6 @@ func scanMedia(row interface{ Scan(dest ...any) error }) (*Media, error) {
 	return media, nil
 }
 
-func scanMediaRow(rows *sql.Rows) (*Media, error) {
-	return scanMedia(rows)
-}
-
 func (s *Store) MediaFilePath(media *Media) string {
 	candidates := s.mediaFileCandidates(media)
 	for _, candidate := range candidates {
@@ -1643,7 +1628,7 @@ func (s *Store) mediaFileCandidates(media *Media) []string {
 		filepath.Join(s.DataDir, "storage", s.MediaCollectionID, media.ID, media.File),
 		filepath.Join(s.DataDir, "storage", DefaultMediaCollectionID, media.ID, media.File),
 	}
-	if media != nil && media.Owner != "" {
+	if media.Owner != "" {
 		candidates = append([]string{filepath.Join(s.userLocalMediaDir(media.Owner), media.ID, media.File)}, candidates...)
 	}
 	return uniqueStrings(candidates)
@@ -1856,7 +1841,7 @@ func (s *Store) ListMessages(conversationID string, limit int) ([]*Message, erro
 	defer rows.Close()
 	items := make([]*Message, 0)
 	for rows.Next() {
-		item, err := scanMessageRow(rows)
+		item, err := scanMessage(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -1888,11 +1873,16 @@ func (s *Store) InsertImportedMessage(owner, id, conversationID, role, content s
 	if err != nil {
 		return nil, err
 	}
-	return s.GetMessage(id)
-}
-
-func (s *Store) GetMessage(id string) (*Message, error) {
-	return scanMessage(s.DB.QueryRow(`SELECT content, conversation, created, id, owner, referenced_diaries, role, updated FROM ai_messages WHERE id = ?`, id))
+	return &Message{
+		ID:                id,
+		Conversation:      conversationID,
+		Role:              role,
+		Content:           content,
+		ReferencedDiaries: referenced,
+		Owner:             owner,
+		Created:           now,
+		Updated:           now,
+	}, nil
 }
 
 func scanMessage(row interface{ Scan(dest ...any) error }) (*Message, error) {
@@ -1906,10 +1896,6 @@ func scanMessage(row interface{ Scan(dest ...any) error }) (*Message, error) {
 		msg.ReferencedDiaries = decodeStringSlice(refs.String)
 	}
 	return msg, nil
-}
-
-func scanMessageRow(rows *sql.Rows) (*Message, error) {
-	return scanMessage(rows)
 }
 
 func (s *Store) InsertImportedDiary(owner, id, date, content string, mood int, moodStates []string, scenarios []string, weather string, tags []string) (*Diary, error) {
@@ -1951,14 +1937,15 @@ func (s *Store) SaveUploadedMedia(media *Media, reader io.Reader) error {
 	if media == nil {
 		return fmt.Errorf("media is required")
 	}
-	if s.imageUploadProvider(media.Owner) == "s3" {
+	provider := s.imageUploadProvider(media.Owner)
+	if provider == "s3" {
 		cfg := s.userS3Config(media.Owner)
 		if cfg == nil {
 			return fmt.Errorf("s3 settings are incomplete")
 		}
 		return s.saveMediaToS3(cfg, media, reader)
 	}
-	if s.imageUploadProvider(media.Owner) == "chevereto" {
+	if provider == "chevereto" {
 		return fmt.Errorf("chevereto uploads must use the chevereto upload endpoint")
 	}
 	return s.SaveUploadedFile(filepath.Join(s.userLocalMediaDir(media.Owner), media.ID, media.File), reader)
@@ -2143,14 +2130,4 @@ func TotalPages(total, perPage int) int {
 	return pages
 }
 
-func NormalizeDate(date string) string {
-	return DateOnly(date)
-}
 
-func IsNoRows(err error) bool {
-	return errors.Is(err, sql.ErrNoRows)
-}
-
-func Errorf(format string, args ...any) error {
-	return fmt.Errorf(format, args...)
-}

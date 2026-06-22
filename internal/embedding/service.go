@@ -25,11 +25,10 @@ type EmbeddingService struct {
 
 // BuildResult represents the result of a build operation
 type BuildResult struct {
-	Success      int      `json:"success"`
-	Failed       int      `json:"failed"`
-	Total        int      `json:"total"`
-	Errors       []string `json:"errors,omitempty"`
-	ErrorDetails []string `json:"error_details,omitempty"`
+	Success int      `json:"success"`
+	Failed  int      `json:"failed"`
+	Total   int      `json:"total"`
+	Errors  []string `json:"errors,omitempty"`
 }
 
 // VectorStats represents statistics about the vector index
@@ -182,9 +181,8 @@ func (s *EmbeddingService) BuildAllVectors(ctx context.Context, userID string) (
 	}
 
 	result := &BuildResult{
-		Total:        len(diaries),
-		Errors:       make([]string, 0),
-		ErrorDetails: make([]string, 0),
+		Total:  len(diaries),
+		Errors: make([]string, 0),
 	}
 
 	if len(diaries) == 0 {
@@ -196,11 +194,9 @@ func (s *EmbeddingService) BuildAllVectors(ctx context.Context, userID string) (
 	for _, diary := range diaries {
 		if err := s.processDiary(ctx, collection, diary, embeddingFunc); err != nil {
 			result.Failed++
-			dateStr := extractDate(diary.Date)
-			errMsg := fmt.Sprintf("Diary %s: %v", dateStr, err)
+			dateStr := store.DateOnly(diary.Date)
 			result.Errors = append(result.Errors, dateStr)
-			result.ErrorDetails = append(result.ErrorDetails, errMsg)
-			logger.Error("[EmbeddingService] %s", errMsg)
+			logger.Error("[EmbeddingService] Diary %s: %v", dateStr, err)
 		} else {
 			result.Success++
 		}
@@ -241,9 +237,8 @@ func (s *EmbeddingService) BuildIncrementalVectors(ctx context.Context, userID s
 	}
 
 	result := &BuildResult{
-		Total:        len(diaries),
-		Errors:       make([]string, 0),
-		ErrorDetails: make([]string, 0),
+		Total:  len(diaries),
+		Errors: make([]string, 0),
 	}
 
 	if len(diaries) == 0 {
@@ -261,11 +256,9 @@ func (s *EmbeddingService) BuildIncrementalVectors(ctx context.Context, userID s
 
 		if err := s.processDiary(ctx, collection, diary, embeddingFunc); err != nil {
 			result.Failed++
-			dateStr := extractDate(diary.Date)
-			errMsg := fmt.Sprintf("Diary %s: %v", dateStr, err)
+			dateStr := store.DateOnly(diary.Date)
 			result.Errors = append(result.Errors, dateStr)
-			result.ErrorDetails = append(result.ErrorDetails, errMsg)
-			logger.Error("[EmbeddingService] %s", errMsg)
+			logger.Error("[EmbeddingService] Diary %s: %v", dateStr, err)
 		} else {
 			result.Success++
 		}
@@ -285,7 +278,7 @@ func (s *EmbeddingService) processDiary(ctx context.Context, collection *chromem
 	}
 
 	diaryID := diary.ID
-	dateStr := extractDate(diary.Date)
+	dateStr := store.DateOnly(diary.Date)
 	mood := diary.Mood
 	moodStatesJSON, _ := json.Marshal(diary.MoodStates)
 	scenariosJSON, _ := json.Marshal(diary.Scenarios)
@@ -319,14 +312,6 @@ func (s *EmbeddingService) processDiary(ctx context.Context, collection *chromem
 	}
 
 	return nil
-}
-
-// extractDate extracts the date part from a timestamp string
-func extractDate(dateTime string) string {
-	if len(dateTime) >= 10 {
-		return dateTime[:10]
-	}
-	return dateTime
 }
 
 func parseStoreTime(value string) (time.Time, error) {

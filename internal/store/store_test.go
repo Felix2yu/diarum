@@ -280,12 +280,8 @@ func TestStoreUserDiarySettingsConversationFlows(t *testing.T) {
 	if _, err := s.InsertImportedMessage(user.ID, "", conv.ID, "assistant", "bad", nil); err == nil {
 		t.Fatal("InsertImportedMessage should require ID")
 	}
-	gotMsg, err := s.GetMessage(msg.ID)
-	if err != nil {
-		t.Fatalf("GetMessage: %v", err)
-	}
-	if len(gotMsg.ReferencedDiaries) != 1 || gotMsg.ReferencedDiaries[0] != created.ID {
-		t.Fatalf("GetMessage referenced diaries = %#v", gotMsg.ReferencedDiaries)
+	if len(msg.ReferencedDiaries) != 1 || msg.ReferencedDiaries[0] != created.ID {
+		t.Fatalf("CreateMessage referenced diaries = %#v", msg.ReferencedDiaries)
 	}
 	messageCount, err := s.CountMessages(conv.ID)
 	if err != nil {
@@ -511,9 +507,6 @@ func TestStoreS3AndHelperFunctions(t *testing.T) {
 	if got := TotalPages(11, 10); got != 2 {
 		t.Fatalf("TotalPages = %d, want 2", got)
 	}
-	if got := NormalizeDate("2024-01-02T03:04:05Z"); got != "2024-01-02" {
-		t.Fatalf("NormalizeDate = %q, want 2024-01-02", got)
-	}
 	if got := DateOnly("2024-01-02 03:04:05.000Z"); got != "2024-01-02" {
 		t.Fatalf("DateOnly = %q, want 2024-01-02", got)
 	}
@@ -556,12 +549,6 @@ func TestStoreS3AndHelperFunctions(t *testing.T) {
 	}
 	if !isMissingLegacyTableError(fmt.Errorf("no such table: demo")) {
 		t.Fatal("isMissingLegacyTableError should match")
-	}
-	if !IsNoRows(sql.ErrNoRows) || IsNoRows(errors.New("other")) {
-		t.Fatal("IsNoRows results unexpected")
-	}
-	if err := Errorf("wrapped %s", "error"); err == nil || err.Error() != "wrapped error" {
-		t.Fatalf("Errorf = %v", err)
 	}
 
 	srcDir := t.TempDir()
@@ -653,7 +640,6 @@ func TestStoreClosedDatabaseErrorBranches(t *testing.T) {
 		{"CountMessages", func() error { _, err := s.CountMessages(conv.ID); return err }},
 		{"CreateMessage", func() error { _, err := s.CreateMessage(user.ID, conv.ID, "user", "x", nil); return err }},
 		{"InsertImportedMessage", func() error { _, err := s.InsertImportedMessage(user.ID, "x", conv.ID, "user", "x", nil); return err }},
-		{"GetMessage", func() error { _, err := s.GetMessage(msg.ID); return err }},
 		{"InsertImportedDiary", func() error { _, err := s.InsertImportedDiary(user.ID, "x", "2024-01-03", "x", 0, nil, nil, "", nil); return err }},
 	}
 	for _, check := range checks {

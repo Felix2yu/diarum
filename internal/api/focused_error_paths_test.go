@@ -687,7 +687,6 @@ func TestImportTriggersEmbeddingBranch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewVectorDB: %v", err)
 	}
-	t.Cleanup(func() { _ = vectorDB.Close() })
 	service := embedding.NewEmbeddingService(s, vectorDB)
 	if err := config.NewConfigService(s).Set(user.ID, "ai.enabled", true); err != nil {
 		t.Fatalf("Set ai.enabled: %v", err)
@@ -955,7 +954,6 @@ func TestResolveConflictWithEmbedding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewVectorDB: %v", err)
 	}
-	t.Cleanup(func() { _ = vectorDB.Close() })
 	service := embedding.NewEmbeddingService(s, vectorDB)
 	if err := config.NewConfigService(s).Set(user.ID, "ai.enabled", true); err != nil {
 		t.Fatalf("Set ai.enabled: %v", err)

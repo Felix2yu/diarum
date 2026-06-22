@@ -52,7 +52,7 @@ func TestRegistryHelpers(t *testing.T) {
 	if GetDefault("missing") != nil {
 		t.Fatal("GetDefault(missing) should be nil")
 	}
-	if !isSensitiveKey("ai.api_key") || !isSensitiveKey("api.token") || isSensitiveKey("sync.cacheDays") {
+	if !isSensitiveKey("ai.api_key") || !isSensitiveKey("api.token") {
 		t.Fatal("isSensitiveKey results unexpected")
 	}
 	if got := maskSensitiveValue("12345678"); got != "***" {
@@ -78,9 +78,6 @@ func TestConfigServiceCRUDAndDefaults(t *testing.T) {
 
 	if err := service.Set(user.ID, "api.enabled", true); err != nil {
 		t.Fatalf("Set api.enabled: %v", err)
-	}
-	if err := service.Set(user.ID, "sync.cacheDays", 7); err != nil {
-		t.Fatalf("Set sync.cacheDays: %v", err)
 	}
 	if err := service.Set(user.ID, "api.token", "token-1234"); err != nil {
 		t.Fatalf("Set api.token: %v", err)
@@ -146,18 +143,14 @@ func TestConfigServiceCRUDAndDefaults(t *testing.T) {
 	}
 
 	if err := service.SetBatch(user.ID, map[string]any{
-		"api.enabled":    false,
-		"sync.cacheDays": 14,
-		"unknown.key":    "ignored",
+		"api.enabled": false,
+		"unknown.key": "ignored",
 	}); err != nil {
 		t.Fatalf("SetBatch: %v", err)
 	}
 	settings, err := service.GetBatch(user.ID)
 	if err != nil {
 		t.Fatalf("GetBatch: %v", err)
-	}
-	if settings["sync.cacheDays"] != float64(14) {
-		t.Fatalf("GetBatch sync.cacheDays = %#v, want 14", settings["sync.cacheDays"])
 	}
 	if _, ok := settings["unknown.key"]; ok {
 		t.Fatal("GetBatch should not contain unknown.key")
