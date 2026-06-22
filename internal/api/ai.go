@@ -678,6 +678,9 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			if d.Mood != 0 {
 				sb.WriteString(fmt.Sprintf("心情：%s\n", store.MoodToEmoji(d.Mood)))
 			}
+			if len(d.MoodStates) > 0 {
+				sb.WriteString(fmt.Sprintf("心情状态：%s\n", strings.Join(d.MoodStates, ", ")))
+			}
 			if d.Weather != "" {
 				sb.WriteString(fmt.Sprintf("天气：%s\n", d.Weather))
 			}

@@ -287,6 +287,7 @@ func (s *EmbeddingService) processDiary(ctx context.Context, collection *chromem
 	diaryID := diary.ID
 	dateStr := extractDate(diary.Date)
 	mood := diary.Mood
+	moodStatesJSON, _ := json.Marshal(diary.MoodStates)
 	weather := diary.Weather
 	builtAt := time.Now().UTC().Format(time.RFC3339Nano)
 
@@ -302,10 +303,11 @@ func (s *EmbeddingService) processDiary(ctx context.Context, collection *chromem
 		Content:   content,
 		Embedding: embedding,
 		Metadata: map[string]string{
-			"date":     dateStr,
-			"mood":     fmt.Sprintf("%d", mood),
-			"weather":  weather,
-			"built_at": builtAt,
+			"date":        dateStr,
+			"mood":        fmt.Sprintf("%d", mood),
+			"mood_states": string(moodStatesJSON),
+			"weather":     weather,
+			"built_at":    builtAt,
 		},
 	}
 

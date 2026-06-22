@@ -55,11 +55,12 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 		}
 
 		var body struct {
-			Date    string   `json:"date"`
-			Content string   `json:"content"`
-			Mood    int      `json:"mood"`
-			Weather string   `json:"weather"`
-			Tags    []string `json:"tags"`
+			Date       string   `json:"date"`
+			Content    string   `json:"content"`
+			Mood       int      `json:"mood"`
+			MoodStates []string `json:"mood_states"`
+			Weather    string   `json:"weather"`
+			Tags       []string `json:"tags"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
@@ -71,7 +72,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			body.Tags = []string{}
 		}
 
-		diary, created, err := s.UpsertDiary(userId, body.Date, body.Content, body.Mood, body.Weather, body.Tags)
+		diary, created, err := s.UpsertDiary(userId, body.Date, body.Content, body.Mood, body.MoodStates, body.Weather, body.Tags)
 		if err != nil {
 			return serverError("Failed to save diary", err)
 		}
@@ -96,10 +97,11 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 		}
 
 		var body struct {
-			Content string   `json:"content"`
-			Mood    int      `json:"mood"`
-			Weather string   `json:"weather"`
-			Tags    []string `json:"tags"`
+			Content    string   `json:"content"`
+			Mood       int      `json:"mood"`
+			MoodStates []string `json:"mood_states"`
+			Weather    string   `json:"weather"`
+			Tags       []string `json:"tags"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
@@ -113,6 +115,10 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 		if mood == 0 {
 			mood = existing.Mood
 		}
+		moodStates := body.MoodStates
+		if moodStates == nil {
+			moodStates = existing.MoodStates
+		}
 		weather := body.Weather
 		if weather == "" {
 			weather = existing.Weather
@@ -122,7 +128,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			tags = existing.Tags
 		}
 
-		diary, _, err := s.UpsertDiary(userId, store.DateOnly(existing.Date), content, mood, weather, tags)
+		diary, _, err := s.UpsertDiary(userId, store.DateOnly(existing.Date), content, mood, moodStates, weather, tags)
 		if err != nil {
 			return serverError("Failed to update diary", err)
 		}

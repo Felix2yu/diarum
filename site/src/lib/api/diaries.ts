@@ -194,12 +194,14 @@ export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
 		// but mood/weather still have values on the server.
 		const effectiveContent = diary.content !== undefined ? diary.content : existing?.content;
 		const effectiveMood = diary.mood !== undefined ? diary.mood : existing?.mood;
+		const effectiveMoodStates = diary.mood_states !== undefined ? diary.mood_states : existing?.mood_states ?? [];
 		const effectiveWeather = diary.weather !== undefined ? diary.weather : existing?.weather;
 		const effectiveTags = diary.tags !== undefined ? diary.tags : existing?.tags ?? [];
 
 	const allEmpty =
 		isContentEmpty(effectiveContent) &&
 		!effectiveMood &&
+		!effectiveMoodStates?.length &&
 		!effectiveWeather?.trim() &&
 		(effectiveTags.length === 0);
 
@@ -224,7 +226,8 @@ export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
 			body: JSON.stringify({
 				date: diary.date,
 				content: diary.content ?? existing?.content ?? '',
-				mood: diary.mood ?? existing?.mood ?? '',
+				mood: diary.mood ?? existing?.mood ?? 0,
+				mood_states: effectiveMoodStates,
 				weather: diary.weather ?? existing?.weather ?? '',
 				tags: effectiveTags
 			})

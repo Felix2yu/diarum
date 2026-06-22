@@ -13,6 +13,7 @@ import { checkOnlineStatus, initOnlineStatus } from './onlineStatus';
 export interface CacheEntry {
 	content: string;
 	mood: number;
+	mood_states: string[];
 	weather: string;
 	tags: string[];
 	localUpdatedAt: number;
@@ -92,6 +93,7 @@ function reloadFromStorage(): void {
 		cache[date] = {
 			content: entry.content,
 			mood: entry.mood || 0,
+			mood_states: Array.isArray(entry.mood_states) ? entry.mood_states : [],
 			weather: entry.weather || '',
 			tags: Array.isArray(entry.tags) ? entry.tags : [],
 			localUpdatedAt: entry.localUpdatedAt,
@@ -219,13 +221,14 @@ export function getCachedContent(date: string): CacheEntry | null {
  */
 export function updateLocalCache(
 	date: string,
-	updates: { content: string; mood?: number; weather?: string; tags?: string[] }
+	updates: { content: string; mood?: number; mood_states?: string[]; weather?: string; tags?: string[] }
 ): void {
 	const existing = getCachedContent(date);
 
 	const entry: CacheEntry = {
 		content: updates.content,
 		mood: updates.mood ?? existing?.mood ?? 0,
+		mood_states: Array.isArray(updates.mood_states) ? updates.mood_states : existing?.mood_states ?? [],
 		weather: updates.weather ?? existing?.weather ?? '',
 		tags: Array.isArray(updates.tags) ? updates.tags : existing?.tags ?? [],
 		localUpdatedAt: Date.now(),
@@ -243,6 +246,7 @@ export function updateLocalCache(
 		date,
 		content: entry.content,
 		mood: entry.mood,
+		mood_states: entry.mood_states,
 		weather: entry.weather,
 		tags: entry.tags,
 		localUpdatedAt: entry.localUpdatedAt,
@@ -294,6 +298,7 @@ export function getDirtyEntries(): {
 	date: string;
 	content: string;
 	mood: number;
+	mood_states: string[];
 	weather: string;
 	tags: string[];
 }[] {
@@ -304,6 +309,7 @@ export function getDirtyEntries(): {
 			date,
 			content: entry.content,
 			mood: entry.mood || 0,
+			mood_states: entry.mood_states || [],
 			weather: entry.weather || '',
 			tags: entry.tags || []
 		}));

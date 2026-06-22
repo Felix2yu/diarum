@@ -20,11 +20,12 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 	group.POST("/upsert", func(c echo.Context) error {
 		user := auth.CurrentUser(c)
 		var body struct {
-			Date    string   `json:"date"`
-			Content string   `json:"content"`
-			Mood    int      `json:"mood"`
-			Weather string   `json:"weather"`
-			Tags    []string `json:"tags"`
+			Date       string   `json:"date"`
+			Content    string   `json:"content"`
+			Mood       int      `json:"mood"`
+			MoodStates []string `json:"mood_states"`
+			Weather    string   `json:"weather"`
+			Tags       []string `json:"tags"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
@@ -36,7 +37,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 			body.Tags = []string{}
 		}
 
-		diary, _, err := s.UpsertDiary(user.ID, body.Date, body.Content, body.Mood, body.Weather, body.Tags)
+		diary, _, err := s.UpsertDiary(user.ID, body.Date, body.Content, body.Mood, body.MoodStates, body.Weather, body.Tags)
 		if err != nil {
 			return badRequest("Failed to save diary", err)
 		}
@@ -276,16 +277,21 @@ func diaryResponse(diary *store.Diary, date string, exists bool) map[string]any 
 	if tags == nil {
 		tags = []string{}
 	}
+	moodStates := diary.MoodStates
+	if moodStates == nil {
+		moodStates = []string{}
+	}
 	return map[string]any{
-		"id":      diary.ID,
-		"date":    date,
-		"content": diary.Content,
-		"mood":    diary.Mood,
-		"weather": diary.Weather,
-		"tags":    tags,
-		"owner":   diary.Owner,
-		"created": diary.Created,
-		"updated": diary.Updated,
-		"exists":  exists,
+		"id":         diary.ID,
+		"date":       date,
+		"content":    diary.Content,
+		"mood":       diary.Mood,
+		"mood_states": moodStates,
+		"weather":    diary.Weather,
+		"tags":       tags,
+		"owner":      diary.Owner,
+		"created":    diary.Created,
+		"updated":    diary.Updated,
+		"exists":     exists,
 	}
 }

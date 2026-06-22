@@ -25,6 +25,35 @@ export function moodToLabel(mood: number): string {
 	return level?.label ?? '';
 }
 
+export interface MoodStateCategory {
+	moodRange: [number, number];
+	states: string[];
+}
+
+export const MOOD_STATES: MoodStateCategory[] = [
+	{
+		moodRange: [1, 2],
+		states: ['愤怒', '厌恶', '有压力', '烦躁', '伤心', '焦虑', '尴尬', '忧虑', '孤独', '害怕', '沮丧', '内疚', '挫败', '不堪重负', '恼火', '失望', '羞愧', '嫉妒', '无望', '精疲力尽']
+	},
+	{
+		moodRange: [4, 5],
+		states: ['惊奇', '欢乐', '愉悦', '平静', '兴奋', '勇敢', '满意', '平和', '自豪', '如释重负', '热忱', '自信', '感恩', '开心', '满怀希望', '满足']
+	}
+];
+
+export function getMoodStatesForLevel(mood: number): string[] {
+	for (const cat of MOOD_STATES) {
+		if (mood >= cat.moodRange[0] && mood <= cat.moodRange[1]) {
+			return cat.states;
+		}
+	}
+	return [];
+}
+
+export function isMoodStateActive(state: string, selectedStates: string[]): boolean {
+	return selectedStates.includes(state);
+}
+
 export const DEFAULT_WEATHER_OPTIONS = [
 	'☀️',
 	'⛅',

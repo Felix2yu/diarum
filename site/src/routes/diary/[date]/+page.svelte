@@ -33,7 +33,7 @@
 		cleanupDiaryCache
 	} from '$lib/stores/diaryCache';
 	import { onlineState } from '$lib/stores/onlineStatus';
-	import { MOOD_SCALE, moodToEmoji, DEFAULT_WEATHER_OPTIONS } from '$lib/utils/diaryEmoji';
+	import { MOOD_SCALE, moodToEmoji, getMoodStatesForLevel, DEFAULT_WEATHER_OPTIONS } from '$lib/utils/diaryEmoji';
 
 	let weatherPresets: string[] = [...DEFAULT_WEATHER_OPTIONS];
 
@@ -47,6 +47,7 @@
 	let polishSourceText = '';
 	let selectedContent = '';
 	let selectedMood: number = 0;
+	let selectedMoodStates: string[] = [];
 	let selectedWeather = '';
 	let tags: string[] = [];
 	let tagInput = '';
@@ -101,12 +102,12 @@
 		}
 		tags = merged;
 		tagInput = '';
-		updateLocalCache(date, { content, mood: selectedMood, weather: selectedWeather, tags });
+		updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, weather: selectedWeather, tags });
 	}
 
 	function removeTag(tag: string) {
 		tags = tags.filter(t => t !== tag);
-		updateLocalCache(date, { content, mood: selectedMood, weather: selectedWeather, tags });
+		updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, weather: selectedWeather, tags });
 	}
 
 	function handleTagKeydown(e: KeyboardEvent) {
@@ -158,7 +159,7 @@
 	function applySuggestion(tag: string) {
 		if (!tags.includes(tag)) {
 			tags = [...tags, tag];
-			updateLocalCache(date, { content, mood: selectedMood, weather: selectedWeather, tags });
+			updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, weather: selectedWeather, tags });
 		}
 		tagInput = '';
 		showTagSuggestions = false;
@@ -212,6 +213,7 @@
 		if (cached?.isDirty) {
 			content = cached.content;
 			selectedMood = cached.mood || 0;
+			selectedMoodStates = cached.mood_states || [];
 			selectedWeather = cached.weather || '';
 			tags = cached.tags || [];
 			loading = false;
@@ -220,6 +222,7 @@
 
 		content = '';
 		selectedMood = 0;
+		selectedMoodStates = [];
 		selectedWeather = '';
 		tags = [];
 
@@ -232,6 +235,7 @@
 			if (currentRequestId !== loadRequestId) return;
 			content = diary?.content || '';
 			selectedMood = diary?.mood || 0;
+			selectedMoodStates = diary?.mood_states || [];
 			selectedWeather = diary?.weather || '';
 			tags = diary?.tags || [];
 		} catch (error) {
@@ -240,6 +244,7 @@
 			if (cached?.isDirty) {
 				content = cached.content;
 				selectedMood = cached.mood || 0;
+				selectedMoodStates = cached.mood_states || [];
 				selectedWeather = cached.weather || '';
 				tags = cached.tags || [];
 			}
@@ -261,6 +266,7 @@
 		updateLocalCache(date, {
 			content,
 			mood: selectedMood,
+			mood_states: selectedMoodStates,
 			weather: selectedWeather,
 			tags
 		});
@@ -268,9 +274,27 @@
 
 	function handleMoodChange(mood: number) {
 		selectedMood = selectedMood === mood ? 0 : mood;
+		// Clear mood states when mood level changes (states are category-dependent)
+		selectedMoodStates = [];
 		updateLocalCache(date, {
 			content,
 			mood: selectedMood,
+			mood_states: selectedMoodStates,
+			weather: selectedWeather,
+			tags
+		});
+	}
+
+	function handleMoodStateToggle(state: string) {
+		if (selectedMoodStates.includes(state)) {
+			selectedMoodStates = selectedMoodStates.filter(s => s !== state);
+		} else {
+			selectedMoodStates = [...selectedMoodStates, state];
+		}
+		updateLocalCache(date, {
+			content,
+			mood: selectedMood,
+			mood_states: selectedMoodStates,
 			weather: selectedWeather,
 			tags
 		});
@@ -658,26 +682,44 @@
 								</button>
 							{/if}
 						</div>
-						<div class="mood-slider-container">
-							<div class="mood-slider-track">
-								{#each MOOD_SCALE as level}
-									<button
-										onclick={() => handleMoodChange(level.value)}
-										class="mood-slider-stop {selectedMood === level.value ? 'mood-slider-stop-active' : ''} {selectedMood > 0 && level.value <= selectedMood ? 'mood-slider-stop-filled' : ''}"
-										title={level.label}
-										aria-label={`心情 ${level.label}`}
-									>
-										<span class="mood-slider-emoji">{level.emoji}</span>
-									</button>
-								{/each}
-							</div>
-							{#if selectedMood > 0}
-								<div class="text-center text-xs text-muted-foreground mt-2">
-									{moodToEmoji(selectedMood)} {MOOD_SCALE.find(l => l.value === selectedMood)?.label || ''}
-								</div>
-							{/if}
+				<div class="mood-slider-container">
+						<div class="mood-slider-track">
+							{#each MOOD_SCALE as level}
+								<button
+									onclick={() => handleMoodChange(level.value)}
+									class="mood-slider-stop {selectedMood === level.value ? 'mood-slider-stop-active' : ''} {selectedMood > 0 && level.value <= selectedMood ? 'mood-slider-stop-filled' : ''}"
+									title={level.label}
+									aria-label={`心情 ${level.label}`}
+								>
+									<span class="mood-slider-emoji">{level.emoji}</span>
+								</button>
+							{/each}
 						</div>
+						{#if selectedMood > 0}
+							<div class="text-center text-xs text-muted-foreground mt-2">
+								{moodToEmoji(selectedMood)} {MOOD_SCALE.find(l => l.value === selectedMood)?.label || ''}
+							</div>
+						{/if}
 					</div>
+					{#if selectedMood > 0}
+						{@const availableStates = getMoodStatesForLevel(selectedMood)}
+						{#if availableStates.length > 0}
+							<div class="mt-3 pt-3 border-t border-border/50">
+								<div class="text-[11px] text-muted-foreground mb-2">心情状态（可多选）</div>
+								<div class="flex flex-wrap gap-1.5">
+									{#each availableStates as state}
+										<button
+											onclick={() => handleMoodStateToggle(state)}
+											class="mood-state-chip {selectedMoodStates.includes(state) ? 'mood-state-chip-active' : ''}"
+										>
+											{state}
+										</button>
+									{/each}
+								</div>
+							</div>
+						{/if}
+					{/if}
+				</div>
 
 						<!-- Weather -->
 						<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
@@ -820,6 +862,24 @@
 								</div>
 							{/if}
 						</div>
+						{#if selectedMood > 0}
+							{@const availableStates = getMoodStatesForLevel(selectedMood)}
+							{#if availableStates.length > 0}
+								<div class="mt-3 pt-3 border-t border-border/50">
+									<div class="text-[11px] text-muted-foreground mb-2">心情状态（可多选）</div>
+									<div class="flex flex-wrap gap-1.5">
+										{#each availableStates as state}
+											<button
+												onclick={() => handleMoodStateToggle(state)}
+												class="mood-state-chip {selectedMoodStates.includes(state) ? 'mood-state-chip-active' : ''}"
+											>
+												{state}
+											</button>
+										{/each}
+									</div>
+								</div>
+							{/if}
+						{/if}
 					</div>
 
 						<div class="bg-card/50 rounded-xl border border-border/50 p-4 shadow-sm">
@@ -1038,6 +1098,24 @@
 							{/each}
 						</div>
 					</div>
+					{#if selectedMood > 0}
+						{@const availableStates = getMoodStatesForLevel(selectedMood)}
+						{#if availableStates.length > 0}
+							<div class="mt-2">
+								<div class="text-[10px] text-muted-foreground mb-1.5 px-1">心情状态（可多选）</div>
+								<div class="flex flex-wrap gap-1">
+									{#each availableStates as state}
+										<button
+											onclick={() => handleMoodStateToggle(state)}
+											class="mood-state-chip text-[11px] {selectedMoodStates.includes(state) ? 'mood-state-chip-active' : ''}"
+										>
+											{state}
+										</button>
+									{/each}
+								</div>
+							</div>
+						{/if}
+					{/if}
 				</div>
 
 				<div>
@@ -1159,6 +1237,32 @@
 	.mood-slider-emoji {
 		font-size: 1.25rem;
 		line-height: 1;
+	}
+
+	.mood-state-chip {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.2rem 0.5rem;
+		border-radius: 9999px;
+		border: 1px solid hsl(var(--border) / 0.5);
+		background: hsl(var(--muted) / 0.3);
+		font-size: 0.7rem;
+		color: hsl(var(--muted-foreground));
+		cursor: pointer;
+		transition: all 0.15s ease;
+		white-space: nowrap;
+	}
+
+	.mood-state-chip:hover {
+		background: hsl(var(--muted) / 0.6);
+		border-color: hsl(var(--primary) / 0.3);
+	}
+
+	.mood-state-chip-active {
+		background: hsl(var(--primary) / 0.12);
+		border-color: hsl(var(--primary) / 0.5);
+		color: hsl(var(--primary));
+		font-weight: 500;
 	}
 
 	.emoji-option {
