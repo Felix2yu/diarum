@@ -150,7 +150,7 @@ func TestExportImportRoutesAndHelpers(t *testing.T) {
 	if _, ok := entries["diarum_export.json"]; !ok {
 		t.Fatalf("export zip entries = %#v", entries)
 	}
-	if _, ok := entries["markdown/2024-02-01_happy.md"]; !ok {
+	if _, ok := entries["markdown/2024-02-01_4.md"]; !ok {
 		t.Fatalf("export markdown entries = %#v", entries)
 	}
 	if _, ok := entries["media/photo.png"]; !ok {
