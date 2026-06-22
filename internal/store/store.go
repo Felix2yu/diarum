@@ -1023,7 +1023,7 @@ func (s *Store) GetDiariesByMonthDay(owner, dateStr string) ([]*Diary, error) {
 	}
 	monthDay := dateStr[5:10] // MM-DD
 	rows, err := s.DB.Query(
-		`SELECT content, created, date, id, mood, owner, updated, weather, tags
+		`SELECT content, created, date, id, mood, mood_states, owner, updated, weather, tags
 		 FROM diaries
 		 WHERE owner = ? AND substr(date, 6, 5) = ? AND substr(date, 1, 10) != ?
 		 ORDER BY date DESC`,
@@ -1122,7 +1122,7 @@ func (s *Store) SearchDiaries(owner, query string, limit int) ([]*Diary, error) 
 	}
 	searchPattern := "%" + query + "%"
 	rows, err := s.DB.Query(
-		`SELECT content, created, date, id, mood, owner, updated, weather, tags
+		`SELECT content, created, date, id, mood, mood_states, owner, updated, weather, tags
 		 FROM diaries WHERE owner = ? AND (content LIKE ? OR tags LIKE ?) ORDER BY date DESC LIMIT ?`,
 		owner, searchPattern, searchPattern, limit,
 	)
