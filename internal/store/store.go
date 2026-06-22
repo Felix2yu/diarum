@@ -1238,7 +1238,7 @@ func (s *Store) ListDiariesByTag(owner, tag string) ([]*Diary, error) {
 		return []*Diary{}, nil
 	}
 	rows, err := s.DB.Query(
-		`SELECT d.content, d.created, d.date, d.id, d.mood, d.owner, d.updated, d.weather, d.tags
+		`SELECT d.content, d.created, d.date, d.id, d.mood, d.mood_states, d.owner, d.updated, d.weather, d.tags
 		 FROM diaries d, json_each(d.tags) j
 		 WHERE d.owner = ? AND j.value = ?
 		 ORDER BY d.date DESC`, owner, tag)
