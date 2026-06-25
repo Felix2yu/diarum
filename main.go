@@ -55,7 +55,6 @@ func serveSPA(c *echo.Context, fsys fs.FS) error {
 	}
 	path = strings.TrimPrefix(path, "/")
 
-	// Try zstd first (best ratio + fastest decompression), then brotli
 	for _, enc := range []struct{ ext, header string }{
 		{".zst", "zstd"},
 		{".br", "br"},
@@ -65,10 +64,10 @@ func serveSPA(c *echo.Context, fsys fs.FS) error {
 			if f, err := fsys.Open(compressed); err == nil {
 				defer f.Close()
 				if stat, err := f.Stat(); err == nil && !stat.IsDir() {
+					data, _ := io.ReadAll(f)
 					c.Response().Header().Set(echo.HeaderContentEncoding, enc.header)
 					c.Response().Header().Set(echo.HeaderContentType, mimeByExtension(path))
-					http.ServeContent(c.Response(), c.Request(), stat.Name(), stat.ModTime(), f.(io.ReadSeeker))
-					return nil
+					return c.Blob(http.StatusOK, mimeByExtension(path), data)
 				}
 			}
 		}
@@ -93,8 +92,8 @@ func serveSPA(c *echo.Context, fsys fs.FS) error {
 			}
 		}
 		if err == nil {
-			http.ServeContent(c.Response(), c.Request(), stat.Name(), stat.ModTime(), file.(io.ReadSeeker))
-			return nil
+			data, _ := io.ReadAll(file)
+			return c.Blob(http.StatusOK, mimeByExtension(stat.Name()), data)
 		}
 	}
 	indexFile, err := fsys.Open("index.html")
@@ -102,12 +101,8 @@ func serveSPA(c *echo.Context, fsys fs.FS) error {
 		return echo.ErrNotFound
 	}
 	defer indexFile.Close()
-	stat, err := indexFile.Stat()
-	if err != nil {
-		return err
-	}
-	http.ServeContent(c.Response(), c.Request(), "index.html", stat.ModTime(), indexFile.(io.ReadSeeker))
-	return nil
+	data, _ := io.ReadAll(indexFile)
+	return c.HTMLBlob(http.StatusOK, data)
 }
 
 func mimeByExtension(path string) string {
