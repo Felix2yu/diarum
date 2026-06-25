@@ -222,6 +222,7 @@ func run(args []string, stdout io.Writer) error {
 	api.RegisterCheveretoRoutes(e, appStore, authMiddleware)
 	api.RegisterPublicRoutes(e, appStore)
 	api.RegisterVersionRoutes(e, Version, Name)
+	api.RegisterMetricsRoutes(e)
 	if logger.GetLevel() <= logger.LevelDebug {
 		api.RegisterOpenAPIRoutes(e, Version, Name)
 		logger.Info("[Docs] OpenAPI docs enabled in debug mode at /api/docs and /api/v1/docs")
