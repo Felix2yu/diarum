@@ -1153,7 +1153,7 @@ func TestSingleSettingHandlers(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 	c.Set(iauth.ContextUserKey, user)
-	c.SetPathParams(echo.PathValues{{Name: "key", Value: "ai.chat_model"}})
+	c.SetPathValues(echo.PathValues{{Name: "key", Value: "ai.chat_model"}})
 
 	if err := getSettingHandler(configService)(c); err != nil {
 		t.Fatalf("getSettingHandler: %v", err)
@@ -1167,7 +1167,7 @@ func TestSingleSettingHandlers(t *testing.T) {
 	rec = httptest.NewRecorder()
 	c = e.NewContext(req, rec)
 	c.Set(iauth.ContextUserKey, user)
-	c.SetPathParams(echo.PathValues{{Name: "key", Value: "ai.chat_model"}})
+	c.SetPathValues(echo.PathValues{{Name: "key", Value: "ai.chat_model"}})
 	if err := putSettingHandler(configService)(c); err != nil {
 		t.Fatalf("putSettingHandler: %v", err)
 	}
@@ -1179,7 +1179,7 @@ func TestSingleSettingHandlers(t *testing.T) {
 	rec = httptest.NewRecorder()
 	c = e.NewContext(req, rec)
 	c.Set(iauth.ContextUserKey, user)
-	c.SetPathParams(echo.PathValues{{Name: "key", Value: "ai.chat_model"}})
+	c.SetPathValues(echo.PathValues{{Name: "key", Value: "ai.chat_model"}})
 	if err := getSettingHandler(configService)(c); err != nil {
 		t.Fatalf("getSettingHandler after put: %v", err)
 	}
@@ -1191,7 +1191,7 @@ func TestSingleSettingHandlers(t *testing.T) {
 	rec = httptest.NewRecorder()
 	c = e.NewContext(req, rec)
 	c.Set(iauth.ContextUserKey, user)
-	c.SetPathParams(echo.PathValues{{Name: "key", Value: "ai.chat_model"}})
+	c.SetPathValues(echo.PathValues{{Name: "key", Value: "ai.chat_model"}})
 	if err := deleteSettingHandler(configService)(c); err != nil {
 		t.Fatalf("deleteSettingHandler: %v", err)
 	}
@@ -1203,7 +1203,7 @@ func TestSingleSettingHandlers(t *testing.T) {
 	rec = httptest.NewRecorder()
 	c = e.NewContext(req, rec)
 	c.Set(iauth.ContextUserKey, user)
-	c.SetPathParams(echo.PathValues{{Name: "key", Value: "unknown"}})
+	c.SetPathValues(echo.PathValues{{Name: "key", Value: "unknown"}})
 	if err := getSettingHandler(configService)(c); err == nil {
 		t.Fatal("getSettingHandler should reject unknown key")
 	}
@@ -1213,7 +1213,7 @@ func TestSingleSettingHandlers(t *testing.T) {
 	rec = httptest.NewRecorder()
 	c = e.NewContext(req, rec)
 	c.Set(iauth.ContextUserKey, user)
-	c.SetPathParams(echo.PathValues{{Name: "key", Value: "ai.chat_model"}})
+	c.SetPathValues(echo.PathValues{{Name: "key", Value: "ai.chat_model"}})
 	if err := putSettingHandler(configService)(c); err == nil {
 		t.Fatal("putSettingHandler should reject malformed JSON")
 	}
@@ -1222,7 +1222,7 @@ func TestSingleSettingHandlers(t *testing.T) {
 	rec = httptest.NewRecorder()
 	c = e.NewContext(req, rec)
 	c.Set(iauth.ContextUserKey, user)
-	c.SetPathParams(echo.PathValues{{Name: "key", Value: "unknown"}})
+	c.SetPathValues(echo.PathValues{{Name: "key", Value: "unknown"}})
 	if err := deleteSettingHandler(configService)(c); err == nil {
 		t.Fatal("deleteSettingHandler should reject unknown key")
 	}
@@ -1243,7 +1243,7 @@ func TestSettingsHandlerStoreClosedErrors(t *testing.T) {
 	putRec := httptest.NewRecorder()
 	putCtx := e.NewContext(putReq, putRec)
 	putCtx.Set(iauth.ContextUserKey, user)
-	putCtx.SetPathParams(echo.PathValues{{Name: "key", Value: "api.chat_model"}})
+	putCtx.SetPathValues(echo.PathValues{{Name: "key", Value: "api.chat_model"}})
 	if err := putSettingHandler(configService)(putCtx); err == nil {
 		t.Fatal("putSettingHandler should fail when store is closed")
 	}
@@ -1252,7 +1252,7 @@ func TestSettingsHandlerStoreClosedErrors(t *testing.T) {
 	delRec := httptest.NewRecorder()
 	delCtx := e.NewContext(delReq, delRec)
 	delCtx.Set(iauth.ContextUserKey, user)
-	delCtx.SetPathParams(echo.PathValues{{Name: "key", Value: "api.chat_model"}})
+	delCtx.SetPathValues(echo.PathValues{{Name: "key", Value: "api.chat_model"}})
 	if err := deleteSettingHandler(configService)(delCtx); err == nil {
 		t.Fatal("deleteSettingHandler should fail when store is closed")
 	}
