@@ -4,6 +4,28 @@
 
 ---
 
+## v1.9 - 2026-06-25
+
+> 发布日期：2026-06-25
+> 对比基线：`v1.8 (1701e19)` → `v1.9 (8ba634d)`
+
+### ✨ 新增 Features
+
+- **Docker entrypoint** — 新增 `entrypoint.sh`，容器启动时以 root 权限修正 `/app/data` 目录所有权，再通过 `su-exec` 降权运行，避免自定义 UID/GID 导致数据库目录权限异常
+- **恢复 arm64 构建** — GitHub Actions 恢复 `linux/arm64` 多架构构建（添加 QEMU 支持）
+
+### 🔧 技术改进
+
+- **清理死代码** — 删除 `callStreamingAPI`、`processStreamResponse`、`buildSystemPrompt`、`QueryRelevantDiaries`、`GenerateTitle`、`NormalizeDate`、`IsNoRows`、`Errorf`、`GetMessage`、`VectorDB.Close`、`extractDate` 等未使用函数
+- **移除未使用依赖** — 删除 `sync.cacheDays` 配置项和 `workbox-window` npm 依赖
+- **代码去重** — `scanDiaries` 复用 `scanDiary`，删除 `scanMediaRow`/`scanMessageRow` wrapper，handler 内复用 `configService`
+- **收窄导出** — `ModelInfo`→`modelInfo`、`ModelsResponse`→`modelsResponse`、`ChatStreamResponse`→`chatStreamResponse`
+- **测试覆盖率提升** — 新增 store、config、embedding 等模块的单元测试，覆盖率从 ~70% 提升至 93%
+
+净减 **~480 行**代码，15 个文件改动。
+
+---
+
 ## v1.8 - 2026-06-22
 
 > 发布日期：2026-06-22
