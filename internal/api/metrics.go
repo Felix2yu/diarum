@@ -75,4 +75,5 @@ func RegisterMetricsRoutes(e *echo.Echo) {
 
 	e.GET("/api/v1/metrics", handler)
 	e.GET("/api/metrics", handler)
+	e.GET("/metrics", handler)
 }
