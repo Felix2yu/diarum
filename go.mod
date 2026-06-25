@@ -7,10 +7,10 @@ require (
 	github.com/aws/aws-sdk-go-v2/config v1.29.12
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.65
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.103.3
-	github.com/golang-jwt/jwt/v5 v5.2.2
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/labstack/echo/v5 v5.2.1
 	github.com/philippgille/chromem-go v0.7.0
-	golang.org/x/crypto v0.45.0
+	golang.org/x/crypto v0.53.0
 	modernc.org/sqlite v1.36.1
 )
 
@@ -38,7 +38,7 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	github.com/valyala/fasttemplate v1.2.2 // indirect
 	golang.org/x/exp v0.0.0-20250305212735-054e65f0b394 // indirect
-	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/time v0.6.0 // indirect
 	modernc.org/libc v1.61.13 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
