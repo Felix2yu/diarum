@@ -12,7 +12,7 @@ import (
 
 // RegisterAuthRoutes registers auth business API endpoints.
 func RegisterAuthRoutes(e *echo.Echo, store *store.Store, authService *auth.Service) {
-	e.POST("/api/v1/auth/login", func(c echo.Context) error {
+	e.POST("/api/v1/auth/login", func(c *echo.Context) error {
 		var body struct {
 			UsernameOrEmail string `json:"usernameOrEmail"`
 			Password        string `json:"password"`
@@ -41,7 +41,7 @@ func RegisterAuthRoutes(e *echo.Echo, store *store.Store, authService *auth.Serv
 		})
 	})
 
-	e.POST("/api/v1/auth/register", func(c echo.Context) error {
+	e.POST("/api/v1/auth/register", func(c *echo.Context) error {
 		var body struct {
 			Username        string `json:"username"`
 			Email           string `json:"email"`

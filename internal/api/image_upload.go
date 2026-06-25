@@ -42,7 +42,7 @@ func RegisterImageUploadRoutes(e *echo.Echo, s *store.Store, authMiddleware echo
 	configService := config.NewConfigService(s)
 	group := e.Group("/api/v1/image-upload", authMiddleware)
 
-	group.GET("/settings", func(c echo.Context) error {
+	group.GET("/settings", func(c *echo.Context) error {
 		userID := auth.CurrentUser(c).ID
 		settings, err := loadImageUploadSettings(configService, s, userID)
 		if err != nil {
@@ -51,7 +51,7 @@ func RegisterImageUploadRoutes(e *echo.Echo, s *store.Store, authMiddleware echo
 		return c.JSON(http.StatusOK, settings)
 	})
 
-	group.PUT("/settings", func(c echo.Context) error {
+	group.PUT("/settings", func(c *echo.Context) error {
 		userID := auth.CurrentUser(c).ID
 		var body imageUploadSettingsResponse
 		if err := c.Bind(&body); err != nil {

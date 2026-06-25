@@ -49,7 +49,7 @@ type memosWebhookEvent struct {
 func RegisterMemosRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.MiddlewareFunc, onDiaryChanged func(string)) {
 	configService := config.NewConfigService(s)
 
-	e.POST("/api/v1/memos/webhook/:token", func(c echo.Context) error {
+	e.POST("/api/v1/memos/webhook/:token", func(c *echo.Context) error {
 		userID, err := validateMemosWebhookToken(s, c.PathParam("token"))
 		if err != nil {
 			return serverError("Failed to validate webhook token", err)
@@ -86,7 +86,7 @@ func RegisterMemosRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 	})
 
 	group := e.Group("/api/v1/memos", authMiddleware)
-	group.GET("/settings", func(c echo.Context) error {
+	group.GET("/settings", func(c *echo.Context) error {
 		userID := auth.CurrentUser(c).ID
 		settings, err := loadMemosSettings(c, configService, userID)
 		if err != nil {
@@ -95,7 +95,7 @@ func RegisterMemosRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, settings)
 	})
 
-	group.PUT("/settings", func(c echo.Context) error {
+	group.PUT("/settings", func(c *echo.Context) error {
 		userID := auth.CurrentUser(c).ID
 		var body struct {
 			Enabled bool   `json:"enabled"`
@@ -129,7 +129,7 @@ func RegisterMemosRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, settings)
 	})
 
-	group.POST("/settings/reset-token", func(c echo.Context) error {
+	group.POST("/settings/reset-token", func(c *echo.Context) error {
 		userID := auth.CurrentUser(c).ID
 		newToken, err := generateToken()
 		if err != nil {
@@ -146,7 +146,7 @@ func RegisterMemosRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 	})
 }
 
-func loadMemosSettings(c echo.Context, configService *config.ConfigService, userID string) (*memosSettings, error) {
+func loadMemosSettings(c *echo.Context, configService *config.ConfigService, userID string) (*memosSettings, error) {
 	enabled, _ := configService.GetBool(userID, "memos.enabled")
 	baseURL, _ := configService.GetString(userID, "memos.base_url")
 	token, _ := configService.GetString(userID, "memos.webhook_token")
@@ -184,7 +184,7 @@ func validateMemosWebhookToken(s *store.Store, token string) (string, error) {
 	return "", rows.Err()
 }
 
-func absoluteURL(c echo.Context, path string) string {
+func absoluteURL(c *echo.Context, path string) string {
 	if strings.HasSuffix(path, "/") {
 		path = strings.TrimRight(path, "/")
 	}

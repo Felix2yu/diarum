@@ -18,7 +18,7 @@ import (
 func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.MiddlewareFunc, onDiaryChanged func(string)) {
 	group := e.Group("/api/v1/diaries", authMiddleware)
 
-	group.POST("/upsert", func(c echo.Context) error {
+	group.POST("/upsert", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		var body struct {
 			Date       string   `json:"date"`
@@ -49,7 +49,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, diaryResponse(diary, body.Date, true))
 	})
 
-	group.GET("/by-date/:date", func(c echo.Context) error {
+	group.GET("/by-date/:date", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		dateStr := c.PathParam("date")
 		start, end := dateStr+" 00:00:00.000Z", dateStr+" 23:59:59.999Z"
@@ -61,7 +61,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 	})
 
 	// 往年今日: 返回所有相同月-日但年份不同的日记
-	group.GET("/on-this-day", func(c echo.Context) error {
+	group.GET("/on-this-day", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		date := c.QueryParam("date")
 		if date == "" {
@@ -79,7 +79,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 	})
 
 	// 随机穿越: 从用户有内容的日记中随机挑选一条返回
-	group.GET("/random", func(c echo.Context) error {
+	group.GET("/random", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		exclude := c.QueryParam("exclude_date")
 		diary, err := s.GetRandomDiary(user.ID, exclude)
@@ -92,7 +92,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, diaryResponse(diary, store.DateOnly(diary.Date), true))
 	})
 
-	group.GET("/exists", func(c echo.Context) error {
+	group.GET("/exists", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		start := c.QueryParam("start")
 		end := c.QueryParam("end")
@@ -115,7 +115,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, map[string]any{"dates": dates, "entries": entries})
 	})
 
-	group.GET("/stats", func(c echo.Context) error {
+	group.GET("/stats", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		tz := c.QueryParam("tz")
 		loc := time.UTC
@@ -151,7 +151,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, map[string]any{"total": total, "streak": streak})
 	})
 
-	group.GET("/search", func(c echo.Context) error {
+	group.GET("/search", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		query := c.QueryParam("q")
 		scenario := c.QueryParam("scenario")
@@ -186,7 +186,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 	})
 
 	// Filter by mood and/or scenario
-	group.GET("/filter", func(c echo.Context) error {
+	group.GET("/filter", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		moodStr := c.QueryParam("mood")
 		scenario := c.QueryParam("scenario")
@@ -221,7 +221,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, map[string]any{"results": results, "total": len(results)})
 	})
 
-	group.POST("/by-ids", func(c echo.Context) error {
+	group.POST("/by-ids", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		var body struct {
 			IDs []string `json:"ids"`
@@ -240,7 +240,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, map[string]any{"diaries": result})
 	})
 
-	group.GET("/recent", func(c echo.Context) error {
+	group.GET("/recent", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		limit := 5
 		if raw := c.QueryParam("limit"); raw != "" {
@@ -265,7 +265,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, map[string]any{"diaries": result})
 	})
 
-	group.GET("/:id", func(c echo.Context) error {
+	group.GET("/:id", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		diary, err := s.GetDiaryByID(c.PathParam("id"))
 		if err != nil {
@@ -277,7 +277,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, diaryResponse(diary, store.DateOnly(diary.Date), true))
 	})
 
-	group.DELETE("/:id", func(c echo.Context) error {
+	group.DELETE("/:id", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		if err := s.DeleteDiary(c.PathParam("id"), user.ID); err != nil {
 			return notFound("Diary not found")
@@ -288,7 +288,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, map[string]any{"success": true})
 	})
 
-	group.GET("/tags", func(c echo.Context) error {
+	group.GET("/tags", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		tags, err := s.ListTagCounts(user.ID)
 		if err != nil {
@@ -297,7 +297,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, map[string]any{"tags": tags, "total": len(tags)})
 	})
 
-	group.GET("/by-tag/:tag", func(c echo.Context) error {
+	group.GET("/by-tag/:tag", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		tag := c.PathParam("tag")
 		diaries, err := s.ListDiariesByTag(user.ID, tag)

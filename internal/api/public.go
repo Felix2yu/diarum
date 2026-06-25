@@ -14,7 +14,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 	configService := config.NewConfigService(s)
 
 	// Reads
-	e.GET("/api/v1/diaries", func(c echo.Context) error {
+	e.GET("/api/v1/diaries", func(c *echo.Context) error {
 		userId, err := authenticatePublicRequest(configService, c)
 		if err != nil {
 			return err
@@ -48,7 +48,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 	})
 
 	// Create or update a diary by date
-	e.POST("/api/v1/diaries", func(c echo.Context) error {
+	e.POST("/api/v1/diaries", func(c *echo.Context) error {
 		userId, err := authenticatePublicRequest(configService, c)
 		if err != nil {
 			return err
@@ -85,7 +85,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 	})
 
 	// Update a diary by ID
-	e.PUT("/api/v1/diaries/:id", func(c echo.Context) error {
+	e.PUT("/api/v1/diaries/:id", func(c *echo.Context) error {
 		userId, err := authenticatePublicRequest(configService, c)
 		if err != nil {
 			return err
@@ -142,7 +142,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 	})
 
 	// Delete a diary by date
-	e.DELETE("/api/v1/diaries", func(c echo.Context) error {
+	e.DELETE("/api/v1/diaries", func(c *echo.Context) error {
 		userId, err := authenticatePublicRequest(configService, c)
 		if err != nil {
 			return err
@@ -166,7 +166,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 
 // authenticatePublicRequest extracts and validates an API token from the request.
 // It returns the authenticated user ID or an echo error response.
-func authenticatePublicRequest(configService *config.ConfigService, c echo.Context) (string, error) {
+func authenticatePublicRequest(configService *config.ConfigService, c *echo.Context) (string, error) {
 	token := c.QueryParam("token")
 	if token == "" {
 		if bearer := c.Request().Header.Get("Authorization"); bearer != "" {

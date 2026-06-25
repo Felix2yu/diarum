@@ -72,7 +72,7 @@ func newTestUser(t *testing.T, s *store.Store) *store.User {
 
 func authMiddlewareFor(user *store.User) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c echo.Context) error {
+		return func(c *echo.Context) error {
 			c.Set(iauth.ContextUserKey, user)
 			return next(c)
 		}
@@ -169,9 +169,9 @@ func TestHelpersVersionAndOpenAPI(t *testing.T) {
 	e := echo.New()
 	RegisterVersionRoutes(e, "1.2.3", "Diarum")
 	RegisterOpenAPIRoutes(e, "1.2.3", "Diarum")
-	e.GET("/api/v1/widgets/:id", func(c echo.Context) error { return nil })
-	e.POST("/api/v1/widgets", func(c echo.Context) error { return nil })
-	e.GET("/*", func(c echo.Context) error { return nil })
+	e.GET("/api/v1/widgets/:id", func(c *echo.Context) error { return nil })
+	e.POST("/api/v1/widgets", func(c *echo.Context) error { return nil })
+	e.GET("/*", func(c *echo.Context) error { return nil })
 
 	rec := performRequest(t, e, http.MethodGet, "/api/v1/version", nil, nil)
 	if rec.Code != http.StatusOK {

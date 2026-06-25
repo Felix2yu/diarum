@@ -65,7 +65,7 @@ func (s *Service) ParseToken(token string) (*store.User, error) {
 }
 
 func (s *Service) Middleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		header := c.Request().Header.Get("Authorization")
 		if !strings.HasPrefix(header, "Bearer ") {
 			return echo.NewHTTPError(http.StatusUnauthorized, "The request requires valid authorization token.")
@@ -79,7 +79,7 @@ func (s *Service) Middleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func CurrentUser(c echo.Context) *store.User {
+func CurrentUser(c *echo.Context) *store.User {
 	user, _ := c.Get(ContextUserKey).(*store.User)
 	return user
 }

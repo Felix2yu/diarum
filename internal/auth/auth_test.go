@@ -90,7 +90,7 @@ func TestMiddlewareAndCurrentUser(t *testing.T) {
 	c := e.NewContext(req, rec)
 
 	var gotUser *store.User
-	handler := service.Middleware(func(c echo.Context) error {
+	handler := service.Middleware(func(c *echo.Context) error {
 		gotUser = CurrentUser(c)
 		return c.String(http.StatusOK, "ok")
 	})
@@ -107,7 +107,7 @@ func TestMiddlewareAndCurrentUser(t *testing.T) {
 	req = httptest.NewRequest(http.MethodGet, "/", nil)
 	rec = httptest.NewRecorder()
 	c = e.NewContext(req, rec)
-	if err := service.Middleware(func(c echo.Context) error { return nil })(c); err == nil {
+	if err := service.Middleware(func(c *echo.Context) error { return nil })(c); err == nil {
 		t.Fatal("Middleware should reject missing Authorization header")
 	}
 
@@ -143,7 +143,7 @@ func TestMiddlewareWrongPrefix(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c := e.NewContext(req, rec)
 
-	if err := service.Middleware(func(c echo.Context) error { return nil })(c); err == nil {
+	if err := service.Middleware(func(c *echo.Context) error { return nil })(c); err == nil {
 		t.Fatal("Middleware should reject non-Bearer Authorization header")
 	}
 }

@@ -148,12 +148,12 @@ type resolveConflictRequest struct {
 
 func RegisterExportImportRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.MiddlewareFunc, embeddingService *embedding.EmbeddingService) {
 	group := e.Group("/api/v1", authMiddleware)
-	group.POST("/export", func(c echo.Context) error { return handleExport(c, s) })
-	group.POST("/import", func(c echo.Context) error { return handleImport(c, s, embeddingService) })
-	group.POST("/import/resolve", func(c echo.Context) error { return handleResolveConflict(c, s, embeddingService) })
+	group.POST("/export", func(c *echo.Context) error { return handleExport(c, s) })
+	group.POST("/import", func(c *echo.Context) error { return handleImport(c, s, embeddingService) })
+	group.POST("/import/resolve", func(c *echo.Context) error { return handleResolveConflict(c, s, embeddingService) })
 }
 
-func handleExport(c echo.Context, s *store.Store) error {
+func handleExport(c *echo.Context, s *store.Store) error {
 	userID := auth.CurrentUser(c).ID
 	var req ExportRequest
 	if err := c.Bind(&req); err != nil {
@@ -291,7 +291,7 @@ func handleExport(c echo.Context, s *store.Store) error {
 	return nil
 }
 
-func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.EmbeddingService) error {
+func handleImport(c *echo.Context, s *store.Store, embeddingService *embedding.EmbeddingService) error {
 	userID := auth.CurrentUser(c).ID
 	fh, err := c.FormFile("file")
 	if err != nil {
@@ -472,7 +472,7 @@ func handleImport(c echo.Context, s *store.Store, embeddingService *embedding.Em
 	return c.JSON(http.StatusOK, stats)
 }
 
-func handleResolveConflict(c echo.Context, s *store.Store, embeddingService *embedding.EmbeddingService) error {
+func handleResolveConflict(c *echo.Context, s *store.Store, embeddingService *embedding.EmbeddingService) error {
 	userID := auth.CurrentUser(c).ID
 	var req resolveConflictRequest
 	if err := c.Bind(&req); err != nil {

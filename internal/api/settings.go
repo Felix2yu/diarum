@@ -23,7 +23,7 @@ func generateToken() (string, error) {
 }
 
 func getSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		key := c.PathParam("key")
 
@@ -44,7 +44,7 @@ func getSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
 }
 
 func putSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		key := c.PathParam("key")
 
@@ -70,7 +70,7 @@ func putSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
 }
 
 func deleteSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
-	return func(c echo.Context) error {
+	return func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		key := c.PathParam("key")
 
@@ -94,7 +94,7 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 	group := e.Group("/api/v1/settings", authMiddleware)
 
 	// Get API token status and value
-	group.GET("/api-token", func(c echo.Context) error {
+	group.GET("/api-token", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 
 		token, err := configService.GetString(userId, "api.token")
@@ -122,7 +122,7 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 	})
 
 	// Toggle API token enabled/disabled
-	group.POST("/api-token/toggle", func(c echo.Context) error {
+	group.POST("/api-token/toggle", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 
 		token, err := configService.GetString(userId, "api.token")
@@ -167,7 +167,7 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 	})
 
 	// Reset API token (generate new one)
-	group.POST("/api-token/reset", func(c echo.Context) error {
+	group.POST("/api-token/reset", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 
 		// Generate new token
@@ -200,7 +200,7 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 	})
 
 	// Get all settings (new v1 API)
-	group.GET("", func(c echo.Context) error {
+	group.GET("", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 
 		settings, err := configService.GetBatch(userId)
@@ -214,7 +214,7 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 	})
 
 	// Batch update settings (new v1 API)
-	group.PUT("/batch", func(c echo.Context) error {
+	group.PUT("/batch", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 
 		var body struct {

@@ -11,12 +11,12 @@ import (
 // RegisterOpenAPIRoutes registers debug-only OpenAPI routes.
 // The spec is generated from currently registered Echo routes at request time.
 func RegisterOpenAPIRoutes(e *echo.Echo, version, name string) {
-	handler := func(c echo.Context) error {
+	handler := func(c *echo.Context) error {
 		spec := buildOpenAPISpec(e.Router().Routes(), version, name)
 		return c.JSON(http.StatusOK, spec)
 	}
 
-	docsHandler := func(c echo.Context) error {
+	docsHandler := func(c *echo.Context) error {
 		html := `<!doctype html>
 <html lang="en">
 <head>

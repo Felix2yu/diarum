@@ -40,7 +40,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	chatService := chat.NewChatService(s, embeddingService)
 	group := e.Group("/api/v1/ai", authMiddleware)
 
-	group.GET("/settings", func(c echo.Context) error {
+	group.GET("/settings", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		apiKey, _ := configService.GetString(userId, "ai.api_key")
 		baseUrl, _ := configService.GetString(userId, "ai.base_url")
@@ -70,7 +70,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		})
 	})
 
-	group.PUT("/settings", func(c echo.Context) error {
+	group.PUT("/settings", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		var body struct {
 			APIKey                string `json:"api_key"`
@@ -112,7 +112,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		return c.JSON(http.StatusOK, map[string]any{"success": true})
 	})
 
-	group.POST("/models", func(c echo.Context) error {
+	group.POST("/models", func(c *echo.Context) error {
 		var body struct {
 			APIKey  string `json:"api_key"`
 			BaseURL string `json:"base_url"`
@@ -135,7 +135,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	// calls an OpenAI-compatible /v1/audio/transcriptions endpoint using the
 	// configured speech credentials. Also supports the optional `prompt`,
 	// `language`, and `model` overrides in the request.
-	group.POST("/transcribe", func(c echo.Context) error {
+	group.POST("/transcribe", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 
 		provider, _ := configService.GetString(userId, "ai.speech.provider")
@@ -280,7 +280,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		})
 	})
 
-	group.POST("/vectors/build", func(c echo.Context) error {
+	group.POST("/vectors/build", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		if embeddingService == nil {
 			return badRequest("Embedding service not initialized", nil)
@@ -293,7 +293,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		}
 		return c.JSON(http.StatusOK, result)
 	})
-	group.POST("/vectors/build-incremental", func(c echo.Context) error {
+	group.POST("/vectors/build-incremental", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		if embeddingService == nil {
 			return badRequest("Embedding service not initialized", nil)
@@ -307,7 +307,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		return c.JSON(http.StatusOK, result)
 	})
 
-	group.GET("/vectors/stats", func(c echo.Context) error {
+	group.GET("/vectors/stats", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		if embeddingService == nil {
 			return badRequest("Embedding service not initialized", nil)
@@ -319,7 +319,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		return c.JSON(http.StatusOK, stats)
 	})
 
-	group.GET("/conversations", func(c echo.Context) error {
+	group.GET("/conversations", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		conversations, err := s.ListConversations(userId, 100)
 		if err != nil {
@@ -333,7 +333,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		return c.JSON(http.StatusOK, result)
 	})
 
-	group.POST("/conversations", func(c echo.Context) error {
+	group.POST("/conversations", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		var body struct {
 			Title string `json:"title"`
@@ -346,7 +346,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		return c.JSON(http.StatusOK, map[string]any{"id": conv.ID, "title": conv.Title, "created": conv.Created, "updated": conv.Updated})
 	})
 
-	group.GET("/conversations/:id", func(c echo.Context) error {
+	group.GET("/conversations/:id", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		conv, err := s.GetConversation(c.PathParam("id"), userId)
 		if err != nil {
@@ -363,7 +363,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		return c.JSON(http.StatusOK, map[string]any{"conversation": map[string]any{"id": conv.ID, "title": conv.Title, "created": conv.Created, "updated": conv.Updated}, "messages": msgList})
 	})
 
-	group.DELETE("/conversations/:id", func(c echo.Context) error {
+	group.DELETE("/conversations/:id", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		if err := s.DeleteConversation(c.PathParam("id"), userId); err != nil {
 			return notFound("Conversation not found")
@@ -371,7 +371,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		return c.JSON(http.StatusOK, map[string]any{"success": true})
 	})
 
-	group.PUT("/conversations/:id", func(c echo.Context) error {
+	group.PUT("/conversations/:id", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		var body struct {
 			Title string `json:"title"`
@@ -386,7 +386,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		return c.JSON(http.StatusOK, map[string]any{"id": conv.ID, "title": conv.Title, "updated": conv.Updated})
 	})
 
-	group.POST("/chat", func(c echo.Context) error {
+	group.POST("/chat", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		var body struct {
 			ConversationID string `json:"conversation_id"`
@@ -454,7 +454,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	})
 
 	// Analysis - retrieve saved result (week / month / custom)
-	group.GET("/analysis", func(c echo.Context) error {
+	group.GET("/analysis", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		period := strings.ToLower(strings.TrimSpace(c.QueryParam("period")))
 		start := strings.TrimSpace(c.QueryParam("start"))
@@ -490,7 +490,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	})
 
 	// Analysis - list all saved analyses (optionally filtered by period)
-	group.GET("/analyses", func(c echo.Context) error {
+	group.GET("/analyses", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		period := strings.ToLower(strings.TrimSpace(c.QueryParam("period")))
 		if period != "" && period != "week" && period != "month" && period != "custom" && period != "all" {
@@ -525,7 +525,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 
 	// Analysis endpoint - generate and save. Supports custom date ranges and
 	// keyword / content filtering so users can analyze only matching diary entries.
-	group.POST("/analysis", func(c echo.Context) error {
+	group.POST("/analysis", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		var body struct {
 			Period       string `json:"period"`
@@ -768,7 +768,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	})
 
 	// Text polishing endpoint - three built-in modes plus custom prompt
-	group.POST("/polish", func(c echo.Context) error {
+	group.POST("/polish", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		var body struct {
 			Content string `json:"content"`

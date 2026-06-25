@@ -44,7 +44,7 @@ func acceptEncoding(r *http.Request, encoding string) bool {
 	return strings.Contains(r.Header.Get("Accept-Encoding"), encoding)
 }
 
-func serveSPA(c echo.Context, fsys fs.FS) error {
+func serveSPA(c *echo.Context, fsys fs.FS) error {
 	path := c.Request().URL.Path
 	if strings.HasPrefix(path, "/api/") {
 		return echo.ErrNotFound
@@ -232,7 +232,7 @@ func run(args []string, stdout io.Writer) error {
 	if err != nil {
 		log.Printf("Warning: Failed to get embedded static files: %v", err)
 	} else {
-		e.GET("/*", func(c echo.Context) error { return serveSPA(c, staticFS) })
+		e.GET("/*", func(c *echo.Context) error { return serveSPA(c, staticFS) })
 	}
 
 	if err := startServer(e, *httpAddr); err != nil && !errors.Is(err, http.ErrServerClosed) {

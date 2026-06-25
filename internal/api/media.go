@@ -18,7 +18,7 @@ import (
 func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.MiddlewareFunc) {
 	group := e.Group("/api/v1/media", authMiddleware)
 
-	group.GET("", func(c echo.Context) error {
+	group.GET("", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		page := parsePositiveInt(c.QueryParam("page"), 1)
 		perPage := parsePositiveInt(c.QueryParam("perPage"), 50)
@@ -35,7 +35,7 @@ func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		})
 	})
 
-	group.GET("/:id", func(c echo.Context) error {
+	group.GET("/:id", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		media, err := s.GetMedia(c.PathParam("id"), user.ID)
 		if err != nil {
@@ -44,7 +44,7 @@ func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, media)
 	})
 
-	group.POST("", func(c echo.Context) error {
+	group.POST("", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		file, header, err := c.Request().FormFile("file")
 		if err != nil {
@@ -84,7 +84,7 @@ func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, media)
 	})
 
-	group.PATCH("/:id", func(c echo.Context) error {
+	group.PATCH("/:id", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		var body struct {
 			Diary []string `json:"diary"`
@@ -99,7 +99,7 @@ func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, media)
 	})
 
-	group.DELETE("/:id", func(c echo.Context) error {
+	group.DELETE("/:id", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		media, err := s.GetMedia(c.PathParam("id"), user.ID)
 		if err != nil {
@@ -114,7 +114,7 @@ func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, map[string]any{"success": true})
 	})
 
-	e.GET("/api/v1/files/media/:id/:filename", func(c echo.Context) error {
+	e.GET("/api/v1/files/media/:id/:filename", func(c *echo.Context) error {
 		media, err := s.GetMedia(c.PathParam("id"), "")
 		if err != nil || media.File != c.PathParam("filename") {
 			return notFound("File not found")

@@ -40,7 +40,7 @@ type MemoryStats struct {
 
 // RegisterMetricsRoutes registers the metrics API endpoint
 func RegisterMetricsRoutes(e *echo.Echo) {
-	handler := func(c echo.Context) error {
+	handler := func(c *echo.Context) error {
 		var m runtime.MemStats
 		runtime.ReadMemStats(&m)
 

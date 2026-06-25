@@ -21,7 +21,7 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 	configService := config.NewConfigService(s)
 	group := e.Group("/api/v1/chevereto", authMiddleware)
 
-	group.GET("/settings", func(c echo.Context) error {
+	group.GET("/settings", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		enabled, _ := configService.GetBool(userId, "chevereto.enabled")
 		domain, _ := configService.GetString(userId, "chevereto.domain")
@@ -30,7 +30,7 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 		return c.JSON(http.StatusOK, map[string]any{"enabled": enabled, "domain": domain, "api_key": apiKey, "album_id": albumId})
 	})
 
-	group.PUT("/settings", func(c echo.Context) error {
+	group.PUT("/settings", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		var body struct {
 			Enabled bool   `json:"enabled"`
@@ -52,7 +52,7 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 		return c.JSON(http.StatusOK, map[string]any{"success": true})
 	})
 
-	group.POST("/test", func(c echo.Context) error {
+	group.POST("/test", func(c *echo.Context) error {
 		var body struct {
 			Domain string `json:"domain"`
 			APIKey string `json:"api_key"`
@@ -85,7 +85,7 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 		return c.JSON(http.StatusOK, map[string]any{"success": true, "message": "Connection successful"})
 	})
 
-	group.POST("/upload", func(c echo.Context) error {
+	group.POST("/upload", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		enabled, _ := configService.GetBool(userId, "chevereto.enabled")
 		if !enabled {
