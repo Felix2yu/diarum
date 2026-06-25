@@ -185,14 +185,6 @@ func run(args []string, stdout io.Writer) error {
 	authService := auth.NewService(appStore)
 	e := echo.New()
 	e.Use(middleware.Recover())
-	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-		LogStatus: true,
-		LogURI:    true,
-		LogValuesFunc: func(c *echo.Context, values middleware.RequestLoggerValues) error {
-			log.Printf("%s %s %d", values.Method, values.URI, values.Status)
-			return nil
-		},
-	}))
 
 	authMiddleware := authService.Middleware
 	onDiaryChanged := func(userID string) {
@@ -236,7 +228,9 @@ func run(args []string, stdout io.Writer) error {
 	} else {
 		defaultHandler := e.HTTPErrorHandler
 		e.HTTPErrorHandler = func(c *echo.Context, err error) {
+			log.Printf("HTTPErrorHandler called: path=%s err=%v", c.Request().URL.Path, err)
 			if strings.HasPrefix(c.Request().URL.Path, "/api/") {
+				log.Printf(" -> defaultHandler for API path")
 				defaultHandler(c, err)
 				return
 			}
@@ -255,6 +249,7 @@ func run(args []string, stdout io.Writer) error {
 				if stat != nil && !stat.IsDir() {
 					data, _ := io.ReadAll(f)
 					f.Close()
+					log.Printf(" -> serving file %s (%d bytes)", path, len(data))
 					w.Header().Set(echo.HeaderContentType, mimeByExtension(path))
 					w.WriteHeader(http.StatusOK)
 					w.Write(data)
@@ -265,11 +260,15 @@ func run(args []string, stdout io.Writer) error {
 			if f, ferr := staticFS.Open("index.html"); ferr == nil {
 				data, _ := io.ReadAll(f)
 				f.Close()
+				log.Printf(" -> serving index.html (%d bytes)", len(data))
 				w.Header().Set(echo.HeaderContentType, "text/html; charset=utf-8")
 				w.WriteHeader(http.StatusOK)
 				w.Write(data)
 				return
+			} else {
+				log.Printf(" -> index.html open failed: %v", ferr)
 			}
+			log.Printf(" -> falling back to default handler")
 			defaultHandler(c, err)
 		}
 	}
