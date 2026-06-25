@@ -58,18 +58,19 @@ FROM alpine:3.24
 WORKDIR /app
 
 RUN --mount=type=cache,target=/var/cache/apk \
-    apk add --no-cache ca-certificates tzdata && \
+    apk add --no-cache ca-certificates tzdata su-exec && \
     adduser -D -H -u 1000 diarum && \
     mkdir -p /app/data && \
     chown -R diarum:diarum /app
 
 COPY --from=backend-builder /app/diarum /app/diarum
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 ENV TZ=Asia/Shanghai
 ENV DIARUM_DATA_PATH=/app/data
 
-USER diarum
-
 EXPOSE 8090
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["/app/diarum", "serve", "--http=0.0.0.0:8090"]
