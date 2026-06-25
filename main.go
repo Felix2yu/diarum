@@ -226,11 +226,22 @@ func run(args []string, stdout io.Writer) error {
 	if err != nil {
 		log.Printf("Warning: Failed to get embedded static files: %v", err)
 	} else {
+		if f, ferr := staticFS.Open("index.html"); ferr != nil {
+			log.Printf("WARNING: index.html not found in embedded FS: %v", ferr)
+			fs.WalkDir(staticFS, ".", func(path string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
+				log.Printf("  embedded: %s (dir=%v)", path, d.IsDir())
+				return nil
+			})
+		} else {
+			f.Close()
+			log.Printf("OK: index.html found in embedded FS")
+		}
 		defaultHandler := e.HTTPErrorHandler
 		e.HTTPErrorHandler = func(c *echo.Context, err error) {
-			log.Printf("HTTPErrorHandler called: path=%s err=%v", c.Request().URL.Path, err)
 			if strings.HasPrefix(c.Request().URL.Path, "/api/") {
-				log.Printf(" -> defaultHandler for API path")
 				defaultHandler(c, err)
 				return
 			}
@@ -249,7 +260,6 @@ func run(args []string, stdout io.Writer) error {
 				if stat != nil && !stat.IsDir() {
 					data, _ := io.ReadAll(f)
 					f.Close()
-					log.Printf(" -> serving file %s (%d bytes)", path, len(data))
 					w.Header().Set(echo.HeaderContentType, mimeByExtension(path))
 					w.WriteHeader(http.StatusOK)
 					w.Write(data)
@@ -260,15 +270,11 @@ func run(args []string, stdout io.Writer) error {
 			if f, ferr := staticFS.Open("index.html"); ferr == nil {
 				data, _ := io.ReadAll(f)
 				f.Close()
-				log.Printf(" -> serving index.html (%d bytes)", len(data))
 				w.Header().Set(echo.HeaderContentType, "text/html; charset=utf-8")
 				w.WriteHeader(http.StatusOK)
 				w.Write(data)
 				return
-			} else {
-				log.Printf(" -> index.html open failed: %v", ferr)
 			}
-			log.Printf(" -> falling back to default handler")
 			defaultHandler(c, err)
 		}
 	}
