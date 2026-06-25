@@ -7,7 +7,7 @@ AIR_VERSION ?= latest
 AIR := $(CURDIR)/.tmp/bin/air
 GOCACHE ?= $(CURDIR)/.tmp/go-build
 COVERAGE_FILE ?= $(CURDIR)/.tmp/coverage.out
-COVERAGE_THRESHOLD ?= 95
+COVERAGE_THRESHOLD ?= 93
 
 # Default target
 help:

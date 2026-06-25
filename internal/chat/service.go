@@ -74,8 +74,8 @@ type ChatRequest struct {
 	Stream   bool          `json:"stream"`
 }
 
-// ChatStreamResponse represents a streaming response chunk
-type ChatStreamResponse struct {
+// chatStreamResponse represents a streaming response chunk
+type chatStreamResponse struct {
 	ID      string `json:"id"`
 	Object  string `json:"object"`
 	Created int64  `json:"created"`
@@ -139,14 +139,6 @@ func (s *ChatService) getTools() []Tool {
 			},
 		},
 	}
-}
-
-// QueryRelevantDiaries retrieves diaries relevant to the query
-func (s *ChatService) QueryRelevantDiaries(ctx context.Context, userID, query string, limit int) ([]embedding.DiarySearchResult, error) {
-	if s.embeddingService == nil {
-		return nil, fmt.Errorf("embedding service not available")
-	}
-	return s.embeddingService.QuerySimilar(ctx, userID, query, limit)
 }
 
 // SearchDiariesByDateRange searches diaries within a date range
@@ -224,47 +216,7 @@ func (s *ChatService) SearchDiariesByDateRange(ctx context.Context, userID strin
 	return results, nil
 }
 
-// buildSystemPrompt creates the system prompt with diary context
-func (s *ChatService) buildSystemPrompt(diaries []embedding.DiarySearchResult) string {
-	var sb strings.Builder
-	sb.WriteString("You are a helpful AI assistant for a personal diary application called Diarum. ")
-	sb.WriteString("You help users reflect on their diary entries, summarize their experiences, ")
-	sb.WriteString("and provide insights based on their personal journal.\n\n")
-
-	if len(diaries) > 0 {
-		sb.WriteString("Here are relevant diary entries from the user:\n\n")
-		for i, diary := range diaries {
-			// Parse date and get weekday
-			weekday := ""
-			if t, err := time.Parse("2006-01-02", diary.Date); err == nil {
-				weekday = t.Weekday().String()
-			}
-		sb.WriteString(fmt.Sprintf("--- Diary Entry %d (Date: %s, %s) ---\n", i+1, diary.Date, weekday))
-		if diary.Mood != 0 {
-			sb.WriteString(fmt.Sprintf("Mood: %s\n", store.MoodToEmoji(diary.Mood)))
-		}
-		if len(diary.MoodStates) > 0 {
-			sb.WriteString(fmt.Sprintf("Mood States: %s\n", strings.Join(diary.MoodStates, ", ")))
-		}
-		if len(diary.Scenarios) > 0 {
-			sb.WriteString(fmt.Sprintf("Scenarios: %s\n", strings.Join(diary.Scenarios, ", ")))
-		}
-		if diary.Weather != "" {
-			sb.WriteString(fmt.Sprintf("Weather: %s\n", diary.Weather))
-		}
-		sb.WriteString(fmt.Sprintf("Content:\n%s\n\n", diary.Content))
-		}
-		sb.WriteString("Use these diary entries to provide personalized and relevant responses. ")
-		sb.WriteString("When referencing specific entries, mention the date.\n")
-	} else {
-		sb.WriteString("No relevant diary entries were found for this query. ")
-		sb.WriteString("You can still help the user with general questions about journaling.\n")
-	}
-
-	return sb.String()
-}
-
-// resolveLocation returns the effective timezone for the current process.
+// buildAgentSystemPrompt creates the system prompt for the agent with tools
 // It respects the TZ environment variable (e.g. "Asia/Shanghai"), falling back
 // to the system local timezone and ultimately UTC if neither is usable.
 func resolveLocation() *time.Location {
@@ -432,46 +384,6 @@ func (s *ChatService) StreamChat(ctx context.Context, userID, conversationID, me
 	return fullResponse, referencedDiaryIDs, nil
 }
 
-// callStreamingAPI calls the OpenAI-compatible streaming API
-func (s *ChatService) callStreamingAPI(ctx context.Context, baseURL, apiKey, model string, messages []ChatMessage, writer StreamWriter) (string, error) {
-	baseURL = strings.TrimSuffix(baseURL, "/")
-	url := baseURL + "/v1/chat/completions"
-
-	reqBody := ChatRequest{
-		Model:    model,
-		Messages: messages,
-		Stream:   true,
-	}
-
-	jsonBody, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Accept", "text/event-stream")
-
-	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	return s.processStreamResponse(resp.Body, writer)
-}
-
 // callAPIWithTools calls the API with tool support
 func (s *ChatService) callAPIWithTools(ctx context.Context, baseURL, apiKey, model string, messages []ChatMessage, tools []Tool, writer StreamWriter) (string, []ToolCall, error) {
 	baseURL = strings.TrimSuffix(baseURL, "/")
@@ -516,50 +428,6 @@ func (s *ChatService) callAPIWithTools(ctx context.Context, baseURL, apiKey, mod
 	return s.processStreamResponseWithTools(resp.Body, writer)
 }
 
-// processStreamResponse processes the SSE stream and writes to the client
-func (s *ChatService) processStreamResponse(body io.Reader, writer StreamWriter) (string, error) {
-	scanner := bufio.NewScanner(body)
-	var fullResponse strings.Builder
-
-	for scanner.Scan() {
-		line := scanner.Text()
-
-		if !strings.HasPrefix(line, "data: ") {
-			continue
-		}
-
-		data := strings.TrimPrefix(line, "data: ")
-		if data == "[DONE]" {
-			break
-		}
-
-		var streamResp ChatStreamResponse
-		if err := json.Unmarshal([]byte(data), &streamResp); err != nil {
-			logger.Warn("[ChatService] failed to parse stream chunk: %v", err)
-			continue
-		}
-
-		if len(streamResp.Choices) > 0 {
-			content := streamResp.Choices[0].Delta.Content
-			if content != "" {
-				fullResponse.WriteString(content)
-
-				// Write SSE event to client
-				sseData := map[string]string{"content": content}
-				jsonData, _ := json.Marshal(sseData)
-				writer.Write([]byte("data: " + string(jsonData) + "\n\n"))
-				writer.Flush()
-			}
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return fullResponse.String(), fmt.Errorf("error reading stream: %w", err)
-	}
-
-	return fullResponse.String(), nil
-}
-
 // processStreamResponseWithTools processes SSE stream with tool call support
 func (s *ChatService) processStreamResponseWithTools(body io.Reader, writer StreamWriter) (string, []ToolCall, error) {
 	scanner := bufio.NewScanner(body)
@@ -578,7 +446,7 @@ func (s *ChatService) processStreamResponseWithTools(body io.Reader, writer Stre
 			break
 		}
 
-		var streamResp ChatStreamResponse
+		var streamResp chatStreamResponse
 		if err := json.Unmarshal([]byte(data), &streamResp); err != nil {
 			logger.Warn("[ChatService] failed to parse stream chunk: %v", err)
 			continue
@@ -739,108 +607,6 @@ func stripHTMLTags(s string) string {
 		}
 	}
 	return result.String()
-}
-
-// GenerateTitle generates a title for a conversation based on the first message
-func (s *ChatService) GenerateTitle(ctx context.Context, userID, userMessage, assistantResponse string) (string, error) {
-	// Get AI configuration
-	apiKey, err := s.configService.GetString(userID, "ai.api_key")
-	if err != nil || apiKey == "" {
-		return "", fmt.Errorf("AI API key not configured")
-	}
-
-	baseURL, err := s.configService.GetString(userID, "ai.base_url")
-	if err != nil || baseURL == "" {
-		return "", fmt.Errorf("AI base URL not configured")
-	}
-
-	chatModel, err := s.configService.GetString(userID, "ai.chat_model")
-	if err != nil || chatModel == "" {
-		return "", fmt.Errorf("chat model not configured")
-	}
-
-	// Build messages for title generation
-	messages := []ChatMessage{
-		{
-			Role: "system",
-			Content: `Generate a short, concise title (max 50 characters) for this conversation based on the user's message and assistant's response.
-The title should capture the main topic or intent of the conversation.
-Respond with ONLY the title, no quotes, no explanation, no punctuation at the end.
-Use the same language as the user's message.`,
-		},
-		{
-			Role:    "user",
-			Content: fmt.Sprintf("User message: %s\n\nAssistant response: %s", userMessage, truncateString(assistantResponse, 500)),
-		},
-	}
-
-	// Call API without streaming
-	baseURL = strings.TrimSuffix(baseURL, "/")
-	url := baseURL + "/v1/chat/completions"
-
-	reqBody := map[string]interface{}{
-		"model":      chatModel,
-		"messages":   messages,
-		"max_tokens": 60,
-		"stream":     false,
-	}
-
-	jsonBody, err := json.Marshal(reqBody)
-	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBody))
-	if err != nil {
-		return "", fmt.Errorf("failed to create request: %w", err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("failed to send request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
-	}
-
-	var result struct {
-		Choices []struct {
-			Message struct {
-				Content string `json:"content"`
-			} `json:"message"`
-		} `json:"choices"`
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return "", fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	if len(result.Choices) == 0 {
-		return "", fmt.Errorf("no response from API")
-	}
-
-	title := strings.TrimSpace(result.Choices[0].Message.Content)
-	// Ensure title is not too long
-	if len(title) > 100 {
-		title = title[:100]
-	}
-
-	return title, nil
-}
-
-// truncateString truncates a string to the specified length
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
 }
 
 // GetConversationMessageCount returns the number of messages in a conversation

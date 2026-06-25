@@ -23,16 +23,16 @@ import (
 	"github.com/songtianlun/diarum/internal/store"
 )
 
-type ModelInfo struct {
+type modelInfo struct {
 	ID      string `json:"id"`
 	Object  string `json:"object"`
 	Created int64  `json:"created,omitempty"`
 	OwnedBy string `json:"owned_by,omitempty"`
 }
 
-type ModelsResponse struct {
+type modelsResponse struct {
 	Object string      `json:"object"`
-	Data   []ModelInfo `json:"data"`
+	Data   []modelInfo `json:"data"`
 }
 
 func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.MiddlewareFunc, embeddingService *embedding.EmbeddingService) {
@@ -615,18 +615,17 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		}
 
 		// Load AI config
-		cfgService := config.NewConfigService(s)
-		apiKey, _ := cfgService.GetString(userId, "ai.api_key")
-		baseURL, _ := cfgService.GetString(userId, "ai.base_url")
-		model, _ := cfgService.GetString(userId, "ai.chat_model")
-		enabled, _ := cfgService.GetBool(userId, "ai.enabled")
+		apiKey, _ := configService.GetString(userId, "ai.api_key")
+		baseURL, _ := configService.GetString(userId, "ai.base_url")
+		model, _ := configService.GetString(userId, "ai.chat_model")
+		enabled, _ := configService.GetBool(userId, "ai.enabled")
 		if !enabled || apiKey == "" || baseURL == "" || model == "" {
 			return badRequest("AI settings are not configured", nil)
 		}
 
 		// Resolve prompts: request override → saved config → default
-		savedSystemPrompt, _ := cfgService.GetString(userId, "ai.analysis_system_prompt")
-		savedUserPrefix, _ := cfgService.GetString(userId, "ai.analysis_user_prefix")
+		savedSystemPrompt, _ := configService.GetString(userId, "ai.analysis_system_prompt")
+		savedUserPrefix, _ := configService.GetString(userId, "ai.analysis_user_prefix")
 		defaultSystemPrompt := "你是一个贴心的日记分析助手，基于用户提供的日记内容进行深入分析。你需要：\n1) 归纳总结日记的主要内容；\n2) 留意每篇日记的日期，分析情绪变化、生活模式在时间线上的演变；\n3) 找出亮点和值得改进的地方；\n4) 给出具体、可操作的建议。\n请用温暖、鼓励且理性的语气，分段输出，便于阅读。使用中文回答。"
 
 		var periodLabel string
@@ -792,11 +791,10 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		}
 
 		// Load AI config
-		cfgService := config.NewConfigService(s)
-		apiKey, _ := cfgService.GetString(userId, "ai.api_key")
-		baseURL, _ := cfgService.GetString(userId, "ai.base_url")
-		model, _ := cfgService.GetString(userId, "ai.chat_model")
-		enabled, _ := cfgService.GetBool(userId, "ai.enabled")
+		apiKey, _ := configService.GetString(userId, "ai.api_key")
+		baseURL, _ := configService.GetString(userId, "ai.base_url")
+		model, _ := configService.GetString(userId, "ai.chat_model")
+		enabled, _ := configService.GetBool(userId, "ai.enabled")
 		if !enabled || apiKey == "" || baseURL == "" || model == "" {
 			return badRequest("AI settings are not configured", nil)
 		}
@@ -876,7 +874,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	})
 }
 
-func fetchModels(baseURL, apiKey string) ([]ModelInfo, error) {
+func fetchModels(baseURL, apiKey string) ([]modelInfo, error) {
 	baseURL = strings.TrimSuffix(baseURL, "/")
 	url := baseURL + "/v1/models"
 	req, err := http.NewRequest("GET", url, nil)
@@ -894,7 +892,7 @@ func fetchModels(baseURL, apiKey string) ([]ModelInfo, error) {
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
 	}
-	var modelsResp ModelsResponse
+	var modelsResp modelsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&modelsResp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}

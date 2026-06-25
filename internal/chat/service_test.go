@@ -119,17 +119,6 @@ func TestSearchPromptsAndHelpers(t *testing.T) {
 		t.Fatalf("SearchDiariesByDateRange results = %#v", results)
 	}
 
-	if _, err := service.QueryRelevantDiaries(context.Background(), user.ID, "hello", 5); err == nil || !strings.Contains(err.Error(), "embedding service not available") {
-		t.Fatalf("QueryRelevantDiaries nil embedding error = %v", err)
-	}
-
-	systemPrompt := service.buildSystemPrompt(results)
-	if !strings.Contains(systemPrompt, "A very sunny day") || !strings.Contains(systemPrompt, "Mood:") {
-		t.Fatalf("buildSystemPrompt = %q", systemPrompt)
-	}
-	if !strings.Contains(service.buildSystemPrompt(nil), "No relevant diary entries") {
-		t.Fatal("buildSystemPrompt should mention missing diary entries")
-	}
 	if !strings.Contains(service.buildAgentSystemPrompt(), "Today's date is:") {
 		t.Fatal("buildAgentSystemPrompt should contain today's date")
 	}
@@ -154,9 +143,6 @@ func TestSearchPromptsAndHelpers(t *testing.T) {
 	}
 	if got := stripHTMLTags("<strong>Hello</strong> world"); got != "Hello world" {
 		t.Fatalf("stripHTMLTags = %q", got)
-	}
-	if got := truncateString("abcdef", 3); got != "abc..." {
-		t.Fatalf("truncateString = %q, want abc...", got)
 	}
 }
 
@@ -207,25 +193,9 @@ func TestConversationPersistenceHelpers(t *testing.T) {
 	}
 }
 
-func TestProcessStreamResponses(t *testing.T) {
+func TestProcessStreamResponseWithTools(t *testing.T) {
 	service := &ChatService{}
 	writer := &mockStreamWriter{}
-
-	fullResponse, err := service.processStreamResponse(strings.NewReader(strings.Join([]string{
-		"data: {\"choices\":[{\"delta\":{\"content\":\"Hello \"}}]}",
-		"data: not-json",
-		"data: {\"choices\":[{\"delta\":{\"content\":\"world\"}}]}",
-		"data: [DONE]",
-	}, "\n")), writer)
-	if err != nil {
-		t.Fatalf("processStreamResponse: %v", err)
-	}
-	if fullResponse != "Hello world" {
-		t.Fatalf("processStreamResponse fullResponse = %q, want Hello world", fullResponse)
-	}
-	if writer.flushes != 2 || !strings.Contains(writer.String(), `"content":"Hello "`) {
-		t.Fatalf("processStreamResponse writer = %q, flushes=%d", writer.String(), writer.flushes)
-	}
 
 	writer = &mockStreamWriter{}
 	fullResponse, toolCalls, err := service.processStreamResponseWithTools(strings.NewReader(strings.Join([]string{
@@ -241,48 +211,6 @@ func TestProcessStreamResponses(t *testing.T) {
 	}
 	if len(toolCalls) != 1 || toolCalls[0].Function.Name != "search_diaries" || !strings.Contains(toolCalls[0].Function.Arguments, `"end_date":"2024-01-31"`) {
 		t.Fatalf("processStreamResponseWithTools toolCalls = %#v", toolCalls)
-	}
-}
-
-func TestCallStreamingAPIAndGenerateTitle(t *testing.T) {
-	s := newTestStore(t)
-	user := newTestUser(t, s)
-	service := NewChatService(s, nil)
-	configureAISettings(t, s, user.ID)
-
-	withMockTransport(t, func(req *http.Request) (*http.Response, error) {
-		if req.URL.Path != "/v1/chat/completions" {
-			return response(http.StatusNotFound, "not found"), nil
-		}
-		var payload map[string]any
-		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-			t.Fatalf("decode request: %v", err)
-		}
-		if stream, _ := payload["stream"].(bool); stream {
-			return response(http.StatusOK, strings.Join([]string{
-				"data: {\"choices\":[{\"delta\":{\"content\":\"Hello\"}}]}",
-				"data: {\"choices\":[{\"delta\":{\"content\":\" there\"}}]}",
-				"data: [DONE]",
-			}, "\n")), nil
-		}
-		return response(http.StatusOK, `{"choices":[{"message":{"content":"Generated Title"}}]}`), nil
-	})
-
-	writer := &mockStreamWriter{}
-	fullResponse, err := service.callStreamingAPI(context.Background(), "https://mock.local", "test-key", "chat-model", []ChatMessage{{Role: "user", Content: "hello"}}, writer)
-	if err != nil {
-		t.Fatalf("callStreamingAPI: %v", err)
-	}
-	if fullResponse != "Hello there" {
-		t.Fatalf("callStreamingAPI fullResponse = %q, want Hello there", fullResponse)
-	}
-
-	title, err := service.GenerateTitle(context.Background(), user.ID, "Need a title", "Long assistant response")
-	if err != nil {
-		t.Fatalf("GenerateTitle: %v", err)
-	}
-	if title != "Generated Title" {
-		t.Fatalf("GenerateTitle = %q, want Generated Title", title)
 	}
 }
 
@@ -398,13 +326,6 @@ func TestSearchAndQueryRelevantDiariesEdges(t *testing.T) {
 	if _, err := embeddingService.BuildAllVectors(context.Background(), user.ID); err != nil {
 		t.Fatalf("BuildAllVectors: %v", err)
 	}
-	relevant, err := service.QueryRelevantDiaries(context.Background(), user.ID, "sunny", 3)
-	if err != nil {
-		t.Fatalf("QueryRelevantDiaries: %v", err)
-	}
-	if len(relevant) != 3 {
-		t.Fatalf("QueryRelevantDiaries count = %d, want 3", len(relevant))
-	}
 
 	results, err = service.SearchDiariesByDateRange(context.Background(), user.ID, SearchDiariesArgs{Query: "sunny", Limit: 3})
 	if err != nil {
@@ -441,9 +362,6 @@ func TestChatAPIErrorBranches(t *testing.T) {
 	writer := &mockStreamWriter{}
 	messages := []ChatMessage{{Role: "user", Content: "hello"}}
 
-	if _, err := service.callStreamingAPI(context.Background(), "://bad", "key", "model", messages, writer); err == nil || !strings.Contains(err.Error(), "failed to create request") {
-		t.Fatalf("callStreamingAPI create request error = %v", err)
-	}
 	if _, _, err := service.callAPIWithTools(context.Background(), "://bad", "key", "model", messages, nil, writer); err == nil || !strings.Contains(err.Error(), "failed to create request") {
 		t.Fatalf("callAPIWithTools create request error = %v", err)
 	}
@@ -451,9 +369,6 @@ func TestChatAPIErrorBranches(t *testing.T) {
 	withMockTransport(t, func(req *http.Request) (*http.Response, error) {
 		return nil, errors.New("network down")
 	})
-	if _, err := service.callStreamingAPI(context.Background(), "https://mock.local", "key", "model", messages, writer); err == nil || !strings.Contains(err.Error(), "failed to send request") {
-		t.Fatalf("callStreamingAPI send error = %v", err)
-	}
 	if _, _, err := service.callAPIWithTools(context.Background(), "https://mock.local", "key", "model", messages, nil, writer); err == nil || !strings.Contains(err.Error(), "failed to send request") {
 		t.Fatalf("callAPIWithTools send error = %v", err)
 	}
@@ -461,9 +376,6 @@ func TestChatAPIErrorBranches(t *testing.T) {
 	withMockTransport(t, func(req *http.Request) (*http.Response, error) {
 		return response(http.StatusTeapot, "short and stout"), nil
 	})
-	if _, err := service.callStreamingAPI(context.Background(), "https://mock.local", "key", "model", messages, writer); err == nil || !strings.Contains(err.Error(), "API returned status 418") {
-		t.Fatalf("callStreamingAPI status error = %v", err)
-	}
 	if _, _, err := service.callAPIWithTools(context.Background(), "https://mock.local", "key", "model", messages, nil, writer); err == nil || !strings.Contains(err.Error(), "API returned status 418") {
 		t.Fatalf("callAPIWithTools status error = %v", err)
 	}
@@ -499,85 +411,6 @@ func TestStreamChatConfigurationAndAPIErrors(t *testing.T) {
 	})
 	if _, _, err := service.StreamChat(context.Background(), user.ID, "missing", "hello", writer); err == nil || !strings.Contains(err.Error(), "API returned status 500") {
 		t.Fatalf("StreamChat API error = %v", err)
-	}
-}
-
-func TestGenerateTitleErrorAndEdgePaths(t *testing.T) {
-	s := newTestStore(t)
-	user := newTestUser(t, s)
-	service := NewChatService(s, nil)
-
-	if _, err := service.GenerateTitle(context.Background(), user.ID, "user", "assistant"); err == nil || !strings.Contains(err.Error(), "AI API key not configured") {
-		t.Fatalf("GenerateTitle missing api key error = %v", err)
-	}
-	if err := s.SetSetting(user.ID, "ai.api_key", "test-key", false); err != nil {
-		t.Fatalf("SetSetting ai.api_key: %v", err)
-	}
-	if _, err := service.GenerateTitle(context.Background(), user.ID, "user", "assistant"); err == nil || !strings.Contains(err.Error(), "AI base URL not configured") {
-		t.Fatalf("GenerateTitle missing base URL error = %v", err)
-	}
-	if err := s.SetSetting(user.ID, "ai.base_url", "https://mock.local", false); err != nil {
-		t.Fatalf("SetSetting ai.base_url: %v", err)
-	}
-	if _, err := service.GenerateTitle(context.Background(), user.ID, "user", "assistant"); err == nil || !strings.Contains(err.Error(), "chat model not configured") {
-		t.Fatalf("GenerateTitle missing model error = %v", err)
-	}
-	if err := s.SetSetting(user.ID, "ai.chat_model", "chat-model", false); err != nil {
-		t.Fatalf("SetSetting ai.chat_model: %v", err)
-	}
-
-	if err := s.SetSetting(user.ID, "ai.base_url", "://bad", false); err != nil {
-		t.Fatalf("SetSetting bad base URL: %v", err)
-	}
-	if _, err := service.GenerateTitle(context.Background(), user.ID, "user", "assistant"); err == nil || !strings.Contains(err.Error(), "failed to create request") {
-		t.Fatalf("GenerateTitle create request error = %v", err)
-	}
-	if err := s.SetSetting(user.ID, "ai.base_url", "https://mock.local", false); err != nil {
-		t.Fatalf("SetSetting good base URL: %v", err)
-	}
-
-	withMockTransport(t, func(req *http.Request) (*http.Response, error) {
-		return nil, errors.New("network down")
-	})
-	if _, err := service.GenerateTitle(context.Background(), user.ID, "user", "assistant"); err == nil || !strings.Contains(err.Error(), "failed to send request") {
-		t.Fatalf("GenerateTitle send error = %v", err)
-	}
-
-	withMockTransport(t, func(req *http.Request) (*http.Response, error) {
-		return response(http.StatusBadGateway, "upstream"), nil
-	})
-	if _, err := service.GenerateTitle(context.Background(), user.ID, "user", "assistant"); err == nil || !strings.Contains(err.Error(), "API returned status 502") {
-		t.Fatalf("GenerateTitle status error = %v", err)
-	}
-
-	withMockTransport(t, func(req *http.Request) (*http.Response, error) {
-		return response(http.StatusOK, "not-json"), nil
-	})
-	if _, err := service.GenerateTitle(context.Background(), user.ID, "user", "assistant"); err == nil || !strings.Contains(err.Error(), "failed to decode response") {
-		t.Fatalf("GenerateTitle decode error = %v", err)
-	}
-
-	withMockTransport(t, func(req *http.Request) (*http.Response, error) {
-		return response(http.StatusOK, `{"choices":[]}`), nil
-	})
-	if _, err := service.GenerateTitle(context.Background(), user.ID, "user", "assistant"); err == nil || !strings.Contains(err.Error(), "no response from API") {
-		t.Fatalf("GenerateTitle no choices error = %v", err)
-	}
-
-	longTitle := strings.Repeat("x", 120)
-	withMockTransport(t, func(req *http.Request) (*http.Response, error) {
-		return response(http.StatusOK, `{"choices":[{"message":{"content":"`+longTitle+`"}}]}`), nil
-	})
-	title, err := service.GenerateTitle(context.Background(), user.ID, "user", strings.Repeat("assistant ", 100))
-	if err != nil {
-		t.Fatalf("GenerateTitle long title: %v", err)
-	}
-	if len(title) != 100 {
-		t.Fatalf("GenerateTitle long title len = %d, want 100", len(title))
-	}
-
-	if got := truncateString("short", 10); got != "short" {
-		t.Fatalf("truncateString short = %q, want short", got)
 	}
 }
 
@@ -634,10 +467,6 @@ func TestFormatDiariesForContextWeekdayParse(t *testing.T) {
 	}
 }
 
-func TestGenerateTitleLongTitle(t *testing.T) {
-	_ = truncateString("Hello World This Is A Very Long Title That Exceeds Fifty Characters By Far", 50)
-}
-
 func TestChatServiceNew(t *testing.T) {
 	s := newTestStore(t)
 	service := NewChatService(s, nil)
@@ -663,5 +492,26 @@ func TestResolveLocation(t *testing.T) {
 	loc3 := resolveLocation()
 	if loc3 == nil {
 		t.Fatal("resolveLocation with empty TZ should not return nil")
+	}
+}
+
+func TestFormatDiariesForContextEmpty(t *testing.T) {
+	service := &ChatService{}
+	got := service.formatDiariesForContext(nil)
+	if got != "No diary entries found for the specified criteria." {
+		t.Fatalf("formatDiariesForContext nil = %q", got)
+	}
+	got = service.formatDiariesForContext([]embedding.DiarySearchResult{})
+	if got != "No diary entries found for the specified criteria." {
+		t.Fatalf("formatDiariesForContext empty = %q", got)
+	}
+}
+
+func TestUpdateConversationTitleNotFound(t *testing.T) {
+	s := newTestStore(t)
+	service := NewChatService(s, nil)
+	err := service.UpdateConversationTitle("nonexistent-id", "title")
+	if err == nil || !strings.Contains(err.Error(), "failed to find conversation") {
+		t.Fatalf("UpdateConversationTitle nonexistent = %v", err)
 	}
 }

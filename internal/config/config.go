@@ -95,13 +95,7 @@ func (s *ConfigService) Set(userId, key string, value any) error {
 
 // GetBatch retrieves all configuration values for a user
 func (s *ConfigService) GetBatch(userId string) (map[string]any, error) {
-	result, err := s.store.GetSettings(userId)
-
-	if err != nil {
-		return make(map[string]any), nil
-	}
-
-	return result, nil
+	return s.store.GetSettings(userId)
 }
 
 // SetBatch stores multiple configuration values for a user atomically

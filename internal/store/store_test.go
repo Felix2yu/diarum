@@ -280,12 +280,8 @@ func TestStoreUserDiarySettingsConversationFlows(t *testing.T) {
 	if _, err := s.InsertImportedMessage(user.ID, "", conv.ID, "assistant", "bad", nil); err == nil {
 		t.Fatal("InsertImportedMessage should require ID")
 	}
-	gotMsg, err := s.GetMessage(msg.ID)
-	if err != nil {
-		t.Fatalf("GetMessage: %v", err)
-	}
-	if len(gotMsg.ReferencedDiaries) != 1 || gotMsg.ReferencedDiaries[0] != created.ID {
-		t.Fatalf("GetMessage referenced diaries = %#v", gotMsg.ReferencedDiaries)
+	if len(msg.ReferencedDiaries) != 1 || msg.ReferencedDiaries[0] != created.ID {
+		t.Fatalf("CreateMessage referenced diaries = %#v", msg.ReferencedDiaries)
 	}
 	messageCount, err := s.CountMessages(conv.ID)
 	if err != nil {
@@ -511,9 +507,6 @@ func TestStoreS3AndHelperFunctions(t *testing.T) {
 	if got := TotalPages(11, 10); got != 2 {
 		t.Fatalf("TotalPages = %d, want 2", got)
 	}
-	if got := NormalizeDate("2024-01-02T03:04:05Z"); got != "2024-01-02" {
-		t.Fatalf("NormalizeDate = %q, want 2024-01-02", got)
-	}
 	if got := DateOnly("2024-01-02 03:04:05.000Z"); got != "2024-01-02" {
 		t.Fatalf("DateOnly = %q, want 2024-01-02", got)
 	}
@@ -557,12 +550,6 @@ func TestStoreS3AndHelperFunctions(t *testing.T) {
 	if !isMissingLegacyTableError(fmt.Errorf("no such table: demo")) {
 		t.Fatal("isMissingLegacyTableError should match")
 	}
-	if !IsNoRows(sql.ErrNoRows) || IsNoRows(errors.New("other")) {
-		t.Fatal("IsNoRows results unexpected")
-	}
-	if err := Errorf("wrapped %s", "error"); err == nil || err.Error() != "wrapped error" {
-		t.Fatalf("Errorf = %v", err)
-	}
 
 	srcDir := t.TempDir()
 	src := filepath.Join(srcDir, "src.txt")
@@ -597,7 +584,7 @@ func TestStoreClosedDatabaseErrorBranches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InsertImportedConversation before close: %v", err)
 	}
-	msg, err := s.InsertImportedMessage(user.ID, "closed-msg", conv.ID, "user", "hello", []string{diary.ID})
+	_, err = s.InsertImportedMessage(user.ID, "closed-msg", conv.ID, "user", "hello", []string{diary.ID})
 	if err != nil {
 		t.Fatalf("InsertImportedMessage before close: %v", err)
 	}
@@ -653,7 +640,6 @@ func TestStoreClosedDatabaseErrorBranches(t *testing.T) {
 		{"CountMessages", func() error { _, err := s.CountMessages(conv.ID); return err }},
 		{"CreateMessage", func() error { _, err := s.CreateMessage(user.ID, conv.ID, "user", "x", nil); return err }},
 		{"InsertImportedMessage", func() error { _, err := s.InsertImportedMessage(user.ID, "x", conv.ID, "user", "x", nil); return err }},
-		{"GetMessage", func() error { _, err := s.GetMessage(msg.ID); return err }},
 		{"InsertImportedDiary", func() error { _, err := s.InsertImportedDiary(user.ID, "x", "2024-01-03", "x", 0, nil, nil, "", nil); return err }},
 	}
 	for _, check := range checks {
@@ -2420,5 +2406,427 @@ func TestGetRandomDiaryWithMoodStates(t *testing.T) {
 	}
 	if len(d.MoodStates) != 2 {
 		t.Fatalf("MoodStates = %v", d.MoodStates)
+	}
+}
+
+func TestNormalizeTags(t *testing.T) {
+	if got := normalizeTags([]string{"a", " b ", "a", "", "c"}); len(got) != 3 || got[0] != "a" || got[1] != "b" || got[2] != "c" {
+		t.Fatalf("normalizeTags = %#v", got)
+	}
+	if got := normalizeTags(nil); len(got) != 0 {
+		t.Fatalf("normalizeTags nil = %#v", got)
+	}
+	if got := normalizeTags([]string{"", "  ", ""}); len(got) != 0 {
+		t.Fatalf("normalizeTags all-empty = %#v", got)
+	}
+}
+
+func TestSavePeriodAnalysisUpdate(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	a1, err := s.SavePeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", 5, "summary1", "sp1", "up1", "")
+	if err != nil {
+		t.Fatalf("SavePeriodAnalysis first: %v", err)
+	}
+	if a1 == nil || a1.Summary != "summary1" {
+		t.Fatalf("first save = %#v", a1)
+	}
+
+	a2, err := s.SavePeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", 5, "summary2", "sp2", "up2", "")
+	if err != nil {
+		t.Fatalf("SavePeriodAnalysis update: %v", err)
+	}
+	if a2 == nil || a2.Summary != "summary2" {
+		t.Fatalf("update save = %#v", a2)
+	}
+	if a2.ID != a1.ID {
+		t.Fatalf("update should reuse ID: %s != %s", a2.ID, a1.ID)
+	}
+}
+
+func TestSavePeriodAnalysisWithKeywords(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_, err := s.SavePeriodAnalysis(user.ID, "month", "2024-01-01", "2024-01-31", 3, "kw summary", "", "", "travel,work")
+	if err != nil {
+		t.Fatalf("SavePeriodAnalysis with keywords: %v", err)
+	}
+	a, err := s.GetPeriodAnalysis(user.ID, "month", "2024-01-01", "2024-01-31", "travel,work")
+	if err != nil {
+		t.Fatalf("GetPeriodAnalysis: %v", err)
+	}
+	if a.Keywords != "travel,work" {
+		t.Fatalf("Keywords = %q, want travel,work", a.Keywords)
+	}
+}
+
+func TestListSavedAnalysesFilters(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_, _ = s.SavePeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", 1, "w1", "", "", "")
+	_, _ = s.SavePeriodAnalysis(user.ID, "month", "2024-01-01", "2024-01-31", 2, "m1", "", "", "")
+
+	all, err := s.ListSavedAnalyses(user.ID, "", 100)
+	if err != nil {
+		t.Fatalf("ListSavedAnalyses all: %v", err)
+	}
+	if len(all) != 2 {
+		t.Fatalf("ListSavedAnalyses all = %d, want 2", len(all))
+	}
+
+	weeks, err := s.ListSavedAnalyses(user.ID, "week", 100)
+	if err != nil {
+		t.Fatalf("ListSavedAnalyses week: %v", err)
+	}
+	if len(weeks) != 1 {
+		t.Fatalf("ListSavedAnalyses week = %d, want 1", len(weeks))
+	}
+
+	none, err := s.ListSavedAnalyses(user.ID, "custom", 100)
+	if err != nil {
+		t.Fatalf("ListSavedAnalyses custom: %v", err)
+	}
+	if len(none) != 0 {
+		t.Fatalf("ListSavedAnalyses custom = %d, want 0", len(none))
+	}
+
+	limitResult, err := s.ListSavedAnalyses(user.ID, "all", 1)
+	if err != nil {
+		t.Fatalf("ListSavedAnalyses limit: %v", err)
+	}
+	if len(limitResult) != 1 {
+		t.Fatalf("ListSavedAnalyses limit = %d, want 1", len(limitResult))
+	}
+}
+
+func TestGetPeriodAnalysisNotFound(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_, err := s.GetPeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", "")
+	if err == nil {
+		t.Fatal("GetPeriodAnalysis should fail for missing record")
+	}
+}
+
+func TestCreateMediaAndMessage(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	media, err := s.CreateMedia(user.ID, "photo.png", "Photo", "Alt text", nil)
+	if err != nil {
+		t.Fatalf("CreateMedia: %v", err)
+	}
+	if media.ID == "" || media.File != "photo.png" {
+		t.Fatalf("CreateMedia = %#v", media)
+	}
+
+	conv, err := s.CreateConversation(user.ID, "Test Conv")
+	if err != nil {
+		t.Fatalf("CreateConversation: %v", err)
+	}
+	if conv.Title != "Test Conv" {
+		t.Fatalf("CreateConversation title = %q", conv.Title)
+	}
+
+	msg, err := s.CreateMessage(user.ID, conv.ID, "user", "hello world", []string{media.ID})
+	if err != nil {
+		t.Fatalf("CreateMessage: %v", err)
+	}
+	if msg.Role != "user" || msg.Content != "hello world" {
+		t.Fatalf("CreateMessage = %#v", msg)
+	}
+	if len(msg.ReferencedDiaries) != 1 || msg.ReferencedDiaries[0] != media.ID {
+		t.Fatalf("CreateMessage refs = %v", msg.ReferencedDiaries)
+	}
+}
+
+func TestUserLocalMediaDirPaths(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	defaultDir := s.userLocalMediaDir(user.ID)
+	if defaultDir != filepath.Join(s.DataDir, "storage", DefaultMediaCollectionID) {
+		t.Fatalf("default userLocalMediaDir = %q", defaultDir)
+	}
+
+	if err := s.SetSetting(user.ID, "image_upload.local.path", "/custom/path", false); err != nil {
+		t.Fatalf("SetSetting: %v", err)
+	}
+	customDir := s.userLocalMediaDir(user.ID)
+	if customDir != "/custom/path" {
+		t.Fatalf("custom userLocalMediaDir = %q, want /custom/path", customDir)
+	}
+
+	if err := s.SetSetting(user.ID, "image_upload.local.path", "relative/path", false); err != nil {
+		t.Fatalf("SetSetting: %v", err)
+	}
+	relDir := s.userLocalMediaDir(user.ID)
+	if relDir != filepath.Join(s.DataDir, "relative/path") {
+		t.Fatalf("relative userLocalMediaDir = %q", relDir)
+	}
+
+	emptyUserDir := s.userLocalMediaDir("")
+	if emptyUserDir != filepath.Join(s.DataDir, "storage", DefaultMediaCollectionID) {
+		t.Fatalf("empty user userLocalMediaDir = %q", emptyUserDir)
+	}
+}
+
+func TestSetSettingAndGetSettings(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	if err := s.SetSetting(user.ID, "test.key", "test-value", false); err != nil {
+		t.Fatalf("SetSetting: %v", err)
+	}
+	val, err := s.GetSetting(user.ID, "test.key")
+	if err != nil {
+		t.Fatalf("GetSetting: %v", err)
+	}
+	if val != "test-value" {
+		t.Fatalf("GetSetting = %v, want test-value", val)
+	}
+
+	all, err := s.GetSettings(user.ID)
+	if err != nil {
+		t.Fatalf("GetSettings: %v", err)
+	}
+	if all["test.key"] != "test-value" {
+		t.Fatalf("GetSettings test.key = %v", all["test.key"])
+	}
+
+	if err := s.DeleteSetting(user.ID, "test.key"); err != nil {
+		t.Fatalf("DeleteSetting: %v", err)
+	}
+	deleted, err := s.GetSetting(user.ID, "test.key")
+	if err == nil && deleted != nil {
+		t.Fatalf("GetSetting after delete = %v, want nil", deleted)
+	}
+}
+
+func TestUserSettingHelpers(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_ = s.SetSetting(user.ID, "str.key", "hello", false)
+	if got := s.userStringSetting(user.ID, "str.key"); got != "hello" {
+		t.Fatalf("userStringSetting = %q", got)
+	}
+	if got := s.userStringSetting(user.ID, "missing"); got != "" {
+		t.Fatalf("userStringSetting missing = %q", got)
+	}
+
+	_ = s.SetSetting(user.ID, "bool.key", true, false)
+	if !s.userBoolSetting(user.ID, "bool.key") {
+		t.Fatal("userBoolSetting should be true")
+	}
+	if s.userBoolSetting(user.ID, "missing") {
+		t.Fatal("userBoolSetting missing should be false")
+	}
+}
+
+func TestValidateAPITokenDisabled(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_ = s.SetSetting(user.ID, "api.token", "my-token", false)
+	_ = s.SetSetting(user.ID, "api.enabled", false, false)
+
+	_, err := s.ValidateAPIToken("my-token")
+	if err == nil || err.Error() != "api disabled" {
+		t.Fatalf("ValidateAPIToken disabled = %v, want 'api disabled'", err)
+	}
+}
+
+func TestListMediaEmptyOwner(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	items, total, err := s.ListMedia(user.ID, 1, 10)
+	if err != nil {
+		t.Fatalf("ListMedia: %v", err)
+	}
+	if total != 0 || len(items) != 0 {
+		t.Fatalf("ListMedia empty = total=%d, items=%d", total, len(items))
+	}
+}
+
+func TestGetRandomDiaryShortExcludeDate(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_, err := s.InsertImportedDiary(user.ID, "", "2024-03-01", "content", 3, nil, nil, "sunny", nil)
+	if err != nil {
+		t.Fatalf("InsertImportedDiary: %v", err)
+	}
+
+	d, err := s.GetRandomDiary(user.ID, "short")
+	if err != nil {
+		t.Fatalf("GetRandomDiary short exclude: %v", err)
+	}
+	if d == nil {
+		t.Fatal("expected non-nil diary")
+	}
+}
+
+func TestGetRandomDiaryEmpty(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_, err := s.GetRandomDiary(user.ID, "")
+	if err == nil {
+		t.Fatal("GetRandomDiary should fail for empty store")
+	}
+}
+
+func TestGetRandomDiaryAllExcluded(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_, _ = s.InsertImportedDiary(user.ID, "", "2024-01-01", "content", 0, nil, nil, "", nil)
+
+	_, err := s.GetRandomDiary(user.ID, "2024-01-01")
+	if err == nil {
+		t.Fatal("GetRandomDiary should fail when all diaries excluded")
+	}
+}
+
+func TestListDiariesOrderingAndLimits(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_, _ = s.InsertImportedDiary(user.ID, "", "2024-01-01", "first", 0, nil, nil, "", nil)
+	_, _ = s.InsertImportedDiary(user.ID, "", "2024-01-02", "second", 0, nil, nil, "", nil)
+	_, _ = s.InsertImportedDiary(user.ID, "", "2024-01-03", "third", 0, nil, nil, "", nil)
+
+	created, err := s.ListDiaries(user.ID, "", "", "created", 0)
+	if err != nil {
+		t.Fatalf("ListDiaries created: %v", err)
+	}
+	if len(created) != 3 || created[0].Date > created[2].Date {
+		t.Fatalf("ListDiaries created order wrong: %v", created)
+	}
+
+	updated, err := s.ListDiaries(user.ID, "", "", "updated", 2)
+	if err != nil {
+		t.Fatalf("ListDiaries updated: %v", err)
+	}
+	if len(updated) != 2 {
+		t.Fatalf("ListDiaries updated limit = %d, want 2", len(updated))
+	}
+
+	noLimit, err := s.ListDiaries(user.ID, "", "", "-date", 0)
+	if err != nil {
+		t.Fatalf("ListDiaries no limit: %v", err)
+	}
+	if len(noLimit) != 3 {
+		t.Fatalf("ListDiaries no limit = %d, want 3", len(noLimit))
+	}
+}
+
+func TestSearchDiariesWithScenario(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_, _ = s.InsertImportedDiary(user.ID, "", "2024-01-01", "work stuff", 0, nil, []string{"工作"}, "", nil)
+	_, _ = s.InsertImportedDiary(user.ID, "", "2024-01-02", "travel fun", 0, nil, []string{"旅行"}, "", nil)
+
+	workOnly, err := s.SearchDiaries(user.ID, "", "工作", 10)
+	if err != nil {
+		t.Fatalf("SearchDiaries scenario: %v", err)
+	}
+	if len(workOnly) != 1 || workOnly[0].Scenarios[0] != "工作" {
+		t.Fatalf("SearchDiaries scenario = %v", workOnly)
+	}
+
+	withQuery, err := s.SearchDiaries(user.ID, "travel", "旅行", 10)
+	if err != nil {
+		t.Fatalf("SearchDiaries query+scenario: %v", err)
+	}
+	if len(withQuery) != 1 {
+		t.Fatalf("SearchDiaries query+scenario = %d, want 1", len(withQuery))
+	}
+}
+
+func TestFilterDiariesBothFilters(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_, _ = s.InsertImportedDiary(user.ID, "", "2024-01-01", "a", 4, nil, []string{"工作"}, "", nil)
+	_, _ = s.InsertImportedDiary(user.ID, "", "2024-01-02", "b", 2, nil, []string{"旅行"}, "", nil)
+	_, _ = s.InsertImportedDiary(user.ID, "", "2024-01-03", "c", 4, nil, []string{"旅行"}, "", nil)
+
+	results, err := s.FilterDiaries(user.ID, 4, "旅行", 100)
+	if err != nil {
+		t.Fatalf("FilterDiaries both: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("FilterDiaries both = %d, want 1", len(results))
+	}
+}
+
+func TestListTagCountsEmpty(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	counts, err := s.ListTagCounts(user.ID)
+	if err != nil {
+		t.Fatalf("ListTagCounts empty: %v", err)
+	}
+	if len(counts) != 0 {
+		t.Fatalf("ListTagCounts empty = %d, want 0", len(counts))
+	}
+}
+
+func TestListDiariesByTagEmpty(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	diaries, err := s.ListDiariesByTag(user.ID, "nonexistent")
+	if err != nil {
+		t.Fatalf("ListDiariesByTag nonexistent: %v", err)
+	}
+	if len(diaries) != 0 {
+		t.Fatalf("ListDiariesByTag nonexistent = %d, want 0", len(diaries))
+	}
+}
+
+func TestGetPeriodAnalysisMultipleKeywords(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	_, _ = s.SavePeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", 3, "s1", "", "", "travel")
+	_, _ = s.SavePeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", 5, "s2", "", "", "work")
+
+	a1, err := s.GetPeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", "travel")
+	if err != nil {
+		t.Fatalf("GetPeriodAnalysis travel: %v", err)
+	}
+	if a1.DiaryCount != 3 {
+		t.Fatalf("GetPeriodAnalysis travel count = %d, want 3", a1.DiaryCount)
+	}
+
+	a2, err := s.GetPeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", "work")
+	if err != nil {
+		t.Fatalf("GetPeriodAnalysis work: %v", err)
+	}
+	if a2.DiaryCount != 5 {
+		t.Fatalf("GetPeriodAnalysis work count = %d, want 5", a2.DiaryCount)
+	}
+}
+
+func TestGetDiariesByMonthDayShortDate(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	diaries, err := s.GetDiariesByMonthDay(user.ID, "2024")
+	if err != nil {
+		t.Fatalf("GetDiariesByMonthDay short: %v", err)
+	}
+	if len(diaries) != 0 {
+		t.Fatalf("GetDiariesByMonthDay short = %d, want 0", len(diaries))
 	}
 }

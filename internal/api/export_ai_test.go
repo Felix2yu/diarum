@@ -150,7 +150,7 @@ func TestExportImportRoutesAndHelpers(t *testing.T) {
 	if _, ok := entries["diarum_export.json"]; !ok {
 		t.Fatalf("export zip entries = %#v", entries)
 	}
-	if _, ok := entries["markdown/2024-02-01_4.md"]; !ok {
+	if _, ok := entries["markdown/2024-02-01.md"]; !ok {
 		t.Fatalf("export markdown entries = %#v", entries)
 	}
 	if _, ok := entries["media/photo.png"]; !ok {
@@ -160,7 +160,7 @@ func TestExportImportRoutesAndHelpers(t *testing.T) {
 	if !isValidZipPath("media/photo.png") || isValidZipPath("../evil") {
 		t.Fatal("isValidZipPath results unexpected")
 	}
-	if markdown := generateMarkdown(exportDiary{Date: "2024-02-01", Content: "Hello", Mood: 4, Weather: "sunny"}); !strings.Contains(markdown, "**Mood:**") {
+	if markdown := generateMarkdown(exportDiary{Date: "2024-02-01", Content: "Hello", Mood: 4, Weather: "sunny"}); !strings.Contains(markdown, "**心情：**") {
 		t.Fatalf("generateMarkdown = %q", markdown)
 	}
 	if _, _, err := calculateDateRange(ExportRequest{DateRange: "custom", StartDate: "2024-01-02", EndDate: "2024-01-01"}); err == nil {

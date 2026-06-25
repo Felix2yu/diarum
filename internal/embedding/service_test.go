@@ -51,9 +51,6 @@ func newTestVectorDB(t *testing.T) *VectorDB {
 	if err != nil {
 		t.Fatalf("NewVectorDB: %v", err)
 	}
-	t.Cleanup(func() {
-		_ = db.Close()
-	})
 	return db
 }
 
@@ -426,11 +423,11 @@ func TestHelpersAndEdgeCases(t *testing.T) {
 		t.Fatal("needsBuildVector should be false for current document")
 	}
 
-	if got := extractDate("2024-01-03T10:20:30Z"); got != "2024-01-03" {
-		t.Fatalf("extractDate = %q, want 2024-01-03", got)
+	if got := store.DateOnly("2024-01-03T10:20:30Z"); got != "2024-01-03" {
+		t.Fatalf("store.DateOnly = %q, want 2024-01-03", got)
 	}
-	if got := extractDate("short"); got != "short" {
-		t.Fatalf("extractDate short = %q, want short", got)
+	if got := store.DateOnly("short"); got != "short" {
+		t.Fatalf("store.DateOnly short = %q, want short", got)
 	}
 	if got, err := parseStoreTime("2024-01-03 00:00:00.000Z"); err != nil || got.IsZero() {
 		t.Fatalf("parseStoreTime store format = %v, %v", got, err)
@@ -540,7 +537,7 @@ func TestIncrementalBuildAndStatsEdges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("BuildIncrementalVectors failure case: %v", err)
 	}
-	if buildResult.Total != 2 || buildResult.Success != 1 || buildResult.Failed != 1 || len(buildResult.ErrorDetails) != 1 {
+	if buildResult.Total != 2 || buildResult.Success != 1 || buildResult.Failed != 1 || len(buildResult.Errors) != 1 {
 		t.Fatalf("BuildIncrementalVectors failure result = %#v", buildResult)
 	}
 
@@ -623,8 +620,19 @@ func TestVectorDBLifecycle(t *testing.T) {
 	if err := db.DeleteCollection("user-1"); err != nil {
 		t.Fatalf("DeleteCollection: %v", err)
 	}
-	if err := db.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
+}
+
+func TestGetCollectionNonExistent(t *testing.T) {
+	db := newTestVectorDB(t)
+	if got := db.GetCollection("nonexistent-user"); got != nil {
+		t.Fatalf("GetCollection nonexistent = %v, want nil", got)
+	}
+}
+
+func TestDeleteCollectionNonExistent(t *testing.T) {
+	db := newTestVectorDB(t)
+	if err := db.DeleteCollection("nonexistent-user"); err != nil {
+		t.Fatalf("DeleteCollection nonexistent: %v", err)
 	}
 }
 

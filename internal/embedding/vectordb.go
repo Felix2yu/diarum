@@ -84,9 +84,3 @@ func (v *VectorDB) GetCollection(userID string) *chromem.Collection {
 	}
 	return v.db.GetCollection(collName, placeholderFunc)
 }
-
-// Close closes the vector database
-func (v *VectorDB) Close() error {
-	// chromem-go doesn't have a Close method, but we keep this for future compatibility
-	return nil
-}
