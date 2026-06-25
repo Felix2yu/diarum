@@ -25,7 +25,7 @@ func generateToken() (string, error) {
 func getSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
-		key := c.PathParam("key")
+		key := c.PathValue("key")
 
 		if _, ok := config.GetConfigMeta(key); !ok {
 			return badRequest("Unknown setting key: "+key, nil)
@@ -46,7 +46,7 @@ func getSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
 func putSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
-		key := c.PathParam("key")
+		key := c.PathValue("key")
 
 		if _, ok := config.GetConfigMeta(key); !ok {
 			return badRequest("Unknown setting key: "+key, nil)
@@ -72,7 +72,7 @@ func putSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
 func deleteSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
-		key := c.PathParam("key")
+		key := c.PathValue("key")
 
 		if _, ok := config.GetConfigMeta(key); !ok {
 			return badRequest("Unknown setting key: "+key, nil)

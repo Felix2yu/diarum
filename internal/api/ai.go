@@ -348,7 +348,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 
 	group.GET("/conversations/:id", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
-		conv, err := s.GetConversation(c.PathParam("id"), userId)
+		conv, err := s.GetConversation(c.PathValue("id"), userId)
 		if err != nil {
 			return notFound("Conversation not found")
 		}
@@ -365,7 +365,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 
 	group.DELETE("/conversations/:id", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
-		if err := s.DeleteConversation(c.PathParam("id"), userId); err != nil {
+		if err := s.DeleteConversation(c.PathValue("id"), userId); err != nil {
 			return notFound("Conversation not found")
 		}
 		return c.JSON(http.StatusOK, map[string]any{"success": true})
@@ -379,7 +379,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
 		}
-		conv, err := s.UpdateConversationTitle(c.PathParam("id"), userId, body.Title)
+		conv, err := s.UpdateConversationTitle(c.PathValue("id"), userId, body.Title)
 		if err != nil {
 			return notFound("Conversation not found")
 		}

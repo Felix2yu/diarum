@@ -50,7 +50,7 @@ func RegisterMemosRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 	configService := config.NewConfigService(s)
 
 	e.POST("/api/v1/memos/webhook/:token", func(c *echo.Context) error {
-		userID, err := validateMemosWebhookToken(s, c.PathParam("token"))
+		userID, err := validateMemosWebhookToken(s, c.PathValue("token"))
 		if err != nil {
 			return serverError("Failed to validate webhook token", err)
 		}

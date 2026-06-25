@@ -51,7 +51,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 
 	group.GET("/by-date/:date", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
-		dateStr := c.PathParam("date")
+		dateStr := c.PathValue("date")
 		start, end := dateStr+" 00:00:00.000Z", dateStr+" 23:59:59.999Z"
 		diary, err := s.GetDiaryByDate(user.ID, start, end)
 		if err != nil {
@@ -267,7 +267,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 
 	group.GET("/:id", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
-		diary, err := s.GetDiaryByID(c.PathParam("id"))
+		diary, err := s.GetDiaryByID(c.PathValue("id"))
 		if err != nil {
 			return notFound("Diary not found")
 		}
@@ -279,7 +279,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 
 	group.DELETE("/:id", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
-		if err := s.DeleteDiary(c.PathParam("id"), user.ID); err != nil {
+		if err := s.DeleteDiary(c.PathValue("id"), user.ID); err != nil {
 			return notFound("Diary not found")
 		}
 		if onDiaryChanged != nil {
@@ -299,7 +299,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 
 	group.GET("/by-tag/:tag", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
-		tag := c.PathParam("tag")
+		tag := c.PathValue("tag")
 		diaries, err := s.ListDiariesByTag(user.ID, tag)
 		if err != nil {
 			return serverError("Failed to fetch diaries by tag", err)
