@@ -5,9 +5,11 @@ FROM golang:1.26-alpine AS go-modules
 
 WORKDIR /app
 COPY go.mod go.sum ./
+COPY main.go diarum.go ./
+COPY internal/ ./internal/
 
 RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod download
+    go mod tidy && go mod download
 
 # ---- Frontend build stage ----
 FROM node:24-alpine AS frontend-builder
@@ -34,12 +36,12 @@ FROM golang:1.26-alpine AS backend-builder
 WORKDIR /app
 
 COPY go.mod go.sum ./
+COPY main.go diarum.go ./
+COPY internal/ ./internal/
 
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod tidy && go mod download
 
-COPY main.go diarum.go ./
-COPY internal/ ./internal/
 COPY --from=frontend-builder /app/site/build ./internal/static/build
 
 ARG VERSION=dev
