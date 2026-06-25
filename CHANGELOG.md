@@ -4,6 +4,39 @@
 
 ---
 
+## v1.10 - 2026-06-25
+
+> 发布日期：2026-06-25
+> 对比基线：`v1.9 (6b173f2)` → `v1.10 (d68a0b1)`
+
+### ✨ 新增 Features
+
+- **`/metrics` 端点** — 新增应用监控接口，返回运行时内存统计、Go 版本、架构等信息
+
+### 🔧 技术改进
+
+- **Echo v5 框架升级** — 从 alpha 版 (`v5.0.0-20230722`) 升级到稳定版 `v5.2.1`，修复 `/*` 通配符路由缺陷导致 SPA 页面全部 404 的问题；改用 `HTTPErrorHandler` 拦截 404 实现 SPA 兜底
+- **Docker 构建修复** — 修正 `COPY` 顺序（前端构建产物不再被本地源码覆盖）；移除 `zstd --rm` 保留原始文件供 SPA 服务使用
+- **CI/CD 优化** — ARM64 构建改用原生 runner（`ubuntu-24.04-arm`），构建时间从 ~10 分钟降至 ~30 秒；GitHub Actions 全部升级到最新版本，消除 Node.js 20 弃用警告
+- **iOS PWA 兼容** — 修复输入框字号 < 16px 导致 iOS Safari 自动缩放的问题
+- **媒体文件服务** — 替换 `c.File()` 为 `http.ServeContent`，修复 Echo v5.2 下绝对路径无法打开的问题
+- **SPA 页面标题** — `app.html` 添加默认 `<title>吾身</title>`，修复 SPA 路由页面标题缺失
+
+### 📦 依赖更新
+
+| 包 | 旧版本 | 新版本 |
+|---|---|---|
+| `golang-jwt/jwt/v5` | v5.2.2 | v5.3.1 |
+| `golang.org/x/crypto` | v0.45.0 | v0.53.0 |
+| `modernc.org/sqlite` | v1.36.1 | v1.53.0 |
+| `actions/upload-artifact` | v4 | v7 |
+| `actions/download-artifact` | v4 | v8 |
+| `codecov/codecov-action` | v5 | v7 |
+
+全部间接依赖由 `go mod tidy` 自动对齐最新兼容版本。
+
+---
+
 ## v1.9 - 2026-06-25
 
 > 发布日期：2026-06-25
