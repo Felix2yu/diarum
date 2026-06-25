@@ -11,7 +11,7 @@ require (
 	github.com/labstack/echo/v5 v5.2.1
 	github.com/philippgille/chromem-go v0.7.0
 	golang.org/x/crypto v0.53.0
-	modernc.org/sqlite v1.36.1
+	modernc.org/sqlite v1.53.0
 )
 
 require (
