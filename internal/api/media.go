@@ -37,7 +37,7 @@ func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 
 	group.GET("/:id", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
-		media, err := s.GetMedia(c.PathValue("id"), user.ID)
+		media, err := s.GetMedia(c.Param("id"), user.ID)
 		if err != nil {
 			return notFound("Media not found")
 		}
@@ -92,7 +92,7 @@ func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
 		}
-		media, err := s.UpdateMediaDiary(c.PathValue("id"), user.ID, body.Diary)
+		media, err := s.UpdateMediaDiary(c.Param("id"), user.ID, body.Diary)
 		if err != nil {
 			return notFound("Media not found")
 		}
@@ -101,7 +101,7 @@ func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 
 	group.DELETE("/:id", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
-		media, err := s.GetMedia(c.PathValue("id"), user.ID)
+		media, err := s.GetMedia(c.Param("id"), user.ID)
 		if err != nil {
 			return notFound("Media not found")
 		}
@@ -115,8 +115,8 @@ func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 	})
 
 	e.GET("/api/v1/files/media/:id/:filename", func(c *echo.Context) error {
-		media, err := s.GetMedia(c.PathValue("id"), "")
-		if err != nil || media.File != c.PathValue("filename") {
+		media, err := s.GetMedia(c.Param("id"), "")
+		if err != nil || media.File != c.Param("filename") {
 			return notFound("File not found")
 		}
 		path := s.MediaFilePath(media)

@@ -91,7 +91,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			return err
 		}
 
-		id := c.PathValue("id")
+		id := c.Param("id")
 		existing, err := s.GetDiaryByID(id)
 		if err != nil || existing.Owner != userId {
 			return notFound("Diary not found")
