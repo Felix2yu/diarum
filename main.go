@@ -188,7 +188,6 @@ func run(args []string, stdout io.Writer) error {
 	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
 		LogStatus: true,
 		LogURI:    true,
-		LogError:  true,
 		LogValuesFunc: func(c *echo.Context, values middleware.RequestLoggerValues) error {
 			log.Printf("%s %s %d", values.Method, values.URI, values.Status)
 			return nil
