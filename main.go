@@ -232,8 +232,7 @@ func run(args []string, stdout io.Writer) error {
 	if err != nil {
 		log.Printf("Warning: Failed to get embedded static files: %v", err)
 	} else {
-		spaHandler := func(c echo.Context) error { return serveSPA(c, staticFS) }
-		e.Any("/*", spaHandler)
+		e.GET("/*", func(c echo.Context) error { return serveSPA(c, staticFS) })
 	}
 
 	if err := startServer(e, *httpAddr); err != nil && !errors.Is(err, http.ErrServerClosed) {

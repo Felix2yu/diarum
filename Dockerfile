@@ -38,10 +38,9 @@ COPY go.mod go.sum ./
 RUN --mount=type=cache,target=/go/pkg/mod \
     go mod download
 
-COPY --from=frontend-builder /app/site/build ./internal/static/build
-
 COPY main.go diarum.go ./
 COPY internal/ ./internal/
+COPY --from=frontend-builder /app/site/build ./internal/static/build
 
 ARG VERSION=dev
 RUN --mount=type=cache,target=/go/pkg/mod \
