@@ -151,7 +151,7 @@ func TestHelpersVersionAndOpenAPI(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			httpErr, ok := test.fn("message", test.err).(*echo.HTTPError)
-			if !ok || httpErr.Code != test.code || !strings.Contains(httpErr.Message.(string), "message") {
+			if !ok || httpErr.Code != test.code || !strings.Contains(httpErr.Message, "message") {
 				t.Fatalf("%s error = %#v", name, httpErr)
 			}
 		})
