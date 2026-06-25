@@ -1151,9 +1151,9 @@ func TestSingleSettingHandlers(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/settings/ai.chat_model", nil)
 	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec).(*echo.DefaultContext)
+	c := e.NewContext(req, rec)
 	c.Set(iauth.ContextUserKey, user)
-	c.SetPathParams(echo.PathParams{{Name: "key", Value: "ai.chat_model"}})
+	c.SetPathParams(echo.PathValues{{Name: "key", Value: "ai.chat_model"}})
 
 	if err := getSettingHandler(configService)(c); err != nil {
 		t.Fatalf("getSettingHandler: %v", err)
@@ -1165,9 +1165,9 @@ func TestSingleSettingHandlers(t *testing.T) {
 	req = httptest.NewRequest(http.MethodPut, "/api/v1/settings/ai.chat_model", strings.NewReader(`{"value":"gpt-test"}`))
 	req.Header.Set("Content-Type", "application/json")
 	rec = httptest.NewRecorder()
-	c = e.NewContext(req, rec).(*echo.DefaultContext)
+	c = e.NewContext(req, rec)
 	c.Set(iauth.ContextUserKey, user)
-	c.SetPathParams(echo.PathParams{{Name: "key", Value: "ai.chat_model"}})
+	c.SetPathParams(echo.PathValues{{Name: "key", Value: "ai.chat_model"}})
 	if err := putSettingHandler(configService)(c); err != nil {
 		t.Fatalf("putSettingHandler: %v", err)
 	}
@@ -1177,9 +1177,9 @@ func TestSingleSettingHandlers(t *testing.T) {
 
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/settings/ai.chat_model", nil)
 	rec = httptest.NewRecorder()
-	c = e.NewContext(req, rec).(*echo.DefaultContext)
+	c = e.NewContext(req, rec)
 	c.Set(iauth.ContextUserKey, user)
-	c.SetPathParams(echo.PathParams{{Name: "key", Value: "ai.chat_model"}})
+	c.SetPathParams(echo.PathValues{{Name: "key", Value: "ai.chat_model"}})
 	if err := getSettingHandler(configService)(c); err != nil {
 		t.Fatalf("getSettingHandler after put: %v", err)
 	}
@@ -1189,9 +1189,9 @@ func TestSingleSettingHandlers(t *testing.T) {
 
 	req = httptest.NewRequest(http.MethodDelete, "/api/v1/settings/ai.chat_model", nil)
 	rec = httptest.NewRecorder()
-	c = e.NewContext(req, rec).(*echo.DefaultContext)
+	c = e.NewContext(req, rec)
 	c.Set(iauth.ContextUserKey, user)
-	c.SetPathParams(echo.PathParams{{Name: "key", Value: "ai.chat_model"}})
+	c.SetPathParams(echo.PathValues{{Name: "key", Value: "ai.chat_model"}})
 	if err := deleteSettingHandler(configService)(c); err != nil {
 		t.Fatalf("deleteSettingHandler: %v", err)
 	}
@@ -1201,9 +1201,9 @@ func TestSingleSettingHandlers(t *testing.T) {
 
 	req = httptest.NewRequest(http.MethodGet, "/api/v1/settings/unknown", nil)
 	rec = httptest.NewRecorder()
-	c = e.NewContext(req, rec).(*echo.DefaultContext)
+	c = e.NewContext(req, rec)
 	c.Set(iauth.ContextUserKey, user)
-	c.SetPathParams(echo.PathParams{{Name: "key", Value: "unknown"}})
+	c.SetPathParams(echo.PathValues{{Name: "key", Value: "unknown"}})
 	if err := getSettingHandler(configService)(c); err == nil {
 		t.Fatal("getSettingHandler should reject unknown key")
 	}
@@ -1211,18 +1211,18 @@ func TestSingleSettingHandlers(t *testing.T) {
 	req = httptest.NewRequest(http.MethodPut, "/api/v1/settings/ai.chat_model", strings.NewReader(`{"value":`))
 	req.Header.Set("Content-Type", "application/json")
 	rec = httptest.NewRecorder()
-	c = e.NewContext(req, rec).(*echo.DefaultContext)
+	c = e.NewContext(req, rec)
 	c.Set(iauth.ContextUserKey, user)
-	c.SetPathParams(echo.PathParams{{Name: "key", Value: "ai.chat_model"}})
+	c.SetPathParams(echo.PathValues{{Name: "key", Value: "ai.chat_model"}})
 	if err := putSettingHandler(configService)(c); err == nil {
 		t.Fatal("putSettingHandler should reject malformed JSON")
 	}
 
 	req = httptest.NewRequest(http.MethodDelete, "/api/v1/settings/unknown", nil)
 	rec = httptest.NewRecorder()
-	c = e.NewContext(req, rec).(*echo.DefaultContext)
+	c = e.NewContext(req, rec)
 	c.Set(iauth.ContextUserKey, user)
-	c.SetPathParams(echo.PathParams{{Name: "key", Value: "unknown"}})
+	c.SetPathParams(echo.PathValues{{Name: "key", Value: "unknown"}})
 	if err := deleteSettingHandler(configService)(c); err == nil {
 		t.Fatal("deleteSettingHandler should reject unknown key")
 	}
@@ -1241,18 +1241,18 @@ func TestSettingsHandlerStoreClosedErrors(t *testing.T) {
 	putReq := httptest.NewRequest(http.MethodPut, "/api/v1/settings/api.chat_model", strings.NewReader(`{"value":"test"}`))
 	putReq.Header.Set("Content-Type", "application/json")
 	putRec := httptest.NewRecorder()
-	putCtx := e.NewContext(putReq, putRec).(*echo.DefaultContext)
+	putCtx := e.NewContext(putReq, putRec)
 	putCtx.Set(iauth.ContextUserKey, user)
-	putCtx.SetPathParams(echo.PathParams{{Name: "key", Value: "api.chat_model"}})
+	putCtx.SetPathParams(echo.PathValues{{Name: "key", Value: "api.chat_model"}})
 	if err := putSettingHandler(configService)(putCtx); err == nil {
 		t.Fatal("putSettingHandler should fail when store is closed")
 	}
 
 	delReq := httptest.NewRequest(http.MethodDelete, "/api/v1/settings/api.chat_model", nil)
 	delRec := httptest.NewRecorder()
-	delCtx := e.NewContext(delReq, delRec).(*echo.DefaultContext)
+	delCtx := e.NewContext(delReq, delRec)
 	delCtx.Set(iauth.ContextUserKey, user)
-	delCtx.SetPathParams(echo.PathParams{{Name: "key", Value: "api.chat_model"}})
+	delCtx.SetPathParams(echo.PathValues{{Name: "key", Value: "api.chat_model"}})
 	if err := deleteSettingHandler(configService)(delCtx); err == nil {
 		t.Fatal("deleteSettingHandler should fail when store is closed")
 	}
