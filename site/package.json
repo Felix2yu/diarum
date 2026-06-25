@@ -5,7 +5,7 @@
 	"scripts": {
 		"prepare": "svelte-kit sync",
 		"dev": "vite dev --host 127.0.0.1 --port 5173 --strictPort",
-		"build": "vite build && node -e \"const{execSync:e}=require('child_process'),f=require('fs'),p=require('path');function r(d){for(const n of f.readdirSync(d)){const t=p.join(d,n);if(f.statSync(t).isDirectory())r(t);else if(/\\.(js|css|html|svg|json|woff2?)$/.test(n)){try{e('zstd -19 --rm '+JSON.stringify(t)+' -o '+JSON.stringify(t+'.zst'),{stdio:'ignore'})}catch{}}}}r('build')\"",
+		"build": "vite build && node -e \"const{execSync:e}=require('child_process'),f=require('fs'),p=require('path');function r(d){for(const n of f.readdirSync(d)){const t=p.join(d,n);if(f.statSync(t).isDirectory())r(t);else if(/\\.(js|css|html|svg|json|woff2?)$/.test(n)){try{e('zstd -19 '+JSON.stringify(t)+' -o '+JSON.stringify(t+'.zst'),{stdio:'ignore'})}catch{}}}}r('build')\"",
 		"preview": "vite preview",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"

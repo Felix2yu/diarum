@@ -226,56 +226,13 @@ func run(args []string, stdout io.Writer) error {
 	if err != nil {
 		log.Printf("Warning: Failed to get embedded static files: %v", err)
 	} else {
-		if f, ferr := staticFS.Open("index.html"); ferr != nil {
-			log.Printf("WARNING: index.html not found in embedded FS: %v", ferr)
-			fs.WalkDir(staticFS, ".", func(path string, d fs.DirEntry, err error) error {
-				if err != nil {
-					return err
-				}
-				log.Printf("  embedded: %s (dir=%v)", path, d.IsDir())
-				return nil
-			})
-		} else {
-			f.Close()
-			log.Printf("OK: index.html found in embedded FS")
-		}
 		defaultHandler := e.HTTPErrorHandler
 		e.HTTPErrorHandler = func(c *echo.Context, err error) {
 			if strings.HasPrefix(c.Request().URL.Path, "/api/") {
 				defaultHandler(c, err)
 				return
 			}
-			w := c.Response()
-			path := c.Request().URL.Path
-			path = filepath.Clean(path)
-			if path == "." {
-				path = "/"
-			}
-			path = strings.TrimPrefix(path, "/")
-			if path == "" {
-				path = "index.html"
-			}
-			if f, ferr := staticFS.Open(path); ferr == nil {
-				stat, _ := f.Stat()
-				if stat != nil && !stat.IsDir() {
-					data, _ := io.ReadAll(f)
-					f.Close()
-					w.Header().Set(echo.HeaderContentType, mimeByExtension(path))
-					w.WriteHeader(http.StatusOK)
-					w.Write(data)
-					return
-				}
-				f.Close()
-			}
-			if f, ferr := staticFS.Open("index.html"); ferr == nil {
-				data, _ := io.ReadAll(f)
-				f.Close()
-				w.Header().Set(echo.HeaderContentType, "text/html; charset=utf-8")
-				w.WriteHeader(http.StatusOK)
-				w.Write(data)
-				return
-			}
-			defaultHandler(c, err)
+			serveSPA(c, staticFS)
 		}
 	}
 
