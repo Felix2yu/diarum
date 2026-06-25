@@ -225,7 +225,7 @@ func TestRunServe(t *testing.T) {
 	startServer = func(e *echo.Echo, addr string) error {
 		foundDocs := false
 		for _, route := range e.Router().Routes() {
-			if route.Path() == "/api/docs" {
+			if route.Path == "/api/docs" {
 				foundDocs = true
 				break
 			}

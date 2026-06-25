@@ -88,7 +88,7 @@ func buildOpenAPISpec(routes echo.Routes, version, name string) map[string]any {
 		if !ok {
 			pathItem = map[string]any{}
 		}
-		pathItem[method] = buildOperation(route.Method(), path)
+		pathItem[method] = buildOperation(route.Method, path)
 		paths[path] = pathItem
 	}
 
