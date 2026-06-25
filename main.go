@@ -185,6 +185,15 @@ func run(args []string, stdout io.Writer) error {
 	authService := auth.NewService(appStore)
 	e := echo.New()
 	e.Use(middleware.Recover())
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogStatus: true,
+		LogURI:    true,
+		LogError:  true,
+		LogValuesFunc: func(c *echo.Context, values middleware.RequestLoggerValues) error {
+			log.Printf("%s %s %d", values.Method, values.URI, values.Status)
+			return nil
+		},
+	}))
 
 	authMiddleware := authService.Middleware
 	onDiaryChanged := func(userID string) {
@@ -232,7 +241,37 @@ func run(args []string, stdout io.Writer) error {
 				defaultHandler(c, err)
 				return
 			}
-			serveSPA(c, staticFS)
+			w := c.Response()
+			path := c.Request().URL.Path
+			path = filepath.Clean(path)
+			if path == "." {
+				path = "/"
+			}
+			path = strings.TrimPrefix(path, "/")
+			if path == "" {
+				path = "index.html"
+			}
+			if f, ferr := staticFS.Open(path); ferr == nil {
+				stat, _ := f.Stat()
+				if stat != nil && !stat.IsDir() {
+					data, _ := io.ReadAll(f)
+					f.Close()
+					w.Header().Set(echo.HeaderContentType, mimeByExtension(path))
+					w.WriteHeader(http.StatusOK)
+					w.Write(data)
+					return
+				}
+				f.Close()
+			}
+			if f, ferr := staticFS.Open("index.html"); ferr == nil {
+				data, _ := io.ReadAll(f)
+				f.Close()
+				w.Header().Set(echo.HeaderContentType, "text/html; charset=utf-8")
+				w.WriteHeader(http.StatusOK)
+				w.Write(data)
+				return
+			}
+			defaultHandler(c, err)
 		}
 	}
 
