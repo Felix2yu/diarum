@@ -36,7 +36,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 
 RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod download
+    go mod tidy && go mod download
 
 COPY main.go diarum.go ./
 COPY internal/ ./internal/
