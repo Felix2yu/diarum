@@ -120,8 +120,14 @@ func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 			return notFound("File not found")
 		}
 		path := s.MediaFilePath(media)
-		if _, err := os.Stat(path); err == nil {
-			return c.File(path)
+		if fi, err := os.Stat(path); err == nil {
+			f, err := os.Open(path)
+			if err != nil {
+				return notFound("File not found")
+			}
+			defer f.Close()
+			http.ServeContent(c.Response(), c.Request(), fi.Name(), fi.ModTime(), f)
+			return nil
 		}
 
 		reader, err := s.OpenMediaFile(media)
