@@ -147,7 +147,7 @@ func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 				return err
 			}
 		}
-		_, err = io.Copy(c.Response().Writer, reader)
+		_, err = io.Copy(c.Response(), reader)
 		return err
 	})
 }

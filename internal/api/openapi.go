@@ -58,31 +58,28 @@ func buildOpenAPISpec(routes echo.Routes, version, name string) map[string]any {
 
 	routeCopies := make([]echo.RouteInfo, 0, len(routes))
 	for _, route := range routes {
-		if route == nil {
+		if !strings.HasPrefix(route.Path, "/api/") {
 			continue
 		}
-		if !strings.HasPrefix(route.Path(), "/api/") {
+		if route.Path == "/api/openapi.json" || route.Path == "/api/v1/openapi.json" || route.Path == "/api/docs" || route.Path == "/api/v1/docs" {
 			continue
 		}
-		if route.Path() == "/api/openapi.json" || route.Path() == "/api/v1/openapi.json" || route.Path() == "/api/docs" || route.Path() == "/api/v1/docs" {
-			continue
-		}
-		if strings.Contains(route.Path(), "/*") {
+		if strings.Contains(route.Path, "/*") {
 			continue
 		}
 		routeCopies = append(routeCopies, route)
 	}
 
 	sort.Slice(routeCopies, func(i, j int) bool {
-		if routeCopies[i].Path() == routeCopies[j].Path() {
-			return routeCopies[i].Method() < routeCopies[j].Method()
+		if routeCopies[i].Path == routeCopies[j].Path {
+			return routeCopies[i].Method < routeCopies[j].Method
 		}
-		return routeCopies[i].Path() < routeCopies[j].Path()
+		return routeCopies[i].Path < routeCopies[j].Path
 	})
 
 	for _, route := range routeCopies {
-		path := toOpenAPIPath(route.Path())
-		method := strings.ToLower(route.Method())
+		path := toOpenAPIPath(route.Path)
+		method := strings.ToLower(route.Method)
 		if method == "" {
 			continue
 		}
