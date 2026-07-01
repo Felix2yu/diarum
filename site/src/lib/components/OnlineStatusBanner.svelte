@@ -49,36 +49,33 @@
 </script>
 
 {#if visible}
-	<div class="fixed top-0 left-0 right-0 z-40 safe-top">
-		<div class="bg-accent/80 backdrop-blur-md border-b border-border/50 text-foreground/70 text-sm px-4 py-2 flex items-center justify-center gap-3">
-			<svg
-				class="w-4 h-4 animate-pulse-subtle"
-				fill="none"
-				stroke="currentColor"
-				viewBox="0 0 24 24"
-			>
-				<path
-					stroke-linecap="round"
-					stroke-linejoin="round"
-					stroke-width="2"
-					d="M1 10a1 12 0 1 0 22 0M5 12l-4 0"
-				/>
-			</svg>
-			<span class="font-medium">当前离线 — 内容已自动保存到本地</span>
-			{#if pendingSyncCount > 0}
-				<span class="opacity-70">（{pendingSyncCount} 条等待同步）</span>
-			{/if}
-			<button
-				type="button"
-				onclick={handleSync}
-				disabled={syncingNow || pendingSyncCount === 0}
-				class="ml-2 px-3 py-1 bg-secondary text-secondary-foreground rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-			>
-				{syncingNow ? '同步中...' : '立即同步'}
-			</button>
-		</div>
+	<div class="bg-accent/80 backdrop-blur-md border-b border-border/50 text-foreground/70 text-sm px-4 py-2 safe-top flex items-center justify-center gap-3">
+		<svg
+			class="w-4 h-4 animate-pulse-subtle"
+			fill="none"
+			stroke="currentColor"
+			viewBox="0 0 24 24"
+		>
+			<path
+				stroke-linecap="round"
+				stroke-linejoin="round"
+				stroke-width="2"
+				d="M1 10a1 12 0 1 0 22 0M5 12l-4 0"
+			/>
+		</svg>
+		<span class="font-medium">当前离线 — 内容已自动保存到本地</span>
+		{#if pendingSyncCount > 0}
+			<span class="opacity-70">（{pendingSyncCount} 条等待同步）</span>
+		{/if}
+		<button
+			type="button"
+			onclick={handleSync}
+			disabled={syncingNow || pendingSyncCount === 0}
+			class="ml-2 px-3 py-1 bg-secondary text-secondary-foreground rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+		>
+			{syncingNow ? '同步中...' : '立即同步'}
+		</button>
 	</div>
-	<div class="h-10" aria-hidden="true" />
 {/if}
 
 {#if (isSyncing || syncMessage) && !visible}

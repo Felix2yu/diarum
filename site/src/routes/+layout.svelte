@@ -24,8 +24,7 @@
 	});
 </script>
 
-{@render children()}
-
 <OnlineStatusBanner />
+{@render children()}
 <PWAInstallPrompt />
 <PWAUpdatePrompt />
