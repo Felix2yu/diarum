@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"database/sql"
@@ -354,6 +355,17 @@ func createSchema(db *sql.DB) error {
 		)`,
 		`CREATE UNIQUE INDEX IF NOT EXISTS idx_period_analyses_owner_period ON period_analyses(owner, period, start_date, end_date, keywords)`,
 		`CREATE INDEX IF NOT EXISTS idx_period_analyses_owner ON period_analyses(owner)`,
+		`CREATE TABLE IF NOT EXISTS backups (
+			id TEXT PRIMARY KEY NOT NULL,
+			owner TEXT DEFAULT '' NOT NULL,
+			filename TEXT DEFAULT '' NOT NULL,
+			filepath TEXT DEFAULT '' NOT NULL,
+			size INTEGER DEFAULT 0 NOT NULL,
+			s3_key TEXT DEFAULT '' NOT NULL,
+			created TEXT NOT NULL,
+			FOREIGN KEY(owner) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_backups_owner ON backups(owner, created DESC)`,
 		`INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(1, datetime('now'))`,
 	}
 	for _, statement := range statements {
@@ -2128,6 +2140,150 @@ func TotalPages(total, perPage int) int {
 		pages++
 	}
 	return pages
+}
+
+// Backup represents a backup record
+type Backup struct {
+	ID       string `json:"id"`
+	Owner    string `json:"owner"`
+	Filename string `json:"filename"`
+	Filepath string `json:"filepath"`
+	Size     int64  `json:"size"`
+	S3Key    string `json:"s3_key"`
+	Created  string `json:"created"`
+}
+
+// CreateBackup inserts a new backup record
+func (s *Store) CreateBackup(owner, filename, filepath string, size int64, s3Key string) (*Backup, error) {
+	id, err := GenerateID()
+	if err != nil {
+		return nil, err
+	}
+	now := nowString()
+	_, err = s.DB.Exec(`INSERT INTO backups(id, owner, filename, filepath, size, s3_key, created) VALUES(?, ?, ?, ?, ?, ?, ?)`, id, owner, filename, filepath, size, s3Key, now)
+	if err != nil {
+		return nil, err
+	}
+	return &Backup{ID: id, Owner: owner, Filename: filename, Filepath: filepath, Size: size, S3Key: s3Key, Created: now}, nil
+}
+
+// ListBackups returns paginated backup records for a user
+func (s *Store) ListBackups(owner string, page, perPage int) ([]*Backup, int, error) {
+	var total int
+	err := s.DB.QueryRow(`SELECT COUNT(*) FROM backups WHERE owner = ?`, owner).Scan(&total)
+	if err != nil {
+		return nil, 0, err
+	}
+	if perPage <= 0 {
+		perPage = 20
+	}
+	offset := (page - 1) * perPage
+	rows, err := s.DB.Query(`SELECT id, owner, filename, filepath, size, s3_key, created FROM backups WHERE owner = ? ORDER BY created DESC LIMIT ? OFFSET ?`, owner, perPage, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+	var backups []*Backup
+	for rows.Next() {
+		b := &Backup{}
+		if err := rows.Scan(&b.ID, &b.Owner, &b.Filename, &b.Filepath, &b.Size, &b.S3Key, &b.Created); err != nil {
+			return nil, 0, err
+		}
+		backups = append(backups, b)
+	}
+	return backups, total, nil
+}
+
+// GetBackupByID returns a single backup record
+func (s *Store) GetBackupByID(id string) (*Backup, error) {
+	b := &Backup{}
+	err := s.DB.QueryRow(`SELECT id, owner, filename, filepath, size, s3_key, created FROM backups WHERE id = ?`, id).Scan(&b.ID, &b.Owner, &b.Filename, &b.Filepath, &b.Size, &b.S3Key, &b.Created)
+	if err != nil {
+		return nil, err
+	}
+	return b, nil
+}
+
+// DeleteBackup removes a backup record and its file
+func (s *Store) DeleteBackup(id, owner string) error {
+	result, err := s.DB.Exec(`DELETE FROM backups WHERE id = ? AND owner = ?`, id, owner)
+	if err != nil {
+		return err
+	}
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// CleanupOldBackups removes backup records older than retentionDays
+func (s *Store) CleanupOldBackups(owner string, retentionDays int) ([]string, error) {
+	if retentionDays <= 0 {
+		return nil, nil
+	}
+	cutoff := time.Now().UTC().AddDate(0, 0, -retentionDays).Format("2006-01-02T15:04:05.000Z")
+	rows, err := s.DB.Query(`SELECT id, filepath FROM backups WHERE owner = ? AND created < ?`, owner, cutoff)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var removed []string
+	for rows.Next() {
+		var id, filepath string
+		if err := rows.Scan(&id, &filepath); err != nil {
+			continue
+		}
+		removed = append(removed, filepath)
+	}
+	if len(removed) > 0 {
+		_, err = s.DB.Exec(`DELETE FROM backups WHERE owner = ? AND created < ?`, owner, cutoff)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return removed, nil
+}
+
+// ListUsers returns all users (for scheduler initialization)
+func (s *Store) ListUsers() ([]*User, error) {
+	rows, err := s.DB.Query(`SELECT avatar, created, email, emailVisibility, id, lastLoginAlertSentAt, lastResetSentAt, lastVerificationSentAt, name, passwordHash, tokenKey, updated, username, verified FROM users`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var users []*User
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			continue
+		}
+		users = append(users, u)
+	}
+	return users, nil
+}
+
+// UserS3Config returns the S3 configuration for a user (exported)
+func (s *Store) UserS3Config(userID string) *LegacyS3Config {
+	return s.userS3Config(userID)
+}
+
+// UploadToS3 uploads data to a user's S3 bucket
+func (s *Store) UploadToS3(userID, key string, data []byte) error {
+	cfg := s.userS3Config(userID)
+	if cfg == nil {
+		return fmt.Errorf("S3 not configured for user %s", userID)
+	}
+	client, err := newS3Client(cfg)
+	if err != nil {
+		return err
+	}
+	_, err = client.PutObject(context.Background(), &awss3.PutObjectInput{
+		Bucket: aws.String(cfg.Bucket),
+		Key:    aws.String(key),
+		Body:   bytes.NewReader(data),
+	})
+	return err
 }
 
 

@@ -4,6 +4,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/songtianlun/diarum/internal/logger"
 	"github.com/songtianlun/diarum/internal/store"
@@ -81,6 +82,29 @@ func (s *ConfigService) GetBool(userId, key string) (bool, error) {
 		return v == "true", nil
 	}
 	return false, nil
+}
+
+// GetInt retrieves an integer configuration value for a user
+func (s *ConfigService) GetInt(userId, key string) (int, error) {
+	value, err := s.Get(userId, key)
+	if err != nil {
+		return 0, err
+	}
+	if value == nil {
+		return 0, nil
+	}
+	switch v := value.(type) {
+	case float64:
+		return int(v), nil
+	case int:
+		return v, nil
+	case string:
+		var i int
+		if _, err := fmt.Sscanf(v, "%d", &i); err == nil {
+			return i, nil
+		}
+	}
+	return 0, nil
 }
 
 // Set stores a configuration value for a user

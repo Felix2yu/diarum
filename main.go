@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/songtianlun/diarum/internal/api"
 	"github.com/songtianlun/diarum/internal/auth"
+	"github.com/songtianlun/diarum/internal/backup"
 	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/embedding"
 	"github.com/songtianlun/diarum/internal/logger"
@@ -248,6 +250,16 @@ func run(args []string, stdout io.Writer) error {
 
 	e.Any("/mcp", echo.WrapHandler(mcpHandler), mcpAuth)
 	logger.Info("[MCP] Streamable HTTP server enabled at /mcp")
+
+	// Initialize backup scheduler
+	backupScheduler := backup.NewScheduler(appStore, configService, *dataDir, func(userID string) (*bytes.Buffer, error) {
+		req := api.ExportRequest{DateRange: "all", IncludeDiaries: true, IncludeMedia: true, IncludeConversations: true, IncludeAnalysis: true}
+		buf, _, err := api.BuildExportZip(appStore, userID, req)
+		return buf, err
+	})
+	api.RegisterBackupRoutes(e, appStore, authMiddleware, backupScheduler, configService)
+	backupScheduler.Start()
+	defer backupScheduler.Stop()
 
 	staticFS, err := static.GetFS()
 	if err != nil {

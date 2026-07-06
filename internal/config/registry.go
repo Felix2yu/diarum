@@ -51,6 +51,15 @@ var ConfigRegistry = map[string]ConfigMeta{
 
 	// Diary editor presets
 	"diary.weather_options": {Type: "json", Default: []string{"☀️", "⛅", "☁️", "🌧️", "⛈️", "🌫️", "❄️", "🌬️"}, Encrypted: false},
+
+	// Auto backup settings
+	"backup.enabled":          {Type: "bool", Default: false, Encrypted: false},
+	"backup.frequency":        {Type: "string", Default: "daily", Encrypted: false},
+	"backup.time":             {Type: "string", Default: "00:00", Encrypted: false},
+	"backup.day_of_week":      {Type: "int", Default: 1, Encrypted: false},
+	"backup.day_of_month":     {Type: "int", Default: 1, Encrypted: false},
+	"backup.retention_days":   {Type: "int", Default: 90, Encrypted: false},
+	"backup.upload_s3":        {Type: "bool", Default: false, Encrypted: false},
 }
 
 // GetConfigMeta returns the metadata for a configuration key

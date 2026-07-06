@@ -162,9 +162,25 @@ func handleExport(c *echo.Context, s *store.Store) error {
 	if req.DateRange == "" {
 		req.DateRange = "3m"
 	}
-	startDate, endDate, err := calculateDateRange(req)
+	buf, stats, err := BuildExportZip(s, userID, req)
 	if err != nil {
 		return badRequest(err.Error(), nil)
+	}
+	statsJSON, _ := json.Marshal(stats)
+	c.Response().Header().Set("Content-Type", "application/zip")
+	c.Response().Header().Set("Content-Disposition", "attachment; filename=diarum_export.zip")
+	c.Response().Header().Set("X-Export-Stats", string(statsJSON))
+	c.Response().Header().Set("Access-Control-Expose-Headers", "X-Export-Stats")
+	c.Response().WriteHeader(http.StatusOK)
+	_, _ = c.Response().Write(buf.Bytes())
+	return nil
+}
+
+// BuildExportZip creates a ZIP archive of the user's data and returns it as a buffer.
+func BuildExportZip(s *store.Store, userID string, req ExportRequest) (*bytes.Buffer, exportStats, error) {
+	startDate, endDate, err := calculateDateRange(req)
+	if err != nil {
+		return nil, exportStats{}, err
 	}
 	stats := exportStats{DateRangeType: req.DateRange, StartDate: startDate.Format("2006-01-02"), EndDate: endDate.Format("2006-01-02"), FailedItems: make([]exportFailedItem, 0)}
 
@@ -235,7 +251,7 @@ func handleExport(c *echo.Context, s *store.Store) error {
 	data := exportData{Version: 1, ExportedAt: time.Now().UTC().Format(time.RFC3339), Diaries: exportDiaries, Media: exportMediaList, Conversations: exportConvs, Analyses: exportAnalyses}
 	jsonBytes, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
-		return badRequest("Failed to serialize export data", err)
+		return nil, stats, err
 	}
 
 	var buf bytes.Buffer
@@ -279,16 +295,9 @@ func handleExport(c *echo.Context, s *store.Store) error {
 	}
 	stats.Media.ActualExported = mediaExportedCount
 	if err := zipWriter.Close(); err != nil {
-		return badRequest("Failed to create ZIP", err)
+		return nil, stats, err
 	}
-	statsJSON, _ := json.Marshal(stats)
-	c.Response().Header().Set("Content-Type", "application/zip")
-	c.Response().Header().Set("Content-Disposition", "attachment; filename=diarum_export.zip")
-	c.Response().Header().Set("X-Export-Stats", string(statsJSON))
-	c.Response().Header().Set("Access-Control-Expose-Headers", "X-Export-Stats")
-	c.Response().WriteHeader(http.StatusOK)
-	_, _ = c.Response().Write(buf.Bytes())
-	return nil
+	return &buf, stats, nil
 }
 
 func handleImport(c *echo.Context, s *store.Store, embeddingService *embedding.EmbeddingService) error {
