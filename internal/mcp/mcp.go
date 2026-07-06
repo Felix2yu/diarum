@@ -44,6 +44,11 @@ func (s *Server) GetStreamableHTTPServer() *server.StreamableHTTPServer {
 	return server.NewStreamableHTTPServer(s.mcpServer,
 		server.WithEndpointPath("/mcp"),
 		server.WithStateLess(true),
+		server.WithStreamableHTTPCORS(
+			server.WithCORSAllowedOrigins("*"),
+			server.WithCORSAllowedMethods("GET", "POST", "OPTIONS"),
+			server.WithCORSAllowedHeaders("Content-Type", "Authorization", "Accept"),
+		),
 	)
 }
 

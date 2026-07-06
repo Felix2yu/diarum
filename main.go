@@ -186,7 +186,6 @@ func run(args []string, stdout io.Writer) error {
 	authService := auth.NewService(appStore)
 	e := echo.New()
 	e.Use(middleware.Recover())
-	e.Use(middleware.CORS())
 
 	authMiddleware := authService.Middleware
 	onDiaryChanged := func(userID string) {
