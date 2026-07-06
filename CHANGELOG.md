@@ -4,6 +4,36 @@
 
 ---
 
+## v1.11 - 2026-07-06
+
+> 发布日期：2026-07-06
+> 对比基线：`v1.10 (db59953)` → `v1.11 (3c0af40)`
+
+### ✨ 新增 Features
+
+- **MCP Server** — 内置 Model Context Protocol 服务端，通过 `/mcp` 端点提供 Streamable HTTP 传输，支持 Cherry Studio、Claude Desktop 等 AI 客户端直接读写日记
+- **MCP 工具集（7 个）** — `create_diary`、`get_diary`、`delete_diary`、`list_recent_diaries`、`search_diaries`、`get_tags`、`get_stats`
+- **API Token 认证** — MCP 端点复用 Diarum 现有 API Token 机制，无需额外认证配置
+
+### 🔧 技术改进
+
+- **SPA 错误处理器排除 `/mcp`** — 防止 MCP 端点错误被 SPA 兜底返回 HTML
+- **Echo 中间件链认证** — MCP 认证使用 Echo 原生中间件，确保 `user_id` 正确注入请求上下文
+- **自定义 Context Key** — 使用导出的类型化 key（`mcpserver.UserIDKey`）避免 context key 冲突
+
+### 📁 主要变更文件
+
+- `main.go` — 注册 `/mcp` 端点、API Token 认证中间件、SPA 错误处理器排除
+- `internal/mcp/mcp.go` — MCP 服务器初始化、工具注册、日记/搜索/统计工具实现
+
+### 📦 依赖更新
+
+| 包 | 版本 |
+|---|---|
+| `github.com/mark3labs/mcp-go` | v0.55.1 |
+
+---
+
 ## v1.10 - 2026-06-25
 
 > 发布日期：2026-06-25
