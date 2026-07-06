@@ -226,7 +226,25 @@ func run(args []string, stdout io.Writer) error {
 	// Initialize MCP server
 	mcpSrv := mcpserver.New(appStore)
 	mcpHandler := mcpSrv.GetStreamableHTTPServer()
-	e.Any("/mcp", echo.WrapHandler(mcpHandler))
+
+	// Wrap MCP handler with auth middleware
+	mcpAuthHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		header := r.Header.Get("Authorization")
+		if !strings.HasPrefix(header, "Bearer ") {
+			http.Error(w, `{"error":"Authentication required"}`, http.StatusUnauthorized)
+			return
+		}
+		token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
+		user, err := authService.ParseToken(token)
+		if err != nil {
+			http.Error(w, `{"error":"Authentication required"}`, http.StatusUnauthorized)
+			return
+		}
+		ctx := context.WithValue(r.Context(), "user_id", user.ID)
+		mcpHandler.ServeHTTP(w, r.WithContext(ctx))
+	})
+
+	e.Any("/mcp", echo.WrapHandler(mcpAuthHandler))
 	logger.Info("[MCP] Streamable HTTP server enabled at /mcp")
 
 	staticFS, err := static.GetFS()
