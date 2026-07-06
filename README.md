@@ -27,6 +27,7 @@
 15. Svelte 5 升级（新事件语法、新响应式系统）
 16. zstd + brotli 预压缩（静态资源传输体积减少 75-78%）
 17. 清理 tiptap 死代码与未使用依赖（减少约 50MB node_modules）
+18. MCP Server（Model Context Protocol）— 内置 MCP 服务端，支持 Cherry Studio、Claude Desktop 等 AI 客户端直接读写日记
 ---
 
 ## 中文
@@ -87,6 +88,7 @@
 - 💬 **AI 对话 + RAG** - 基于向量检索的历史日记对话，附带引用追溯
 - 📅 **往昔今朝 / 时空穿越** - 日历视图中回顾历年同日日记，随机翻阅历史记录
 - 🔗 **Memos Webhook 同步** - 接收 Memos 新增、更新、删除 webhook 事件，并同步写入 memo 创建日期对应的日记
+- 🤝 **MCP Server** - 内置 Model Context Protocol 服务端，支持 Cherry Studio、Claude Desktop 等 AI 客户端直接读写日记
 - 🔒 **自托管** - 完全掌控你的个人数据
 - 🚀 **易于部署** - 单一二进制文件，内嵌前端，随处部署
 - 💾 **原生 SQLite 后端** - 内置用户体系、本地媒体存储与旧数据自动迁移
@@ -199,6 +201,41 @@ make dev-backend
 ### 数据存储
 
 Diarum 会在配置的数据目录下使用 `diarum.db` 保存应用数据。启动时如果检测到旧版 `data.db` 且尚不存在 `diarum.db`，会自动创建新数据库并迁移用户、日记、媒体元数据、设置和 AI 对话数据，同时保留旧数据库不变。
+
+### MCP 集成
+
+Diarum 内置 MCP (Model Context Protocol) 服务端，可通过 `/mcp` 端点与 AI 客户端交互。
+
+#### 可用工具
+
+| 工具 | 说明 |
+|------|------|
+| `create_diary` | 创建或更新指定日期的日记 |
+| `get_diary` | 按日期或 ID 获取日记 |
+| `delete_diary` | 按 ID 删除日记 |
+| `list_recent_diaries` | 获取最近的日记列表 |
+| `search_diaries` | 按关键词搜索日记内容 |
+| `get_tags` | 获取所有标签及使用次数 |
+| `get_stats` | 获取日记统计数据 |
+
+#### 客户端配置
+
+在 Diarum 设置页面生成 API Token，然后在 AI 客户端中配置：
+
+```json
+{
+  "mcpServers": {
+    "diarum": {
+      "url": "https://your-diarum-instance/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-api-token>"
+      }
+    }
+  }
+}
+```
+
+支持的客户端：Cherry Studio、Claude Desktop、LobeHub 等所有兼容 MCP 协议的 AI 客户端。
 
 ### 单元测试
 

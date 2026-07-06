@@ -22,6 +22,7 @@ import (
 	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/embedding"
 	"github.com/songtianlun/diarum/internal/logger"
+	mcpserver "github.com/songtianlun/diarum/internal/mcp"
 	"github.com/songtianlun/diarum/internal/static"
 	"github.com/songtianlun/diarum/internal/store"
 )
@@ -222,13 +223,39 @@ func run(args []string, stdout io.Writer) error {
 		logger.Info("[Docs] OpenAPI docs enabled in debug mode at /api/docs and /api/v1/docs")
 	}
 
+	// Initialize MCP server
+	mcpSrv := mcpserver.New(appStore)
+	mcpHandler := mcpSrv.GetStreamableHTTPServer()
+
+	// MCP auth middleware — inject user_id into request context via Echo middleware chain
+	mcpAuth := func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			header := c.Request().Header.Get("Authorization")
+			if !strings.HasPrefix(header, "Bearer ") {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Authentication required")
+			}
+			rawToken := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
+
+			userID, err := appStore.ValidateAPIToken(rawToken)
+			if err != nil || userID == "" {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Authentication required")
+			}
+			ctx := context.WithValue(c.Request().Context(), mcpserver.UserIDKey, userID)
+			c.SetRequest(c.Request().WithContext(ctx))
+			return next(c)
+		}
+	}
+
+	e.Any("/mcp", echo.WrapHandler(mcpHandler), mcpAuth)
+	logger.Info("[MCP] Streamable HTTP server enabled at /mcp")
+
 	staticFS, err := static.GetFS()
 	if err != nil {
 		log.Printf("Warning: Failed to get embedded static files: %v", err)
 	} else {
 		defaultHandler := e.HTTPErrorHandler
 		e.HTTPErrorHandler = func(c *echo.Context, err error) {
-			if strings.HasPrefix(c.Request().URL.Path, "/api/") {
+			if strings.HasPrefix(c.Request().URL.Path, "/api/") || strings.HasPrefix(c.Request().URL.Path, "/mcp") {
 				defaultHandler(c, err)
 				return
 			}
