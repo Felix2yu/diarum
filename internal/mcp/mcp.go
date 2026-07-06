@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/songtianlun/diarum/internal/auth"
 	"github.com/songtianlun/diarum/internal/store"
 )
 
@@ -39,11 +42,21 @@ func New(appStore *store.Store) *Server {
 	return s
 }
 
-// GetStreamableHTTPServer returns a Streamable HTTP server
-func (s *Server) GetStreamableHTTPServer() *server.StreamableHTTPServer {
+// GetStreamableHTTPServer returns a Streamable HTTP server with auth context injection
+func (s *Server) GetStreamableHTTPServer(authSvc *auth.Service) *server.StreamableHTTPServer {
 	return server.NewStreamableHTTPServer(s.mcpServer,
 		server.WithEndpointPath("/mcp"),
 		server.WithStateLess(true),
+		server.WithHTTPContextFunc(func(ctx context.Context, r *http.Request) context.Context {
+			header := r.Header.Get("Authorization")
+			if strings.HasPrefix(header, "Bearer ") {
+				token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
+				if user, err := authSvc.ParseToken(token); err == nil {
+					return context.WithValue(ctx, "user_id", user.ID)
+				}
+			}
+			return ctx
+		}),
 	)
 }
 
