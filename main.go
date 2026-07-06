@@ -240,7 +240,7 @@ func run(args []string, stdout io.Writer) error {
 			http.Error(w, `{"error":"Authentication required"}`, http.StatusUnauthorized)
 			return
 		}
-		ctx := context.WithValue(r.Context(), "user_id", user.ID)
+		ctx := context.WithValue(r.Context(), mcpserver.UserIDKey, user.ID)
 		mcpHandler.ServeHTTP(w, r.WithContext(ctx))
 	})
 

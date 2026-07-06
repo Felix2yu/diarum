@@ -47,9 +47,15 @@ func (s *Server) GetStreamableHTTPServer() *server.StreamableHTTPServer {
 	)
 }
 
+// ContextKey is a custom type for context keys to avoid collisions
+type ContextKey string
+
+// UserIDKey is the context key for the authenticated user ID
+const UserIDKey ContextKey = "user_id"
+
 // getUserID extracts user ID from context
 func getUserID(ctx context.Context) string {
-	if userID, ok := ctx.Value("user_id").(string); ok {
+	if userID, ok := ctx.Value(UserIDKey).(string); ok {
 		return userID
 	}
 	return ""
