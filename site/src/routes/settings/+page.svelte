@@ -18,6 +18,7 @@
 	import { exportDiaries, importDiaries, resolveConflict, type ExportStats, type ImportStats, type ImportDiaryDetail, type ExportOptions } from '$lib/api/exportImport';
 	import { defaultImageUploadSettings, getImageUploadSettings, saveImageUploadSettings, testCheveretoConnection, type ImageUploadProvider, type ImageUploadSettings } from '$lib/api/imageUpload';
 	import { loadImageUploadSettings } from '$lib/stores/imageUpload';
+	import { pb } from '$lib/api/client';
 	import Footer from '$lib/components/ui/Footer.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import {
@@ -694,10 +695,8 @@
 
 	async function loadBackupRecords(page = 1) {
 		try {
-			const token = await getApiToken();
-			if (!token) return;
 			const res = await fetch(`/api/v1/backups?page=${page}&per_page=10`, {
-				headers: { Authorization: `Bearer ${token}` }
+				headers: { Authorization: `Bearer ${pb.authStore.token}` }
 			});
 			if (res.ok) {
 				const data = await res.json();
@@ -713,10 +712,8 @@
 
 	async function loadBackupSettingsData() {
 		try {
-			const token = await getApiToken();
-			if (!token) return;
 			const res = await fetch('/api/v1/backups/settings', {
-				headers: { Authorization: `Bearer ${token}` }
+				headers: { Authorization: `Bearer ${pb.authStore.token}` }
 			});
 			if (res.ok) {
 				const data = await res.json();
@@ -738,7 +735,7 @@
 					method: 'POST',
 					headers: {
 						'Content-Type': 'application/json',
-						Authorization: `Bearer ${await getApiToken()}`
+						Authorization: `Bearer ${pb.authStore.token}`
 					},
 					body: JSON.stringify(backupSettingsLocal)
 				});
@@ -758,7 +755,7 @@
 		try {
 			await fetch('/api/v1/backups/trigger', {
 				method: 'POST',
-				headers: { Authorization: `Bearer ${await getApiToken()}` }
+				headers: { Authorization: `Bearer ${pb.authStore.token}` }
 			});
 			backupSuccess = '备份完成';
 			setTimeout(() => (backupSuccess = ''), 3000);
@@ -797,7 +794,7 @@
 		try {
 			await fetch(`/api/v1/backups/${id}`, {
 				method: 'DELETE',
-				headers: { Authorization: `Bearer ${await getApiToken()}` }
+				headers: { Authorization: `Bearer ${pb.authStore.token}` }
 			});
 			await loadBackupRecords(backupCurrentPage);
 		} catch (e) {
@@ -918,8 +915,10 @@
 		}
 
 		loading = true;
-		await Promise.all([loadTokenStatus(), loadDiaryEmojiSettingsLocal(), loadMemosSettingsLocal(), loadAISettings(), loadImageUploadSettingsLocal(), loadBackupSettingsData()]);
+		await Promise.all([loadTokenStatus(), loadDiaryEmojiSettingsLocal(), loadMemosSettingsLocal(), loadAISettings(), loadImageUploadSettingsLocal()]);
 		loading = false;
+		// Load backup settings separately (may fail if endpoint not deployed)
+		loadBackupSettingsData().catch(() => {});
 		// Load vector stats if AI is enabled
 		if (aiSettings.enabled) {
 			await loadVectorStats();
