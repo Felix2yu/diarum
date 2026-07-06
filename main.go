@@ -227,24 +227,25 @@ func run(args []string, stdout io.Writer) error {
 	mcpSrv := mcpserver.New(appStore)
 	mcpHandler := mcpSrv.GetStreamableHTTPServer()
 
-	// Wrap MCP handler with auth middleware — extracts user_id into request context
-	mcpAuthHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		header := r.Header.Get("Authorization")
-		if !strings.HasPrefix(header, "Bearer ") {
-			http.Error(w, `{"error":"Authentication required"}`, http.StatusUnauthorized)
-			return
+	// MCP auth middleware — inject user_id into request context via Echo middleware chain
+	mcpAuth := func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			header := c.Request().Header.Get("Authorization")
+			if !strings.HasPrefix(header, "Bearer ") {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Authentication required")
+			}
+			token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
+			user, err := authService.ParseToken(token)
+			if err != nil {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Authentication required")
+			}
+			ctx := context.WithValue(c.Request().Context(), mcpserver.UserIDKey, user.ID)
+			c.SetRequest(c.Request().WithContext(ctx))
+			return next(c)
 		}
-		token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
-		user, err := authService.ParseToken(token)
-		if err != nil {
-			http.Error(w, `{"error":"Authentication required"}`, http.StatusUnauthorized)
-			return
-		}
-		ctx := context.WithValue(r.Context(), mcpserver.UserIDKey, user.ID)
-		mcpHandler.ServeHTTP(w, r.WithContext(ctx))
-	})
+	}
 
-	e.Any("/mcp", echo.WrapHandler(mcpAuthHandler))
+	e.Any("/mcp", echo.WrapHandler(mcpHandler), mcpAuth)
 	logger.Info("[MCP] Streamable HTTP server enabled at /mcp")
 
 	staticFS, err := static.GetFS()
