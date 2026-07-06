@@ -692,12 +692,12 @@
 		type Backup
 	} from '$lib/stores/backup';
 
-	import { imageUploadSettings } from '$lib/stores/imageUpload';
-
 	async function loadBackupRecords(page = 1) {
 		try {
-			const res = await fetch(`${getApiToken() ? '/api/v1/backups?page=' + page + '&per_page=10' : ''}`, {
-				headers: { Authorization: `Bearer ${await getApiToken()}` }
+			const token = await getApiToken();
+			if (!token) return;
+			const res = await fetch(`/api/v1/backups?page=${page}&per_page=10`, {
+				headers: { Authorization: `Bearer ${token}` }
 			});
 			if (res.ok) {
 				const data = await res.json();
@@ -707,14 +707,16 @@
 				backupTotalPages = data.pages;
 			}
 		} catch (e) {
-			console.error('Failed to load backups:', e);
+			// Backup endpoint may not exist yet
 		}
 	}
 
 	async function loadBackupSettingsData() {
 		try {
+			const token = await getApiToken();
+			if (!token) return;
 			const res = await fetch('/api/v1/backups/settings', {
-				headers: { Authorization: `Bearer ${await getApiToken()}` }
+				headers: { Authorization: `Bearer ${token}` }
 			});
 			if (res.ok) {
 				const data = await res.json();
@@ -722,7 +724,7 @@
 				await loadBackupRecords();
 			}
 		} catch (e) {
-			console.error('Failed to load backup settings:', e);
+			// Backup endpoint may not exist yet
 		}
 	}
 
@@ -1658,7 +1660,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									</div>
 
 									<!-- S3 上传 -->
-									{#if imageUploadSettings.provider === 's3'}
+									{#if imageUploadSettingsLocal.provider === 's3'}
 										<label class="flex items-center gap-3 cursor-pointer">
 											<input type="checkbox" bind:checked={backupSettingsLocal.upload_s3} onchange={handleBackupSettingChange} class="rounded" />
 											<span class="text-sm text-foreground">同时上传到 S3</span>
