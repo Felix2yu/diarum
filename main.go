@@ -255,7 +255,7 @@ func run(args []string, stdout io.Writer) error {
 	} else {
 		defaultHandler := e.HTTPErrorHandler
 		e.HTTPErrorHandler = func(c *echo.Context, err error) {
-			if strings.HasPrefix(c.Request().URL.Path, "/api/") || strings.HasPrefix(c.Request().URL.Path, "/mcp") {
+			if strings.HasPrefix(c.Request().URL.Path, "/api/") || strings.HasPrefix(c.Request().URL.Path, "/mcp") || strings.HasPrefix(c.Request().URL.Path, "/.well-known") {
 				defaultHandler(c, err)
 				return
 			}
