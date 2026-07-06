@@ -1683,7 +1683,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									备份中...
 								{:else}
 									手动备份
-								{//if}
+								{/if}
 							</button>
 						</div>
 
