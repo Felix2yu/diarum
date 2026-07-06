@@ -234,10 +234,20 @@ func run(args []string, stdout io.Writer) error {
 			if !strings.HasPrefix(header, "Bearer ") {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Authentication required")
 			}
-			token := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
-			user, err := authService.ParseToken(token)
+			rawToken := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
+
+			// Try JWT first
+			user, err := authService.ParseToken(rawToken)
 			if err != nil {
-				return echo.NewHTTPError(http.StatusUnauthorized, "Authentication required")
+				// Fall back to API token
+				userID, apiErr := appStore.ValidateAPIToken(rawToken)
+				if apiErr != nil || userID == "" {
+					return echo.NewHTTPError(http.StatusUnauthorized, "Authentication required")
+				}
+				user, err = appStore.GetUserByID(userID)
+				if err != nil || user == nil {
+					return echo.NewHTTPError(http.StatusUnauthorized, "Authentication required")
+				}
 			}
 			ctx := context.WithValue(c.Request().Context(), mcpserver.UserIDKey, user.ID)
 			c.SetRequest(c.Request().WithContext(ctx))
