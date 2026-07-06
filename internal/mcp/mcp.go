@@ -49,6 +49,10 @@ func (s *Server) GetStreamableHTTPServer() *server.StreamableHTTPServer {
 			server.WithCORSAllowedMethods("GET", "POST", "OPTIONS"),
 			server.WithCORSAllowedHeaders("Content-Type", "Authorization", "Accept"),
 		),
+		server.WithProtectedResourceMetadata(server.ProtectedResourceMetadataConfig{
+			Resource:              "/mcp",
+			BearerMethodsSupported: []string{"header"},
+		}),
 	)
 }
 
