@@ -22,6 +22,7 @@ import (
 	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/embedding"
 	"github.com/songtianlun/diarum/internal/logger"
+	mcpserver "github.com/songtianlun/diarum/internal/mcp"
 	"github.com/songtianlun/diarum/internal/static"
 	"github.com/songtianlun/diarum/internal/store"
 )
@@ -221,6 +222,12 @@ func run(args []string, stdout io.Writer) error {
 		api.RegisterOpenAPIRoutes(e, Version, Name)
 		logger.Info("[Docs] OpenAPI docs enabled in debug mode at /api/docs and /api/v1/docs")
 	}
+
+	// Initialize MCP server
+	mcpSrv := mcpserver.New(appStore)
+	mcpHandler := mcpSrv.GetStreamableHTTPServer()
+	e.Any("/mcp", echo.WrapHandler(mcpHandler))
+	logger.Info("[MCP] Streamable HTTP server enabled at /mcp")
 
 	staticFS, err := static.GetFS()
 	if err != nil {
