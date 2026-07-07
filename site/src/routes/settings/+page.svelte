@@ -192,9 +192,8 @@
 
 	async function loadWeatherSettingsLocal() {
 		try {
-			const settings = await getDiaryEmojiSettings();
 			// Load weather settings from the API
-			const response = await fetch('/api/v1/settings/batch', {
+			const response = await fetch('/api/v1/settings', {
 				headers: {
 					'Authorization': `Bearer ${pb.authStore.token}`
 				}
