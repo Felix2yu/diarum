@@ -16,6 +16,7 @@ export interface Diary {
     mood_states?: string[];
     scenarios?: string[];
     weather?: string;
+    city?: string;
     tags?: string[];
     owner: string;
     created?: string;
