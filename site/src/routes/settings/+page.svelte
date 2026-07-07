@@ -30,11 +30,11 @@
 		moodToEmoji
 	} from '$lib/utils/diaryEmoji';
 
-	type SettingsTab = 'api-access' | 'mood-weather' | 'ai-assistant' | 'image-upload' | 'memos-sync' | 'data-management';
+	type SettingsTab = 'api-access' | 'weather' | 'ai-assistant' | 'image-upload' | 'memos-sync' | 'data-management';
 
 	const settingsTabs: { id: SettingsTab; label: string }[] = [
 		{ id: 'ai-assistant', label: 'AI 助手' },
-		{ id: 'mood-weather', label: '天气选项' },
+		{ id: 'weather', label: '天气设置' },
 		{ id: 'api-access', label: 'API 访问' },
 		{ id: 'memos-sync', label: 'Memos 同步' },
 		{ id: 'image-upload', label: '图片上传' },
@@ -80,18 +80,15 @@
 	let memosError = '';
 	let memosSuccess = '';
 
-	// Diary emoji settings
-	let weatherOptions: string[] = [];
-	let originalWeatherOptions: string[] = [];
-	let weatherInput = '';
-	let emojiSettingsSaving = false;
-	let emojiSettingsError = '';
-	let emojiSettingsSuccess = '';
-	type EmojiListType = 'weather';
-	let draggingType: EmojiListType | null = null;
-	let draggingIndex: number | null = null;
-	let dragOverType: EmojiListType | null = null;
-	let dragOverIndex: number | null = null;
+	// Weather settings
+	let weatherEnabled = false;
+	let weatherMcpUrl = 'http://localhost:8080';
+	let weatherUseMcp = true;
+	let weatherDefaultCity = '';
+	let originalWeatherSettings = { enabled: false, mcp_url: 'http://localhost:8080', use_mcp: true, default_city: '' };
+	let weatherSaving = false;
+	let weatherError = '';
+	let weatherSuccess = '';
 
 	// AI Settings
 	let aiSettings: AISettings = {
@@ -193,10 +190,31 @@
 		tokenStatus = await getApiToken();
 	}
 
-	async function loadDiaryEmojiSettingsLocal() {
-		const settings = await getDiaryEmojiSettings();
-		weatherOptions = [...settings.weather_options];
-		originalWeatherOptions = [...settings.weather_options];
+	async function loadWeatherSettingsLocal() {
+		try {
+			const settings = await getDiaryEmojiSettings();
+			// Load weather settings from the API
+			const response = await fetch('/api/v1/settings/batch', {
+				headers: {
+					'Authorization': `Bearer ${pb.authStore.token}`
+				}
+			});
+			if (response.ok) {
+				const data = await response.json();
+				weatherEnabled = data.settings?.['weather.enabled'] ?? false;
+				weatherMcpUrl = data.settings?.['weather.mcp_url'] ?? 'http://localhost:8080';
+				weatherUseMcp = data.settings?.['weather.use_mcp'] ?? true;
+				weatherDefaultCity = data.settings?.['weather.default_city'] ?? '';
+				originalWeatherSettings = {
+					enabled: weatherEnabled,
+					mcp_url: weatherMcpUrl,
+					use_mcp: weatherUseMcp,
+					default_city: weatherDefaultCity
+				};
+			}
+		} catch (error) {
+			console.error('Failed to load weather settings:', error);
+		}
 	}
 
 	function addWeatherOption() {
@@ -295,31 +313,44 @@
 		dragOverIndex = null;
 	}
 
-	async function handleSaveEmojiSettings() {
-		emojiSettingsError = '';
-		emojiSettingsSuccess = '';
+	async function handleSaveWeatherSettings() {
+		weatherError = '';
+		weatherSuccess = '';
 
-		if (weatherOptions.length < 1) {
-			emojiSettingsError = '天气至少保留一个选项';
-			return;
-		}
-
-		emojiSettingsSaving = true;
+		weatherSaving = true;
 		try {
-			const sanitizedWeatherOptions = sanitizeWeatherOptions(weatherOptions);
-
-			await saveDiaryEmojiSettings({
-				weather_options: sanitizedWeatherOptions
+			const response = await fetch('/api/v1/settings/batch', {
+				method: 'PUT',
+				headers: {
+					'Authorization': `Bearer ${pb.authStore.token}`,
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					settings: {
+						'weather.enabled': weatherEnabled,
+						'weather.mcp_url': weatherMcpUrl,
+						'weather.use_mcp': weatherUseMcp,
+						'weather.default_city': weatherDefaultCity
+					}
+				})
 			});
 
-			weatherOptions = [...sanitizedWeatherOptions];
-			originalWeatherOptions = [...sanitizedWeatherOptions];
-			emojiSettingsSuccess = '天气选项已成功保存';
-			setTimeout(() => emojiSettingsSuccess = '', 3000);
+			if (!response.ok) {
+				throw new Error('Failed to save weather settings');
+			}
+
+			originalWeatherSettings = {
+				enabled: weatherEnabled,
+				mcp_url: weatherMcpUrl,
+				use_mcp: weatherUseMcp,
+				default_city: weatherDefaultCity
+			};
+			weatherSuccess = '天气设置已成功保存';
+			setTimeout(() => weatherSuccess = '', 3000);
 		} catch (e) {
-			emojiSettingsError = e instanceof Error ? e.message : '保存天气选项失败';
+			weatherError = e instanceof Error ? e.message : '保存天气设置失败';
 		}
-		emojiSettingsSaving = false;
+		weatherSaving = false;
 	}
 
 	async function handleToggle() {
@@ -915,7 +946,7 @@
 		}
 
 		loading = true;
-		await Promise.all([loadTokenStatus(), loadDiaryEmojiSettingsLocal(), loadMemosSettingsLocal(), loadAISettings(), loadImageUploadSettingsLocal()]);
+		await Promise.all([loadTokenStatus(), loadWeatherSettingsLocal(), loadMemosSettingsLocal(), loadAISettings(), loadImageUploadSettingsLocal()]);
 		loading = false;
 		// Load backup settings separately (may fail if endpoint not deployed)
 		loadBackupSettingsData().catch(() => {});
@@ -1207,112 +1238,97 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 				</div>
 				{/if}
 
-				{#if activeTab === 'mood-weather'}
-				<!-- 天气 Section -->
-				<div id="mood-weather" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
+				{#if activeTab === 'weather'}
+				<!-- 天气设置 Section -->
+				<div id="weather" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
 					<div class="flex items-center justify-between gap-3 mb-4">
-						<h2 class="text-lg font-semibold text-foreground">天气选项</h2>
-						<button
-							onclick={restoreAllDefaults}
-							class="px-3 py-1.5 text-xs bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
-						>
-							恢复默认值
-						</button>
+						<h2 class="text-lg font-semibold text-foreground">天气设置</h2>
 					</div>
 					<p class="text-sm text-muted-foreground mb-6">
-						自定义日记编辑器中显示的天气选项。添加任意表情或最多 {MAX_DIARY_EMOJI_OPTION_LENGTH} 个字符的短文本，至少保留 1 个、最多 {MAX_DIARY_EMOJI_OPTION_COUNT} 个条目，然后拖动排序并保存。
+						配置天气服务。支持通过 MCP 服务器获取天气数据，或直接调用 Open-Meteo API。
 					</p>
 
-					{#if emojiSettingsError}
+					{#if weatherError}
 						<div class="mb-4 p-3 bg-red-500/10 text-red-600 rounded-lg text-sm">
-							{emojiSettingsError}
+							{weatherError}
 						</div>
 					{/if}
 
-					{#if emojiSettingsSuccess}
+					{#if weatherSuccess}
 						<div class="mb-4 p-3 bg-green-500/10 text-green-600 rounded-lg text-sm">
-							{emojiSettingsSuccess}
+							{weatherSuccess}
 						</div>
 					{/if}
 
-					<div class="rounded-xl border border-border/50 p-4">
-						<div class="flex items-center justify-between gap-3 mb-2">
-							<div class="font-medium text-foreground">天气选项</div>
+					<div class="space-y-4">
+						<!-- Enable Weather -->
+						<div class="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+							<div>
+								<div class="font-medium text-foreground">启用天气功能</div>
+								<div class="text-sm text-muted-foreground">开启后可在日记中选择城市并自动获取天气</div>
+							</div>
 							<button
-								onclick={restoreWeatherDefaults}
-								class="px-2.5 py-1 text-xs bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
+								type="button"
+								onclick={() => weatherEnabled = !weatherEnabled}
+								class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {weatherEnabled ? 'bg-primary' : 'bg-border'}"
 							>
-								恢复默认值
+								<span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {weatherEnabled ? 'translate-x-6' : 'translate-x-1'}"></span>
 							</button>
 						</div>
-						<div class="flex items-center gap-2 mb-3">
-							<input
-								type="text"
-								bind:value={weatherInput}
-								maxlength={MAX_DIARY_EMOJI_OPTION_LENGTH}
-								placeholder="例如 ☀️"
-								class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-								onkeydown={(event) => {
-									if (event.key === 'Enter') {
-										event.preventDefault();
-										addWeatherOption();
-									}
-								}}
-							/>
-							<button
-								onclick={addWeatherOption}
-								class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
-							>
-								添加
-							</button>
-						</div>
-						<div class="text-xs text-muted-foreground mb-3">每个选项最多 {MAX_DIARY_EMOJI_OPTION_LENGTH} 个字符，总计最多 {MAX_DIARY_EMOJI_OPTION_COUNT} 个天气选项。请保留至少一个。拖动可重新排序。</div>
-						<div class="flex flex-wrap gap-2">
-							{#if weatherOptions.length === 0}
-								<div class="text-sm text-muted-foreground">暂无天气选项</div>
-							{:else}
-								{#each weatherOptions as option, index}
-									<div
-										draggable="true"
-										role="listitem"
-										ondragstart={() => handleDragStart('weather', index)}
-										ondragover={(event) => handleDragOver(event, 'weather', index)}
-										ondrop={() => handleDrop('weather', index)}
-										ondragend={clearDragState}
-										class="relative w-14 h-14 rounded-xl border transition-colors flex items-center justify-center cursor-grab select-none {dragOverType === 'weather' && dragOverIndex === index ? 'border-primary bg-primary/10' : 'bg-muted/70 border-border/60'}"
-										title={option}
-									>
-										<button
-											onclick={(e) => { e.stopPropagation(); removeWeatherOption(option); }}
-											class="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-background border border-border text-muted-foreground hover:text-destructive hover:border-destructive/50 transition-colors flex items-center justify-center"
-											aria-label={`Remove weather option ${option}`}
-										>
-											<svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.25" d="M6 6l12 12M18 6l-12 12" />
-											</svg>
-										</button>
-										<span class="text-xl leading-none">{option}</span>
-									</div>
-								{/each}
-								<div
-									role="status"
-									ondragover={(event) => handleDragOver(event, 'weather', weatherOptions.length - 1)}
-									ondrop={() => handleDropToEnd('weather')}
-									class="h-14 px-3 rounded-xl border border-dashed text-xs text-muted-foreground flex items-center {dragOverType === 'weather' ? 'border-primary bg-primary/5' : 'border-border/60'}"
+
+						{#if weatherEnabled}
+							<!-- Use MCP -->
+							<div class="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+								<div>
+									<div class="font-medium text-foreground">使用 MCP 服务器</div>
+									<div class="text-sm text-muted-foreground">通过 MCP 服务器获取天气数据（需要部署天气 MCP 服务器）</div>
+								</div>
+								<button
+									type="button"
+									onclick={() => weatherUseMcp = !weatherUseMcp}
+									class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {weatherUseMcp ? 'bg-primary' : 'bg-border'}"
 								>
-									拖到末尾
+									<span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {weatherUseMcp ? 'translate-x-6' : 'translate-x-1'}"></span>
+								</button>
+							</div>
+
+							{#if weatherUseMcp}
+								<!-- MCP URL -->
+								<div class="p-4 bg-muted/30 rounded-lg">
+									<label for="weather-mcp-url" class="block text-sm font-medium text-foreground mb-2">MCP 服务器地址</label>
+									<input
+										id="weather-mcp-url"
+										type="text"
+										bind:value={weatherMcpUrl}
+										placeholder="http://localhost:8080"
+										class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+									/>
+									<p class="text-xs text-muted-foreground mt-1">默认：http://localhost:8080</p>
 								</div>
 							{/if}
-						</div>
+
+							<!-- Default City -->
+							<div class="p-4 bg-muted/30 rounded-lg">
+								<label for="weather-default-city" class="block text-sm font-medium text-foreground mb-2">默认城市</label>
+								<input
+									id="weather-default-city"
+									type="text"
+									bind:value={weatherDefaultCity}
+									placeholder="例如：北京"
+									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+								<p class="text-xs text-muted-foreground mt-1">设置后新建日记时会自动选择该城市</p>
+							</div>
+						{/if}
 					</div>
 
 					<div class="pt-4 flex items-center gap-3">
 						<button
-							onclick={handleSaveEmojiSettings}
-							disabled={emojiSettingsSaving || !emojiSettingsChanged}
+							onclick={handleSaveWeatherSettings}
+							disabled={weatherSaving}
 							class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
 						>
-							{#if emojiSettingsSaving}
+							{#if weatherSaving}
 								<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
 									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
 									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -1322,7 +1338,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								保存天气设置
 							{/if}
 						</button>
-						{#if emojiSettingsSuccess}
+						{#if weatherSuccess}
 							<span class="text-sm text-green-600 flex items-center gap-1 animate-fade-in">
 								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />

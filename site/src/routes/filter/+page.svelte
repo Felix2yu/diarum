@@ -3,10 +3,12 @@
 	import { goto } from '$app/navigation';
 	import Footer from '$lib/components/ui/Footer.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	import WeatherDisplay from '$lib/components/WeatherDisplay.svelte';
 	import { filterDiaries } from '$lib/api/diaries';
 	import { isAuthenticated } from '$lib/api/client';
 	import { formatDisplayDate, getDayOfWeek } from '$lib/utils/date';
 	import { MOOD_SCALE, moodToEmoji, getMoodStatesForLevel, SCENARIO_OPTIONS } from '$lib/utils/diaryEmoji';
+	import { isWMOCode } from '$lib/utils/weatherCodes';
 
 	interface FilterResult {
 		id: string;
@@ -190,7 +192,11 @@
 									<span class="text-sm">{moodToEmoji(result.mood)}</span>
 								{/if}
 								{#if result.weather}
-									<span class="text-sm">{result.weather}</span>
+									{#if isWMOCode(result.weather)}
+										<WeatherDisplay wmoCode={parseInt(result.weather)} size="sm" showTemp={false} />
+									{:else}
+										<span class="text-sm">{result.weather}</span>
+									{/if}
 								{/if}
 							</div>
 							<svg class="w-4 h-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">

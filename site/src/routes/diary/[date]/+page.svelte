@@ -5,6 +5,8 @@
 	import TiptapEditor from '$lib/components/editor/TiptapEditor.svelte';
 	import TableOfContents from '$lib/components/ui/TableOfContents.svelte';
 	import TextPolisher from '$lib/components/TextPolisher.svelte';
+	import CityPicker from '$lib/components/CityPicker.svelte';
+	import WeatherDisplay from '$lib/components/WeatherDisplay.svelte';
 	import { getAISettings, transcribeAudio, isSpeechConfigured, type AISettings } from '$lib/api/ai';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import Footer from '$lib/components/ui/Footer.svelte';
@@ -12,6 +14,8 @@
 	import { getDiaryByDate, getTagCloud } from '$lib/api/diaries';
 	import { isAuthenticated } from '$lib/api/client';
 	import { getDiaryEmojiSettings } from '$lib/api/settings';
+	import { fetchWeather, type WeatherResult } from '$lib/api/weather';
+	import { getCityByName, type CityInfo } from '$lib/utils/cityData';
 	import {
 		formatDisplayDate,
 		formatShortDate,
@@ -33,9 +37,9 @@
 		cleanupDiaryCache
 	} from '$lib/stores/diaryCache';
 	import { onlineState } from '$lib/stores/onlineStatus';
-	import { MOOD_SCALE, moodToEmoji, getMoodStatesForLevel, SCENARIO_OPTIONS, DEFAULT_WEATHER_OPTIONS } from '$lib/utils/diaryEmoji';
+	import { MOOD_SCALE, moodToEmoji, getMoodStatesForLevel, SCENARIO_OPTIONS } from '$lib/utils/diaryEmoji';
 
-	let weatherPresets: string[] = [...DEFAULT_WEATHER_OPTIONS];
+	let weatherPresets: string[] = [];
 
 	let content = '';
 	let loading = true;
@@ -50,6 +54,9 @@
 	let selectedMoodStates: string[] = [];
 	let selectedScenarios: string[] = [];
 	let selectedWeather = '';
+	let selectedCity = '';
+	let weatherData: WeatherResult | null = null;
+	let isLoadingWeather = false;
 	let tags: string[] = [];
 	let tagInput = '';
 	let allTags: string[] = [];
@@ -103,12 +110,12 @@
 		}
 		tags = merged;
 		tagInput = '';
-		updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, tags });
+		updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, tags });
 	}
 
 	function removeTag(tag: string) {
 		tags = tags.filter(t => t !== tag);
-		updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, tags });
+		updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, tags });
 	}
 
 	function handleTagKeydown(e: KeyboardEvent) {
@@ -160,7 +167,7 @@
 	function applySuggestion(tag: string) {
 		if (!tags.includes(tag)) {
 			tags = [...tags, tag];
-			updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, tags });
+			updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, tags });
 		}
 		tagInput = '';
 		showTagSuggestions = false;
@@ -217,6 +224,7 @@
 			selectedMoodStates = cached.mood_states || [];
 			selectedScenarios = cached.scenarios || [];
 			selectedWeather = cached.weather || '';
+			selectedCity = cached.city || '';
 			tags = cached.tags || [];
 			loading = false;
 			return;
@@ -227,6 +235,7 @@
 		selectedMoodStates = [];
 		selectedScenarios = [];
 		selectedWeather = '';
+		selectedCity = '';
 		tags = [];
 
 		// Browser cache is disabled; fetch current content from server.
@@ -241,6 +250,7 @@
 			selectedMoodStates = diary?.mood_states || [];
 			selectedScenarios = diary?.scenarios || [];
 			selectedWeather = diary?.weather || '';
+			selectedCity = '';
 			tags = diary?.tags || [];
 		} catch (error) {
 			console.error('Failed to load diary:', error);
@@ -251,6 +261,7 @@
 				selectedMoodStates = cached.mood_states || [];
 				selectedScenarios = cached.scenarios || [];
 				selectedWeather = cached.weather || '';
+				selectedCity = cached.city || '';
 				tags = cached.tags || [];
 			}
 		}
@@ -266,6 +277,20 @@
 		}
 	}
 
+	async function loadWeatherForDate(targetDate: string) {
+		if (!selectedCity) return;
+		isLoadingWeather = true;
+		try {
+			const result = await fetchWeather(selectedCity);
+			weatherData = result;
+			selectedWeather = String(result.wmo_code);
+		} catch (error) {
+			console.error('Failed to load weather:', error);
+		} finally {
+			isLoadingWeather = false;
+		}
+	}
+
 	function handleContentChange(newContent: string) {
 		content = newContent;
 		updateLocalCache(date, {
@@ -274,6 +299,7 @@
 			mood_states: selectedMoodStates,
 			scenarios: selectedScenarios,
 			weather: selectedWeather,
+			city: selectedCity,
 			tags
 		});
 	}
@@ -288,6 +314,7 @@
 			mood_states: selectedMoodStates,
 			scenarios: selectedScenarios,
 			weather: selectedWeather,
+			city: selectedCity,
 			tags
 		});
 	}
@@ -304,6 +331,7 @@
 			mood_states: selectedMoodStates,
 			scenarios: selectedScenarios,
 			weather: selectedWeather,
+			city: selectedCity,
 			tags
 		});
 	}
@@ -320,20 +348,46 @@
 			mood_states: selectedMoodStates,
 			scenarios: selectedScenarios,
 			weather: selectedWeather,
+			city: selectedCity,
 			tags
 		});
 	}
 
-	function handleWeatherSelect(emoji: string) {
-		selectedWeather = selectedWeather === emoji ? '' : emoji;
+	function handleWeatherSelect(code: number) {
+		const codeStr = String(code);
+		selectedWeather = selectedWeather === codeStr ? '' : codeStr;
 		updateLocalCache(date, {
 			content,
 			mood: selectedMood,
 			mood_states: selectedMoodStates,
 			scenarios: selectedScenarios,
 			weather: selectedWeather,
+			city: selectedCity,
 			tags
 		});
+	}
+
+	async function handleCitySelect(city: CityInfo) {
+		selectedCity = city.name;
+		isLoadingWeather = true;
+		try {
+			const result = await fetchWeather(city.name);
+			weatherData = result;
+			selectedWeather = String(result.wmo_code);
+			updateLocalCache(date, {
+				content,
+				mood: selectedMood,
+				mood_states: selectedMoodStates,
+				scenarios: selectedScenarios,
+				weather: selectedWeather,
+				city: selectedCity,
+				tags
+			});
+		} catch (error) {
+			console.error('Failed to fetch weather:', error);
+		} finally {
+			isLoadingWeather = false;
+		}
 	}
 
 	async function loadSpeechSettings() {
@@ -753,7 +807,7 @@
 							<div class="text-sm font-semibold text-foreground">情景</div>
 							{#if selectedScenarios.length > 0}
 								<button
-									onclick={() => { selectedScenarios = []; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: [], weather: selectedWeather, tags }); }}
+									onclick={() => { selectedScenarios = []; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: [], weather: selectedWeather, city: selectedCity, tags }); }}
 									class="text-[11px] px-2 py-1 rounded-full bg-muted/70 hover:bg-muted border border-border/70 transition-colors text-muted-foreground"
 								>
 									清除
@@ -776,27 +830,42 @@
 						<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4">
 							<div class="flex items-center justify-between mb-2">
 								<div class="text-sm font-semibold text-foreground">天气</div>
-								{#if selectedWeather}
+								{#if selectedWeather || selectedCity}
 									<button
-										onclick={() => handleWeatherSelect(selectedWeather)}
+										onclick={() => { selectedWeather = ''; selectedCity = ''; weatherData = null; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: '', tags, city: '' }); }}
 										class="text-[11px] px-2 py-1 rounded-full bg-muted/70 hover:bg-muted border border-border/70 transition-colors text-muted-foreground"
 									>
 										清除
 									</button>
 								{/if}
 							</div>
-							<div class="grid grid-cols-4 gap-2">
-								{#each weatherPresets as option}
-									<button
-										onclick={() => handleWeatherSelect(option)}
-										class="emoji-option-mobile {selectedWeather === option ? 'emoji-option-active' : ''}"
-										title={option}
-										aria-label={`天气 ${option}`}
-									>
-										<span class="text-xl leading-none">{option}</span>
-									</button>
-								{/each}
+							<!-- City Picker -->
+							<div class="mb-3">
+								<CityPicker {selectedCity} onCitySelect={handleCitySelect} />
 							</div>
+							<!-- Weather Display -->
+							{#if isLoadingWeather}
+								<div class="flex items-center justify-center py-4">
+									<svg class="w-5 h-5 animate-spin text-muted-foreground" fill="none" viewBox="0 0 24 24">
+										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+									</svg>
+									<span class="text-xs text-muted-foreground ml-2">获取天气中...</span>
+								</div>
+							{:else if weatherData}
+								<div class="flex items-center justify-center py-2">
+									<WeatherDisplay
+										wmoCode={weatherData.wmo_code}
+										tempMin={weatherData.temp_min}
+										tempMax={weatherData.temp_max}
+										size="md"
+									/>
+								</div>
+							{:else}
+								<div class="text-xs text-muted-foreground text-center py-2">
+									选择城市获取天气
+								</div>
+							{/if}
 						</div>
 
 						<!-- Tags -->
@@ -939,7 +1008,7 @@
 								<div class="text-sm font-semibold text-foreground">情景</div>
 								{#if selectedScenarios.length > 0}
 									<button
-										onclick={() => { selectedScenarios = []; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: [], weather: selectedWeather, tags }); }}
+										onclick={() => { selectedScenarios = []; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: [], weather: selectedWeather, city: selectedCity, tags }); }}
 										class="text-[11px] px-2 py-1 rounded-full bg-background/70 hover:bg-background border border-border/70 transition-colors"
 									>
 										清除
@@ -963,27 +1032,42 @@
 								<div>
 									<div class="text-sm font-semibold text-foreground">天气</div>
 								</div>
-								{#if selectedWeather}
+								{#if selectedWeather || selectedCity}
 									<button
-										onclick={() => handleWeatherSelect(selectedWeather)}
+										onclick={() => { selectedWeather = ''; selectedCity = ''; weatherData = null; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: '', tags, city: '' }); }}
 										class="text-[11px] px-2 py-1 rounded-full bg-background/70 hover:bg-background border border-border/70 transition-colors"
 									>
 										清除
 									</button>
 								{/if}
 							</div>
-							<div class="grid grid-cols-4 gap-2">
-								{#each weatherPresets as option}
-									<button
-										onclick={() => handleWeatherSelect(option)}
-										class="emoji-option {selectedWeather === option ? 'emoji-option-active' : ''}"
-										title={option}
-										aria-label={`天气 ${option}`}
-									>
-										<span class="text-xl leading-none">{option}</span>
-									</button>
-								{/each}
+							<!-- City Picker -->
+							<div class="mb-3">
+								<CityPicker {selectedCity} onCitySelect={handleCitySelect} />
 							</div>
+							<!-- Weather Display -->
+							{#if isLoadingWeather}
+								<div class="flex items-center justify-center py-4">
+									<svg class="w-5 h-5 animate-spin text-muted-foreground" fill="none" viewBox="0 0 24 24">
+										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+									</svg>
+									<span class="text-xs text-muted-foreground ml-2">获取天气中...</span>
+								</div>
+							{:else if weatherData}
+								<div class="flex items-center justify-center py-2">
+									<WeatherDisplay
+										wmoCode={weatherData.wmo_code}
+										tempMin={weatherData.temp_min}
+										tempMax={weatherData.temp_max}
+										size="md"
+									/>
+								</div>
+							{:else}
+								<div class="text-xs text-muted-foreground text-center py-2">
+									选择城市获取天气
+								</div>
+							{/if}
 						</div>
 
 						<div class="bg-card/50 rounded-xl border border-border/50 p-4">

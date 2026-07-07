@@ -217,6 +217,7 @@ func run(args []string, stdout io.Writer) error {
 	api.RegisterAIRoutes(e, appStore, authMiddleware, embeddingService)
 	api.RegisterExportImportRoutes(e, appStore, authMiddleware, embeddingService)
 	api.RegisterCheveretoRoutes(e, appStore, authMiddleware)
+	api.RegisterWeatherRoutes(e, appStore, authMiddleware)
 	api.RegisterPublicRoutes(e, appStore)
 	api.RegisterVersionRoutes(e, Version, Name)
 	api.RegisterMetricsRoutes(e)

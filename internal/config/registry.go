@@ -49,8 +49,14 @@ var ConfigRegistry = map[string]ConfigMeta{
 	"image_upload.s3.secret":           {Type: "string", Default: "", Encrypted: true},
 	"image_upload.s3.force_path_style": {Type: "bool", Default: false, Encrypted: false},
 
-	// Diary editor presets
+	// Diary editor presets (deprecated - kept for backward compatibility)
 	"diary.weather_options": {Type: "json", Default: []string{"☀️", "⛅", "☁️", "🌧️", "⛈️", "🌫️", "❄️", "🌬️"}, Encrypted: false},
+
+	// Weather service settings
+	"weather.enabled":  {Type: "bool", Default: false, Encrypted: false},
+	"weather.mcp_url":  {Type: "string", Default: "http://localhost:8080", Encrypted: false},
+	"weather.use_mcp":  {Type: "bool", Default: true, Encrypted: false},
+	"weather.default_city": {Type: "string", Default: "", Encrypted: false},
 
 	// Auto backup settings
 	"backup.enabled":          {Type: "bool", Default: false, Encrypted: false},

@@ -16,6 +16,7 @@ export interface CacheEntry {
 	mood_states: string[];
 	scenarios: string[];
 	weather: string;
+	city: string;
 	tags: string[];
 	localUpdatedAt: number;
 	serverUpdatedAt: string | null;
@@ -97,6 +98,7 @@ function reloadFromStorage(): void {
 			mood_states: Array.isArray(entry.mood_states) ? entry.mood_states : [],
 			scenarios: Array.isArray(entry.scenarios) ? entry.scenarios : [],
 			weather: entry.weather || '',
+			city: entry.city || '',
 			tags: Array.isArray(entry.tags) ? entry.tags : [],
 			localUpdatedAt: entry.localUpdatedAt,
 			serverUpdatedAt: entry.serverUpdatedAt,
@@ -223,7 +225,7 @@ export function getCachedContent(date: string): CacheEntry | null {
  */
 export function updateLocalCache(
 	date: string,
-	updates: { content: string; mood?: number; mood_states?: string[]; scenarios?: string[]; weather?: string; tags?: string[] }
+	updates: { content: string; mood?: number; mood_states?: string[]; scenarios?: string[]; weather?: string; city?: string; tags?: string[] }
 ): void {
 	const existing = getCachedContent(date);
 
@@ -233,6 +235,7 @@ export function updateLocalCache(
 		mood_states: Array.isArray(updates.mood_states) ? updates.mood_states : existing?.mood_states ?? [],
 		scenarios: Array.isArray(updates.scenarios) ? updates.scenarios : existing?.scenarios ?? [],
 		weather: updates.weather ?? existing?.weather ?? '',
+		city: updates.city ?? existing?.city ?? '',
 		tags: Array.isArray(updates.tags) ? updates.tags : existing?.tags ?? [],
 		localUpdatedAt: Date.now(),
 		serverUpdatedAt: existing?.serverUpdatedAt || null,
@@ -305,6 +308,7 @@ export function getDirtyEntries(): {
 	mood_states: string[];
 	scenarios: string[];
 	weather: string;
+	city: string;
 	tags: string[];
 }[] {
 	const cache = get(diaryCache);
@@ -317,6 +321,7 @@ export function getDirtyEntries(): {
 			mood_states: entry.mood_states || [],
 			scenarios: entry.scenarios || [],
 			weather: entry.weather || '',
+			city: entry.city || '',
 			tags: entry.tags || []
 		}));
 }

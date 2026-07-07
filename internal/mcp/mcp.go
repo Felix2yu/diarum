@@ -7,7 +7,9 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/store"
+	"github.com/songtianlun/diarum/internal/weather"
 )
 
 // Server wraps the MCP server with Diarum integration
@@ -35,6 +37,7 @@ func New(appStore *store.Store) *Server {
 	s.registerDiaryTools()
 	s.registerSearchTools()
 	s.registerStatsTools()
+	s.registerWeatherTools()
 
 	return s
 }
@@ -294,5 +297,42 @@ func (s *Server) registerStatsTools() {
 		})
 
 		return mcp.NewToolResultText(string(result)), nil
+	})
+}
+
+// registerWeatherTools registers weather-related tools
+func (s *Server) registerWeatherTools() {
+	// Get Weather
+	getWeather := mcp.NewTool("get_weather",
+		mcp.WithDescription("Get weather forecast for a Chinese city"),
+		mcp.WithString("city", mcp.Required(), mcp.Description("City name in Chinese (e.g., 北京, 上海)")),
+	)
+
+	s.mcpServer.AddTool(getWeather, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			return mcp.NewToolResultError("Authentication required"), nil
+		}
+
+		city := req.GetString("city", "")
+		if city == "" {
+			return mcp.NewToolResultError("City name is required"), nil
+		}
+
+		configService := config.NewConfigService(s.store)
+		mcpURL, _ := configService.GetString(userID, "weather.mcp_url")
+		if mcpURL == "" {
+			mcpURL = "http://localhost:8080"
+		}
+		useMCP, _ := configService.GetBool(userID, "weather.use_mcp")
+
+		svc := weather.NewService(mcpURL, useMCP)
+		result, err := svc.GetWeather(city)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to get weather: %v", err)), nil
+		}
+
+		weatherResult, _ := json.Marshal(result)
+		return mcp.NewToolResultText(string(weatherResult)), nil
 	})
 }

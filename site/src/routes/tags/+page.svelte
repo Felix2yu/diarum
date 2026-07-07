@@ -2,12 +2,14 @@
 	import { onMount } from 'svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import Footer from '$lib/components/ui/Footer.svelte';
+	import WeatherDisplay from '$lib/components/WeatherDisplay.svelte';
 	import { isAuthenticated } from '$lib/api/client';
 	import { getTagCloud, getDiariesByTag } from '$lib/api/diaries';
 	import type { Diary } from '$lib/api/client';
 	import { formatDisplayDate } from '$lib/utils/date';
 	import { goto } from '$app/navigation';
 	import { moodToEmoji } from '$lib/utils/diaryEmoji';
+	import { isWMOCode } from '$lib/utils/weatherCodes';
 
 	interface TagCount {
 		tag: string;
@@ -249,7 +251,11 @@
 												<span class="text-sm">{moodToEmoji(diary.mood)}</span>
 											{/if}
 												{#if diary.weather}
-													<span class="text-sm">{diary.weather}</span>
+													{#if isWMOCode(diary.weather)}
+														<WeatherDisplay wmoCode={parseInt(diary.weather)} size="sm" showTemp={false} />
+													{:else}
+														<span class="text-sm">{diary.weather}</span>
+													{/if}
 												{/if}
 											</div>
 											<p class="text-sm text-muted-foreground leading-relaxed line-clamp-2">
