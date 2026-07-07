@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { searchCities, type CityInfo } from '$lib/utils/cityData';
+	import { searchCities, CHINESE_CITIES, type CityInfo } from '$lib/utils/cityData';
 
 	interface Props {
 		selectedCity: string;
@@ -42,26 +42,19 @@
 		navigator.geolocation.getCurrentPosition(
 			(position) => {
 				const { latitude, longitude } = position.coords;
-				// Find nearest city from our list
-				const cities = searchCities('');
-				if (cities.length === 0) {
-					// Fallback: use Beijing
-					selectCity({ name: '北京', lat: 39.9042, lon: 116.4074, province: '北京' });
-				} else {
-					// Simple nearest city search
-					let nearest = cities[0];
-					let minDist = Infinity;
-					for (const city of cities) {
-						const dist = Math.sqrt(
-							Math.pow(city.lat - latitude, 2) + Math.pow(city.lon - longitude, 2)
-						);
-						if (dist < minDist) {
-							minDist = dist;
-							nearest = city;
-						}
+				// Find nearest city from our full list
+				let nearest = CHINESE_CITIES[0];
+				let minDist = Infinity;
+				for (const city of CHINESE_CITIES) {
+					const dist = Math.sqrt(
+						Math.pow(city.lat - latitude, 2) + Math.pow(city.lon - longitude, 2)
+					);
+					if (dist < minDist) {
+						minDist = dist;
+						nearest = city;
 					}
-					selectCity(nearest);
 				}
+				selectCity(nearest);
 				isLocating = false;
 			},
 			() => {
