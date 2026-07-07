@@ -217,102 +217,6 @@
 		}
 	}
 
-	function addWeatherOption() {
-		emojiSettingsError = '';
-		const value = weatherInput.trim();
-		if (!value) return;
-		if (weatherOptions.length >= MAX_DIARY_EMOJI_OPTION_COUNT) {
-			emojiSettingsError = `最多可添加 ${MAX_DIARY_EMOJI_OPTION_COUNT} 个天气选项`;
-			return;
-		}
-		if (countDisplayChars(value) > MAX_DIARY_EMOJI_OPTION_LENGTH) {
-			emojiSettingsError = `天气选项最多 ${MAX_DIARY_EMOJI_OPTION_LENGTH} 个字符`;
-			return;
-		}
-		if (weatherOptions.includes(value)) {
-			emojiSettingsError = '天气选项已存在';
-			return;
-		}
-		weatherOptions = [...weatherOptions, value];
-		weatherInput = '';
-	}
-
-	function removeWeatherOption(value: string) {
-		emojiSettingsError = '';
-		if (weatherOptions.length <= 1) {
-			emojiSettingsError = '至少保留一个天气选项';
-			return;
-		}
-		weatherOptions = weatherOptions.filter((item) => item !== value);
-	}
-
-	function restoreWeatherDefaults() {
-		emojiSettingsError = '';
-		emojiSettingsSuccess = '';
-		weatherOptions = [...DEFAULT_WEATHER_OPTIONS];
-	}
-
-	function restoreAllDefaults() {
-		emojiSettingsError = '';
-		emojiSettingsSuccess = '';
-		weatherOptions = [...DEFAULT_WEATHER_OPTIONS];
-	}
-
-	function reorderOptions(options: string[], fromIndex: number, toIndex: number): string[] {
-		if (fromIndex === toIndex) return options;
-		const next = [...options];
-		const [moved] = next.splice(fromIndex, 1);
-		next.splice(toIndex, 0, moved);
-		return next;
-	}
-
-	function handleDragStart(type: EmojiListType, index: number) {
-		draggingType = type;
-		draggingIndex = index;
-		dragOverType = type;
-		dragOverIndex = index;
-	}
-
-	function handleDragOver(event: DragEvent, type: EmojiListType, index: number) {
-		event.preventDefault();
-		if (draggingType !== type) return;
-		dragOverType = type;
-		dragOverIndex = index;
-	}
-
-	function handleDrop(type: EmojiListType, index: number) {
-		if (draggingType !== type || draggingIndex === null) {
-			clearDragState();
-			return;
-		}
-
-		emojiSettingsError = '';
-		emojiSettingsSuccess = '';
-		weatherOptions = reorderOptions(weatherOptions, draggingIndex, index);
-
-		clearDragState();
-	}
-
-	function handleDropToEnd(type: EmojiListType) {
-		if (draggingType !== type || draggingIndex === null) {
-			clearDragState();
-			return;
-		}
-
-		emojiSettingsError = '';
-		emojiSettingsSuccess = '';
-		weatherOptions = reorderOptions(weatherOptions, draggingIndex, weatherOptions.length - 1);
-
-		clearDragState();
-	}
-
-	function clearDragState() {
-		draggingType = null;
-		draggingIndex = null;
-		dragOverType = null;
-		dragOverIndex = null;
-	}
-
 	async function handleSaveWeatherSettings() {
 		weatherError = '';
 		weatherSuccess = '';
@@ -537,9 +441,6 @@
 
 	// Check if AI can be enabled
 	$: canEnableAI = aiSettings.api_key && aiSettings.base_url && aiSettings.chat_model && aiSettings.embedding_model;
-
-	$: emojiSettingsChanged =
-		JSON.stringify(weatherOptions) !== JSON.stringify(originalWeatherOptions);
 
 	$: memosSettingsChanged = memosSettings.enabled !== originalMemosSettings.enabled ||
 		memosSettings.base_url !== originalMemosSettings.base_url;

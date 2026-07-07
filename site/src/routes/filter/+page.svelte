@@ -191,12 +191,8 @@
 								{#if result.mood}
 									<span class="text-sm">{moodToEmoji(result.mood)}</span>
 								{/if}
-								{#if result.weather}
-									{#if isWMOCode(result.weather)}
-										<WeatherDisplay wmoCode={parseInt(result.weather)} size="sm" showTemp={false} />
-									{:else}
-										<span class="text-sm">{result.weather}</span>
-									{/if}
+								{#if result.weather && isWMOCode(result.weather)}
+									<WeatherDisplay wmoCode={parseInt(result.weather)} size="sm" showTemp={false} />
 								{/if}
 							</div>
 							<svg class="w-4 h-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 transition-all" fill="none" stroke="currentColor" viewBox="0 0 24 24">

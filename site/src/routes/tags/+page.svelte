@@ -250,12 +250,8 @@
 											{#if diary.mood}
 												<span class="text-sm">{moodToEmoji(diary.mood)}</span>
 											{/if}
-												{#if diary.weather}
-													{#if isWMOCode(diary.weather)}
-														<WeatherDisplay wmoCode={parseInt(diary.weather)} size="sm" showTemp={false} />
-													{:else}
-														<span class="text-sm">{diary.weather}</span>
-													{/if}
+												{#if diary.weather && isWMOCode(diary.weather)}
+													<WeatherDisplay wmoCode={parseInt(diary.weather)} size="sm" showTemp={false} />
 												{/if}
 											</div>
 											<p class="text-sm text-muted-foreground leading-relaxed line-clamp-2">

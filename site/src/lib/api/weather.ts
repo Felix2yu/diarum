@@ -1,4 +1,5 @@
 import { pb } from './client';
+import { getCachedWeather, setCachedWeather } from '$lib/stores/weatherCache';
 
 export interface WeatherResult {
 	city: string;
@@ -8,7 +9,15 @@ export interface WeatherResult {
 	date: string;
 }
 
-export async function fetchWeather(city: string): Promise<WeatherResult> {
+export async function fetchWeather(city: string, useCache = true): Promise<WeatherResult> {
+	// Check cache first
+	if (useCache) {
+		const cached = getCachedWeather(city);
+		if (cached) {
+			return cached;
+		}
+	}
+
 	const response = await fetch(`/api/v1/weather?city=${encodeURIComponent(city)}`, {
 		headers: {
 			Authorization: `Bearer ${pb.authStore.token}`
@@ -20,14 +29,28 @@ export async function fetchWeather(city: string): Promise<WeatherResult> {
 		throw new Error(data.error || 'Failed to fetch weather');
 	}
 
-	return response.json();
+	const result = await response.json();
+
+	// Cache the result
+	setCachedWeather(city, result);
+
+	return result;
 }
 
 export async function fetchWeatherByCoords(
 	city: string,
 	lat: number,
-	lon: number
+	lon: number,
+	useCache = true
 ): Promise<WeatherResult> {
+	// Check cache first
+	if (useCache) {
+		const cached = getCachedWeather(city);
+		if (cached) {
+			return cached;
+		}
+	}
+
 	const response = await fetch(
 		`/api/v1/weather/coords?city=${encodeURIComponent(city)}&lat=${lat}&lon=${lon}`,
 		{
@@ -42,5 +65,10 @@ export async function fetchWeatherByCoords(
 		throw new Error(data.error || 'Failed to fetch weather');
 	}
 
-	return response.json();
+	const result = await response.json();
+
+	// Cache the result
+	setCachedWeather(city, result);
+
+	return result;
 }

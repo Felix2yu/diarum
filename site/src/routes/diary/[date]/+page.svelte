@@ -16,6 +16,7 @@
 	import { getDiaryEmojiSettings } from '$lib/api/settings';
 	import { fetchWeather, type WeatherResult } from '$lib/api/weather';
 	import { getCityByName, type CityInfo } from '$lib/utils/cityData';
+	import { WMO_CODES } from '$lib/utils/weatherCodes';
 	import {
 		formatDisplayDate,
 		formatShortDate,
@@ -57,6 +58,7 @@
 	let selectedCity = '';
 	let weatherData: WeatherResult | null = null;
 	let isLoadingWeather = false;
+	let showManualWeather = false;
 	let tags: string[] = [];
 	let tagInput = '';
 	let allTags: string[] = [];
@@ -266,6 +268,11 @@
 			}
 		}
 		loading = false;
+
+		// Auto-fetch weather if no city is selected but default city exists
+		if (!selectedCity && !selectedWeather) {
+			void autoFetchWeather();
+		}
 	}
 
 	async function loadDiaryEmojiPresets() {
@@ -578,6 +585,31 @@
 	}
 
 	let previousDate = '';
+	let defaultCity = '';
+
+	async function loadDefaultCity() {
+		try {
+			const response = await fetch('/api/v1/settings/weather.default_city', {
+				headers: { 'Authorization': `Bearer ${pb.authStore.token}` }
+			});
+			if (response.ok) {
+				const data = await response.json();
+				defaultCity = data.value || '';
+			}
+		} catch (e) {
+			// Ignore error
+		}
+	}
+
+	async function autoFetchWeather() {
+		// If no city selected and default city is set, auto-fetch
+		if (!selectedCity && defaultCity && !weatherData) {
+			const cityInfo = getCityByName(defaultCity);
+			if (cityInfo) {
+				await handleCitySelect(cityInfo);
+			}
+		}
+	}
 
 	onMount(() => {
 		if (!$isAuthenticated) {
@@ -591,6 +623,7 @@
 		void loadDiaryEmojiPresets();
 		void loadSpeechSettings();
 		void loadAllTags();
+		void loadDefaultCity();
 
 		window.addEventListener('keydown', handleKeyboard);
 		return () => {
@@ -866,6 +899,38 @@
 									选择城市获取天气
 								</div>
 							{/if}
+
+							<!-- Manual Weather Selection Toggle -->
+							<div class="mt-2 pt-2 border-t border-border/30">
+								<button
+									type="button"
+									onclick={() => showManualWeather = !showManualWeather}
+									class="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+								>
+									{showManualWeather ? '收起' : '手动选择天气'}
+								</button>
+							</div>
+
+							<!-- Manual Weather Selection Grid -->
+							{#if showManualWeather}
+								<div class="mt-2 grid grid-cols-4 gap-1.5">
+									{#each Object.values(WMO_CODES) as wmo}
+										<button
+											type="button"
+											onclick={() => {
+												selectedWeather = String(wmo.code);
+												weatherData = null;
+												updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, tags });
+											}}
+											class="flex flex-col items-center p-1.5 rounded-lg text-[10px] transition-colors {selectedWeather === String(wmo.code) ? 'bg-primary/20 text-primary' : 'bg-muted/30 hover:bg-muted/50 text-muted-foreground'}"
+											title={wmo.label}
+										>
+											<span class="text-sm leading-none">{wmo.icon}</span>
+											<span class="mt-0.5 truncate w-full text-center">{wmo.label}</span>
+										</button>
+									{/each}
+								</div>
+							{/if}
 						</div>
 
 						<!-- Tags -->
@@ -1066,6 +1131,38 @@
 							{:else}
 								<div class="text-xs text-muted-foreground text-center py-2">
 									选择城市获取天气
+								</div>
+							{/if}
+
+							<!-- Manual Weather Selection Toggle -->
+							<div class="mt-2 pt-2 border-t border-border/30">
+								<button
+									type="button"
+									onclick={() => showManualWeather = !showManualWeather}
+									class="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+								>
+									{showManualWeather ? '收起' : '手动选择天气'}
+								</button>
+							</div>
+
+							<!-- Manual Weather Selection Grid -->
+							{#if showManualWeather}
+								<div class="mt-2 grid grid-cols-4 gap-1.5">
+									{#each Object.values(WMO_CODES) as wmo}
+										<button
+											type="button"
+											onclick={() => {
+												selectedWeather = String(wmo.code);
+												weatherData = null;
+												updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, tags });
+											}}
+											class="flex flex-col items-center p-1.5 rounded-lg text-[10px] transition-colors {selectedWeather === String(wmo.code) ? 'bg-primary/20 text-primary' : 'bg-muted/30 hover:bg-muted/50 text-muted-foreground'}"
+											title={wmo.label}
+										>
+											<span class="text-sm leading-none">{wmo.icon}</span>
+											<span class="mt-0.5 truncate w-full text-center">{wmo.label}</span>
+										</button>
+									{/each}
 								</div>
 							{/if}
 						</div>

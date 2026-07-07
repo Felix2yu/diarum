@@ -5,6 +5,7 @@
 	import CalendarAnalysis from './CalendarAnalysis.svelte';
 	import CalendarYearPicker from './CalendarYearPicker.svelte';
 	import { moodToEmoji, moodToLabel } from '$lib/utils/diaryEmoji';
+	import { isWMOCode, getWMOInfo } from '$lib/utils/weatherCodes';
 
 	let {
 		currentYear = $bindable(new Date().getFullYear()),
@@ -502,8 +503,9 @@
 							{@const meta = getDateMeta(date)}
 							{#if meta?.weather || meta?.mood}
 								<div class="absolute inset-x-0 top-1.5 flex items-center justify-center gap-1 text-[11px] leading-none">
-									{#if meta?.weather}
-										<span class="emoji-chip" title="天气：{meta.weather}">{meta.weather}</span>
+									{#if meta?.weather && isWMOCode(meta.weather)}
+										{@const weatherInfo = getWMOInfo(parseInt(meta.weather))}
+										<span class="emoji-chip" title="天气：{weatherInfo.label}">{weatherInfo.icon}</span>
 									{/if}
 								{#if meta?.mood}
 									{@const moodEmoji = moodToEmoji(meta.mood)}

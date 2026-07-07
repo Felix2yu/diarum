@@ -41,7 +41,7 @@ export function getWMOInfo(code: number): WMOWeatherCode {
 
 export function isWMOCode(value: string): boolean {
 	const num = Number(value);
-	return !isNaN(num) && String(Math.round(num)) === value && num in WMO_CODES;
+	return !isNaN(num) && num in WMO_CODES;
 }
 
 export function formatWeatherDisplay(code: number, tempMin?: number, tempMax?: number): string {
