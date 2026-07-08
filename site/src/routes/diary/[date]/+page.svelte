@@ -252,8 +252,20 @@
 			selectedMoodStates = diary?.mood_states || [];
 			selectedScenarios = diary?.scenarios || [];
 			selectedWeather = diary?.weather || '';
-			selectedCity = '';
+			selectedCity = diary?.city || '';
 			tags = diary?.tags || [];
+			// Restore weatherData if city and temperature info exists
+			if (selectedCity && diary?.temp_min != null && diary?.temp_max != null && diary?.weather) {
+				weatherData = {
+					city: selectedCity,
+					wmo_code: parseInt(diary.weather) || 0,
+					temp_min: diary.temp_min,
+					temp_max: diary.temp_max,
+					date: targetDate
+				};
+			} else {
+				weatherData = null;
+			}
 		} catch (error) {
 			console.error('Failed to load diary:', error);
 			// Keep local draft on fetch failure if one exists.
