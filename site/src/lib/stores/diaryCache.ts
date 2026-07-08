@@ -101,6 +101,8 @@ function reloadFromStorage(): void {
 			scenarios: Array.isArray(entry.scenarios) ? entry.scenarios : [],
 			weather: entry.weather || '',
 			city: entry.city || '',
+			temp_min: entry.temp_min || 0,
+			temp_max: entry.temp_max || 0,
 			tags: Array.isArray(entry.tags) ? entry.tags : [],
 			localUpdatedAt: entry.localUpdatedAt,
 			serverUpdatedAt: entry.serverUpdatedAt,
@@ -259,6 +261,9 @@ export function updateLocalCache(
 		mood_states: entry.mood_states,
 		scenarios: entry.scenarios,
 		weather: entry.weather,
+		city: entry.city,
+		temp_min: entry.temp_min,
+		temp_max: entry.temp_max,
 		tags: entry.tags,
 		localUpdatedAt: entry.localUpdatedAt,
 		serverUpdatedAt: entry.serverUpdatedAt,
@@ -313,6 +318,8 @@ export function getDirtyEntries(): {
 	scenarios: string[];
 	weather: string;
 	city: string;
+	temp_min: number;
+	temp_max: number;
 	tags: string[];
 }[] {
 	const cache = get(diaryCache);
@@ -326,6 +333,8 @@ export function getDirtyEntries(): {
 			scenarios: entry.scenarios || [],
 			weather: entry.weather || '',
 			city: entry.city || '',
+			temp_min: entry.temp_min || 0,
+			temp_max: entry.temp_max || 0,
 			tags: entry.tags || []
 		}));
 }
