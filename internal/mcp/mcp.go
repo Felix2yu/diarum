@@ -96,12 +96,18 @@ func (s *Server) registerDiaryTools() {
 		date := req.GetString("date", "")
 		content := req.GetString("content", "")
 		weather := req.GetString("weather", "")
+		city := req.GetString("city", "")
+		tempMinStr := req.GetString("temp_min", "0")
+		tempMaxStr := req.GetString("temp_max", "0")
+		var tempMin, tempMax float64
+		fmt.Sscanf(tempMinStr, "%f", &tempMin)
+		fmt.Sscanf(tempMaxStr, "%f", &tempMax)
 		mood := req.GetInt("mood", 0)
 		moodStates := req.GetStringSlice("mood_states", nil)
 		scenarios := req.GetStringSlice("scenarios", nil)
 		tags := req.GetStringSlice("tags", nil)
 
-		diary, created, err := s.store.UpsertDiary(userID, date, content, mood, moodStates, scenarios, weather, tags)
+		diary, created, err := s.store.UpsertDiary(userID, date, content, mood, moodStates, scenarios, weather, tags, city, tempMin, tempMax)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Failed to save diary: %v", err)), nil
 		}

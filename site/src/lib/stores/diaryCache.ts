@@ -17,6 +17,8 @@ export interface CacheEntry {
 	scenarios: string[];
 	weather: string;
 	city: string;
+	temp_min: number;
+	temp_max: number;
 	tags: string[];
 	localUpdatedAt: number;
 	serverUpdatedAt: string | null;
@@ -225,7 +227,7 @@ export function getCachedContent(date: string): CacheEntry | null {
  */
 export function updateLocalCache(
 	date: string,
-	updates: { content: string; mood?: number; mood_states?: string[]; scenarios?: string[]; weather?: string; city?: string; tags?: string[] }
+	updates: { content: string; mood?: number; mood_states?: string[]; scenarios?: string[]; weather?: string; city?: string; temp_min?: number; temp_max?: number; tags?: string[] }
 ): void {
 	const existing = getCachedContent(date);
 
@@ -236,6 +238,8 @@ export function updateLocalCache(
 		scenarios: Array.isArray(updates.scenarios) ? updates.scenarios : existing?.scenarios ?? [],
 		weather: updates.weather ?? existing?.weather ?? '',
 		city: updates.city ?? existing?.city ?? '',
+		temp_min: updates.temp_min ?? existing?.temp_min ?? 0,
+		temp_max: updates.temp_max ?? existing?.temp_max ?? 0,
 		tags: Array.isArray(updates.tags) ? updates.tags : existing?.tags ?? [],
 		localUpdatedAt: Date.now(),
 		serverUpdatedAt: existing?.serverUpdatedAt || null,
@@ -469,6 +473,8 @@ async function syncDirtyEntries(): Promise<void> {
 				scenarios: entry.scenarios,
 				weather: entry.weather,
 				city: entry.city,
+				temp_min: entry.temp_min,
+				temp_max: entry.temp_max,
 				tags: entry.tags
 			});
 
@@ -614,6 +620,8 @@ export async function forceSyncNow(): Promise<boolean> {
 				scenarios: entry.scenarios,
 				weather: entry.weather,
 				city: entry.city,
+				temp_min: entry.temp_min,
+				temp_max: entry.temp_max,
 				tags: entry.tags
 			});
 

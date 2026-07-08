@@ -28,6 +28,8 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 			Scenarios  []string `json:"scenarios"`
 			Weather    string   `json:"weather"`
 			City       string   `json:"city"`
+			TempMin    float64  `json:"temp_min"`
+			TempMax    float64  `json:"temp_max"`
 			Tags       []string `json:"tags"`
 		}
 		if err := c.Bind(&body); err != nil {
@@ -40,7 +42,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 			body.Tags = []string{}
 		}
 
-		diary, _, err := s.UpsertDiary(user.ID, body.Date, body.Content, body.Mood, body.MoodStates, body.Scenarios, body.Weather, body.Tags, body.City)
+		diary, _, err := s.UpsertDiary(user.ID, body.Date, body.Content, body.Mood, body.MoodStates, body.Scenarios, body.Weather, body.Tags, body.City, body.TempMin, body.TempMax)
 		if err != nil {
 			return badRequest("Failed to save diary", err)
 		}

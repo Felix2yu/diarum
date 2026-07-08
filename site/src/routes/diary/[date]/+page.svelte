@@ -388,6 +388,8 @@
 				scenarios: selectedScenarios,
 				weather: selectedWeather,
 				city: selectedCity,
+				temp_min: result.temp_min,
+				temp_max: result.temp_max,
 				tags
 			});
 		} catch (error) {

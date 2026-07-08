@@ -17,6 +17,8 @@ export interface Diary {
     scenarios?: string[];
     weather?: string;
     city?: string;
+    temp_min?: number;
+    temp_max?: number;
     tags?: string[];
     owner: string;
     created?: string;

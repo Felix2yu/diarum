@@ -61,6 +61,9 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			MoodStates []string `json:"mood_states"`
 			Scenarios  []string `json:"scenarios"`
 			Weather    string   `json:"weather"`
+			City       string   `json:"city"`
+			TempMin    float64  `json:"temp_min"`
+			TempMax    float64  `json:"temp_max"`
 			Tags       []string `json:"tags"`
 		}
 		if err := c.Bind(&body); err != nil {
@@ -73,7 +76,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			body.Tags = []string{}
 		}
 
-		diary, created, err := s.UpsertDiary(userId, body.Date, body.Content, body.Mood, body.MoodStates, body.Scenarios, body.Weather, body.Tags)
+		diary, created, err := s.UpsertDiary(userId, body.Date, body.Content, body.Mood, body.MoodStates, body.Scenarios, body.Weather, body.Tags, body.City, body.TempMin, body.TempMax)
 		if err != nil {
 			return serverError("Failed to save diary", err)
 		}
@@ -103,6 +106,9 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			MoodStates []string `json:"mood_states"`
 			Scenarios  []string `json:"scenarios"`
 			Weather    string   `json:"weather"`
+			City       string   `json:"city"`
+			TempMin    float64  `json:"temp_min"`
+			TempMax    float64  `json:"temp_max"`
 			Tags       []string `json:"tags"`
 		}
 		if err := c.Bind(&body); err != nil {
@@ -129,12 +135,24 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 		if weather == "" {
 			weather = existing.Weather
 		}
+		city := body.City
+		if city == "" {
+			city = existing.City
+		}
+		tempMin := body.TempMin
+		if tempMin == 0 {
+			tempMin = existing.TempMin
+		}
+		tempMax := body.TempMax
+		if tempMax == 0 {
+			tempMax = existing.TempMax
+		}
 		tags := body.Tags
 		if tags == nil {
 			tags = existing.Tags
 		}
 
-		diary, _, err := s.UpsertDiary(userId, store.DateOnly(existing.Date), content, mood, moodStates, scenarios, weather, tags)
+		diary, _, err := s.UpsertDiary(userId, store.DateOnly(existing.Date), content, mood, moodStates, scenarios, weather, tags, city, tempMin, tempMax)
 		if err != nil {
 			return serverError("Failed to update diary", err)
 		}
