@@ -1145,7 +1145,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 						<h2 class="text-lg font-semibold text-foreground">天气设置</h2>
 					</div>
 					<p class="text-sm text-muted-foreground mb-6">
-						配置天气服务。支持通过 MCP 服务器获取天气数据，或直接调用 Open-Meteo API。
+						配置天气服务。默认使用 Open-Meteo API（免费、无需 API Key）。如已部署天气 MCP 服务器，可开启以获取更精确的数据，MCP 失败时会自动回退到 Open-Meteo。
 					</p>
 
 					{#if weatherError}
@@ -1165,7 +1165,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 						<div class="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
 							<div>
 								<div class="font-medium text-foreground">启用天气功能</div>
-								<div class="text-sm text-muted-foreground">开启后可在日记中选择城市并自动获取天气</div>
+								<div class="text-sm text-muted-foreground">开启后可在日记中选择城市并自动获取天气（使用免费的 Open-Meteo API）</div>
 							</div>
 							<button
 								type="button"
@@ -1180,8 +1180,8 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							<!-- Use MCP -->
 							<div class="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
 								<div>
-									<div class="font-medium text-foreground">使用 MCP 服务器</div>
-									<div class="text-sm text-muted-foreground">通过 MCP 服务器获取天气数据（需要部署天气 MCP 服务器）</div>
+									<div class="font-medium text-foreground">优先使用 MCP 服务器</div>
+									<div class="text-sm text-muted-foreground">开启后优先通过 MCP 获取天气，失败时自动回退到 Open-Meteo</div>
 								</div>
 								<button
 									type="button"
@@ -1203,7 +1203,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 										placeholder="http://localhost:8080"
 										class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
 									/>
-									<p class="text-xs text-muted-foreground mt-1">默认：http://localhost:8080</p>
+									<p class="text-xs text-muted-foreground mt-1">默认：http://localhost:8080。MCP 不可用时自动使用 Open-Meteo</p>
 								</div>
 							{/if}
 
