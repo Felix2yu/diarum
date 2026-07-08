@@ -505,7 +505,7 @@
 								<div class="absolute inset-x-0 top-1.5 flex items-center justify-center gap-1 text-[11px] leading-none">
 									{#if meta?.weather && isWMOCode(meta.weather)}
 										{@const weatherInfo = getWMOInfo(parseInt(meta.weather))}
-										<span class="emoji-chip" title="天气：{weatherInfo.label}">{weatherInfo.icon}</span>
+										<span class="emoji-chip" title="天气：{weatherInfo.label}{meta?.temp_min != null && meta?.temp_max != null ? ` ${Math.round(meta.temp_min)}°~${Math.round(meta.temp_max)}°` : ''}">{weatherInfo.icon}</span>
 									{/if}
 								{#if meta?.mood}
 									{@const moodEmoji = moodToEmoji(meta.mood)}
@@ -701,7 +701,10 @@
                                     <span class="analysis-list-date">{formatDisplayDate(diary.date)}</span>
                                     <div class="flex items-center gap-2 text-xs text-muted-foreground">
                                         {#if diary.mood}{@const moodEmoji = moodToEmoji(diary.mood)}{#if moodEmoji}<span title="心情">{moodEmoji}</span>{/if}{/if}
-                                        {#if diary.weather}<span title="天气">{diary.weather}</span>{/if}
+                                        {#if diary.weather && isWMOCode(diary.weather)}
+                                            {@const weatherInfo = getWMOInfo(parseInt(diary.weather))}
+                                            <span title="天气：{weatherInfo.label}{diary.temp_min != null && diary.temp_max != null ? ` ${Math.round(diary.temp_min)}°~${Math.round(diary.temp_max)}°` : ''}">{weatherInfo.icon}</span>
+                                        {/if}
                                     </div>
                                 </div>
                                 {#if diary.content}

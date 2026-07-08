@@ -113,7 +113,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		for _, diary := range diaries {
 			date := store.DateOnly(diary.Date)
 			dates = append(dates, date)
-			entries = append(entries, map[string]any{"date": date, "mood": diary.Mood, "weather": diary.Weather})
+			entries = append(entries, map[string]any{"date": date, "mood": diary.Mood, "weather": diary.Weather, "city": diary.City, "temp_min": diary.TempMin, "temp_max": diary.TempMax})
 		}
 		return c.JSON(http.StatusOK, map[string]any{"dates": dates, "entries": entries})
 	})
@@ -336,6 +336,9 @@ func diaryResponse(diary *store.Diary, date string, exists bool) map[string]any 
 		"mood_states": moodStates,
 		"scenarios":  scenarios,
 		"weather":    diary.Weather,
+		"city":       diary.City,
+		"temp_min":   diary.TempMin,
+		"temp_max":   diary.TempMax,
 		"tags":       tags,
 		"owner":      diary.Owner,
 		"created":    diary.Created,

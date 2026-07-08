@@ -11,6 +11,9 @@ export interface CalendarDiaryMeta {
 	date: string;
 	mood?: number;
 	weather?: string;
+	city?: string;
+	temp_min?: number;
+	temp_max?: number;
 }
 
 /**
@@ -197,6 +200,9 @@ export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
 		const effectiveMoodStates = diary.mood_states !== undefined ? diary.mood_states : existing?.mood_states ?? [];
 		const effectiveScenarios = diary.scenarios !== undefined ? diary.scenarios : existing?.scenarios ?? [];
 		const effectiveWeather = diary.weather !== undefined ? diary.weather : existing?.weather;
+		const effectiveCity = diary.city !== undefined ? diary.city : existing?.city ?? '';
+		const effectiveTempMin = diary.temp_min !== undefined ? diary.temp_min : existing?.temp_min ?? 0;
+		const effectiveTempMax = diary.temp_max !== undefined ? diary.temp_max : existing?.temp_max ?? 0;
 		const effectiveTags = diary.tags !== undefined ? diary.tags : existing?.tags ?? [];
 
 	const allEmpty =
@@ -232,6 +238,9 @@ export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
 				mood_states: effectiveMoodStates,
 				scenarios: effectiveScenarios,
 				weather: diary.weather ?? existing?.weather ?? '',
+				city: effectiveCity,
+				temp_min: effectiveTempMin,
+				temp_max: effectiveTempMax,
 				tags: effectiveTags
 			})
 		});
@@ -267,12 +276,15 @@ export async function getDatesWithDiaries(start: string, end: string): Promise<C
 			return data.entries.map((entry: any) => ({
 				date: entry.date,
 				mood: entry.mood || '',
-				weather: entry.weather || ''
+				weather: entry.weather || '',
+				city: entry.city || '',
+				temp_min: entry.temp_min || 0,
+				temp_max: entry.temp_max || 0
 			}));
 		}
 
 		if (Array.isArray(data.dates)) {
-			return data.dates.map((date: string) => ({ date, mood: '', weather: '' }));
+			return data.dates.map((date: string) => ({ date, mood: '', weather: '', city: '', temp_min: 0, temp_max: 0 }));
 		}
 
 		return [];

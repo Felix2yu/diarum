@@ -1095,7 +1095,7 @@ func (s *Store) GetDiariesByMonthDay(owner, dateStr string) ([]*Diary, error) {
 	}
 	monthDay := dateStr[5:10] // MM-DD
 	rows, err := s.DB.Query(
-		`SELECT content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, tags
+		`SELECT content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, city, temp_min, temp_max, tags
 		 FROM diaries
 		 WHERE owner = ? AND substr(date, 6, 5) = ? AND substr(date, 1, 10) != ?
 		 ORDER BY date DESC`,
@@ -1123,7 +1123,7 @@ func (s *Store) GetRandomDiary(owner, excludeDate string) (*Diary, error) {
 	where += " AND (trim(content) != '' OR mood != 0 OR trim(weather) != '' OR tags != '[]')"
 	// SQLite 的 RANDOM() 返回 -9223372036854775808 到 9223372036854775807，取一条
 	rows, err := s.DB.Query(
-		`SELECT content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, tags
+		`SELECT content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, city, temp_min, temp_max, tags
 		 FROM diaries `+where+`
 		 ORDER BY RANDOM() LIMIT 1`,
 		args...,
@@ -1205,7 +1205,7 @@ func (s *Store) SearchDiaries(owner, query string, scenario string, limit int) (
 	}
 	args = append(args, limit)
 	rows, err := s.DB.Query(
-		`SELECT content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, tags
+		`SELECT content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, city, temp_min, temp_max, tags
 		 FROM diaries `+where+` ORDER BY date DESC LIMIT ?`,
 		args...,
 	)
@@ -1232,7 +1232,7 @@ func (s *Store) FilterDiaries(owner string, mood int, scenario string, limit int
 	}
 	args = append(args, limit)
 	rows, err := s.DB.Query(
-		`SELECT content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, tags
+		`SELECT content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, city, temp_min, temp_max, tags
 		 FROM diaries `+where+` ORDER BY date DESC LIMIT ?`,
 		args...,
 	)
@@ -1344,7 +1344,7 @@ func (s *Store) ListDiariesByTag(owner, tag string) ([]*Diary, error) {
 		return []*Diary{}, nil
 	}
 	rows, err := s.DB.Query(
-		`SELECT d.content, d.created, d.date, d.id, d.mood, d.mood_states, d.scenarios, d.owner, d.updated, d.weather, d.tags
+		`SELECT d.content, d.created, d.date, d.id, d.mood, d.mood_states, d.scenarios, d.owner, d.updated, d.weather, d.city, d.temp_min, d.temp_max, d.tags
 		 FROM diaries d, json_each(d.tags) j
 		 WHERE d.owner = ? AND j.value = ?
 		 ORDER BY d.date DESC`, owner, tag)

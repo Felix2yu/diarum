@@ -847,7 +847,7 @@ func TestMemosSyncFindsAndRemovesExistingBlock(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
 	oldBlock := renderMemosBlock(memosMemo{ID: "memo-1", Content: "old", CreateTime: "2024-04-01"}, "2024-04-01")
-	if _, _, err := s.UpsertDiary(user.ID, "2024-04-01", "intro\n\n"+oldBlock, 4, nil, nil, "cloudy", nil); err != nil {
+	if _, _, err := s.UpsertDiary(user.ID, "2024-04-01", "intro\n\n"+oldBlock, 4, nil, nil, "cloudy", nil, "", 0, 0); err != nil {
 		t.Fatalf("UpsertDiary old: %v", err)
 	}
 
@@ -880,7 +880,7 @@ func TestMemosSyncFindsAndRemovesExistingBlock(t *testing.T) {
 		t.Fatalf("remove missing memo changed=%v err=%v", changed, err)
 	}
 
-	if _, _, err := s.UpsertDiary(user.ID, "2024-04-04", "plain diary", 3, nil, nil, "sun", nil); err != nil {
+	if _, _, err := s.UpsertDiary(user.ID, "2024-04-04", "plain diary", 3, nil, nil, "sun", nil, "", 0, 0); err != nil {
 		t.Fatalf("UpsertDiary plain: %v", err)
 	}
 	changed, err = syncMemosMemo(s, user.ID, memosWebhookEvent{Action: "upsert", Memo: memosMemo{ID: "memo-2", Content: "appended", CreateTime: "2024-04-04"}})
@@ -923,14 +923,14 @@ func TestDiaryRoutesSearchStatsAndAccessBranches(t *testing.T) {
 	today := time.Now().UTC().Format("2006-01-02")
 	yesterday := time.Now().UTC().AddDate(0, 0, -1).Format("2006-01-02")
 	oldContent := strings.Repeat("x", 220) + " searchable"
-	diaryToday, _, err := s.UpsertDiary(user.ID, today, oldContent, 5, nil, nil, "sunny", nil)
+	diaryToday, _, err := s.UpsertDiary(user.ID, today, oldContent, 5, nil, nil, "sunny", nil, "", 0, 0)
 	if err != nil {
 		t.Fatalf("UpsertDiary today: %v", err)
 	}
-	if _, _, err := s.UpsertDiary(user.ID, yesterday, "yesterday searchable", 4, nil, nil, "cloudy", nil); err != nil {
+	if _, _, err := s.UpsertDiary(user.ID, yesterday, "yesterday searchable", 4, nil, nil, "cloudy", nil, "", 0, 0); err != nil {
 		t.Fatalf("UpsertDiary yesterday: %v", err)
 	}
-	otherDiary, _, err := s.UpsertDiary(other.ID, today, "other diary", 0, nil, nil, "rain", nil)
+	otherDiary, _, err := s.UpsertDiary(other.ID, today, "other diary", 0, nil, nil, "rain", nil, "", 0, 0)
 	if err != nil {
 		t.Fatalf("UpsertDiary other: %v", err)
 	}
