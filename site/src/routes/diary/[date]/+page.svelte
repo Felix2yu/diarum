@@ -300,7 +300,7 @@
 		if (!selectedCity) return;
 		isLoadingWeather = true;
 		try {
-			const result = await fetchWeather(selectedCity);
+			const result = await fetchWeather(selectedCity, targetDate);
 			weatherData = result;
 			selectedWeather = String(result.wmo_code);
 		} catch (error) {
@@ -390,7 +390,7 @@
 		selectedCity = city.name;
 		isLoadingWeather = true;
 		try {
-			const result = await fetchWeather(city.name);
+			const result = await fetchWeather(city.name, date);
 			weatherData = result;
 			selectedWeather = String(result.wmo_code);
 			updateLocalCache(date, {

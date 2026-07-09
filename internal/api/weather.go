@@ -34,7 +34,9 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 			})
 		}
 
-		result, err := svc.GetWeather(city)
+		date := c.QueryParam("date")
+
+		result, err := svc.GetWeather(city, date)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": err.Error(),
@@ -77,7 +79,9 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 			})
 		}
 
-		result, err := svc.GetWeatherByCoords(city, latF, lonF)
+		date := c.QueryParam("date")
+
+		result, err := svc.GetWeatherByCoords(city, latF, lonF, date)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": err.Error(),

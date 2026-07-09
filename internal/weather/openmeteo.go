@@ -18,8 +18,8 @@ type OpenMeteoResponse struct {
 	} `json:"daily"`
 }
 
-// FetchWeatherFromOpenMeteo fetches weather from Open-Meteo API
-func FetchWeatherFromOpenMeteo(city string, lat, lon float64) (*WeatherResult, error) {
+// FetchWeatherFromOpenMeteo fetches weather from Open-Meteo API for a specific date
+func FetchWeatherFromOpenMeteo(city string, lat, lon float64, date string) (*WeatherResult, error) {
 	url := fmt.Sprintf(
 		"https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia/Shanghai",
 		lat, lon,
@@ -50,14 +50,30 @@ func FetchWeatherFromOpenMeteo(city string, lat, lon float64) (*WeatherResult, e
 		return nil, fmt.Errorf("no weather data available")
 	}
 
-	// Get today's data (index 0)
-	today := time.Now().Format("2006-01-02")
+	// Find the index for the requested date
+	targetDate := date
+	if targetDate == "" {
+		targetDate = time.Now().Format("2006-01-02")
+	}
 
+	for i, d := range data.Daily.Time {
+		if d == targetDate {
+			return &WeatherResult{
+				City:    city,
+				WMOCode: data.Daily.WeatherCode[i],
+				TempMin: data.Daily.Temperature2mMin[i],
+				TempMax: data.Daily.Temperature2mMax[i],
+				Date:    targetDate,
+			}, nil
+		}
+	}
+
+	// If date not found in forecast (too far in future/past), return first available day
 	return &WeatherResult{
 		City:    city,
 		WMOCode: data.Daily.WeatherCode[0],
 		TempMin: data.Daily.Temperature2mMin[0],
 		TempMax: data.Daily.Temperature2mMax[0],
-		Date:    today,
+		Date:    data.Daily.Time[0],
 	}, nil
 }

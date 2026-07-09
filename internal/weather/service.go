@@ -96,8 +96,8 @@ func (s *Service) initCityCoords() {
 	}
 }
 
-// GetWeather fetches weather for a city
-func (s *Service) GetWeather(city string) (*WeatherResult, error) {
+// GetWeather fetches weather for a city on a specific date
+func (s *Service) GetWeather(city string, date string) (*WeatherResult, error) {
 	// Try MCP first if enabled
 	if s.useMCP {
 		result, err := s.mcpClient.GetForecast(city)
@@ -116,12 +116,12 @@ func (s *Service) GetWeather(city string) (*WeatherResult, error) {
 		return nil, fmt.Errorf("city %q not found", city)
 	}
 
-	return FetchWeatherFromOpenMeteo(city, coords[0], coords[1])
+	return FetchWeatherFromOpenMeteo(city, coords[0], coords[1], date)
 }
 
-// GetWeatherByCoords fetches weather by coordinates
-func (s *Service) GetWeatherByCoords(city string, lat, lon float64) (*WeatherResult, error) {
-	return FetchWeatherFromOpenMeteo(city, lat, lon)
+// GetWeatherByCoords fetches weather by coordinates on a specific date
+func (s *Service) GetWeatherByCoords(city string, lat, lon float64, date string) (*WeatherResult, error) {
+	return FetchWeatherFromOpenMeteo(city, lat, lon, date)
 }
 
 // SetCityCoords adds or updates city coordinates

@@ -9,16 +9,21 @@ export interface WeatherResult {
 	date: string;
 }
 
-export async function fetchWeather(city: string, useCache = true): Promise<WeatherResult> {
-	// Check cache first
-	if (useCache) {
+export async function fetchWeather(city: string, date?: string, useCache = true): Promise<WeatherResult> {
+	// Check cache first (only for today's weather without specific date)
+	if (useCache && !date) {
 		const cached = getCachedWeather(city);
 		if (cached) {
 			return cached;
 		}
 	}
 
-	const response = await fetch(`/api/v1/weather?city=${encodeURIComponent(city)}`, {
+	const params = new URLSearchParams({ city });
+	if (date) {
+		params.set('date', date);
+	}
+
+	const response = await fetch(`/api/v1/weather?${params.toString()}`, {
 		headers: {
 			Authorization: `Bearer ${pb.authStore.token}`
 		}
@@ -31,8 +36,10 @@ export async function fetchWeather(city: string, useCache = true): Promise<Weath
 
 	const result = await response.json();
 
-	// Cache the result
-	setCachedWeather(city, result);
+	// Cache the result (only for today)
+	if (!date) {
+		setCachedWeather(city, result);
+	}
 
 	return result;
 }
@@ -41,18 +48,24 @@ export async function fetchWeatherByCoords(
 	city: string,
 	lat: number,
 	lon: number,
+	date?: string,
 	useCache = true
 ): Promise<WeatherResult> {
-	// Check cache first
-	if (useCache) {
+	// Check cache first (only for today's weather without specific date)
+	if (useCache && !date) {
 		const cached = getCachedWeather(city);
 		if (cached) {
 			return cached;
 		}
 	}
 
+	const params = new URLSearchParams({ city, lat: String(lat), lon: String(lon) });
+	if (date) {
+		params.set('date', date);
+	}
+
 	const response = await fetch(
-		`/api/v1/weather/coords?city=${encodeURIComponent(city)}&lat=${lat}&lon=${lon}`,
+		`/api/v1/weather/coords?${params.toString()}`,
 		{
 			headers: {
 				Authorization: `Bearer ${pb.authStore.token}`
@@ -67,8 +80,10 @@ export async function fetchWeatherByCoords(
 
 	const result = await response.json();
 
-	// Cache the result
-	setCachedWeather(city, result);
+	// Cache the result (only for today)
+	if (!date) {
+		setCachedWeather(city, result);
+	}
 
 	return result;
 }

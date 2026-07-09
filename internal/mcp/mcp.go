@@ -333,7 +333,7 @@ func (s *Server) registerWeatherTools() {
 		useMCP, _ := configService.GetBool(userID, "weather.use_mcp")
 
 		svc := weather.NewService(mcpURL, useMCP)
-		result, err := svc.GetWeather(city)
+		result, err := svc.GetWeather(city, "")
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Failed to get weather: %v", err)), nil
 		}

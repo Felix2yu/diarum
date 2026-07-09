@@ -47,7 +47,7 @@ func TestFormatDisplay(t *testing.T) {
 }
 
 func TestFetchWeatherFromOpenMeteo(t *testing.T) {
-	result, err := FetchWeatherFromOpenMeteo("北京", 39.9042, 116.4074)
+	result, err := FetchWeatherFromOpenMeteo("北京", 39.9042, 116.4074, "")
 	if err != nil {
 		t.Fatalf("FetchWeatherFromOpenMeteo failed: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestFetchWeatherFromOpenMeteo(t *testing.T) {
 func TestServiceGetWeather(t *testing.T) {
 	svc := NewService("http://localhost:8080", false)
 
-	result, err := svc.GetWeather("北京")
+	result, err := svc.GetWeather("北京", "")
 	if err != nil {
 		t.Fatalf("GetWeather failed: %v", err)
 	}
