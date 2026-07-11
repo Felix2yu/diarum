@@ -876,6 +876,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 
 func fetchModels(baseURL, apiKey string) ([]modelInfo, error) {
 	baseURL = strings.TrimSuffix(baseURL, "/")
+	baseURL = strings.TrimSuffix(baseURL, "/v1")
 	url := baseURL + "/v1/models"
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {

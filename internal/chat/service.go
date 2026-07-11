@@ -387,6 +387,7 @@ func (s *ChatService) StreamChat(ctx context.Context, userID, conversationID, me
 // callAPIWithTools calls the API with tool support
 func (s *ChatService) callAPIWithTools(ctx context.Context, baseURL, apiKey, model string, messages []ChatMessage, tools []Tool, writer StreamWriter) (string, []ToolCall, error) {
 	baseURL = strings.TrimSuffix(baseURL, "/")
+	baseURL = strings.TrimSuffix(baseURL, "/v1")
 	url := baseURL + "/v1/chat/completions"
 
 	reqBody := ChatRequest{

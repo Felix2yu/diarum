@@ -86,8 +86,9 @@ func (s *EmbeddingService) createEmbeddingFunc(userID string) (chromem.Embedding
 		return nil, fmt.Errorf("embedding model not configured")
 	}
 
-	// Normalize base URL
+	// Normalize base URL: strip trailing /v1 to avoid double /v1 in request URLs
 	baseURL = strings.TrimSuffix(baseURL, "/")
+	baseURL = strings.TrimSuffix(baseURL, "/v1")
 
 	// Debug log configuration (mask API key)
 	maskedKey := "***"
