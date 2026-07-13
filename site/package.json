@@ -29,5 +29,8 @@
 		"html-to-image": "^1.11.13",
 		"marked": "^17.0.6"
 	},
-	"type": "module"
+	"type": "module",
+	"overrides": {
+		"cookie": "^0.7.0"
+	}
 }
