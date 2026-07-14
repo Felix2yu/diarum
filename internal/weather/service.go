@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -109,8 +110,10 @@ type nominatimAddress struct {
 // reverseGeocode uses Nominatim (OpenStreetMap) to get city info from coordinates
 // zoom=8 returns prefecture-level city (地级市) for China
 func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
+	// Don't use zoom parameter - let Nominatim return full address
+	// Then we extract the right level ourselves
 	url := fmt.Sprintf(
-		"https://nominatim.openstreetmap.org/reverse?lat=%f&lon=%f&format=json&accept-language=zh&zoom=6",
+		"https://nominatim.openstreetmap.org/reverse?lat=%f&lon=%f&format=json&accept-language=zh",
 		lat, lon,
 	)
 
@@ -119,7 +122,6 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
-	// Nominatim requires a valid User-Agent
 	req.Header.Set("User-Agent", "Diarum/1.0 (diary-app)")
 
 	resp, err := client.Do(req)
@@ -142,9 +144,11 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 		return nil, fmt.Errorf("failed to parse Nominatim response: %w", err)
 	}
 
-	// Get city name from address
-	// Priority: city (地级市/直辖市) > town > village
-	// Note: Open-Meteo only supports prefecture-level cities, not provinces
+	// Extract city name by priority:
+	// 1. address.city - 地级市/直辖市/特区 (苏州市、上海市、香港)
+	// 2. address.town - 镇级市
+	// 3. address.village - 乡镇
+	// 4. display_name parsing fallback
 	cityName := data.Address.City
 	if cityName == "" {
 		cityName = data.Address.Town
@@ -153,17 +157,16 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 		cityName = data.Address.Village
 	}
 
+	// If still no city, try to extract from display_name
+	if cityName == "" && data.DisplayName != "" {
+		cityName = extractCityFromDisplayName(data.DisplayName)
+	}
+
 	if cityName == "" {
-		// No city found, might be in a rural area or province level
 		return nil, fmt.Errorf("该位置无法确定城市，请手动选择")
 	}
 
-	// Check if it's a province (省级不支持, Open-Meteo only supports cities)
-	if cityName == data.Address.State {
-		return nil, fmt.Errorf("该位置为省级行政区（%s），请手动选择城市", cityName)
-	}
-
-	// Remove suffixes that Open-Meteo doesn't support (e.g., "苏州市" -> "苏州")
+	// Remove administrative suffixes (苏州市 -> 苏州, 广东省 -> 广东)
 	cityName = cleanCityName(cityName)
 
 	return []CityInfo{{
@@ -173,6 +176,16 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 		Province: data.Address.State,
 		Country:  data.Address.Country,
 	}}, nil
+}
+
+// extractCityFromDisplayName extracts city name from Nominatim display_name
+// display_name format: "苏州市, 江苏省, 中国"
+func extractCityFromDisplayName(displayName string) string {
+	parts := strings.Split(displayName, ",")
+	if len(parts) > 0 {
+		return strings.TrimSpace(parts[0])
+	}
+	return ""
 }
 
 // cleanCityName removes administrative suffixes like 市、省、自治区 etc.
