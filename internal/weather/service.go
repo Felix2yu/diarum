@@ -184,12 +184,16 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 
 // extractPrefectureCity extracts prefecture-level city from display_name
 // display_name format: "姑苏区, 苏州市, 江苏省, 中国" -> "苏州市"
+// Also handles: 特别行政区, 自治州, 地区
 func extractPrefectureCity(displayName, state string) string {
 	parts := strings.Split(displayName, ",")
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
-		// Look for city-level entity (contains "市")
-		if strings.HasSuffix(part, "市") {
+		// Look for city-level entities
+		if strings.HasSuffix(part, "市") ||
+			strings.Contains(part, "特别行政区") ||
+			strings.Contains(part, "自治州") ||
+			strings.Contains(part, "地区") {
 			return part
 		}
 	}
@@ -203,11 +207,17 @@ func extractPrefectureCity(displayName, state string) string {
 	return ""
 }
 
-// cleanCityName removes administrative suffixes like 市、省、自治区 etc.
+// cleanCityName removes administrative suffixes
+// 苏州市 -> 苏州, 香港特别行政区 -> 香港, 延边朝鲜族自治州 -> 延边
 func cleanCityName(name string) string {
-	suffixes := []string{"壮族自治区", "自治区", "特别行政区", "省", "市"}
+	suffixes := []string{
+		"壮族自治区", "回族自治区", "维吾尔自治区", "自治区",
+		"特别行政区",
+		"朝鲜族自治州", "土家族苗族自治州", "藏族自治州", "蒙古自治州", "自治州",
+		"省", "市", "地区",
+	}
 	for _, suffix := range suffixes {
-		if len(name) > len(suffix) && name[len(name)-len(suffix):] == suffix {
+		if strings.HasSuffix(name, suffix) && len(name) > len(suffix) {
 			return name[:len(name)-len(suffix)]
 		}
 	}
