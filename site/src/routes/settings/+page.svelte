@@ -89,6 +89,9 @@
 	let weatherSaving = false;
 	let weatherError = '';
 	let weatherSuccess = '';
+	let backfillWeather = false;
+	let backfillResult: { updated: number; skipped: number; failed: number } | null = null;
+	let backfillError = '';
 
 	// AI Settings
 	let aiSettings: AISettings = {
@@ -254,6 +257,32 @@
 			weatherError = e instanceof Error ? e.message : '保存天气设置失败';
 		}
 		weatherSaving = false;
+	}
+
+	async function handleBackfillWeather() {
+		backfillError = '';
+		backfillResult = null;
+		backfillWeather = true;
+		try {
+			const response = await fetch('/api/v1/weather/backfill', {
+				method: 'POST',
+				headers: {
+					'Authorization': `Bearer ${pb.authStore.token}`
+				}
+			});
+			const data = await response.json();
+			if (!response.ok) {
+				throw new Error(data.error || 'Failed to backfill weather');
+			}
+			backfillResult = {
+				updated: data.updated,
+				skipped: data.skipped,
+				failed: data.failed
+			};
+		} catch (e) {
+			backfillError = e instanceof Error ? e.message : '补全天气失败';
+		}
+		backfillWeather = false;
 	}
 
 	async function handleToggle() {
@@ -1245,6 +1274,40 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								</svg>
 								已保存
 							</span>
+						{/if}
+					</div>
+
+					<!-- Backfill Weather -->
+					<div class="mt-4 p-4 bg-muted/30 rounded-lg">
+						<h3 class="text-sm font-medium text-foreground mb-2">补全历史天气</h3>
+						<p class="text-xs text-muted-foreground mb-3">一键为所有缺失天气数据的日记补全天气（基于默认城市）</p>
+						<button
+							onclick={handleBackfillWeather}
+							disabled={backfillWeather}
+							class="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 text-sm"
+						>
+							{#if backfillWeather}
+								<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+								</svg>
+								补全中...
+							{:else}
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+								</svg>
+								补全天气
+							{/if}
+						</button>
+						{#if backfillResult}
+							<div class="mt-3 p-3 bg-background rounded-lg text-sm">
+								<p class="text-foreground">补全完成：更新 {backfillResult.updated} 篇，跳过 {backfillResult.skipped} 篇，失败 {backfillResult.failed} 篇</p>
+							</div>
+						{/if}
+						{#if backfillError}
+							<div class="mt-3 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+								{backfillError}
+							</div>
 						{/if}
 					</div>
 				</div>
