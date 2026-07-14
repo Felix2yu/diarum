@@ -93,7 +93,7 @@
 	let backfillResult: { updated: number; skipped: number; failed: number } | null = null;
 	let backfillError = '';
 	let backfillStartDate = `${new Date().getFullYear()}-01-01`;
-	let backfillSkipEmpty = true;
+	let backfillMode: 'content' | 'range' = 'content';
 
 	// AI Settings
 	let aiSettings: AISettings = {
@@ -265,9 +265,9 @@
 		backfillError = '';
 		backfillResult = null;
 
-		// Validate: if not skipping empty, must have start date
-		if (!backfillSkipEmpty && !backfillStartDate) {
-			backfillError = '补全全部日记时必须填写起始日期';
+		// Validate start date for range mode
+		if (backfillMode === 'range' && !backfillStartDate) {
+			backfillError = '请选择起始日期';
 			return;
 		}
 
@@ -280,8 +280,8 @@
 					'Content-Type': 'application/json'
 				},
 				body: JSON.stringify({
-					start_date: backfillStartDate || undefined,
-					skip_empty: backfillSkipEmpty
+					start_date: backfillMode === 'range' ? backfillStartDate : undefined,
+					skip_empty: backfillMode === 'content'
 				})
 			});
 			const data = await response.json();
@@ -1300,32 +1300,39 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 						<div class="space-y-3 mb-4">
 							<div class="flex items-center gap-2">
 								<input
-									id="backfill-skip-empty"
-									type="checkbox"
-									bind:checked={backfillSkipEmpty}
-									class="w-4 h-4 rounded border-muted-foreground text-primary focus:ring-primary"
+									id="backfill-mode-content"
+									type="radio"
+									name="backfillMode"
+									value="content"
+									bind:group={backfillMode}
+									class="w-4 h-4 border-muted-foreground text-primary focus:ring-primary"
 								/>
-								<label for="backfill-skip-empty" class="text-xs text-muted-foreground">跳过没有内容的日记（推荐）</label>
+								<label for="backfill-mode-content" class="text-xs text-muted-foreground">补全所有有内容的日记</label>
 							</div>
-							<div>
-								<label for="backfill-start-date" class="block text-xs text-muted-foreground mb-1">
-									起始日期 {!backfillSkipEmpty ? '* 必填' : '（可选）'}
-								</label>
+							<div class="flex items-center gap-2">
 								<input
-									id="backfill-start-date"
-									type="date"
-									bind:value={backfillStartDate}
-									required={!backfillSkipEmpty}
-									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+									id="backfill-mode-range"
+									type="radio"
+									name="backfillMode"
+									value="range"
+									bind:group={backfillMode}
+									class="w-4 h-4 border-muted-foreground text-primary focus:ring-primary"
 								/>
-								<p class="text-xs text-muted-foreground mt-1">
-									{#if !backfillSkipEmpty}
-										补全全部日记时必须指定起始日期，避免获取过多历史数据
-									{:else}
-										留空则补全所有有内容的日记
-									{/if}
-								</p>
+								<label for="backfill-mode-range" class="text-xs text-muted-foreground">补全指定日期至今的所有日记</label>
 							</div>
+							{#if backfillMode === 'range'}
+								<div class="ml-6">
+									<label for="backfill-start-date" class="block text-xs text-muted-foreground mb-1">起始日期 *</label>
+									<input
+										id="backfill-start-date"
+										type="date"
+										bind:value={backfillStartDate}
+										required
+										class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+									/>
+									<p class="text-xs text-muted-foreground mt-1">将补全从该日期到今天的所有日记天气</p>
+								</div>
+							{/if}
 						</div>
 
 						<button
