@@ -82,10 +82,8 @@
 
 	// Weather settings
 	let weatherEnabled = false;
-	let weatherMcpUrl = 'http://localhost:8080';
-	let weatherUseMcp = true;
 	let weatherDefaultCity = '';
-	let originalWeatherSettings = { enabled: false, mcp_url: 'http://localhost:8080', use_mcp: true, default_city: '' };
+	let originalWeatherSettings = { enabled: false, default_city: '' };
 	let weatherSaving = false;
 	let weatherError = '';
 	let weatherSuccess = '';
@@ -208,13 +206,9 @@
 			if (response.ok) {
 				const data = await response.json();
 				weatherEnabled = data.settings?.['weather.enabled'] ?? false;
-				weatherMcpUrl = data.settings?.['weather.mcp_url'] ?? 'http://localhost:8080';
-				weatherUseMcp = data.settings?.['weather.use_mcp'] ?? true;
 				weatherDefaultCity = data.settings?.['weather.default_city'] ?? '';
 				originalWeatherSettings = {
 					enabled: weatherEnabled,
-					mcp_url: weatherMcpUrl,
-					use_mcp: weatherUseMcp,
 					default_city: weatherDefaultCity
 				};
 			}
@@ -238,8 +232,6 @@
 				body: JSON.stringify({
 					settings: {
 						'weather.enabled': weatherEnabled,
-						'weather.mcp_url': weatherMcpUrl,
-						'weather.use_mcp': weatherUseMcp,
 						'weather.default_city': weatherDefaultCity
 					}
 				})
@@ -251,8 +243,6 @@
 
 			originalWeatherSettings = {
 				enabled: weatherEnabled,
-				mcp_url: weatherMcpUrl,
-				use_mcp: weatherUseMcp,
 				default_city: weatherDefaultCity
 			};
 			weatherSuccess = '天气设置已成功保存';
@@ -1271,36 +1261,6 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 						</div>
 
 						{#if weatherEnabled}
-							<!-- Use MCP -->
-							<div class="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
-								<div>
-									<div class="font-medium text-foreground">优先使用 MCP 服务器</div>
-									<div class="text-sm text-muted-foreground">开启后优先通过 MCP 获取天气，失败时自动回退到 Open-Meteo</div>
-								</div>
-								<button
-									type="button"
-									onclick={() => weatherUseMcp = !weatherUseMcp}
-									class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {weatherUseMcp ? 'bg-primary' : 'bg-border'}"
-								>
-									<span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {weatherUseMcp ? 'translate-x-6' : 'translate-x-1'}"></span>
-								</button>
-							</div>
-
-							{#if weatherUseMcp}
-								<!-- MCP URL -->
-								<div class="p-4 bg-muted/30 rounded-lg">
-									<label for="weather-mcp-url" class="block text-sm font-medium text-foreground mb-2">MCP 服务器地址</label>
-									<input
-										id="weather-mcp-url"
-										type="text"
-										bind:value={weatherMcpUrl}
-										placeholder="http://localhost:8080"
-										class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-									/>
-									<p class="text-xs text-muted-foreground mt-1">默认：http://localhost:8080。MCP 不可用时自动使用 Open-Meteo</p>
-								</div>
-							{/if}
-
 							<!-- Default City -->
 							<div class="p-4 bg-muted/30 rounded-lg">
 								<label for="weather-default-city" class="block text-sm font-medium text-foreground mb-2">默认城市</label>

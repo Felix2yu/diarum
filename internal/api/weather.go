@@ -19,15 +19,7 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 	group := e.Group("/api/v1/weather", authMiddleware)
 
 	group.GET("", func(c *echo.Context) error {
-		userID := auth.CurrentUser(c).ID
-
-		mcpURL, _ := configService.GetString(userID, "weather.mcp_url")
-		if mcpURL == "" {
-			mcpURL = "http://localhost:8080"
-		}
-		useMCP, _ := configService.GetBool(userID, "weather.use_mcp")
-
-		svc := weather.NewService(mcpURL, useMCP)
+		svc := weather.NewService()
 
 		city := c.QueryParam("city")
 		if city == "" {
@@ -49,15 +41,7 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 	})
 
 	group.GET("/coords", func(c *echo.Context) error {
-		userID := auth.CurrentUser(c).ID
-
-		mcpURL, _ := configService.GetString(userID, "weather.mcp_url")
-		if mcpURL == "" {
-			mcpURL = "http://localhost:8080"
-		}
-		useMCP, _ := configService.GetBool(userID, "weather.use_mcp")
-
-		svc := weather.NewService(mcpURL, useMCP)
+		svc := weather.NewService()
 
 		city := c.QueryParam("city")
 		lat := c.QueryParam("lat")
@@ -105,12 +89,7 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 			return badRequest("Invalid request body", err)
 		}
 
-		mcpURL, _ := configService.GetString(userID, "weather.mcp_url")
-		if mcpURL == "" {
-			mcpURL = "http://localhost:8080"
-		}
-		useMCP, _ := configService.GetBool(userID, "weather.use_mcp")
-		svc := weather.NewService(mcpURL, useMCP)
+		svc := weather.NewService()
 
 		defaultCity, _ := configService.GetString(userID, "weather.default_city")
 		if defaultCity == "" {
@@ -182,16 +161,6 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 				continue
 			}
 
-			// If has old emoji data, note it will be overwritten
-			if diary.Weather != "" {
-				sendEvent("progress", map[string]any{
-					"current": i + 1,
-					"total":   len(diaries),
-					"date":    date,
-					"status":  fmt.Sprintf("替换旧天气数据: %s", diary.Weather),
-				})
-			}
-
 			// Skip future dates
 			if date > today {
 				skipped++
@@ -210,6 +179,16 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 					"reason": "无内容",
 				})
 				continue
+			}
+
+			// If has old emoji data, note it will be overwritten
+			if diary.Weather != "" {
+				sendEvent("progress", map[string]any{
+					"current": i + 1,
+					"total":   len(diaries),
+					"date":    date,
+					"status":  fmt.Sprintf("替换旧天气数据: %s", diary.Weather),
+				})
 			}
 
 			// Fetch weather for this date

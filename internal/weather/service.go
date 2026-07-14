@@ -5,21 +5,15 @@ import (
 	"sync"
 )
 
-// Service provides weather data from multiple sources
+// Service provides weather data from Open-Meteo API
 type Service struct {
-	mcpClient   *MCPClient
-	useMCP      bool
-	mcpURL      string
-	cityCoords  map[string][2]float64
-	mu          sync.RWMutex
+	cityCoords map[string][2]float64
+	mu         sync.RWMutex
 }
 
 // NewService creates a new weather service
-func NewService(mcpURL string, useMCP bool) *Service {
+func NewService() *Service {
 	s := &Service{
-		mcpClient:  NewMCPClient(mcpURL),
-		useMCP:     useMCP,
-		mcpURL:     mcpURL,
 		cityCoords: make(map[string][2]float64),
 	}
 	s.initCityCoords()
@@ -98,16 +92,6 @@ func (s *Service) initCityCoords() {
 
 // GetWeather fetches weather for a city on a specific date
 func (s *Service) GetWeather(city string, date string) (*WeatherResult, error) {
-	// Try MCP first if enabled
-	if s.useMCP {
-		result, err := s.mcpClient.GetForecast(city)
-		if err == nil && result.WMOCode > 0 {
-			return result, nil
-		}
-		// Fall through to Open-Meteo on error
-	}
-
-	// Use Open-Meteo directly
 	s.mu.RLock()
 	coords, ok := s.cityCoords[city]
 	s.mu.RUnlock()

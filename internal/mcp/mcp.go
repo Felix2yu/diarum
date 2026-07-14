@@ -7,7 +7,6 @@ import (
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/store"
 	"github.com/songtianlun/diarum/internal/weather"
 )
@@ -325,14 +324,7 @@ func (s *Server) registerWeatherTools() {
 			return mcp.NewToolResultError("City name is required"), nil
 		}
 
-		configService := config.NewConfigService(s.store)
-		mcpURL, _ := configService.GetString(userID, "weather.mcp_url")
-		if mcpURL == "" {
-			mcpURL = "http://localhost:8080"
-		}
-		useMCP, _ := configService.GetBool(userID, "weather.use_mcp")
-
-		svc := weather.NewService(mcpURL, useMCP)
+		svc := weather.NewService()
 		result, err := svc.GetWeather(city, "")
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Failed to get weather: %v", err)), nil
