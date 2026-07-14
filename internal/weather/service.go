@@ -107,9 +107,10 @@ type nominatimAddress struct {
 }
 
 // reverseGeocode uses Nominatim (OpenStreetMap) to get city info from coordinates
+// zoom=8 returns prefecture-level city (地级市) for China
 func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 	url := fmt.Sprintf(
-		"https://nominatim.openstreetmap.org/reverse?lat=%f&lon=%f&format=json&accept-language=zh",
+		"https://nominatim.openstreetmap.org/reverse?lat=%f&lon=%f&format=json&accept-language=zh&zoom=8",
 		lat, lon,
 	)
 
