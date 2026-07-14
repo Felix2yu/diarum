@@ -183,9 +183,10 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 }
 
 // extractPrefectureCity extracts prefecture-level city from display_name
-// display_name format: "姑苏区, 苏州市, 江苏省, 中国" -> "苏州市"
-// Also handles: 特别行政区, 自治州, 地区
+// display_name format: "姑苏区, 苏州市, 江苏省, 中国" or "姑苏区，苏州市，江苏省，中国"
 func extractPrefectureCity(displayName, state string) string {
+	// Handle both English comma and Chinese comma
+	displayName = strings.ReplaceAll(displayName, "，", ",")
 	parts := strings.Split(displayName, ",")
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
@@ -193,6 +194,7 @@ func extractPrefectureCity(displayName, state string) string {
 		if strings.HasSuffix(part, "市") ||
 			strings.Contains(part, "特别行政区") ||
 			strings.Contains(part, "自治州") ||
+			strings.Contains(part, "盟") || // 内蒙古盟级
 			strings.Contains(part, "地区") {
 			return part
 		}
