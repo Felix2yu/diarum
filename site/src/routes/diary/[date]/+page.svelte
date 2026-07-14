@@ -14,7 +14,7 @@
 	import { getDiaryByDate, getTagCloud } from '$lib/api/diaries';
 	import { isAuthenticated } from '$lib/api/client';
 	import { getDiaryEmojiSettings } from '$lib/api/settings';
-	import { fetchWeather, type WeatherResult } from '$lib/api/weather';
+	import { fetchWeather, fetchWeatherByCoords, type WeatherResult } from '$lib/api/weather';
 	import type { CityInfo } from '$lib/types/city';
 	import { WMO_CODES } from '$lib/utils/weatherCodes';
 	import {
