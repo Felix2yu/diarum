@@ -20,10 +20,29 @@ type OpenMeteoResponse struct {
 
 // FetchWeatherFromOpenMeteo fetches weather from Open-Meteo API for a specific date
 func FetchWeatherFromOpenMeteo(city string, lat, lon float64, date string) (*WeatherResult, error) {
-	url := fmt.Sprintf(
-		"https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia/Shanghai",
-		lat, lon,
-	)
+	targetDate := date
+	if targetDate == "" {
+		targetDate = time.Now().Format("2006-01-02")
+	}
+
+	// Determine if date is in the past (need archive API) or future (forecast API)
+	today := time.Now().Format("2006-01-02")
+	isPast := targetDate < today
+
+	var url string
+	if isPast {
+		// Use archive API for historical data (available from 1940-01-01 to yesterday)
+		url = fmt.Sprintf(
+			"https://archive-api.open-meteo.com/v1/archive?latitude=%.4f&longitude=%.4f&start_date=%s&end_date=%s&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia/Shanghai",
+			lat, lon, targetDate, targetDate,
+		)
+	} else {
+		// Use forecast API for today and future dates
+		url = fmt.Sprintf(
+			"https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=Asia/Shanghai",
+			lat, lon,
+		)
+	}
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Get(url)
@@ -51,11 +70,6 @@ func FetchWeatherFromOpenMeteo(city string, lat, lon float64, date string) (*Wea
 	}
 
 	// Find the index for the requested date
-	targetDate := date
-	if targetDate == "" {
-		targetDate = time.Now().Format("2006-01-02")
-	}
-
 	for i, d := range data.Daily.Time {
 		if d == targetDate {
 			return &WeatherResult{
@@ -68,7 +82,7 @@ func FetchWeatherFromOpenMeteo(city string, lat, lon float64, date string) (*Wea
 		}
 	}
 
-	// If date not found in forecast (too far in future/past), return first available day
+	// If date not found, return first available day
 	return &WeatherResult{
 		City:    city,
 		WMOCode: data.Daily.WeatherCode[0],
