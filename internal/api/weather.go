@@ -162,14 +162,34 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 		for i, diary := range diaries {
 			date := store.DateOnly(diary.Date)
 
-			// Skip if already has weather data
+			// Check if weather is a valid WMO code (numeric)
+			weatherCode := 0
+			hasValidWeather := false
 			if diary.Weather != "" {
+				n, err := fmt.Sscanf(diary.Weather, "%d", &weatherCode)
+				if err == nil && n == 1 && weatherCode >= 0 && weatherCode <= 99 {
+					hasValidWeather = true
+				}
+			}
+
+			// Skip if already has valid weather data
+			if hasValidWeather {
 				skipped++
 				sendEvent("skipped", map[string]any{
 					"date":   date,
-					"reason": "已有天气数据",
+					"reason": "已有有效天气代码",
 				})
 				continue
+			}
+
+			// If has old emoji data, note it will be overwritten
+			if diary.Weather != "" {
+				sendEvent("progress", map[string]any{
+					"current": i + 1,
+					"total":   len(diaries),
+					"date":    date,
+					"status":  fmt.Sprintf("替换旧天气数据: %s", diary.Weather),
+				})
 			}
 
 			// Skip future dates
