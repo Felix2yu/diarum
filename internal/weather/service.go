@@ -146,20 +146,24 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 
 	// Extract city name by priority:
 	// 1. address.city - 地级市/直辖市/特区 (苏州市、上海市、香港)
-	// 2. address.town - 镇级市
-	// 3. address.village - 乡镇
-	// 4. display_name parsing fallback
+	// 2. address.town - 镇级市 (only if city is empty)
+	// 3. address.village - 乡镇 (only if city and town are empty)
+	// 4. display_name parsing - extract prefecture-level city from "区, 市, 省, 国" format
 	cityName := data.Address.City
+
+	// If no address.city, try to extract from display_name
+	// display_name is usually: "姑苏区, 苏州市, 江苏省, 中国"
+	// We need "苏州市", not "姑苏区"
+	if cityName == "" && data.DisplayName != "" {
+		cityName = extractPrefectureCity(data.DisplayName, data.Address.State)
+	}
+
+	// If still no city, fallback to town/village (may be wrong level)
 	if cityName == "" {
 		cityName = data.Address.Town
 	}
 	if cityName == "" {
 		cityName = data.Address.Village
-	}
-
-	// If still no city, try to extract from display_name
-	if cityName == "" && data.DisplayName != "" {
-		cityName = extractCityFromDisplayName(data.DisplayName)
 	}
 
 	if cityName == "" {
@@ -178,12 +182,23 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 	}}, nil
 }
 
-// extractCityFromDisplayName extracts city name from Nominatim display_name
-// display_name format: "苏州市, 江苏省, 中国"
-func extractCityFromDisplayName(displayName string) string {
+// extractPrefectureCity extracts prefecture-level city from display_name
+// display_name format: "姑苏区, 苏州市, 江苏省, 中国" -> "苏州市"
+func extractPrefectureCity(displayName, state string) string {
 	parts := strings.Split(displayName, ",")
-	if len(parts) > 0 {
-		return strings.TrimSpace(parts[0])
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		// Look for city-level entity (contains "市")
+		if strings.HasSuffix(part, "市") {
+			return part
+		}
+	}
+	// If no city found, try to find something that's not the state/province
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part != state && part != "" {
+			return part
+		}
 	}
 	return ""
 }
