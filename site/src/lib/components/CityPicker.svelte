@@ -74,7 +74,9 @@
 					if (response.ok) {
 						const cities = await response.json();
 						if (cities.length > 0) {
-							selectCity(cities[0]);
+							// Pass coordinates with city info for weather fetching
+							const city = { ...cities[0], lat: latitude, lon: longitude };
+							selectCity(city);
 						} else {
 							alert('无法确定当前位置的城市，请手动选择');
 						}

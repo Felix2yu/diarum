@@ -390,7 +390,13 @@
 		selectedCity = city.name;
 		isLoadingWeather = true;
 		try {
-			const result = await fetchWeather(city.name, date);
+			// Use coordinates if available (from geolocation), otherwise search by name
+			let result;
+			if (city.lat && city.lon) {
+				result = await fetchWeatherByCoords(city.name, city.lat, city.lon, date);
+			} else {
+				result = await fetchWeather(city.name, date);
+			}
 			weatherData = result;
 			selectedWeather = String(result.wmo_code);
 			updateLocalCache(date, {
