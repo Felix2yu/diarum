@@ -144,6 +144,15 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 		return nil, fmt.Errorf("failed to parse Nominatim response: %w", err)
 	}
 
+	// Debug log for Nominatim response
+	fmt.Printf("[Nominatim Debug] lat=%.4f, lon=%.4f\n", lat, lon)
+	fmt.Printf("[Nominatim Debug] display_name: %s\n", data.DisplayName)
+	fmt.Printf("[Nominatim Debug] address.city: %s\n", data.Address.City)
+	fmt.Printf("[Nominatim Debug] address.town: %s\n", data.Address.Town)
+	fmt.Printf("[Nominatim Debug] address.village: %s\n", data.Address.Village)
+	fmt.Printf("[Nominatim Debug] address.county: %s\n", data.Address.County)
+	fmt.Printf("[Nominatim Debug] address.state: %s\n", data.Address.State)
+
 	// Extract city name by priority:
 	// 1. address.city - 地级市/直辖市/特区 (苏州市、上海市、香港)
 	// 2. address.town - 镇级市 (only if city is empty)
