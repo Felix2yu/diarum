@@ -18,6 +18,25 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 
 	group := e.Group("/api/v1/weather", authMiddleware)
 
+	// Search cities by name (uses Open-Meteo geocoding API)
+	group.GET("/cities", func(c *echo.Context) error {
+		query := c.QueryParam("q")
+		if query == "" {
+			return c.JSON(http.StatusBadRequest, map[string]string{
+				"error": "q parameter is required",
+			})
+		}
+
+		cities, err := weather.SearchCities(query)
+		if err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]string{
+				"error": err.Error(),
+			})
+		}
+
+		return c.JSON(http.StatusOK, cities)
+	})
+
 	group.GET("", func(c *echo.Context) error {
 		svc := weather.NewService()
 

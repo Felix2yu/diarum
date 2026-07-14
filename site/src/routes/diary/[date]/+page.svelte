@@ -15,7 +15,7 @@
 	import { isAuthenticated } from '$lib/api/client';
 	import { getDiaryEmojiSettings } from '$lib/api/settings';
 	import { fetchWeather, type WeatherResult } from '$lib/api/weather';
-	import { getCityByName, type CityInfo } from '$lib/utils/cityData';
+	import type { CityInfo } from '$lib/types/city';
 	import { WMO_CODES } from '$lib/utils/weatherCodes';
 	import {
 		formatDisplayDate,
@@ -618,10 +618,8 @@
 	async function autoFetchWeather() {
 		// If no city selected and default city is set, auto-fetch
 		if (!selectedCity && defaultCity && !weatherData) {
-			const cityInfo = getCityByName(defaultCity);
-			if (cityInfo) {
-				await handleCitySelect(cityInfo);
-			}
+			selectedCity = defaultCity;
+			await handleCitySelect({ name: defaultCity, lat: 0, lon: 0, province: '', country: '' });
 		}
 	}
 

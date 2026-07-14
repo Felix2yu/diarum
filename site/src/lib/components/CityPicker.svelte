@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { searchCities, CHINESE_CITIES, type CityInfo } from '$lib/utils/cityData';
+	import { pb } from '$lib/api/client';
+	import type { CityInfo } from '$lib/types/city';
 
 	interface Props {
 		selectedCity: string;
@@ -12,16 +13,37 @@
 	let searchResults = $state<CityInfo[]>([]);
 	let showDropdown = $state(false);
 	let isLocating = $state(false);
+	let isSearching = $state(false);
 	let dropdownRef = $state<HTMLDivElement>();
+	let searchTimeout = $state<ReturnType<typeof setTimeout>>();
 
-	function handleSearch() {
-		if (searchQuery.trim()) {
-			searchResults = searchCities(searchQuery);
-			showDropdown = searchResults.length > 0;
-		} else {
+	async function handleSearch() {
+		if (searchTimeout) clearTimeout(searchTimeout);
+
+		if (!searchQuery.trim()) {
 			searchResults = [];
 			showDropdown = false;
+			return;
 		}
+
+		// Debounce search
+		searchTimeout = setTimeout(async () => {
+			isSearching = true;
+			try {
+				const response = await fetch(`/api/v1/weather/cities?q=${encodeURIComponent(searchQuery)}`, {
+					headers: {
+						'Authorization': `Bearer ${pb.authStore.token}`
+					}
+				});
+				if (response.ok) {
+					searchResults = await response.json();
+					showDropdown = searchResults.length > 0;
+				}
+			} catch (e) {
+				console.error('City search failed:', e);
+			}
+			isSearching = false;
+		}, 300);
 	}
 
 	function selectCity(city: CityInfo) {
@@ -32,7 +54,7 @@
 		onCitySelect(city);
 	}
 
-	function handleGeolocation() {
+	async function handleGeolocation() {
 		if (!navigator.geolocation) {
 			alert('浏览器不支持定位功能');
 			return;
@@ -40,21 +62,27 @@
 
 		isLocating = true;
 		navigator.geolocation.getCurrentPosition(
-			(position) => {
+			async (position) => {
 				const { latitude, longitude } = position.coords;
-				// Find nearest city from our full list
-				let nearest = CHINESE_CITIES[0];
-				let minDist = Infinity;
-				for (const city of CHINESE_CITIES) {
-					const dist = Math.sqrt(
-						Math.pow(city.lat - latitude, 2) + Math.pow(city.lon - longitude, 2)
-					);
-					if (dist < minDist) {
-						minDist = dist;
-						nearest = city;
+				try {
+					// Use backend API to reverse geocode
+					const response = await fetch(`/api/v1/weather/cities?q=${encodeURIComponent(`${latitude},${longitude}`)}`, {
+						headers: {
+							'Authorization': `Bearer ${pb.authStore.token}`
+						}
+					});
+					if (response.ok) {
+						const cities = await response.json();
+						if (cities.length > 0) {
+							selectCity(cities[0]);
+						} else {
+							alert('无法确定当前位置的城市，请手动选择');
+						}
 					}
+				} catch (e) {
+					console.error('Reverse geocoding failed:', e);
+					alert('定位失败，请手动选择城市');
 				}
-				selectCity(nearest);
 				isLocating = false;
 			},
 			() => {
@@ -90,6 +118,14 @@
 					{selectedCity}
 				</span>
 			{/if}
+			{#if isSearching}
+				<span class="absolute right-2 top-1/2 -translate-y-1/2">
+					<svg class="w-4 h-4 animate-spin text-muted-foreground" fill="none" viewBox="0 0 24 24">
+						<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+						<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+					</svg>
+				</span>
+			{/if}
 		</div>
 		<button
 			onclick={handleGeolocation}
@@ -120,7 +156,9 @@
 					class="w-full px-3 py-2 text-left text-xs hover:bg-muted/50 transition-colors flex items-center justify-between"
 				>
 					<span class="font-medium">{city.name}</span>
-					<span class="text-muted-foreground text-[10px]">{city.province}</span>
+					<span class="text-muted-foreground text-[10px]">
+						{[city.province, city.country].filter(Boolean).join(', ')}
+					</span>
 				</button>
 			{/each}
 		</div>

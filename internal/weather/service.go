@@ -28,6 +28,57 @@ type geocodingResult struct {
 	Admin1    string  `json:"admin1"`
 }
 
+// CityInfo represents a city with coordinates
+type CityInfo struct {
+	Name      string  `json:"name"`
+	Lat       float64 `json:"lat"`
+	Lon       float64 `json:"lon"`
+	Province  string  `json:"province"`
+	Country   string  `json:"country"`
+}
+
+// SearchCities searches for cities by name using Open-Meteo geocoding API
+func SearchCities(query string) ([]CityInfo, error) {
+	url := fmt.Sprintf(
+		"https://geocoding-api.open-meteo.com/v1/search?name=%s&count=10&language=zh",
+		query,
+	)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to call geocoding API: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("geocoding API returned status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read geocoding response: %w", err)
+	}
+
+	var data geocodingResponse
+	if err := json.Unmarshal(body, &data); err != nil {
+		return nil, fmt.Errorf("failed to parse geocoding response: %w", err)
+	}
+
+	cities := make([]CityInfo, 0, len(data.Results))
+	for _, r := range data.Results {
+		cities = append(cities, CityInfo{
+			Name:     r.Name,
+			Lat:      r.Latitude,
+			Lon:      r.Longitude,
+			Province: r.Admin1,
+			Country:  r.Country,
+		})
+	}
+
+	return cities, nil
+}
+
 // NewService creates a new weather service
 func NewService() *Service {
 	s := &Service{
