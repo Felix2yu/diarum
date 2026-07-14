@@ -152,6 +152,9 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 				city = defaultCity
 			}
 
+			// Rate limit: wait between API calls to avoid throttling
+			time.Sleep(150 * time.Millisecond)
+
 			result, err := svc.GetWeather(city, date)
 			if err != nil {
 				failed++
