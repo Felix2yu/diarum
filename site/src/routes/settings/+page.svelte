@@ -92,8 +92,8 @@
 	let backfillWeather = false;
 	let backfillResult: { updated: number; skipped: number; failed: number } | null = null;
 	let backfillError = '';
-	let backfillStartDate = '';
-	let backfillSkipEmpty = false;
+	let backfillStartDate = `${new Date().getFullYear()}-01-01`;
+	let backfillSkipEmpty = true;
 
 	// AI Settings
 	let aiSettings: AISettings = {
@@ -264,6 +264,13 @@
 	async function handleBackfillWeather() {
 		backfillError = '';
 		backfillResult = null;
+
+		// Validate: if not skipping empty, must have start date
+		if (!backfillSkipEmpty && !backfillStartDate) {
+			backfillError = '补全全部日记时必须填写起始日期';
+			return;
+		}
+
 		backfillWeather = true;
 		try {
 			const response = await fetch('/api/v1/weather/backfill', {
@@ -1291,16 +1298,6 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 
 						<!-- Options -->
 						<div class="space-y-3 mb-4">
-							<div>
-								<label for="backfill-start-date" class="block text-xs text-muted-foreground mb-1">起始日期（可选）</label>
-								<input
-									id="backfill-start-date"
-									type="date"
-									bind:value={backfillStartDate}
-									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-								/>
-								<p class="text-xs text-muted-foreground mt-1">留空则补全所有历史日记</p>
-							</div>
 							<div class="flex items-center gap-2">
 								<input
 									id="backfill-skip-empty"
@@ -1308,7 +1305,26 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									bind:checked={backfillSkipEmpty}
 									class="w-4 h-4 rounded border-muted-foreground text-primary focus:ring-primary"
 								/>
-								<label for="backfill-skip-empty" class="text-xs text-muted-foreground">跳过没有内容的日记</label>
+								<label for="backfill-skip-empty" class="text-xs text-muted-foreground">跳过没有内容的日记（推荐）</label>
+							</div>
+							<div>
+								<label for="backfill-start-date" class="block text-xs text-muted-foreground mb-1">
+									起始日期 {!backfillSkipEmpty ? '* 必填' : '（可选）'}
+								</label>
+								<input
+									id="backfill-start-date"
+									type="date"
+									bind:value={backfillStartDate}
+									required={!backfillSkipEmpty}
+									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+								<p class="text-xs text-muted-foreground mt-1">
+									{#if !backfillSkipEmpty}
+										补全全部日记时必须指定起始日期，避免获取过多历史数据
+									{:else}
+										留空则补全所有有内容的日记
+									{/if}
+								</p>
 							</div>
 						</div>
 
