@@ -96,6 +96,14 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 	group.POST("/backfill", func(c *echo.Context) error {
 		userID := auth.CurrentUser(c).ID
 
+		var body struct {
+			StartDate string `json:"start_date"`
+			SkipEmpty bool   `json:"skip_empty"`
+		}
+		if err := c.Bind(&body); err != nil {
+			return badRequest("Invalid request body", err)
+		}
+
 		mcpURL, _ := configService.GetString(userID, "weather.mcp_url")
 		if mcpURL == "" {
 			mcpURL = "http://localhost:8080"
@@ -110,8 +118,14 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 			})
 		}
 
-		// Get all diaries without weather data
-		diaries, err := s.ListDiaries(userID, "", "", "-date", 0)
+		// Build date range for query
+		start := ""
+		if body.StartDate != "" {
+			start = body.StartDate + " 00:00:00.000Z"
+		}
+
+		// Get all diaries in date range
+		diaries, err := s.ListDiaries(userID, start, "", "-date", 0)
 		if err != nil {
 			return c.JSON(http.StatusInternalServerError, map[string]string{
 				"error": "Failed to fetch diaries",
@@ -130,6 +144,8 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 		skipped := 0
 		failed := 0
 
+		today := time.Now().Format("2006-01-02")
+
 		for _, diary := range diaries {
 			date := store.DateOnly(diary.Date)
 
@@ -140,8 +156,13 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 			}
 
 			// Skip future dates
-			today := time.Now().Format("2006-01-02")
 			if date > today {
+				skipped++
+				continue
+			}
+
+			// Skip empty content if requested
+			if body.SkipEmpty && diary.Content == "" {
 				skipped++
 				continue
 			}

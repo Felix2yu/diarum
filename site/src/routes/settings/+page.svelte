@@ -92,6 +92,8 @@
 	let backfillWeather = false;
 	let backfillResult: { updated: number; skipped: number; failed: number } | null = null;
 	let backfillError = '';
+	let backfillStartDate = '';
+	let backfillSkipEmpty = false;
 
 	// AI Settings
 	let aiSettings: AISettings = {
@@ -267,8 +269,13 @@
 			const response = await fetch('/api/v1/weather/backfill', {
 				method: 'POST',
 				headers: {
-					'Authorization': `Bearer ${pb.authStore.token}`
-				}
+					'Authorization': `Bearer ${pb.authStore.token}`,
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					start_date: backfillStartDate || undefined,
+					skip_empty: backfillSkipEmpty
+				})
 			});
 			const data = await response.json();
 			if (!response.ok) {
@@ -1280,7 +1287,31 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 					<!-- Backfill Weather -->
 					<div class="mt-4 p-4 bg-muted/30 rounded-lg">
 						<h3 class="text-sm font-medium text-foreground mb-2">补全历史天气</h3>
-						<p class="text-xs text-muted-foreground mb-3">一键为所有缺失天气数据的日记补全天气（基于默认城市）</p>
+						<p class="text-xs text-muted-foreground mb-3">一键为缺失天气数据的日记补全天气（基于默认城市）</p>
+
+						<!-- Options -->
+						<div class="space-y-3 mb-4">
+							<div>
+								<label for="backfill-start-date" class="block text-xs text-muted-foreground mb-1">起始日期（可选）</label>
+								<input
+									id="backfill-start-date"
+									type="date"
+									bind:value={backfillStartDate}
+									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+								<p class="text-xs text-muted-foreground mt-1">留空则补全所有历史日记</p>
+							</div>
+							<div class="flex items-center gap-2">
+								<input
+									id="backfill-skip-empty"
+									type="checkbox"
+									bind:checked={backfillSkipEmpty}
+									class="w-4 h-4 rounded border-muted-foreground text-primary focus:ring-primary"
+								/>
+								<label for="backfill-skip-empty" class="text-xs text-muted-foreground">跳过没有内容的日记</label>
+							</div>
+						</div>
+
 						<button
 							onclick={handleBackfillWeather}
 							disabled={backfillWeather}
