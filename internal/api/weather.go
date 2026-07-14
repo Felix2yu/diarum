@@ -165,18 +165,30 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 			// Skip if already has weather data
 			if diary.Weather != "" {
 				skipped++
+				sendEvent("skipped", map[string]any{
+					"date":   date,
+					"reason": "已有天气数据",
+				})
 				continue
 			}
 
 			// Skip future dates
 			if date > today {
 				skipped++
+				sendEvent("skipped", map[string]any{
+					"date":   date,
+					"reason": "未来日期",
+				})
 				continue
 			}
 
 			// Skip empty content if requested
 			if body.SkipEmpty && diary.Content == "" {
 				skipped++
+				sendEvent("skipped", map[string]any{
+					"date":   date,
+					"reason": "无内容",
+				})
 				continue
 			}
 

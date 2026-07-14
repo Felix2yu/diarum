@@ -254,13 +254,13 @@
 			selectedWeather = diary?.weather || '';
 			selectedCity = diary?.city || '';
 			tags = diary?.tags || [];
-			// Restore weatherData if city and temperature info exists
-			if (selectedCity && diary?.temp_min != null && diary?.temp_max != null && diary?.weather !== '' && diary?.weather != null) {
+			// Restore weatherData if weather info exists
+			if (diary?.weather !== '' && diary?.weather != null) {
 				weatherData = {
-					city: selectedCity,
+					city: selectedCity || '未知',
 					wmo_code: parseInt(diary.weather) || 0,
-					temp_min: diary.temp_min,
-					temp_max: diary.temp_max,
+					temp_min: diary.temp_min ?? 0,
+					temp_max: diary.temp_max ?? 0,
 					date: targetDate
 				};
 			} else {
