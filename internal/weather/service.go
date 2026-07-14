@@ -158,6 +158,9 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 		return nil, fmt.Errorf("cannot determine city from coordinates")
 	}
 
+	// Remove suffixes that Open-Meteo doesn't support (e.g., "苏州市" -> "苏州")
+	cityName = cleanCityName(cityName)
+
 	return []CityInfo{{
 		Name:     cityName,
 		Lat:      lat,
@@ -165,6 +168,17 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 		Province: data.Address.State,
 		Country:  data.Address.Country,
 	}}, nil
+}
+
+// cleanCityName removes administrative suffixes like 市、省、自治区 etc.
+func cleanCityName(name string) string {
+	suffixes := []string{"壮族自治区", "自治区", "特别行政区", "省", "市"}
+	for _, suffix := range suffixes {
+		if len(name) > len(suffix) && name[len(name)-len(suffix):] == suffix {
+			return name[:len(name)-len(suffix)]
+		}
+	}
+	return name
 }
 
 // NewService creates a new weather service
