@@ -154,20 +154,25 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 	fmt.Printf("[Nominatim Debug] address.state: %s\n", data.Address.State)
 
 	// Extract city name by priority:
-	// 1. address.city - 地级市/直辖市/特区 (苏州市、上海市、香港)
-	// 2. address.town - 镇级市 (only if city is empty)
-	// 3. address.village - 乡镇 (only if city and town are empty)
-	// 4. display_name parsing - extract prefecture-level city from "区, 市, 省, 国" format
+	// 1. address.city - check if it's prefecture-level (地级市/直辖市/特区)
+	// 2. display_name parsing - extract prefecture-level city
+	// 3. fallback to town/village
 	cityName := data.Address.City
 
-	// If no address.city, try to extract from display_name
-	// display_name is usually: "姑苏区, 苏州市, 江苏省, 中国"
-	// We need "苏州市", not "姑苏区"
+	// If address.city is district/county level (contains 区/县/旗), extract from display_name
+	if cityName != "" && (strings.Contains(cityName, "区") || strings.Contains(cityName, "县") || strings.Contains(cityName, "旗")) {
+		fmt.Printf("[Nominatim Debug] address.city is district level: %s, extracting from display_name\n", cityName)
+		if data.DisplayName != "" {
+			cityName = extractPrefectureCity(data.DisplayName, data.Address.State)
+		}
+	}
+
+	// If still no valid city, try display_name
 	if cityName == "" && data.DisplayName != "" {
 		cityName = extractPrefectureCity(data.DisplayName, data.Address.State)
 	}
 
-	// If still no city, fallback to town/village (may be wrong level)
+	// If still no city, fallback to town/village
 	if cityName == "" {
 		cityName = data.Address.Town
 	}
@@ -179,7 +184,12 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 		return nil, fmt.Errorf("该位置无法确定城市，请手动选择")
 	}
 
-	// Remove administrative suffixes (苏州市 -> 苏州, 广东省 -> 广东)
+	// Check if result is still district level
+	if strings.HasSuffix(cityName, "区") || strings.HasSuffix(cityName, "县") {
+		return nil, fmt.Errorf("该位置为区县级行政区（%s），请手动选择城市", cityName)
+	}
+
+	// Remove administrative suffixes (苏州市 -> 苏州, 香港特别行政区 -> 香港)
 	cityName = cleanCityName(cityName)
 
 	return []CityInfo{{
