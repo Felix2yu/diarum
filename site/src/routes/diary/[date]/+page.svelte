@@ -255,7 +255,7 @@
 			selectedCity = diary?.city || '';
 			tags = diary?.tags || [];
 			// Restore weatherData if city and temperature info exists
-			if (selectedCity && diary?.temp_min != null && diary?.temp_max != null && diary?.weather) {
+			if (selectedCity && diary?.temp_min != null && diary?.temp_max != null && diary?.weather !== '' && diary?.weather != null) {
 				weatherData = {
 					city: selectedCity,
 					wmo_code: parseInt(diary.weather) || 0,

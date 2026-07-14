@@ -163,7 +163,7 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 			date := store.DateOnly(diary.Date)
 
 			// Skip if already has weather data
-			if diary.Weather != "" && diary.Weather != "0" {
+			if diary.Weather != "" {
 				skipped++
 				continue
 			}
