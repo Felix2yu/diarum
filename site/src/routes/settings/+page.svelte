@@ -90,11 +90,12 @@
 	let weatherError = '';
 	let weatherSuccess = '';
 	let backfillWeather = false;
-	let backfillResult: { updated: number; skipped: number; failed: number } | null = null;
+	let backfillResult: { updated: number; skipped: number; failed: number; skippedReasons?: Record<string, number> } | null = null;
 	let backfillError = '';
 	let backfillStartDate = `${new Date().getFullYear()}-01-01`;
 	let backfillMode: 'content' | 'range' = 'content';
 	let backfillProgress = { current: 0, total: 0, status: '', date: '' };
+	let skippedReasons: Record<string, number> = {};
 
 	// AI Settings
 	let aiSettings: AISettings = {
@@ -266,6 +267,7 @@
 		backfillError = '';
 		backfillResult = null;
 		backfillProgress = { current: 0, total: 0, status: '', date: '' };
+		skippedReasons = {};
 
 		// Validate start date for range mode
 		if (backfillMode === 'range' && !backfillStartDate) {
@@ -325,11 +327,15 @@
 								backfillProgress.status = `已更新 ${data.date}`;
 							} else if (eventType === 'error') {
 								console.error(`补全 ${data.date} 失败:`, data.error);
+							} else if (eventType === 'skipped') {
+								const reason = data.reason || '未知原因';
+								skippedReasons[reason] = (skippedReasons[reason] || 0) + 1;
 							} else if (eventType === 'complete') {
 								backfillResult = {
 									updated: data.updated,
 									skipped: data.skipped,
-									failed: data.failed
+									failed: data.failed,
+									skippedReasons: { ...skippedReasons }
 								};
 							}
 						} catch (e) {
@@ -1418,6 +1424,14 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 						{#if backfillResult}
 							<div class="mt-3 p-3 bg-background rounded-lg text-sm">
 								<p class="text-foreground">补全完成：更新 {backfillResult.updated} 篇，跳过 {backfillResult.skipped} 篇，失败 {backfillResult.failed} 篇</p>
+								{#if backfillResult.skippedReasons && Object.keys(backfillResult.skippedReasons).length > 0}
+									<div class="mt-2 text-xs text-muted-foreground">
+										<p class="font-medium mb-1">跳过原因：</p>
+										{#each Object.entries(backfillResult.skippedReasons) as [reason, count]}
+											<p>- {reason}：{count} 篇</p>
+										{/each}
+									</div>
+								{/if}
 							</div>
 						{/if}
 						{#if backfillError}
