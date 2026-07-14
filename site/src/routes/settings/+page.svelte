@@ -1229,7 +1229,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 						<h2 class="text-lg font-semibold text-foreground">天气设置</h2>
 					</div>
 					<p class="text-sm text-muted-foreground mb-6">
-						配置天气服务。默认使用 Open-Meteo API（免费、无需 API Key）。如已部署天气 MCP 服务器，可开启以获取更精确的数据，MCP 失败时会自动回退到 Open-Meteo。
+						配置天气服务。使用 Open-Meteo API（免费、无需 API Key）。
 					</p>
 
 					{#if weatherError}
@@ -1249,7 +1249,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 						<div class="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
 							<div>
 								<div class="font-medium text-foreground">启用天气功能</div>
-								<div class="text-sm text-muted-foreground">开启后可在日记中选择城市并自动获取天气（使用免费的 Open-Meteo API）</div>
+								<div class="text-sm text-muted-foreground">开启后可在日记中选择城市并自动获取天气</div>
 							</div>
 							<button
 								type="button"
