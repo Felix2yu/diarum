@@ -94,6 +94,7 @@
 	let backfillError = '';
 	let backfillStartDate = `${new Date().getFullYear()}-01-01`;
 	let backfillMode: 'content' | 'range' = 'content';
+	let backfillProgress = { current: 0, total: 0, status: '', date: '' };
 
 	// AI Settings
 	let aiSettings: AISettings = {
@@ -264,6 +265,7 @@
 	async function handleBackfillWeather() {
 		backfillError = '';
 		backfillResult = null;
+		backfillProgress = { current: 0, total: 0, status: '', date: '' };
 
 		// Validate start date for range mode
 		if (backfillMode === 'range' && !backfillStartDate) {
@@ -284,15 +286,58 @@
 					skip_empty: backfillMode === 'content'
 				})
 			});
-			const data = await response.json();
+
 			if (!response.ok) {
-				throw new Error(data.error || 'Failed to backfill weather');
+				const data = await response.json().catch(() => ({}));
+				throw new Error(data.error || '请求失败');
 			}
-			backfillResult = {
-				updated: data.updated,
-				skipped: data.skipped,
-				failed: data.failed
-			};
+
+			const reader = response.body?.getReader();
+			if (!reader) throw new Error('无法读取响应流');
+
+			const decoder = new TextDecoder();
+			let buffer = '';
+
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+
+				buffer += decoder.decode(value, { stream: true });
+				const lines = buffer.split('\n');
+				buffer = lines.pop() || '';
+
+				let eventType = '';
+				for (const line of lines) {
+					if (line.startsWith('event: ')) {
+						eventType = line.slice(7);
+					} else if (line.startsWith('data: ')) {
+						try {
+							const data = JSON.parse(line.slice(6));
+							if (eventType === 'progress') {
+								backfillProgress = {
+									current: data.current || 0,
+									total: data.total || 0,
+									status: data.status || '',
+									date: data.date || ''
+								};
+							} else if (eventType === 'updated') {
+								backfillProgress.current = data.updated || backfillProgress.current;
+								backfillProgress.status = `已更新 ${data.date}`;
+							} else if (eventType === 'error') {
+								console.error(`补全 ${data.date} 失败:`, data.error);
+							} else if (eventType === 'complete') {
+								backfillResult = {
+									updated: data.updated,
+									skipped: data.skipped,
+									failed: data.failed
+								};
+							}
+						} catch (e) {
+							// Ignore parse errors
+						}
+					}
+				}
+			}
 		} catch (e) {
 			backfillError = e instanceof Error ? e.message : '补全天气失败';
 		}
@@ -1353,6 +1398,23 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								补全天气
 							{/if}
 						</button>
+
+						<!-- Progress bar -->
+						{#if backfillWeather && backfillProgress.total > 0}
+							<div class="mt-3">
+								<div class="flex justify-between text-xs text-muted-foreground mb-1">
+									<span>{backfillProgress.status}</span>
+									<span>{backfillProgress.current} / {backfillProgress.total}</span>
+								</div>
+								<div class="w-full bg-muted rounded-full h-2">
+									<div
+										class="bg-primary h-2 rounded-full transition-all duration-300"
+										style="width: {backfillProgress.total > 0 ? (backfillProgress.current / backfillProgress.total * 100) : 0}%"
+									></div>
+								</div>
+							</div>
+						{/if}
+
 						{#if backfillResult}
 							<div class="mt-3 p-3 bg-background rounded-lg text-sm">
 								<p class="text-foreground">补全完成：更新 {backfillResult.updated} 篇，跳过 {backfillResult.skipped} 篇，失败 {backfillResult.failed} 篇</p>

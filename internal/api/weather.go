@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
@@ -92,7 +93,7 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 		return c.JSON(http.StatusOK, result)
 	})
 
-	// Batch backfill weather for diaries missing weather data
+	// Batch backfill weather for diaries missing weather data (SSE stream)
 	group.POST("/backfill", func(c *echo.Context) error {
 		userID := auth.CurrentUser(c).ID
 
@@ -132,21 +133,33 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 			})
 		}
 
-		type BackfillResult struct {
-			Date    string `json:"date"`
-			Status  string `json:"status"`
-			Weather string `json:"weather,omitempty"`
-			Error   string `json:"error,omitempty"`
+		// Set SSE headers
+		c.Response().Header().Set("Content-Type", "text/event-stream")
+		c.Response().Header().Set("Cache-Control", "no-cache")
+		c.Response().Header().Set("Connection", "keep-alive")
+		c.Response().Header().Set("X-Accel-Buffering", "no")
+
+		writer := &sseWriter{w: c.Response()}
+		sendEvent := func(event string, data any) {
+			jsonData, _ := json.Marshal(data)
+			fmt.Fprintf(writer, "event: %s\ndata: %s\n\n", event, jsonData)
+			writer.Flush()
 		}
 
-		var results []BackfillResult
 		updated := 0
 		skipped := 0
 		failed := 0
 
 		today := time.Now().Format("2006-01-02")
 
-		for _, diary := range diaries {
+		// Send initial progress
+		sendEvent("progress", map[string]any{
+			"current": 0,
+			"total":   len(diaries),
+			"status":  "开始补全天气...",
+		})
+
+		for i, diary := range diaries {
 			date := store.DateOnly(diary.Date)
 
 			// Skip if already has weather data
@@ -173,16 +186,23 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 				city = defaultCity
 			}
 
+			// Send progress before API call
+			sendEvent("progress", map[string]any{
+				"current": i + 1,
+				"total":   len(diaries),
+				"date":    date,
+				"status":  fmt.Sprintf("正在获取 %s 的天气...", date),
+			})
+
 			// Rate limit: wait between API calls to avoid throttling
 			time.Sleep(150 * time.Millisecond)
 
 			result, err := svc.GetWeather(city, date)
 			if err != nil {
 				failed++
-				results = append(results, BackfillResult{
-					Date:   date,
-					Status: "failed",
-					Error:  err.Error(),
+				sendEvent("error", map[string]any{
+					"date":  date,
+					"error": err.Error(),
 				})
 				continue
 			}
@@ -203,28 +223,29 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 			)
 			if err != nil {
 				failed++
-				results = append(results, BackfillResult{
-					Date:   date,
-					Status: "failed",
-					Error:  err.Error(),
+				sendEvent("error", map[string]any{
+					"date":  date,
+					"error": err.Error(),
 				})
 				continue
 			}
 
 			updated++
-			results = append(results, BackfillResult{
-				Date:    date,
-				Status:  "updated",
-				Weather: fmt.Sprintf("%d", result.WMOCode),
+			sendEvent("updated", map[string]any{
+				"date":    date,
+				"weather": fmt.Sprintf("%d", result.WMOCode),
+				"updated": updated,
 			})
 		}
 
-		return c.JSON(http.StatusOK, map[string]any{
+		// Send completion event
+		sendEvent("complete", map[string]any{
 			"total":   len(diaries),
 			"updated": updated,
 			"skipped": skipped,
 			"failed":  failed,
-			"results": results,
 		})
+
+		return nil
 	})
 }
