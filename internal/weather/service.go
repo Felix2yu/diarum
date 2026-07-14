@@ -142,7 +142,9 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 		return nil, fmt.Errorf("failed to parse Nominatim response: %w", err)
 	}
 
-	// Get city name from address (prefer city > town > village)
+	// Get city name from address
+	// Priority: city (地级市/直辖市) > town > village
+	// Note: Open-Meteo only supports prefecture-level cities, not provinces
 	cityName := data.Address.City
 	if cityName == "" {
 		cityName = data.Address.Town
@@ -150,12 +152,15 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 	if cityName == "" {
 		cityName = data.Address.Village
 	}
-	if cityName == "" {
-		cityName = data.Name
-	}
 
 	if cityName == "" {
-		return nil, fmt.Errorf("cannot determine city from coordinates")
+		// No city found, might be in a rural area or province level
+		return nil, fmt.Errorf("该位置无法确定城市，请手动选择")
+	}
+
+	// Check if it's a province (省级不支持, Open-Meteo only supports cities)
+	if cityName == data.Address.State {
+		return nil, fmt.Errorf("该位置为省级行政区（%s），请手动选择城市", cityName)
 	}
 
 	// Remove suffixes that Open-Meteo doesn't support (e.g., "苏州市" -> "苏州")
