@@ -144,15 +144,6 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 		return nil, fmt.Errorf("failed to parse Nominatim response: %w", err)
 	}
 
-	// Debug log for Nominatim response
-	fmt.Printf("[Nominatim Debug] lat=%.4f, lon=%.4f\n", lat, lon)
-	fmt.Printf("[Nominatim Debug] display_name: %s\n", data.DisplayName)
-	fmt.Printf("[Nominatim Debug] address.city: %s\n", data.Address.City)
-	fmt.Printf("[Nominatim Debug] address.town: %s\n", data.Address.Town)
-	fmt.Printf("[Nominatim Debug] address.village: %s\n", data.Address.Village)
-	fmt.Printf("[Nominatim Debug] address.county: %s\n", data.Address.County)
-	fmt.Printf("[Nominatim Debug] address.state: %s\n", data.Address.State)
-
 	// Extract city name by priority:
 	// 1. address.city - check if it's prefecture-level (地级市/直辖市/特区)
 	// 2. display_name parsing - extract prefecture-level city
@@ -161,7 +152,6 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 
 	// If address.city is district/county level (contains 区/县/旗), extract from display_name
 	if cityName != "" && (strings.Contains(cityName, "区") || strings.Contains(cityName, "县") || strings.Contains(cityName, "旗")) {
-		fmt.Printf("[Nominatim Debug] address.city is district level: %s, extracting from display_name\n", cityName)
 		if data.DisplayName != "" {
 			cityName = extractPrefectureCity(data.DisplayName, data.Address.State)
 		}

@@ -392,12 +392,9 @@
 		try {
 			// Use coordinates if available (from geolocation), otherwise search by name
 			let result;
-			console.log('[Weather Debug] city:', city);
 			if (city.lat && city.lon) {
-				console.log('[Weather Debug] Using coords:', city.lat, city.lon);
 				result = await fetchWeatherByCoords(city.name, city.lat, city.lon, date);
 			} else {
-				console.log('[Weather Debug] Using city name only');
 				result = await fetchWeather(city.name, date);
 			}
 			weatherData = result;

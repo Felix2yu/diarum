@@ -65,9 +65,6 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 		city := c.QueryParam("city")
 		lat := c.QueryParam("lat")
 		lon := c.QueryParam("lon")
-		date := c.QueryParam("date")
-
-		fmt.Printf("[Weather API Debug] /coords called: city=%s, lat=%s, lon=%s, date=%s\n", city, lat, lon, date)
 
 		if city == "" || lat == "" || lon == "" {
 			return c.JSON(http.StatusBadRequest, map[string]string{
@@ -87,7 +84,7 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 			})
 		}
 
-		fmt.Printf("[Weather API Debug] Parsed: lat=%f, lon=%f\n", latF, lonF)
+		date := c.QueryParam("date")
 
 		result, err := svc.GetWeatherByCoords(city, latF, lonF, date)
 		if err != nil {
