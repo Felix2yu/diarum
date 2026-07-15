@@ -56,6 +56,9 @@ var ConfigRegistry = map[string]ConfigMeta{
 	"weather.enabled":     {Type: "bool", Default: false, Encrypted: false},
 	"weather.default_city": {Type: "string", Default: "", Encrypted: false},
 
+	// App preferences
+	"app.default_view": {Type: "string", Default: "diary", Encrypted: false},
+
 	// Auto backup settings
 	"backup.enabled":          {Type: "bool", Default: false, Encrypted: false},
 	"backup.frequency":        {Type: "string", Default: "daily", Encrypted: false},
