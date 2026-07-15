@@ -3,7 +3,6 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import Calendar from '$lib/components/calendar/Calendar.svelte';
-	import Footer from '$lib/components/ui/Footer.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import { getDatesWithDiaries, getRecentDiaries, getDiaryStats, type CalendarDiaryMeta } from '$lib/api/diaries';
 	import { isAuthenticated } from '$lib/api/client';
@@ -198,7 +197,4 @@
 			</div>
 		</div>
 	</main>
-
-	<!-- Footer -->
-	<Footer tagline="记录生活的点滴" />
 </div>

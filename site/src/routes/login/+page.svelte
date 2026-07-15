@@ -3,7 +3,6 @@
 	import { login, register, type LoginCredentials, type RegisterData } from '$lib/api/auth';
 	import { onMount } from 'svelte';
 	import { isAuthenticated } from '$lib/api/client';
-	import Footer from '$lib/components/ui/Footer.svelte';
 
 	let activeTab: 'login' | 'register' = 'login';
 	let loading = false;
@@ -226,7 +225,4 @@
 			</div>
 		</div>
 	</div>
-
-	<!-- Footer -->
-	<Footer />
 </div>

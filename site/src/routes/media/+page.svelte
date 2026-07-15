@@ -3,7 +3,6 @@
 	import { goto } from '$app/navigation';
 	import { isAuthenticated } from '$lib/api/client';
 	import { getAllMedia, getMediaFileUrl, deleteMediaById, type MediaWithDiary } from '$lib/api/media';
-	import Footer from '$lib/components/ui/Footer.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import { formatDisplayDate, formatTime } from '$lib/utils/date';
 
@@ -183,8 +182,6 @@
 			{/if}
 		{/if}
 	</main>
-
-	<Footer tagline="你的媒体库" />
 </div>
 
 <!-- Media Detail Modal -->

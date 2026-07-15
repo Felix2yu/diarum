@@ -23,7 +23,6 @@
 	import { defaultImageUploadSettings, getImageUploadSettings, saveImageUploadSettings, testCheveretoConnection, type ImageUploadProvider, type ImageUploadSettings } from '$lib/api/imageUpload';
 	import { loadImageUploadSettings } from '$lib/stores/imageUpload';
 	import { pb } from '$lib/api/client';
-	import Footer from '$lib/components/ui/Footer.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import {
 		DEFAULT_WEATHER_OPTIONS,
@@ -2879,6 +2878,4 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 	</main>
 		</div>
 	</div>
-
-	<Footer tagline="自定义你的日记体验" />
 </div>

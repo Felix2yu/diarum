@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
-	import Footer from '$lib/components/ui/Footer.svelte';
 	import WeatherDisplay from '$lib/components/WeatherDisplay.svelte';
 	import { isAuthenticated } from '$lib/api/client';
 	import { getTagCloud, getDiariesByTag } from '$lib/api/diaries';
@@ -283,7 +282,6 @@
 			{/if}
 		{/if}
 	</div>
-	<Footer />
 </div>
 
 <style>

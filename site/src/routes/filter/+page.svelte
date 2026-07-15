@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import Footer from '$lib/components/ui/Footer.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import WeatherDisplay from '$lib/components/WeatherDisplay.svelte';
 	import { filterDiaries } from '$lib/api/diaries';
@@ -227,8 +226,6 @@
 			</div>
 		{/if}
 	</main>
-
-	<Footer />
 </div>
 
 <style>

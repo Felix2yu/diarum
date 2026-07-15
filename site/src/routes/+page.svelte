@@ -4,7 +4,6 @@
 	import { getToday } from '$lib/utils/date';
 	import { isAuthenticated } from '$lib/api/client';
 	import { getGeneralSettings } from '$lib/api/settings';
-	import Footer from '$lib/components/ui/Footer.svelte';
 
 	let ready = $state(false);
 	let visibleSections = $state<Set<number>>(new Set());
@@ -313,8 +312,5 @@
 				</p>
 			</div>
 		</section>
-
-		<!-- Footer -->
-		<Footer tagline="你的个人日记，由 AI 提供强大动力" />
 </div>
 {/if}

@@ -9,7 +9,6 @@
 	import WeatherDisplay from '$lib/components/WeatherDisplay.svelte';
 	import { getAISettings, transcribeAudio, isSpeechConfigured, type AISettings } from '$lib/api/ai';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
-	import Footer from '$lib/components/ui/Footer.svelte';
 	import DiaryShareModal from '$lib/components/share/DiaryShareModal.svelte';
 	import { getDiaryByDate, getTagCloud } from '$lib/api/diaries';
 	import { isAuthenticated } from '$lib/api/client';
@@ -1208,9 +1207,6 @@
 			{/if}
 		</div>
 	</div>
-
-	<!-- Footer -->
-	<Footer />
 </div>
 
 <!-- Left Drawer -->

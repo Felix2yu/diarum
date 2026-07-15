@@ -2,7 +2,6 @@
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import Footer from '$lib/components/ui/Footer.svelte';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import { searchDiaries } from '$lib/api/diaries';
 	import { isAuthenticated } from '$lib/api/client';
@@ -212,8 +211,6 @@
 			</div>
 		{/if}
 	</main>
-
-	<Footer />
 </div>
 
 <style>
