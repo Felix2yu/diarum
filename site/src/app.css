@@ -4,6 +4,8 @@
 
 @layer base {
 	:root {
+		/* 字体大小基准 */
+		--font-size-base: 16px;
 		/* 温暖的米黄色背景 */
 		--background: 45 30% 97%;
 		/* 深棕色文字，保证可读性 */
@@ -398,7 +400,7 @@
 	padding: 1.25rem 1.5rem;
 	min-height: 400px;
 	outline: none;
-	font-size: 16px;
+	font-size: var(--font-size-base);
 	line-height: 1.8;
 	color: hsl(var(--foreground));
 }

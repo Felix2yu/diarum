@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { isAuthenticated } from '$lib/api/client';
+	import { theme, setTheme, type Theme } from '$lib/stores/theme';
 	import {
 		getApiToken,
 		toggleApiToken,
@@ -11,8 +12,11 @@
 		getMemosSettings,
 		saveMemosSettings,
 		resetMemosWebhookToken,
+		getGeneralSettings,
+		saveGeneralSettings,
 		type MemosSettings,
-		type ApiTokenStatus
+		type ApiTokenStatus,
+		type GeneralSettings
 	} from '$lib/api/settings';
 	import { getAISettings, saveAISettings, fetchModels, buildVectors, buildVectorsIncremental, getVectorStats, DEFAULT_ANALYSIS_SYSTEM_PROMPT, type AISettings, type ModelInfo, type BuildVectorsResult, type VectorStats } from '$lib/api/ai';
 	import { exportDiaries, importDiaries, resolveConflict, type ExportStats, type ImportStats, type ImportDiaryDetail, type ExportOptions } from '$lib/api/exportImport';
@@ -30,9 +34,10 @@
 		moodToEmoji
 	} from '$lib/utils/diaryEmoji';
 
-	type SettingsTab = 'api-access' | 'weather' | 'ai-assistant' | 'image-upload' | 'memos-sync' | 'data-management';
+	type SettingsTab = 'general' | 'api-access' | 'weather' | 'ai-assistant' | 'image-upload' | 'memos-sync' | 'data-management';
 
 	const settingsTabs: { id: SettingsTab; label: string }[] = [
+		{ id: 'general', label: '通用' },
 		{ id: 'ai-assistant', label: 'AI 助手' },
 		{ id: 'weather', label: '天气设置' },
 		{ id: 'api-access', label: 'API 访问' },
@@ -41,7 +46,7 @@
 		{ id: 'data-management', label: '数据管理' }
 	];
 
-	let activeTab: SettingsTab = 'ai-assistant';
+	let activeTab: SettingsTab = 'general';
 
 	function isSettingsTab(value: string): value is SettingsTab {
 		return settingsTabs.some((tab) => tab.id === value);
@@ -70,6 +75,18 @@
 	let copied = false;
 	let resetting = false;
 	let toggling = false;
+
+	// General settings
+	let defaultView: 'diary' | 'calendar' = 'diary';
+	let originalDefaultView: 'diary' | 'calendar' = 'diary';
+	let fontSize: 'small' | 'medium' | 'large' = 'medium';
+	let originalFontSize: 'small' | 'medium' | 'large' = 'medium';
+	let currentTheme: Theme = 'system';
+	let originalTheme: Theme = 'system';
+	let savingGeneral = false;
+	let generalError = '';
+	let generalSuccess = '';
+	$: generalSettingsChanged = defaultView !== originalDefaultView || fontSize !== originalFontSize || currentTheme !== originalTheme;
 
 	// Memos sync settings
 	let memosSettings: MemosSettings = { enabled: false, base_url: '', webhook_url: '', token_exists: false };
@@ -193,6 +210,62 @@
 
 	async function loadTokenStatus() {
 		tokenStatus = await getApiToken();
+	}
+
+	async function loadGeneralSettings() {
+		try {
+			const settings = await getGeneralSettings();
+			defaultView = settings.default_view;
+			originalDefaultView = settings.default_view;
+		} catch (error) {
+			console.error('Failed to load general settings:', error);
+		}
+		// Load client-side settings from localStorage
+		const storedFontSize = localStorage.getItem('editor_font_size') as 'small' | 'medium' | 'large';
+		if (storedFontSize && ['small', 'medium', 'large'].includes(storedFontSize)) {
+			fontSize = storedFontSize;
+		}
+		originalFontSize = fontSize;
+		applyFontSize(fontSize);
+
+		currentTheme = $theme;
+		originalTheme = $theme;
+	}
+
+	function applyFontSize(size: 'small' | 'medium' | 'large') {
+		const root = document.documentElement;
+		const sizeMap = { small: '14px', medium: '16px', large: '18px' };
+		root.style.setProperty('--font-size-base', sizeMap[size]);
+	}
+
+	function handleFontSizeChange(size: 'small' | 'medium' | 'large') {
+		fontSize = size;
+		applyFontSize(size);
+	}
+
+	function handleThemeChange(t: Theme) {
+		currentTheme = t;
+		setTheme(t);
+	}
+
+	async function handleSaveGeneralSettings() {
+		generalError = '';
+		generalSuccess = '';
+		savingGeneral = true;
+		try {
+			await saveGeneralSettings({ default_view: defaultView });
+			originalDefaultView = defaultView;
+			// Save client-side settings
+			localStorage.setItem('editor_font_size', fontSize);
+			originalFontSize = fontSize;
+			originalTheme = currentTheme;
+			generalSuccess = '通用设置已保存';
+			setTimeout(() => { generalSuccess = ''; }, 3000);
+		} catch (e) {
+			generalError = e instanceof Error ? e.message : '保存失败';
+		} finally {
+			savingGeneral = false;
+		}
 	}
 
 	async function loadWeatherSettingsLocal() {
@@ -930,7 +1003,7 @@
 		}
 
 		loading = true;
-		await Promise.all([loadTokenStatus(), loadWeatherSettingsLocal(), loadMemosSettingsLocal(), loadAISettings(), loadImageUploadSettingsLocal()]);
+		await Promise.all([loadGeneralSettings(), loadTokenStatus(), loadWeatherSettingsLocal(), loadMemosSettingsLocal(), loadAISettings(), loadImageUploadSettingsLocal()]);
 		loading = false;
 		// Load backup settings separately (may fail if endpoint not deployed)
 		loadBackupSettingsData().catch(() => {});
@@ -1399,6 +1472,121 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								{backfillError}
 							</div>
 						{/if}
+					</div>
+				</div>
+				{/if}
+
+				{#if activeTab === 'general'}
+				<!-- General Settings Section -->
+				<div id="general" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
+					<h2 class="text-lg font-semibold text-foreground mb-4">通用设置</h2>
+					<p class="text-sm text-muted-foreground mb-6">
+						配置应用的基本行为和偏好。
+					</p>
+
+					{#if generalError}
+						<div class="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+							{generalError}
+						</div>
+					{/if}
+
+					{#if generalSuccess}
+						<div class="mb-4 p-3 bg-green-500/10 text-green-600 rounded-lg text-sm">
+							{generalSuccess}
+						</div>
+					{/if}
+
+					<div class="space-y-6">
+						<!-- Default View -->
+						<div>
+							<label class="text-sm font-medium text-foreground mb-2 block">默认页面</label>
+							<p class="text-xs text-muted-foreground mb-3">选择应用打开时显示的页面</p>
+							<div class="flex gap-2">
+								<button
+									type="button"
+									onclick={() => { defaultView = 'diary'; }}
+									class="px-4 py-2 rounded-lg text-sm transition-colors {defaultView === 'diary' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
+								>
+									当天编辑
+								</button>
+								<button
+									type="button"
+									onclick={() => { defaultView = 'calendar'; }}
+									class="px-4 py-2 rounded-lg text-sm transition-colors {defaultView === 'calendar' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
+								>
+									日历视图
+								</button>
+							</div>
+						</div>
+
+						<!-- Font Size -->
+						<div>
+							<label class="text-sm font-medium text-foreground mb-2 block">字体大小</label>
+							<p class="text-xs text-muted-foreground mb-3">调整编辑器和内容的显示字体大小</p>
+							<div class="flex gap-2">
+								<button
+									type="button"
+									onclick={() => handleFontSizeChange('small')}
+									class="px-4 py-2 rounded-lg text-sm transition-colors {fontSize === 'small' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
+								>
+									小
+								</button>
+								<button
+									type="button"
+									onclick={() => handleFontSizeChange('medium')}
+									class="px-4 py-2 rounded-lg text-sm transition-colors {fontSize === 'medium' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
+								>
+									中
+								</button>
+								<button
+									type="button"
+									onclick={() => handleFontSizeChange('large')}
+									class="px-4 py-2 rounded-lg text-sm transition-colors {fontSize === 'large' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
+								>
+									大
+								</button>
+							</div>
+						</div>
+
+						<!-- Theme -->
+						<div>
+							<label class="text-sm font-medium text-foreground mb-2 block">外观模式</label>
+							<p class="text-xs text-muted-foreground mb-3">选择浅色、深色或跟随系统</p>
+							<div class="flex gap-2">
+								<button
+									type="button"
+									onclick={() => handleThemeChange('light')}
+									class="px-4 py-2 rounded-lg text-sm transition-colors {currentTheme === 'light' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
+								>
+									浅色
+								</button>
+								<button
+									type="button"
+									onclick={() => handleThemeChange('dark')}
+									class="px-4 py-2 rounded-lg text-sm transition-colors {currentTheme === 'dark' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
+								>
+									深色
+								</button>
+								<button
+									type="button"
+									onclick={() => handleThemeChange('system')}
+									class="px-4 py-2 rounded-lg text-sm transition-colors {currentTheme === 'system' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
+								>
+									跟随系统
+								</button>
+							</div>
+						</div>
+					</div>
+
+					<div class="mt-6 pt-4 border-t border-border/50">
+						<button
+							type="button"
+							onclick={handleSaveGeneralSettings}
+							disabled={!generalSettingsChanged || savingGeneral}
+							class="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+						>
+							{savingGeneral ? '保存中...' : '保存'}
+						</button>
 					</div>
 				</div>
 				{/if}

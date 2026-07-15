@@ -3,6 +3,7 @@
 	import { goto } from '$app/navigation';
 	import { getToday } from '$lib/utils/date';
 	import { isAuthenticated } from '$lib/api/client';
+	import { getGeneralSettings } from '$lib/api/settings';
 	import Footer from '$lib/components/ui/Footer.svelte';
 
 	let ready = $state(false);
@@ -10,9 +11,10 @@
 
 	onMount(() => {
 		if ($isAuthenticated) {
-			goto(`/diary/${getToday()}`).catch(() => {
-				ready = true;
-			});
+			getGeneralSettings()
+				.then((s) => goto(s.default_view === 'calendar' ? '/diary' : `/diary/${getToday()}`))
+				.catch(() => goto(`/diary/${getToday()}`))
+				.catch(() => { ready = true; });
 		} else {
 			ready = true;
 		}

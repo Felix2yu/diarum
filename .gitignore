@@ -44,6 +44,7 @@ site/build/
 site/.svelte-kit/
 site/pnpm-lock.yaml
 site/yarn.lock
+site/bun.lockb
 
 # Logs
 *.log

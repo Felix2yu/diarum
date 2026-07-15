@@ -21,6 +21,35 @@ export interface MemosSettings {
 	token_exists: boolean;
 }
 
+export interface GeneralSettings {
+	default_view: 'diary' | 'calendar';
+}
+
+export async function getGeneralSettings(): Promise<GeneralSettings> {
+	const value = await getSettingValue('app.default_view');
+	return { default_view: value === 'calendar' ? 'calendar' : 'diary' };
+}
+
+export async function saveGeneralSettings(settings: GeneralSettings): Promise<void> {
+	const response = await fetch('/api/v1/settings/batch', {
+		method: 'PUT',
+		headers: {
+			'Authorization': `Bearer ${pb.authStore.token}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({
+			settings: {
+				'app.default_view': settings.default_view
+			}
+		})
+	});
+
+	if (!response.ok) {
+		const data = await response.json().catch(() => ({}));
+		throw new Error(data.message || 'Failed to save general settings');
+	}
+}
+
 async function getSettingValue(key: string): Promise<unknown> {
 	const response = await fetch(`/api/v1/settings/${encodeURIComponent(key)}`, {
 		headers: {
