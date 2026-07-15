@@ -1,6 +1,4 @@
 <script lang="ts">
-	import ThemeToggle from './ThemeToggle.svelte';
-
 	let {
 		tagline = '',
 		fullWidth = false
@@ -19,7 +17,6 @@
 				{/if}
 				<span class="whitespace-nowrap">© {new Date().getFullYear()} 吾身</span>
 			</div>
-			<ThemeToggle />
 		</div>
 	</div>
 </footer>

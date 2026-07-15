@@ -1556,22 +1556,32 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								<button
 									type="button"
 									onclick={() => handleThemeChange('light')}
-									class="px-4 py-2 rounded-lg text-sm transition-colors {currentTheme === 'light' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
+									class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm transition-colors {currentTheme === 'light' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
 								>
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+									</svg>
 									浅色
 								</button>
 								<button
 									type="button"
 									onclick={() => handleThemeChange('dark')}
-									class="px-4 py-2 rounded-lg text-sm transition-colors {currentTheme === 'dark' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
+									class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm transition-colors {currentTheme === 'dark' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
 								>
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+									</svg>
 									深色
 								</button>
 								<button
 									type="button"
 									onclick={() => handleThemeChange('system')}
-									class="px-4 py-2 rounded-lg text-sm transition-colors {currentTheme === 'system' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
+									class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm transition-colors {currentTheme === 'system' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}"
 								>
+									<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M12 3a9 9 0 010 18" fill="currentColor" />
+										<circle cx="12" cy="12" r="9" />
+									</svg>
 									跟随系统
 								</button>
 							</div>
