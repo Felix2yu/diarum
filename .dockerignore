@@ -16,6 +16,7 @@ build/
 site/node_modules/
 site/build/
 site/.svelte-kit/
+site/scripts/
 
 # IDE / Editor
 .vscode/
