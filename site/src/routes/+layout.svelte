@@ -12,8 +12,17 @@
 
 	let { children }: { children: Snippet } = $props();
 
+	function initFontSize() {
+		const stored = localStorage.getItem('editor_font_size') as 'small' | 'medium' | 'large' | null;
+		if (stored && ['small', 'medium', 'large'].includes(stored)) {
+			const sizeMap = { small: '14px', medium: '16px', large: '18px' };
+			document.documentElement.style.fontSize = sizeMap[stored];
+		}
+	}
+
 	onMount(() => {
 		initTheme();
+		initFontSize();
 		initPWA();
 		initDiaryCache();
 		return installUnauthorizedApiHandler(() => {

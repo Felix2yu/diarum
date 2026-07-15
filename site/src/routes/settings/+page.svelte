@@ -235,7 +235,7 @@
 	function applyFontSize(size: 'small' | 'medium' | 'large') {
 		const root = document.documentElement;
 		const sizeMap = { small: '14px', medium: '16px', large: '18px' };
-		root.style.setProperty('--font-size-base', sizeMap[size]);
+		root.style.fontSize = sizeMap[size];
 	}
 
 	function handleFontSizeChange(size: 'small' | 'medium' | 'large') {
