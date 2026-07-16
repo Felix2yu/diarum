@@ -280,7 +280,7 @@ func TestBuildQueryAndStats(t *testing.T) {
 		t.Fatalf("parse built_at: %v", err)
 	}
 
-	updatedDiary, _, err := s.UpsertDiary(user.ID, "2024-01-01", "happy sun walk updated", 4, nil, nil, "sunny", nil)
+	updatedDiary, _, err := s.UpsertDiary(user.ID, "2024-01-01", "happy sun walk updated", 4, nil, nil, "sunny", nil, "", 0, 0)
 	if err != nil {
 		t.Fatalf("UpsertDiary update: %v", err)
 	}

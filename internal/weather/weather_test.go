@@ -65,7 +65,7 @@ func TestFetchWeatherFromOpenMeteo(t *testing.T) {
 }
 
 func TestServiceGetWeather(t *testing.T) {
-	svc := NewService("http://localhost:8080", false)
+	svc := NewService()
 
 	result, err := svc.GetWeather("北京", "")
 	if err != nil {
