@@ -4,6 +4,11 @@
 	import { marked } from 'marked';
 	import { moodToEmoji } from '$lib/utils/diaryEmoji';
 
+	marked.setOptions({
+		breaks: true,
+		gfm: true
+	});
+
 	export let date: string;
 	export let content: string;
 	export let options: ShareOptions;
