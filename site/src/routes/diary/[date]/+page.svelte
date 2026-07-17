@@ -639,6 +639,10 @@
 		} catch (e) {
 			// Ignore error
 		}
+		// Trigger auto-fetch after default city is loaded (fixes race with loadDiary)
+		if (defaultCity && !selectedCity && !selectedWeather) {
+			await autoFetchWeather();
+		}
 	}
 
 	async function autoFetchWeather() {
