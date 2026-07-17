@@ -227,6 +227,17 @@
 			selectedWeather = cached.weather || '';
 			selectedCity = cached.city || '';
 			tags = cached.tags || [];
+			if (cached.weather) {
+				weatherData = {
+					city: cached.city || '未知',
+					wmo_code: parseInt(cached.weather) || 0,
+					temp_min: cached.temp_min,
+					temp_max: cached.temp_max,
+					date: targetDate
+				};
+			} else {
+				weatherData = null;
+			}
 			loading = false;
 			return;
 		}
