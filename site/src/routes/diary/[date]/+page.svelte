@@ -944,7 +944,9 @@
 											type="button"
 											onclick={() => {
 												selectedWeather = String(wmo.code);
-												weatherData = null;
+												if (weatherData) {
+													weatherData = { ...weatherData, wmo_code: wmo.code };
+												}
 												updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, tags });
 											}}
 											class="flex flex-col items-center p-1.5 rounded-lg text-[10px] transition-colors {selectedWeather === String(wmo.code) ? 'bg-primary/20 text-primary' : 'bg-muted/30 hover:bg-muted/50 text-muted-foreground'}"
@@ -1186,7 +1188,9 @@
 											type="button"
 											onclick={() => {
 												selectedWeather = String(wmo.code);
-												weatherData = null;
+												if (weatherData) {
+													weatherData = { ...weatherData, wmo_code: wmo.code };
+												}
 												updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, tags });
 											}}
 											class="flex flex-col items-center p-1.5 rounded-lg text-[10px] transition-colors {selectedWeather === String(wmo.code) ? 'bg-primary/20 text-primary' : 'bg-muted/30 hover:bg-muted/50 text-muted-foreground'}"
