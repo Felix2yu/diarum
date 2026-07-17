@@ -288,13 +288,35 @@ export function updateFromServer(date: string, diary: Diary | null): void {
 		return;
 	}
 
-	// Browser cache is disabled: only keep unsynced local drafts.
-	if (existing && !existing.isDirty) {
-		clearCache(date);
-	}
 	if (!diary) {
+		if (existing && !existing.isDirty) {
+			clearCache(date);
+		}
 		removePersistedEntry(date);
+		updateCacheStats();
+		return;
 	}
+
+	// Populate cache with server data so subsequent edits preserve all fields
+	const entry: CacheEntry = {
+		content: diary.content || '',
+		mood: diary.mood || 0,
+		mood_states: diary.mood_states || [],
+		scenarios: diary.scenarios || [],
+		weather: diary.weather || '',
+		city: diary.city || '',
+		temp_min: diary.temp_min ?? 0,
+		temp_max: diary.temp_max ?? 0,
+		tags: diary.tags || [],
+		localUpdatedAt: Date.now(),
+		serverUpdatedAt: diary.updated || null,
+		isDirty: false
+	};
+
+	diaryCache.update(c => ({
+		...c,
+		[date]: entry
+	}));
 
 	updateCacheStats();
 }
