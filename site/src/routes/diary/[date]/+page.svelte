@@ -911,6 +911,14 @@
 										size="md"
 									/>
 								</div>
+							{:else if selectedWeather}
+								<div class="flex items-center justify-center py-2">
+									<WeatherDisplay
+										wmoCode={parseInt(selectedWeather)}
+										size="md"
+										showTemp={false}
+									/>
+								</div>
 							{:else}
 								<div class="text-xs text-muted-foreground text-center py-2">
 									选择城市获取天气
@@ -1143,6 +1151,14 @@
 										tempMin={weatherData.temp_min}
 										tempMax={weatherData.temp_max}
 										size="md"
+									/>
+								</div>
+							{:else if selectedWeather}
+								<div class="flex items-center justify-center py-2">
+									<WeatherDisplay
+										wmoCode={parseInt(selectedWeather)}
+										size="md"
+										showTemp={false}
 									/>
 								</div>
 							{:else}
