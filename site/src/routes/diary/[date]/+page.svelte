@@ -718,6 +718,7 @@
 							{#if isToday(date)}
 								<span class="text-[10px] px-1.5 py-0.5 bg-primary/15 text-primary rounded-full font-medium">今天</span>
 							{/if}
+							<span class="text-[11px] text-muted-foreground sm:hidden">周{getDayOfWeek(date)}</span>
 							<span class="text-[11px] text-muted-foreground hidden sm:inline">星期{getDayOfWeek(date)}</span>
 						</div>
 
