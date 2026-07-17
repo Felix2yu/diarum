@@ -111,12 +111,12 @@
 		}
 		tags = merged;
 		tagInput = '';
-		updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, tags });
+		updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, temp_min: weatherData?.temp_min ?? 0, temp_max: weatherData?.temp_max ?? 0, tags });
 	}
 
 	function removeTag(tag: string) {
 		tags = tags.filter(t => t !== tag);
-		updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, tags });
+		updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, temp_min: weatherData?.temp_min ?? 0, temp_max: weatherData?.temp_max ?? 0, tags });
 	}
 
 	function handleTagKeydown(e: KeyboardEvent) {
@@ -168,7 +168,7 @@
 	function applySuggestion(tag: string) {
 		if (!tags.includes(tag)) {
 			tags = [...tags, tag];
-			updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, tags });
+			updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, temp_min: weatherData?.temp_min ?? 0, temp_max: weatherData?.temp_max ?? 0, tags });
 		}
 		tagInput = '';
 		showTagSuggestions = false;
@@ -329,6 +329,8 @@
 			scenarios: selectedScenarios,
 			weather: selectedWeather,
 			city: selectedCity,
+			temp_min: weatherData?.temp_min ?? 0,
+			temp_max: weatherData?.temp_max ?? 0,
 			tags
 		});
 	}
@@ -344,6 +346,8 @@
 			scenarios: selectedScenarios,
 			weather: selectedWeather,
 			city: selectedCity,
+			temp_min: weatherData?.temp_min ?? 0,
+			temp_max: weatherData?.temp_max ?? 0,
 			tags
 		});
 	}
@@ -361,6 +365,8 @@
 			scenarios: selectedScenarios,
 			weather: selectedWeather,
 			city: selectedCity,
+			temp_min: weatherData?.temp_min ?? 0,
+			temp_max: weatherData?.temp_max ?? 0,
 			tags
 		});
 	}
@@ -378,6 +384,8 @@
 			scenarios: selectedScenarios,
 			weather: selectedWeather,
 			city: selectedCity,
+			temp_min: weatherData?.temp_min ?? 0,
+			temp_max: weatherData?.temp_max ?? 0,
 			tags
 		});
 	}
@@ -392,6 +400,8 @@
 			scenarios: selectedScenarios,
 			weather: selectedWeather,
 			city: selectedCity,
+			temp_min: weatherData?.temp_min ?? 0,
+			temp_max: weatherData?.temp_max ?? 0,
 			tags
 		});
 	}
@@ -868,7 +878,7 @@
 							<div class="text-sm font-semibold text-foreground">情景</div>
 							{#if selectedScenarios.length > 0}
 								<button
-									onclick={() => { selectedScenarios = []; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: [], weather: selectedWeather, city: selectedCity, tags }); }}
+									onclick={() => { selectedScenarios = []; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: [], weather: selectedWeather, city: selectedCity, temp_min: weatherData?.temp_min ?? 0, temp_max: weatherData?.temp_max ?? 0, tags }); }}
 									class="text-[11px] px-2 py-1 rounded-full bg-muted/70 hover:bg-muted border border-border/70 transition-colors text-muted-foreground"
 								>
 									清除
@@ -893,7 +903,7 @@
 								<div class="text-sm font-semibold text-foreground">天气</div>
 								{#if selectedWeather || selectedCity}
 									<button
-										onclick={() => { selectedWeather = ''; selectedCity = ''; weatherData = null; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: '', tags, city: '' }); }}
+										onclick={() => { selectedWeather = ''; selectedCity = ''; weatherData = null; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: '', tags, city: '', temp_min: 0, temp_max: 0 }); }}
 										class="text-[11px] px-2 py-1 rounded-full bg-muted/70 hover:bg-muted border border-border/70 transition-colors text-muted-foreground"
 									>
 										清除
@@ -958,7 +968,7 @@
 												if (weatherData) {
 													weatherData = { ...weatherData, wmo_code: wmo.code };
 												}
-												updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, tags });
+												updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, temp_min: weatherData?.temp_min ?? 0, temp_max: weatherData?.temp_max ?? 0, tags });
 											}}
 											class="flex flex-col items-center p-1.5 rounded-lg text-[10px] transition-colors {selectedWeather === String(wmo.code) ? 'bg-primary/20 text-primary' : 'bg-muted/30 hover:bg-muted/50 text-muted-foreground'}"
 											title={wmo.label}
@@ -1111,7 +1121,7 @@
 								<div class="text-sm font-semibold text-foreground">情景</div>
 								{#if selectedScenarios.length > 0}
 									<button
-										onclick={() => { selectedScenarios = []; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: [], weather: selectedWeather, city: selectedCity, tags }); }}
+										onclick={() => { selectedScenarios = []; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: [], weather: selectedWeather, city: selectedCity, temp_min: weatherData?.temp_min ?? 0, temp_max: weatherData?.temp_max ?? 0, tags }); }}
 										class="text-[11px] px-2 py-1 rounded-full bg-background/70 hover:bg-background border border-border/70 transition-colors"
 									>
 										清除
@@ -1137,7 +1147,7 @@
 								</div>
 								{#if selectedWeather || selectedCity}
 									<button
-										onclick={() => { selectedWeather = ''; selectedCity = ''; weatherData = null; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: '', tags, city: '' }); }}
+										onclick={() => { selectedWeather = ''; selectedCity = ''; weatherData = null; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: '', tags, city: '', temp_min: 0, temp_max: 0 }); }}
 										class="text-[11px] px-2 py-1 rounded-full bg-background/70 hover:bg-background border border-border/70 transition-colors"
 									>
 										清除
@@ -1202,7 +1212,7 @@
 												if (weatherData) {
 													weatherData = { ...weatherData, wmo_code: wmo.code };
 												}
-												updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, tags });
+												updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, temp_min: weatherData?.temp_min ?? 0, temp_max: weatherData?.temp_max ?? 0, tags });
 											}}
 											class="flex flex-col items-center p-1.5 rounded-lg text-[10px] transition-colors {selectedWeather === String(wmo.code) ? 'bg-primary/20 text-primary' : 'bg-muted/30 hover:bg-muted/50 text-muted-foreground'}"
 											title={wmo.label}
