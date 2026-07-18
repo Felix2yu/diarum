@@ -80,6 +80,9 @@
 						} else {
 							alert('无法确定当前位置的城市，请手动选择');
 						}
+					} else {
+						const data = await response.json().catch(() => ({}));
+						alert(data.error || '定位服务暂时不可用，请手动选择城市');
 					}
 				} catch (e) {
 					console.error('Reverse geocoding failed:', e);

@@ -107,42 +107,72 @@ type nominatimAddress struct {
 	CountryCode string `json:"country_code"`
 }
 
+// NominatimError is returned when Nominatim API returns a non-200 status
+type NominatimError struct {
+	StatusCode int
+}
+
+func (e *NominatimError) Error() string {
+	return fmt.Sprintf("Nominatim API returned status %d", e.StatusCode)
+}
+
 // reverseGeocode uses Nominatim (OpenStreetMap) to get city info from coordinates
 // zoom=8 returns prefecture-level city (地级市) for China
 func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
-	// Don't use zoom parameter - let Nominatim return full address
-	// Then we extract the right level ourselves
 	url := fmt.Sprintf(
 		"https://nominatim.openstreetmap.org/reverse?lat=%f&lon=%f&format=json&accept-language=zh",
 		lat, lon,
 	)
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-	req.Header.Set("User-Agent", "Diarum/1.0 (diary-app)")
 
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call Nominatim API: %w", err)
-	}
-	defer resp.Body.Close()
+	// Retry up to 3 times for rate limiting (429) and server errors (5xx)
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			time.Sleep(time.Duration(attempt) * time.Second)
+		}
 
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Nominatim API returned status %d", resp.StatusCode)
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request: %w", err)
+		}
+		req.Header.Set("User-Agent", "Diarum/1.0 (diary-app)")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to call Nominatim API: %w", err)
+			continue
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			lastErr = fmt.Errorf("failed to read Nominatim response: %w", err)
+			continue
+		}
+
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+			lastErr = &NominatimError{StatusCode: resp.StatusCode}
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return nil, &NominatimError{StatusCode: resp.StatusCode}
+		}
+
+		var data nominatimResponse
+		if err := json.Unmarshal(body, &data); err != nil {
+			return nil, fmt.Errorf("failed to parse Nominatim response: %w", err)
+		}
+
+		return parseNominatimResult(data, lat, lon)
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read Nominatim response: %w", err)
-	}
+	return nil, lastErr
+}
 
-	var data nominatimResponse
-	if err := json.Unmarshal(body, &data); err != nil {
-		return nil, fmt.Errorf("failed to parse Nominatim response: %w", err)
-	}
+func parseNominatimResult(data nominatimResponse, lat, lon float64) ([]CityInfo, error) {
 
 	// Extract city name by priority:
 	// 1. address.city - check if it's prefecture-level (地级市/直辖市/特区)

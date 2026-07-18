@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -29,7 +30,18 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 
 		cities, err := weather.SearchCities(query)
 		if err != nil {
-			return c.JSON(http.StatusInternalServerError, map[string]string{
+			// Return appropriate status code for Nominatim rate limiting
+			var nomErr *weather.NominatimError
+			if errors.As(err, &nomErr) {
+				status := http.StatusBadGateway
+				if nomErr.StatusCode == http.StatusTooManyRequests {
+					status = http.StatusTooManyRequests
+				}
+				return c.JSON(status, map[string]string{
+					"error": "定位服务暂时不可用，请稍后重试或手动选择城市",
+				})
+			}
+			return c.JSON(http.StatusBadRequest, map[string]string{
 				"error": err.Error(),
 			})
 		}
