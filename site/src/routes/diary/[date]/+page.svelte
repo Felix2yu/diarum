@@ -76,6 +76,8 @@
 	let recordedChunks: Blob[] = [];
 	let recordingTimer: ReturnType<typeof setInterval> | null = null;
 	let micSupported = typeof window !== 'undefined' && !!(window as any).navigator?.mediaDevices?.getUserMedia;
+	let wakeLock: WakeLockSentinel | null = null;
+	let recordingMimeType = 'audio/webm';
 	// Snapshot taken on mousedown (before blur clears selectedContent)
 	let shareSelectedContent = '';
 	let shareOpenedByMouse = false;
@@ -503,9 +505,25 @@
 			return;
 		}
 		try {
+			// Request screen wake lock to prevent iOS from locking screen during recording
+			if ('wakeLock' in navigator) {
+				try {
+					wakeLock = await navigator.wakeLock.request('screen');
+				} catch {
+					// Wake lock not supported or denied — non-critical
+				}
+			}
+
 			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 			recordedChunks = [];
-			const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+			// Use audio/mp4 on iOS Safari (audio/webm is not supported)
+			const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+				(navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+			recordingMimeType = isIOS && MediaRecorder.isTypeSupported('audio/mp4')
+				? 'audio/mp4'
+				: 'audio/webm';
+			const mr = new MediaRecorder(stream, { mimeType: recordingMimeType });
 			mediaRecorder = mr;
 			mr.ondataavailable = (e) => {
 				if (e.data && e.data.size > 0) {
@@ -514,6 +532,11 @@
 			};
 			mr.onstop = async () => {
 				stream.getTracks().forEach((t) => t.stop());
+				// Release screen wake lock
+				if (wakeLock) {
+					wakeLock.release().catch(() => {});
+					wakeLock = null;
+				}
 				isRecording = false;
 				stopRecordingTimer();
 				await transcribeRecording();
@@ -540,10 +563,20 @@
 			try {
 				mediaRecorder.stop();
 			} catch {
+				// Release wake lock on error path
+				if (wakeLock) {
+					wakeLock.release().catch(() => {});
+					wakeLock = null;
+				}
 				isRecording = false;
 				stopRecordingTimer();
 			}
 		} else {
+			// Release wake lock if recorder already inactive
+			if (wakeLock) {
+				wakeLock.release().catch(() => {});
+				wakeLock = null;
+			}
 			isRecording = false;
 			stopRecordingTimer();
 		}
@@ -553,7 +586,7 @@
 		if (recordedChunks.length === 0) {
 			return;
 		}
-		const audioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+		const audioBlob = new Blob(recordedChunks, { type: recordingMimeType });
 		if (audioBlob.size < 512) {
 			// Too short — likely just silence / click
 			speechError = '录音时间过短，请重新尝试';
