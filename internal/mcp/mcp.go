@@ -80,10 +80,10 @@ func (s *Server) registerDiaryTools() {
 		mcp.WithString("date", mcp.Required(), mcp.Description("Date in YYYY-MM-DD format")),
 		mcp.WithString("content", mcp.Description("Diary content (HTML or plain text)")),
 		mcp.WithNumber("mood", mcp.Description("Mood rating 1-5 (1=bad, 5=great)")),
-		mcp.WithArray("mood_states", mcp.Items("string"), mcp.Description("List of mood states")),
-		mcp.WithArray("scenarios", mcp.Items("string"), mcp.Description("List of scenarios")),
+		mcp.WithArray("mood_states", mcp.WithStringItems(), mcp.Description("List of mood states")),
+		mcp.WithArray("scenarios", mcp.WithStringItems(), mcp.Description("List of scenarios")),
 		mcp.WithString("weather", mcp.Description("Weather description")),
-		mcp.WithArray("tags", mcp.Items("string"), mcp.Description("List of tags")),
+		mcp.WithArray("tags", mcp.WithStringItems(), mcp.Description("List of tags")),
 	)
 
 	s.mcpServer.AddTool(createDiary, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
