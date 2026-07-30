@@ -15,6 +15,10 @@ func init() {
 	qweatherAPIKey = os.Getenv("QWEATHER_API_KEY")
 }
 
+func QWeatherEnabled() bool {
+	return qweatherAPIKey != ""
+}
+
 type qwDailyResponse struct {
 	Code    string `json:"code"`
 	Daily   []qwDaily `json:"daily"`

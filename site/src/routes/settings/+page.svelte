@@ -99,7 +99,10 @@
 	// Weather settings
 	let weatherEnabled = false;
 	let weatherDefaultCity = '';
-	let originalWeatherSettings = { enabled: false, default_city: '' };
+	let weatherAutoFetch = false;
+	let weatherAutoFetchTime = '20:00';
+	let qweatherEnabled = false;
+	let originalWeatherSettings = { enabled: false, default_city: '', auto_fetch: false, auto_fetch_time: '20:00' };
 	let weatherSaving = false;
 	let weatherError = '';
 	let weatherSuccess = '';
@@ -270,19 +273,30 @@
 	async function loadWeatherSettingsLocal() {
 		try {
 			// Load weather settings from the API
-			const response = await fetch('/api/v1/settings', {
-				headers: {
-					'Authorization': `Bearer ${pb.authStore.token}`
-				}
-			});
-			if (response.ok) {
-				const data = await response.json();
+			const [settingsRes, providerRes] = await Promise.all([
+				fetch('/api/v1/settings', {
+					headers: { 'Authorization': `Bearer ${pb.authStore.token}` }
+				}),
+				fetch('/api/v1/weather/provider', {
+					headers: { 'Authorization': `Bearer ${pb.authStore.token}` }
+				})
+			]);
+			if (settingsRes.ok) {
+				const data = await settingsRes.json();
 				weatherEnabled = data.settings?.['weather.enabled'] ?? false;
 				weatherDefaultCity = data.settings?.['weather.default_city'] ?? '';
+				weatherAutoFetch = data.settings?.['weather.auto_fetch'] ?? false;
+				weatherAutoFetchTime = data.settings?.['weather.auto_fetch_time'] ?? '20:00';
 				originalWeatherSettings = {
 					enabled: weatherEnabled,
-					default_city: weatherDefaultCity
+					default_city: weatherDefaultCity,
+					auto_fetch: weatherAutoFetch,
+					auto_fetch_time: weatherAutoFetchTime
 				};
+			}
+			if (providerRes.ok) {
+				const data = await providerRes.json();
+				qweatherEnabled = data.qweather_enabled ?? false;
 			}
 		} catch (error) {
 			console.error('Failed to load weather settings:', error);
@@ -304,7 +318,9 @@
 				body: JSON.stringify({
 					settings: {
 						'weather.enabled': weatherEnabled,
-						'weather.default_city': weatherDefaultCity
+						'weather.default_city': weatherDefaultCity,
+						'weather.auto_fetch': weatherAutoFetch,
+						'weather.auto_fetch_time': weatherAutoFetchTime
 					}
 				})
 			});
@@ -315,7 +331,9 @@
 
 			originalWeatherSettings = {
 				enabled: weatherEnabled,
-				default_city: weatherDefaultCity
+				default_city: weatherDefaultCity,
+				auto_fetch: weatherAutoFetch,
+				auto_fetch_time: weatherAutoFetchTime
 			};
 			weatherSuccess = '天气设置已成功保存';
 			setTimeout(() => weatherSuccess = '', 3000);
@@ -1301,8 +1319,16 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 						<h2 class="text-lg font-semibold text-foreground">天气设置</h2>
 					</div>
 					<p class="text-sm text-muted-foreground mb-6">
-						配置天气服务。使用 Open-Meteo API（免费、无需 API Key）。
+						配置天气服务。数据来源：{qweatherEnabled ? '和风天气（已配置 API Key，优先使用）' : 'Open-Meteo（免费、无需 API Key）'}。
 					</p>
+					{#if qweatherEnabled}
+						<div class="mb-4 p-3 bg-blue-500/10 text-blue-600 rounded-lg text-sm flex items-center gap-2">
+							<svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+							</svg>
+							已检测到服务端配置了和风天气 API Key，将优先使用和风天气获取实时天气数据（Open-Meteo 作为降级方案）。
+						</div>
+					{/if}
 
 					{#if weatherError}
 						<div class="mb-4 p-3 bg-red-500/10 text-red-600 rounded-lg text-sm">
@@ -1345,6 +1371,34 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								/>
 								<p class="text-xs text-muted-foreground mt-1">设置后新建日记时会自动选择该城市</p>
 							</div>
+
+							<!-- Auto Fetch -->
+							<div class="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+								<div>
+									<div class="font-medium text-foreground">自动获取天气</div>
+									<div class="text-sm text-muted-foreground">每天定时自动获取当天天气并更新到日记</div>
+								</div>
+								<button
+									type="button"
+									onclick={() => weatherAutoFetch = !weatherAutoFetch}
+									class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {weatherAutoFetch ? 'bg-primary' : 'bg-border'}"
+								>
+									<span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {weatherAutoFetch ? 'translate-x-6' : 'translate-x-1'}"></span>
+								</button>
+							</div>
+
+							{#if weatherAutoFetch}
+								<div class="p-4 bg-muted/30 rounded-lg">
+									<label for="weather-auto-fetch-time" class="block text-sm font-medium text-foreground mb-2">自动获取时间</label>
+									<input
+										id="weather-auto-fetch-time"
+										type="time"
+										bind:value={weatherAutoFetchTime}
+										class="w-32 px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+									/>
+									<p class="text-xs text-muted-foreground mt-1">设置后服务器将在指定时间自动获取当天天气</p>
+								</div>
+							{/if}
 						{/if}
 					</div>
 

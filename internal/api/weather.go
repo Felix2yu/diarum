@@ -19,6 +19,13 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 
 	group := e.Group("/api/v1/weather", authMiddleware)
 
+	// Weather provider status
+	group.GET("/provider", func(c *echo.Context) error {
+		return c.JSON(http.StatusOK, map[string]any{
+			"qweather_enabled": weather.QWeatherEnabled(),
+		})
+	})
+
 	// Search cities by name (uses Open-Meteo geocoding API)
 	group.GET("/cities", func(c *echo.Context) error {
 		query := c.QueryParam("q")
