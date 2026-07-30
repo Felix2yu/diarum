@@ -38,16 +38,71 @@ type CityInfo struct {
 	Country   string  `json:"country"`
 }
 
-// SearchCities searches for cities by name using Open-Meteo geocoding API
-// If query contains comma-separated coordinates (lat,lon), uses Nominatim reverse geocoding
+// SearchCities searches for cities by name.
+// Priority: QWeather (if API key configured) → Open-Meteo.
+// If query contains comma-separated coordinates (lat,lon), uses Nominatim reverse geocoding.
 func SearchCities(query string) ([]CityInfo, error) {
-	// Check if query is coordinates (lat,lon format)
 	var lat, lon float64
 	if n, err := fmt.Sscanf(query, "%f,%f", &lat, &lon); err == nil && n == 2 {
 		return reverseGeocode(lat, lon)
 	}
 
-	// Otherwise, use Open-Meteo forward geocoding
+	if qweatherAPIKey != "" {
+		cities, err := searchQWeather(query)
+		if err == nil {
+			return cities, nil
+		}
+	}
+
+	return searchOpenMeteo(query)
+}
+
+// searchQWeather searches cities via QWeather city lookup API
+func searchQWeather(query string) ([]CityInfo, error) {
+	url := fmt.Sprintf(
+		"https://geoapi.qweather.com/v2/city/lookup?location=%s&key=%s&number=10",
+		query, qweatherAPIKey,
+	)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("QWeather geo request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("QWeather geo read failed: %w", err)
+	}
+
+	var data qwGeoResponse
+	if err := json.Unmarshal(body, &data); err != nil {
+		return nil, fmt.Errorf("QWeather geo parse failed: %w", err)
+	}
+
+	if data.Code != "200" {
+		return nil, fmt.Errorf("QWeather geo api error code: %s", data.Code)
+	}
+
+	cities := make([]CityInfo, 0, len(data.Location))
+	for _, loc := range data.Location {
+		var clat, clon float64
+		fmt.Sscanf(loc.Lat, "%f", &clat)
+		fmt.Sscanf(loc.Lon, "%f", &clon)
+		cities = append(cities, CityInfo{
+			Name:     loc.Name,
+			Lat:      clat,
+			Lon:      clon,
+			Province: loc.Adm1,
+			Country:  "中国",
+		})
+	}
+	return cities, nil
+}
+
+// searchOpenMeteo searches cities via Open-Meteo geocoding API
+func searchOpenMeteo(query string) ([]CityInfo, error) {
 	url := fmt.Sprintf(
 		"https://geocoding-api.open-meteo.com/v1/search?name=%s&count=10&language=zh",
 		query,
@@ -304,15 +359,77 @@ func (s *Service) getCoords(city string) (lat, lon float64, err error) {
 	return lat, lon, nil
 }
 
-// geocodeCity calls Open-Meteo geocoding API to get coordinates for a city.
-// Falls back to Nominatim (OpenStreetMap) if Open-Meteo fails.
+// geocodeCity gets coordinates for a city.
+// Priority: QWeather (if API key configured) → Open-Meteo → Nominatim.
 func geocodeCity(city string) (lat, lon float64, err error) {
+	if qweatherAPIKey != "" {
+		lat, lon, err = geocodeWithQWeather(city)
+		if err == nil {
+			return lat, lon, nil
+		}
+	}
+
 	lat, lon, err = geocodeWithOpenMeteo(city)
 	if err == nil {
 		return lat, lon, nil
 	}
 
 	return geocodeWithNominatim(city)
+}
+
+// qwGeoResponse represents the QWeather city lookup API response
+type qwGeoResponse struct {
+	Code     string        `json:"code"`
+	Location []qwGeoResult `json:"location"`
+}
+
+type qwGeoResult struct {
+	Name string `json:"name"`
+	Lat  string `json:"lat"`
+	Lon  string `json:"lon"`
+	Adm1 string `json:"adm1"`
+}
+
+// geocodeWithQWeather uses QWeather city lookup API.
+func geocodeWithQWeather(city string) (lat, lon float64, err error) {
+	url := fmt.Sprintf(
+		"https://geoapi.qweather.com/v2/city/lookup?location=%s&key=%s&number=1",
+		city, qweatherAPIKey,
+	)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(url)
+	if err != nil {
+		return 0, 0, fmt.Errorf("QWeather geo request failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return 0, 0, fmt.Errorf("QWeather geo read failed: %w", err)
+	}
+
+	var data qwGeoResponse
+	if err := json.Unmarshal(body, &data); err != nil {
+		return 0, 0, fmt.Errorf("QWeather geo parse failed: %w", err)
+	}
+
+	if data.Code != "200" {
+		return 0, 0, fmt.Errorf("QWeather geo api error code: %s", data.Code)
+	}
+
+	if len(data.Location) == 0 {
+		return 0, 0, fmt.Errorf("city %q not found via QWeather", city)
+	}
+
+	if _, err := fmt.Sscanf(data.Location[0].Lat, "%f", &lat); err != nil {
+		return 0, 0, fmt.Errorf("QWeather geo parse lat failed: %w", err)
+	}
+	if _, err := fmt.Sscanf(data.Location[0].Lon, "%f", &lon); err != nil {
+		return 0, 0, fmt.Errorf("QWeather geo parse lon failed: %w", err)
+	}
+
+	return lat, lon, nil
 }
 
 // geocodeWithOpenMeteo calls Open-Meteo forward geocoding API
