@@ -11,7 +11,15 @@ import (
 	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/logger"
 	"github.com/songtianlun/diarum/internal/store"
+	"github.com/songtianlun/diarum/internal/weather"
 )
+
+var weatherSettingsKeys = map[string]bool{
+	"weather.auto_fetch":      true,
+	"weather.auto_fetch_time": true,
+	"weather.default_city":    true,
+	"weather.enabled":         true,
+}
 
 // generateToken generates a random 32-character hex token
 func generateToken() (string, error) {
@@ -89,7 +97,7 @@ func deleteSettingHandler(configService *config.ConfigService) echo.HandlerFunc 
 }
 
 // RegisterSettingsRoutes registers settings-related API endpoints
-func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware echo.MiddlewareFunc) {
+func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware echo.MiddlewareFunc, weatherScheduler *weather.Scheduler) {
 	configService := config.NewConfigService(store)
 	group := e.Group("/api/v1/settings", authMiddleware)
 
@@ -235,6 +243,14 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 			return badRequest("Failed to save settings", err)
 		}
 
+		// Notify weather scheduler when weather-related settings change
+		for key := range body.Settings {
+			if weatherSettingsKeys[key] {
+				weatherScheduler.Refresh(userId)
+				break
+			}
+		}
+
 		return c.JSON(http.StatusOK, map[string]any{
 			"success": true,
 		})
@@ -244,8 +260,53 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 	group.GET("/:key", getSettingHandler(configService))
 
 	// Update single setting by key
-	group.PUT("/:key", putSettingHandler(configService))
+	group.PUT("/:key", func(c *echo.Context) error {
+		userId := auth.CurrentUser(c).ID
+		key := c.Param("key")
+
+		if _, ok := config.GetConfigMeta(key); !ok {
+			return badRequest("Unknown setting key: "+key, nil)
+		}
+
+		var body struct {
+			Value any `json:"value"`
+		}
+		if err := c.Bind(&body); err != nil {
+			return badRequest("Invalid request body", err)
+		}
+
+		if err := configService.Set(userId, key, body.Value); err != nil {
+			return badRequest("Failed to save setting", err)
+		}
+
+		if weatherSettingsKeys[key] {
+			weatherScheduler.Refresh(userId)
+		}
+
+		return c.JSON(http.StatusOK, map[string]any{
+			"success": true,
+		})
+	})
 
 	// Delete single setting by key
-	group.DELETE("/:key", deleteSettingHandler(configService))
+	group.DELETE("/:key", func(c *echo.Context) error {
+		userId := auth.CurrentUser(c).ID
+		key := c.Param("key")
+
+		if _, ok := config.GetConfigMeta(key); !ok {
+			return badRequest("Unknown setting key: "+key, nil)
+		}
+
+		if err := configService.Delete(userId, key); err != nil {
+			return badRequest("Failed to delete setting", err)
+		}
+
+		if weatherSettingsKeys[key] {
+			weatherScheduler.Refresh(userId)
+		}
+
+		return c.JSON(http.StatusOK, map[string]any{
+			"success": true,
+		})
+	})
 }

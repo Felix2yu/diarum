@@ -213,7 +213,10 @@ func run(args []string, stdout io.Writer) error {
 	api.RegisterDiaryRoutes(e, appStore, authMiddleware, onDiaryChanged)
 	api.RegisterMediaRoutes(e, appStore, authMiddleware)
 	api.RegisterImageUploadRoutes(e, appStore, authMiddleware)
-	api.RegisterSettingsRoutes(e, appStore, authMiddleware)
+	// Initialize weather service (needed by settings routes for scheduler notifications)
+	weatherSvc := weather.NewService()
+	weatherScheduler := weather.NewScheduler(appStore, configService, weatherSvc)
+	api.RegisterSettingsRoutes(e, appStore, authMiddleware, weatherScheduler)
 	api.RegisterMemosRoutes(e, appStore, authMiddleware, onDiaryChanged)
 	api.RegisterAIRoutes(e, appStore, authMiddleware, embeddingService)
 	api.RegisterExportImportRoutes(e, appStore, authMiddleware, embeddingService)
@@ -259,9 +262,7 @@ func run(args []string, stdout io.Writer) error {
 	backupScheduler.Start()
 	defer backupScheduler.Stop()
 
-	// Initialize weather auto-fetch scheduler
-	weatherSvc := weather.NewService()
-	weatherScheduler := weather.NewScheduler(appStore, configService, weatherSvc)
+	// Start weather auto-fetch scheduler
 	weatherScheduler.Start()
 	defer weatherScheduler.Stop()
 

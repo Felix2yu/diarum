@@ -17,6 +17,7 @@ import (
 	iauth "github.com/songtianlun/diarum/internal/auth"
 	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/store"
+	"github.com/songtianlun/diarum/internal/weather"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -68,6 +69,10 @@ func newTestUser(t *testing.T, s *store.Store) *store.User {
 		t.Fatalf("CreateUser: %v", err)
 	}
 	return user
+}
+
+func newTestWeatherScheduler(s *store.Store) *weather.Scheduler {
+	return weather.NewScheduler(s, config.NewConfigService(s), weather.NewService())
 }
 
 func authMiddlewareFor(user *store.User) echo.MiddlewareFunc {
@@ -284,7 +289,7 @@ func TestAuthAndSettingsRoutes(t *testing.T) {
 		t.Fatalf("GetUserByIdentity alice: %v", err)
 	}
 
-	RegisterSettingsRoutes(e, s, authMiddlewareFor(user))
+	RegisterSettingsRoutes(e, s, authMiddlewareFor(user), newTestWeatherScheduler(s))
 
 	if token, err := generateToken(); err != nil || len(token) != 32 {
 		t.Fatalf("generateToken = %q, %v", token, err)

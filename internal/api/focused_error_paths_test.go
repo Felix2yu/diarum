@@ -530,7 +530,8 @@ func TestFocusedSettingsRouteErrors(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
 	e := echo.New()
-	RegisterSettingsRoutes(e, s, authMiddlewareFor(user))
+	weatherScheduler := newTestWeatherScheduler(s)
+	RegisterSettingsRoutes(e, s, authMiddlewareFor(user), weatherScheduler)
 	cfg := config.NewConfigService(s)
 	if err := cfg.Set(user.ID, "ai.chat_model", "gpt-route"); err != nil {
 		t.Fatalf("Set ai.chat_model: %v", err)
@@ -719,7 +720,7 @@ func TestFocusedClosedStoreRouteErrors(t *testing.T) {
 	authMiddleware := authMiddlewareFor(user)
 	RegisterDiaryRoutes(e, s, authMiddleware, nil)
 	RegisterMediaRoutes(e, s, authMiddleware)
-	RegisterSettingsRoutes(e, s, authMiddleware)
+	RegisterSettingsRoutes(e, s, authMiddleware, newTestWeatherScheduler(s))
 	RegisterImageUploadRoutes(e, s, authMiddleware)
 	RegisterCheveretoRoutes(e, s, authMiddleware)
 	RegisterAIRoutes(e, s, authMiddleware, nil)
