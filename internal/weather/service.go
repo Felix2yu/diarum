@@ -335,17 +335,28 @@ func geocodeCity(city string) (lat, lon float64, err error) {
 }
 
 // GetWeather fetches weather for a city on a specific date
+// Priority: QWeather first, Open-Meteo as fallback
 func (s *Service) GetWeather(city string, date string) (*WeatherResult, error) {
 	lat, lon, err := s.getCoords(city)
 	if err != nil {
 		return nil, err
 	}
 
-	return FetchWeatherFromOpenMeteo(city, lat, lon, date)
+	return s.fetchWithFallback(city, lat, lon, date)
 }
 
 // GetWeatherByCoords fetches weather by coordinates on a specific date
 func (s *Service) GetWeatherByCoords(city string, lat, lon float64, date string) (*WeatherResult, error) {
+	return s.fetchWithFallback(city, lat, lon, date)
+}
+
+// fetchWithFallback tries QWeather first, falls back to Open-Meteo
+func (s *Service) fetchWithFallback(city string, lat, lon float64, date string) (*WeatherResult, error) {
+	result, err := FetchFromQWeather(city, lat, lon, date)
+	if err == nil {
+		return result, nil
+	}
+
 	return FetchWeatherFromOpenMeteo(city, lat, lon, date)
 }
 

@@ -53,8 +53,10 @@ var ConfigRegistry = map[string]ConfigMeta{
 	"diary.weather_options": {Type: "json", Default: []string{"☀️", "⛅", "☁️", "🌧️", "⛈️", "🌫️", "❄️", "🌬️"}, Encrypted: false},
 
 	// Weather service settings
-	"weather.enabled":     {Type: "bool", Default: false, Encrypted: false},
-	"weather.default_city": {Type: "string", Default: "", Encrypted: false},
+	"weather.enabled":        {Type: "bool", Default: false, Encrypted: false},
+	"weather.default_city":   {Type: "string", Default: "", Encrypted: false},
+	"weather.auto_fetch":     {Type: "bool", Default: false, Encrypted: false},
+	"weather.auto_fetch_time": {Type: "string", Default: "20:00", Encrypted: false},
 
 	// App preferences
 	"app.default_view": {Type: "string", Default: "diary", Encrypted: false},

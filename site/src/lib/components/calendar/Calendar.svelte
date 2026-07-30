@@ -5,7 +5,7 @@
 	import CalendarAnalysis from './CalendarAnalysis.svelte';
 	import CalendarYearPicker from './CalendarYearPicker.svelte';
 	import { moodToEmoji, moodToLabel } from '$lib/utils/diaryEmoji';
-	import { isWMOCode, getWMOInfo } from '$lib/utils/weatherCodes';
+	import { isWMOCode, getWeatherInfo } from '$lib/utils/weatherCodes';
 
 	let {
 		currentYear = $bindable(new Date().getFullYear()),
@@ -504,7 +504,7 @@
 							{#if meta?.weather || meta?.mood}
 								<div class="absolute inset-x-0 top-1.5 flex items-center justify-center gap-1 text-[11px] leading-none">
 									{#if meta?.weather && isWMOCode(meta.weather)}
-										{@const weatherInfo = getWMOInfo(parseInt(meta.weather))}
+										{@const weatherInfo = getWeatherInfo(parseInt(meta.weather))}
 										<span class="emoji-chip" title="天气：{weatherInfo.label}{meta?.temp_min != null && meta?.temp_max != null ? ` ${Math.round(meta.temp_min)}°~${Math.round(meta.temp_max)}°` : ''}">{weatherInfo.icon}</span>
 									{/if}
 								{#if meta?.mood}
@@ -702,7 +702,7 @@
                                     <div class="flex items-center gap-2 text-xs text-muted-foreground">
                                         {#if diary.mood}{@const moodEmoji = moodToEmoji(diary.mood)}{#if moodEmoji}<span title="心情">{moodEmoji}</span>{/if}{/if}
                                         {#if diary.weather && isWMOCode(diary.weather)}
-                                            {@const weatherInfo = getWMOInfo(parseInt(diary.weather))}
+                                            {@const weatherInfo = getWeatherInfo(parseInt(diary.weather))}
                                             <span title="天气：{weatherInfo.label}{diary.temp_min != null && diary.temp_max != null ? ` ${Math.round(diary.temp_min)}°~${Math.round(diary.temp_max)}°` : ''}">{weatherInfo.icon}</span>
                                         {/if}
                                     </div>

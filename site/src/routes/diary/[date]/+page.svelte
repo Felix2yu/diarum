@@ -15,7 +15,7 @@
 	import { getDiaryEmojiSettings } from '$lib/api/settings';
 	import { fetchWeather, fetchWeatherByCoords, type WeatherResult } from '$lib/api/weather';
 	import type { CityInfo } from '$lib/types/city';
-	import { WMO_CODES } from '$lib/utils/weatherCodes';
+	import { WEATHER_CODES } from '$lib/utils/weatherCodes';
 	import {
 		formatDisplayDate,
 		formatShortDate,
@@ -1021,7 +1021,7 @@
 							<!-- Manual Weather Selection Grid -->
 							{#if showManualWeather}
 								<div class="mt-2 grid grid-cols-4 gap-1.5">
-									{#each Object.values(WMO_CODES) as wmo}
+									{#each Object.values(WEATHER_CODES) as wmo}
 										<button
 											type="button"
 											onclick={() => {
@@ -1265,7 +1265,7 @@
 							<!-- Manual Weather Selection Grid -->
 							{#if showManualWeather}
 								<div class="mt-2 grid grid-cols-4 gap-1.5">
-									{#each Object.values(WMO_CODES) as wmo}
+									{#each Object.values(WEATHER_CODES) as wmo}
 										<button
 											type="button"
 											onclick={() => {

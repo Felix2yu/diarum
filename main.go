@@ -27,6 +27,7 @@ import (
 	mcpserver "github.com/songtianlun/diarum/internal/mcp"
 	"github.com/songtianlun/diarum/internal/static"
 	"github.com/songtianlun/diarum/internal/store"
+	"github.com/songtianlun/diarum/internal/weather"
 )
 
 var startServer = func(e *echo.Echo, addr string) error {
@@ -257,6 +258,12 @@ func run(args []string, stdout io.Writer) error {
 	api.RegisterBackupRoutes(e, appStore, authMiddleware, backupScheduler, configService)
 	backupScheduler.Start()
 	defer backupScheduler.Stop()
+
+	// Initialize weather auto-fetch scheduler
+	weatherSvc := weather.NewService()
+	weatherScheduler := weather.NewScheduler(appStore, configService, weatherSvc)
+	weatherScheduler.Start()
+	defer weatherScheduler.Stop()
 
 	staticFS, err := static.GetFS()
 	if err != nil {

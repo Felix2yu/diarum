@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getWMOInfo, formatWeatherDisplay } from '$lib/utils/weatherCodes';
+	import { getWeatherInfo, formatWeatherDisplay } from '$lib/utils/weatherCodes';
 
 	interface Props {
 		wmoCode: number;
@@ -11,7 +11,7 @@
 
 	let { wmoCode, tempMin, tempMax, showTemp = true, size = 'md' }: Props = $props();
 
-	let info = $derived(getWMOInfo(wmoCode));
+	let info = $derived(getWeatherInfo(wmoCode));
 	let displayText = $derived(formatWeatherDisplay(wmoCode, tempMin, tempMax));
 
 	let sizeClasses = $derived(

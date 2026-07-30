@@ -1082,6 +1082,34 @@ func (s *Store) UpsertDiary(owner, date, content string, mood int, moodStates []
 	return diary, true, err
 }
 
+// UpsertDiaryWeather updates only weather fields of an existing diary,
+// or creates a new entry with empty content. Content is never overwritten.
+func (s *Store) UpsertDiaryWeather(owner, date, weather, city string, tempMin, tempMax float64) (*Diary, error) {
+	start, end := dayRange(date)
+	existing, err := s.GetDiaryByDate(owner, start, end)
+	if err == nil && existing != nil {
+		now := nowString()
+		_, err := s.DB.Exec(`UPDATE diaries SET weather = ?, city = ?, temp_min = ?, temp_max = ?, updated = ? WHERE id = ? AND owner = ?`, weather, city, tempMin, tempMax, now, existing.ID, owner)
+		if err != nil {
+			return nil, err
+		}
+		return s.GetDiaryByID(existing.ID)
+	}
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+	id, err := GenerateID()
+	if err != nil {
+		return nil, err
+	}
+	now := nowString()
+	_, err = s.DB.Exec(`INSERT INTO diaries(content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, city, temp_min, temp_max, tags) VALUES('', ?, ?, ?, 0, '[]', '[]', ?, ?, ?, ?, ?, ?, '[]')`, now, date+" 00:00:00.000Z", id, owner, now, weather, city, tempMin, tempMax)
+	if err != nil {
+		return nil, err
+	}
+	return s.GetDiaryByID(id)
+}
+
 func (s *Store) GetDiaryByDate(owner, start, end string) (*Diary, error) {
 	return scanDiary(s.DB.QueryRow(`SELECT content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, city, temp_min, temp_max, tags FROM diaries WHERE date >= ? AND date <= ? AND owner = ? LIMIT 1`, start, end, owner))
 }
