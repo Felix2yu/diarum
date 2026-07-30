@@ -12,7 +12,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go mod tidy && go mod download
 
 # ---- Frontend build stage ----
-FROM node:24-alpine AS frontend-builder
+FROM node:26-alpine AS frontend-builder
 
 WORKDIR /app/site
 
