@@ -10,24 +10,12 @@
 	} from '$lib/api/ai';
 	import { marked } from 'marked';
 
-	// 只在首次调用时配置一次 marked，避免每次渲染重复设置
-	let markedConfigured = false;
-	function ensureMarkedConfig() {
-		if (markedConfigured) return;
-		marked.setOptions({
-			gfm: true,
-			breaks: true
-		});
-		markedConfigured = true;
-	}
-
 	// 把 markdown 文本渲染为安全的 HTML
 	function renderMarkdown(text: string): string {
-		ensureMarkedConfig();
 		try {
 			const safe = (text ?? '').trim();
 			if (!safe) return '';
-			return marked.parse(safe, { async: false }) as string;
+			return marked.parse(safe, { async: false, breaks: true, gfm: true }) as string;
 		} catch (e) {
 			// 渲染失败则回退到保留换行的纯文本
 			return (text ?? '')

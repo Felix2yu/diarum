@@ -1,6 +1,7 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
+import tailwindcss from '@tailwindcss/vite';
 
 // 使用构建时间戳作为 index.html 的 revision，
 // 确保每次部署都会刷新 Service Worker 对离线入口页面的缓存。
@@ -19,6 +20,7 @@ export default defineConfig({
 		}
 	},
 	plugins: [
+		tailwindcss(),
 		sveltekit(),
 		SvelteKitPWA({
 			srcDir: './src',

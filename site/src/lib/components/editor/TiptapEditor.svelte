@@ -23,16 +23,11 @@
 
 	let fileInput = $state<HTMLInputElement | null>(null);
 
-	marked.setOptions({
-		breaks: true,
-		gfm: true
-	});
-
 	function renderMarkdown(text: string): string {
 		const trimmed = (text ?? '').trim();
 		if (!trimmed) return '';
 		try {
-			return marked.parse(trimmed, { async: false }) as string;
+			return marked.parse(trimmed, { async: false, breaks: true, gfm: true }) as string;
 		} catch (e) {
 			return (text ?? '')
 				.split('\n')

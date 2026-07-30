@@ -11,15 +11,9 @@
 
 	let expanded = false;
 
-	// Configure marked for safe rendering
-	marked.setOptions({
-		breaks: true,
-		gfm: true
-	});
-
 	function renderMarkdown(content: string): string {
 		if (!content) return '';
-		return marked.parse(content) as string;
+		return marked.parse(content, { async: false, breaks: true, gfm: true }) as string;
 	}
 	let diaries: Diary[] = [];
 	let loading = false;

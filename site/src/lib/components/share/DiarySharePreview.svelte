@@ -4,11 +4,6 @@
 	import { marked } from 'marked';
 	import { moodToEmoji } from '$lib/utils/diaryEmoji';
 
-	marked.setOptions({
-		breaks: true,
-		gfm: true
-	});
-
 	export let date: string;
 	export let content: string;
 	export let options: ShareOptions;
@@ -30,7 +25,7 @@
 			}
 		} catch {
 			// Not JSON, treat as markdown
-			return marked.parse(rawContent) as string;
+			return marked.parse(rawContent, { async: false, breaks: true, gfm: true }) as string;
 		}
 		return rawContent;
 	}
