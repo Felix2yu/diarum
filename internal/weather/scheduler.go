@@ -1,6 +1,7 @@
 package weather
 
 import (
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
@@ -11,6 +12,13 @@ import (
 	"github.com/songtianlun/diarum/internal/logger"
 	"github.com/songtianlun/diarum/internal/store"
 )
+
+// citySetting represents the weather.default_city stored as JSON with coordinates.
+type citySetting struct {
+	Name string  `json:"name"`
+	Lat  float64 `json:"lat"`
+	Lon  float64 `json:"lon"`
+}
 
 type Scheduler struct {
 	store         *store.Store
@@ -85,15 +93,38 @@ func (sc *Scheduler) RunNow(userID string) error {
 }
 
 func (sc *Scheduler) execute(userID string) error {
-	city, _ := sc.configService.GetString(userID, "weather.default_city")
-	if city == "" {
+	cityRaw, _ := sc.configService.GetString(userID, "weather.default_city")
+	if cityRaw == "" {
 		logger.Debug("[WeatherAuto] user %s: no default city, skipping", userID)
 		sc.Refresh(userID)
 		return nil
 	}
 
+	// Try to parse default_city as structured JSON with coordinates
+	var (
+		city = cityRaw
+		lat  float64
+		lon  float64
+	)
+	var cs citySetting
+	if err := json.Unmarshal([]byte(cityRaw), &cs); err == nil && cs.Name != "" {
+		city = cs.Name
+		lat, lon = cs.Lat, cs.Lon
+	}
+
 	today := time.Now().Format("2006-01-02")
-	result, err := sc.weatherSvc.GetWeather(city, today)
+
+	var result *WeatherResult
+	var err error
+	if lat != 0 && lon != 0 {
+		result, err = sc.weatherSvc.GetWeatherByCoords(city, lat, lon, today)
+	} else {
+		result, err = sc.weatherSvc.GetWeather(city, today)
+		// Cache coordinates for next run
+		if err == nil {
+			sc.weatherSvc.SetCityCoords(city, result.Lat, result.Lon)
+		}
+	}
 	if err != nil {
 		logger.Error("[WeatherAuto] user %s: fetch failed for %s: %v", userID, city, err)
 		sc.Refresh(userID)

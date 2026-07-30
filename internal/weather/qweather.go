@@ -88,6 +88,8 @@ func FetchFromQWeather(city string, lat, lon float64, date string) (*WeatherResu
 				TempMin: tempMin,
 				TempMax: tempMax,
 				Date:    targetDate,
+				Lat:     lat,
+				Lon:     lon,
 			}, nil
 		}
 	}

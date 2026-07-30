@@ -693,8 +693,21 @@
 	async function autoFetchWeather() {
 		// If no city selected and default city is set, auto-fetch
 		if (!selectedCity && defaultCity && !weatherData) {
-			selectedCity = defaultCity;
-			await handleCitySelect({ name: defaultCity, lat: 0, lon: 0, province: '', country: '' });
+			let cityName = defaultCity;
+			let cityLat = 0;
+			let cityLon = 0;
+			try {
+				const parsed = JSON.parse(defaultCity);
+				if (parsed.name) {
+					cityName = parsed.name;
+					cityLat = parsed.lat ?? 0;
+					cityLon = parsed.lon ?? 0;
+				}
+			} catch {
+				// plain string city name (backward compatible)
+			}
+			selectedCity = cityName;
+			await handleCitySelect({ name: cityName, lat: cityLat, lon: cityLon, province: '', country: '' });
 		}
 	}
 

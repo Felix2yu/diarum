@@ -54,7 +54,13 @@ func SearchCities(query string) ([]CityInfo, error) {
 	)
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("User-Agent", "Diarum/1.0 (diary-app)")
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to call geocoding API: %w", err)
 	}
@@ -298,40 +304,138 @@ func (s *Service) getCoords(city string) (lat, lon float64, err error) {
 	return lat, lon, nil
 }
 
-// geocodeCity calls Open-Meteo geocoding API to get coordinates for a city
+// geocodeCity calls Open-Meteo geocoding API to get coordinates for a city.
+// Falls back to Nominatim (OpenStreetMap) if Open-Meteo fails.
 func geocodeCity(city string) (lat, lon float64, err error) {
+	lat, lon, err = geocodeWithOpenMeteo(city)
+	if err == nil {
+		return lat, lon, nil
+	}
+
+	return geocodeWithNominatim(city)
+}
+
+// geocodeWithOpenMeteo calls Open-Meteo forward geocoding API
+func geocodeWithOpenMeteo(city string) (lat, lon float64, err error) {
 	url := fmt.Sprintf(
 		"https://geocoding-api.open-meteo.com/v1/search?name=%s&count=1&language=zh",
 		city,
 	)
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(url)
-	if err != nil {
-		return 0, 0, fmt.Errorf("failed to call geocoding API: %w", err)
-	}
-	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		return 0, 0, fmt.Errorf("geocoding API returned status %d", resp.StatusCode)
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			time.Sleep(time.Duration(attempt) * time.Second)
+		}
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return 0, 0, fmt.Errorf("failed to create request: %w", err)
+		}
+		req.Header.Set("User-Agent", "Diarum/1.0 (diary-app)")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to call geocoding API: %w", err)
+			continue
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			lastErr = fmt.Errorf("failed to read geocoding response: %w", err)
+			continue
+		}
+
+		if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+			lastErr = fmt.Errorf("geocoding API returned status %d", resp.StatusCode)
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			return 0, 0, fmt.Errorf("geocoding API returned status %d", resp.StatusCode)
+		}
+
+		var data geocodingResponse
+		if err := json.Unmarshal(body, &data); err != nil {
+			return 0, 0, fmt.Errorf("failed to parse geocoding response: %w", err)
+		}
+
+		if len(data.Results) == 0 {
+			return 0, 0, fmt.Errorf("city %q not found", city)
+		}
+
+		result := data.Results[0]
+		return result.Latitude, result.Longitude, nil
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return 0, 0, fmt.Errorf("failed to read geocoding response: %w", err)
+	return 0, 0, lastErr
+}
+
+// geocodeWithNominatim uses Nominatim (OpenStreetMap) search API as fallback
+func geocodeWithNominatim(city string) (lat, lon float64, err error) {
+	url := fmt.Sprintf(
+		"https://nominatim.openstreetmap.org/search?q=%s&format=json&limit=1&accept-language=zh",
+		city,
+	)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			time.Sleep(time.Duration(attempt) * time.Second)
+		}
+
+		req, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			return 0, 0, fmt.Errorf("failed to create request: %w", err)
+		}
+		req.Header.Set("User-Agent", "Diarum/1.0 (diary-app)")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			lastErr = fmt.Errorf("failed to call Nominatim search API: %w", err)
+			continue
+		}
+
+		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if err != nil {
+			lastErr = fmt.Errorf("failed to read Nominatim response: %w", err)
+			continue
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			lastErr = fmt.Errorf("Nominatim search API returned status %d", resp.StatusCode)
+			continue
+		}
+
+		var results []struct {
+			Lat string `json:"lat"`
+			Lon string `json:"lon"`
+		}
+		if err := json.Unmarshal(body, &results); err != nil {
+			return 0, 0, fmt.Errorf("failed to parse Nominatim response: %w", err)
+		}
+
+		if len(results) == 0 {
+			return 0, 0, fmt.Errorf("city %q not found via Nominatim", city)
+		}
+
+		if _, err := fmt.Sscanf(results[0].Lat, "%f", &lat); err != nil {
+			return 0, 0, fmt.Errorf("failed to parse latitude: %w", err)
+		}
+		if _, err := fmt.Sscanf(results[0].Lon, "%f", &lon); err != nil {
+			return 0, 0, fmt.Errorf("failed to parse longitude: %w", err)
+		}
+
+		return lat, lon, nil
 	}
 
-	var data geocodingResponse
-	if err := json.Unmarshal(body, &data); err != nil {
-		return 0, 0, fmt.Errorf("failed to parse geocoding response: %w", err)
-	}
-
-	if len(data.Results) == 0 {
-		return 0, 0, fmt.Errorf("city %q not found", city)
-	}
-
-	result := data.Results[0]
-	return result.Latitude, result.Longitude, nil
+	return 0, 0, lastErr
 }
 
 // GetWeather fetches weather for a city on a specific date

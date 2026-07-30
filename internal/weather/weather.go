@@ -37,6 +37,8 @@ type WeatherResult struct {
 	TempMin float64 `json:"temp_min"`
 	TempMax float64 `json:"temp_max"`
 	Date    string  `json:"date"`
+	Lat     float64 `json:"lat"`
+	Lon     float64 `json:"lon"`
 }
 
 func WMOToSimple(wmo int) int {

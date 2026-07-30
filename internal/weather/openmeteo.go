@@ -78,6 +78,8 @@ func FetchWeatherFromOpenMeteo(city string, lat, lon float64, date string) (*Wea
 				TempMin: data.Daily.Temperature2mMin[i],
 				TempMax: data.Daily.Temperature2mMax[i],
 				Date:    targetDate,
+				Lat:     lat,
+				Lon:     lon,
 			}, nil
 		}
 	}
@@ -89,5 +91,7 @@ func FetchWeatherFromOpenMeteo(city string, lat, lon float64, date string) (*Wea
 		TempMin: data.Daily.Temperature2mMin[0],
 		TempMax: data.Daily.Temperature2mMax[0],
 		Date:    data.Daily.Time[0],
+		Lat:     lat,
+		Lon:     lon,
 	}, nil
 }
