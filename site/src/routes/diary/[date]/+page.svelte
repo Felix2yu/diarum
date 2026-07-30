@@ -78,6 +78,7 @@
 	let micSupported = typeof window !== 'undefined' && !!(window as any).navigator?.mediaDevices?.getUserMedia;
 	let wakeLock: WakeLockSentinel | null = null;
 	let recordingMimeType = 'audio/webm';
+	let editorFocused = false;
 	// Snapshot taken on mousedown (before blur clears selectedContent)
 	let shareSelectedContent = '';
 	let shareOpenedByMouse = false;
@@ -87,6 +88,41 @@
 	function captureShareSelection() {
 		shareSelectedContent = selectedContent;
 		shareOpenedByMouse = true;
+	}
+
+	async function acquireWakeLock() {
+		if (!('wakeLock' in navigator)) return;
+		if (wakeLock) return;
+		try {
+			const lock = await navigator.wakeLock.request('screen');
+			lock.onrelease = () => {
+				wakeLock = null;
+				if (editorFocused || isRecording) {
+					acquireWakeLock().catch(() => {});
+				}
+			};
+			wakeLock = lock;
+		} catch {
+			// Wake lock not supported or denied
+		}
+	}
+
+	async function releaseWakeLock() {
+		if (wakeLock) {
+			const lock = wakeLock;
+			wakeLock = null;
+			lock.onrelease = null;
+			try { await lock.release(); } catch { /* ignore */ }
+		}
+	}
+
+	// Keep screen awake when editor is focused or recording audio
+	$: {
+		if (editorFocused || isRecording) {
+			acquireWakeLock();
+		} else {
+			releaseWakeLock();
+		}
 	}
 
 	function openShareModal() {
@@ -505,15 +541,6 @@
 			return;
 		}
 		try {
-			// Request screen wake lock to prevent iOS from locking screen during recording
-			if ('wakeLock' in navigator) {
-				try {
-					wakeLock = await navigator.wakeLock.request('screen');
-				} catch {
-					// Wake lock not supported or denied — non-critical
-				}
-			}
-
 			const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
 			recordedChunks = [];
 
@@ -532,11 +559,6 @@
 			};
 			mr.onstop = async () => {
 				stream.getTracks().forEach((t) => t.stop());
-				// Release screen wake lock
-				if (wakeLock) {
-					wakeLock.release().catch(() => {});
-					wakeLock = null;
-				}
 				isRecording = false;
 				stopRecordingTimer();
 				await transcribeRecording();
@@ -563,20 +585,10 @@
 			try {
 				mediaRecorder.stop();
 			} catch {
-				// Release wake lock on error path
-				if (wakeLock) {
-					wakeLock.release().catch(() => {});
-					wakeLock = null;
-				}
 				isRecording = false;
 				stopRecordingTimer();
 			}
 		} else {
-			// Release wake lock if recorder already inactive
-			if (wakeLock) {
-				wakeLock.release().catch(() => {});
-				wakeLock = null;
-			}
 			isRecording = false;
 			stopRecordingTimer();
 		}
@@ -701,8 +713,18 @@
 		void loadDefaultCity();
 
 		window.addEventListener('keydown', handleKeyboard);
+
+		const onVisibilityChange = () => {
+			if (document.visibilityState === 'visible' && (editorFocused || isRecording)) {
+				acquireWakeLock().catch(() => {});
+			}
+		};
+		document.addEventListener('visibilitychange', onVisibilityChange);
+
 		return () => {
 			window.removeEventListener('keydown', handleKeyboard);
+			document.removeEventListener('visibilitychange', onVisibilityChange);
+			releaseWakeLock();
 			if (mediaRecorder && mediaRecorder.state !== 'inactive') {
 				try { mediaRecorder.stop(); } catch { /* ignore */ }
 			}
@@ -787,6 +809,7 @@
 							placeholder="今天有什么想说的？"
 							emptyStatePrompt="✨ 回顾今天... 这一天你会记住什么？"
 							diaryDate={date}
+							onFocusChange={(focused) => { editorFocused = focused; }}
 						/>
 					{#if speechEnabled || isRecording || isTranscribing}
 						<div class="absolute bottom-3 right-3 flex items-center gap-2 z-10">

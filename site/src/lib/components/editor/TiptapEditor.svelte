@@ -11,7 +11,8 @@
 		placeholder = '开始书写...',
 		selectedContent = $bindable(''),
 		emptyStatePrompt = '',
-		diaryDate = $bindable(undefined as string | undefined)
+		diaryDate = $bindable(undefined as string | undefined),
+		onFocusChange = (focused: boolean) => {}
 	} = $props();
 
 	let textareaEl = $state<HTMLTextAreaElement | null>(null);
@@ -49,10 +50,12 @@
 
 	function handleFocus() {
 		isFocused = true;
+		onFocusChange(true);
 	}
 
 	function handleBlur() {
 		isFocused = false;
+		onFocusChange(false);
 	}
 
 	function updateSelectedText() {
