@@ -9,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/songtianlun/diarum/internal/logger"
 )
 
 // Service provides weather data from Open-Meteo API
@@ -45,17 +47,29 @@ type CityInfo struct {
 func SearchCities(query string) ([]CityInfo, error) {
 	var lat, lon float64
 	if n, err := fmt.Sscanf(query, "%f,%f", &lat, &lon); err == nil && n == 2 {
-		return reverseGeocode(lat, lon)
+		cities, err := reverseGeocode(lat, lon)
+		if err == nil {
+			logger.Debug("[WeatherCity] %s → Nominatim reverse: %d results", query, len(cities))
+		}
+		return cities, err
 	}
 
 	if qweatherAPIKey != "" {
 		cities, err := searchQWeather(query)
 		if err == nil {
+			logger.Debug("[WeatherCity] %s → QWeather: %d results", query, len(cities))
 			return cities, nil
 		}
+		logger.Debug("[WeatherCity] %s → QWeather failed: %v, fallback to Open-Meteo", query, err)
 	}
 
-	return searchOpenMeteo(query)
+	cities, err := searchOpenMeteo(query)
+	if err == nil {
+		logger.Debug("[WeatherCity] %s → Open-Meteo: %d results", query, len(cities))
+	} else {
+		logger.Debug("[WeatherCity] %s → all providers failed: %v", query, err)
+	}
+	return cities, err
 }
 
 // searchQWeather searches cities via QWeather city lookup API.
@@ -395,16 +409,26 @@ func geocodeCity(city string) (lat, lon float64, err error) {
 	if qweatherAPIKey != "" {
 		lat, lon, err = geocodeWithQWeather(city)
 		if err == nil {
+			logger.Debug("[WeatherGeo] %s → QWeather (%.4f, %.4f)", city, lat, lon)
 			return lat, lon, nil
 		}
+		logger.Debug("[WeatherGeo] %s → QWeather failed: %v, fallback to Open-Meteo", city, err)
 	}
 
 	lat, lon, err = geocodeWithOpenMeteo(city)
 	if err == nil {
+		logger.Debug("[WeatherGeo] %s → Open-Meteo (%.4f, %.4f)", city, lat, lon)
+		return lat, lon, nil
+	}
+	logger.Debug("[WeatherGeo] %s → Open-Meteo failed: %v, fallback to Nominatim", city, err)
+
+	lat, lon, err = geocodeWithNominatim(city)
+	if err == nil {
+		logger.Debug("[WeatherGeo] %s → Nominatim (%.4f, %.4f)", city, lat, lon)
 		return lat, lon, nil
 	}
 
-	return geocodeWithNominatim(city)
+	return 0, 0, err
 }
 
 // qwGeoResponse represents the QWeather city lookup API response
@@ -636,10 +660,18 @@ func (s *Service) GetWeatherByCoords(city string, lat, lon float64, date string)
 func (s *Service) fetchWithFallback(city string, lat, lon float64, date string) (*WeatherResult, error) {
 	result, err := FetchFromQWeather(city, lat, lon, date)
 	if err == nil {
+		logger.Debug("[WeatherAPI] %s %s → QWeather", city, date)
+		return result, nil
+	}
+	logger.Debug("[WeatherAPI] %s %s → QWeather failed: %v, fallback to Open-Meteo", city, date, err)
+
+	result, err = FetchWeatherFromOpenMeteo(city, lat, lon, date)
+	if err == nil {
+		logger.Debug("[WeatherAPI] %s %s → Open-Meteo", city, date)
 		return result, nil
 	}
 
-	return FetchWeatherFromOpenMeteo(city, lat, lon, date)
+	return nil, err
 }
 
 // SetCityCoords adds or updates city coordinates
