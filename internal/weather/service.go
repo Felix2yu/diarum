@@ -58,20 +58,46 @@ func SearchCities(query string) ([]CityInfo, error) {
 	return searchOpenMeteo(query)
 }
 
-// searchQWeather searches cities via QWeather city lookup API
+// searchQWeather searches cities via QWeather city lookup API.
+// Tries key param first, falls back to Bearer token auth.
 func searchQWeather(query string) ([]CityInfo, error) {
-	apiURL := fmt.Sprintf(
-		"https://geoapi.qweather.com/v2/city/lookup?location=%s&key=%s&number=10",
-		url.QueryEscape(query), qweatherAPIKey,
-	)
+	baseURL := "https://devapi.qweather.com/geo/v2/city/lookup?location=%s&number=10"
+	encodedQuery := url.QueryEscape(query)
 
+	cities, err := searchQwRequest(fmt.Sprintf(baseURL+"&key=%s", encodedQuery, qweatherAPIKey))
+	if err == nil {
+		return cities, nil
+	}
+
+	return searchQwRequestBearer(fmt.Sprintf(baseURL, encodedQuery), qweatherAPIKey)
+}
+
+func searchQwRequest(apiURL string) ([]CityInfo, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Get(apiURL)
 	if err != nil {
 		return nil, fmt.Errorf("QWeather geo request failed: %w", err)
 	}
 	defer resp.Body.Close()
+	return parseQwSearchResponse(resp)
+}
 
+func searchQwRequestBearer(apiURL, token string) ([]CityInfo, error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("QWeather geo request failed: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("QWeather geo request (Bearer) failed: %w", err)
+	}
+	defer resp.Body.Close()
+	return parseQwSearchResponse(resp)
+}
+
+func parseQwSearchResponse(resp *http.Response) ([]CityInfo, error) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("QWeather geo read failed: %w", err)
@@ -79,11 +105,14 @@ func searchQWeather(query string) ([]CityInfo, error) {
 
 	var data qwGeoResponse
 	if err := json.Unmarshal(body, &data); err != nil {
-		return nil, fmt.Errorf("QWeather geo parse failed: %w", err)
+		return nil, fmt.Errorf(
+			"QWeather geo parse failed (status %d, body: %s): %w",
+			resp.StatusCode, string(body), err,
+		)
 	}
 
 	if data.Code != "200" {
-		return nil, fmt.Errorf("QWeather geo api error code: %s", data.Code)
+		return nil, fmt.Errorf("QWeather geo api error (code: %s, status %d)", data.Code, resp.StatusCode)
 	}
 
 	cities := make([]CityInfo, 0, len(data.Location))
@@ -392,19 +421,47 @@ type qwGeoResult struct {
 }
 
 // geocodeWithQWeather uses QWeather city lookup API.
+// Tries key param first, falls back to Bearer token auth.
 func geocodeWithQWeather(city string) (lat, lon float64, err error) {
-	apiURL := fmt.Sprintf(
-		"https://geoapi.qweather.com/v2/city/lookup?location=%s&key=%s&number=1",
-		url.QueryEscape(city), qweatherAPIKey,
-	)
+	baseURL := "https://devapi.qweather.com/geo/v2/city/lookup?location=%s&number=1"
+	encodedCity := url.QueryEscape(city)
 
+	// Try key param auth first
+	lat, lon, err = qwGeoRequest(fmt.Sprintf(baseURL+"&key=%s", encodedCity, qweatherAPIKey))
+	if err == nil {
+		return lat, lon, nil
+	}
+
+	// Fall back to Bearer token auth
+	return qwGeoRequestBearer(fmt.Sprintf(baseURL, encodedCity), qweatherAPIKey)
+}
+
+func qwGeoRequest(apiURL string) (lat, lon float64, err error) {
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Get(apiURL)
 	if err != nil {
 		return 0, 0, fmt.Errorf("QWeather geo request failed: %w", err)
 	}
 	defer resp.Body.Close()
+	return parseQwGeoResponse(resp)
+}
 
+func qwGeoRequestBearer(apiURL, token string) (lat, lon float64, err error) {
+	client := &http.Client{Timeout: 10 * time.Second}
+	req, err := http.NewRequest("GET", apiURL, nil)
+	if err != nil {
+		return 0, 0, fmt.Errorf("QWeather geo request failed: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, 0, fmt.Errorf("QWeather geo request (Bearer) failed: %w", err)
+	}
+	defer resp.Body.Close()
+	return parseQwGeoResponse(resp)
+}
+
+func parseQwGeoResponse(resp *http.Response) (lat, lon float64, err error) {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return 0, 0, fmt.Errorf("QWeather geo read failed: %w", err)
@@ -412,15 +469,18 @@ func geocodeWithQWeather(city string) (lat, lon float64, err error) {
 
 	var data qwGeoResponse
 	if err := json.Unmarshal(body, &data); err != nil {
-		return 0, 0, fmt.Errorf("QWeather geo parse failed: %w", err)
+		return 0, 0, fmt.Errorf(
+			"QWeather geo parse failed (status %d, body: %s): %w",
+			resp.StatusCode, string(body), err,
+		)
 	}
 
 	if data.Code != "200" {
-		return 0, 0, fmt.Errorf("QWeather geo api error code: %s", data.Code)
+		return 0, 0, fmt.Errorf("QWeather geo api error (code: %s, status %d)", data.Code, resp.StatusCode)
 	}
 
 	if len(data.Location) == 0 {
-		return 0, 0, fmt.Errorf("city %q not found via QWeather", city)
+		return 0, 0, fmt.Errorf("city not found via QWeather")
 	}
 
 	if _, err := fmt.Sscanf(data.Location[0].Lat, "%f", &lat); err != nil {
