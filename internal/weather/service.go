@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -59,13 +60,13 @@ func SearchCities(query string) ([]CityInfo, error) {
 
 // searchQWeather searches cities via QWeather city lookup API
 func searchQWeather(query string) ([]CityInfo, error) {
-	url := fmt.Sprintf(
+	apiURL := fmt.Sprintf(
 		"https://geoapi.qweather.com/v2/city/lookup?location=%s&key=%s&number=10",
-		query, qweatherAPIKey,
+		url.QueryEscape(query), qweatherAPIKey,
 	)
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(url)
+	resp, err := client.Get(apiURL)
 	if err != nil {
 		return nil, fmt.Errorf("QWeather geo request failed: %w", err)
 	}
@@ -103,13 +104,13 @@ func searchQWeather(query string) ([]CityInfo, error) {
 
 // searchOpenMeteo searches cities via Open-Meteo geocoding API
 func searchOpenMeteo(query string) ([]CityInfo, error) {
-	url := fmt.Sprintf(
+	apiURL := fmt.Sprintf(
 		"https://geocoding-api.open-meteo.com/v1/search?name=%s&count=10&language=zh",
-		query,
+		url.QueryEscape(query),
 	)
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -392,13 +393,13 @@ type qwGeoResult struct {
 
 // geocodeWithQWeather uses QWeather city lookup API.
 func geocodeWithQWeather(city string) (lat, lon float64, err error) {
-	url := fmt.Sprintf(
+	apiURL := fmt.Sprintf(
 		"https://geoapi.qweather.com/v2/city/lookup?location=%s&key=%s&number=1",
-		city, qweatherAPIKey,
+		url.QueryEscape(city), qweatherAPIKey,
 	)
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Get(url)
+	resp, err := client.Get(apiURL)
 	if err != nil {
 		return 0, 0, fmt.Errorf("QWeather geo request failed: %w", err)
 	}
@@ -434,9 +435,9 @@ func geocodeWithQWeather(city string) (lat, lon float64, err error) {
 
 // geocodeWithOpenMeteo calls Open-Meteo forward geocoding API
 func geocodeWithOpenMeteo(city string) (lat, lon float64, err error) {
-	url := fmt.Sprintf(
+	apiURL := fmt.Sprintf(
 		"https://geocoding-api.open-meteo.com/v1/search?name=%s&count=1&language=zh",
-		city,
+		url.QueryEscape(city),
 	)
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -447,7 +448,7 @@ func geocodeWithOpenMeteo(city string) (lat, lon float64, err error) {
 			time.Sleep(time.Duration(attempt) * time.Second)
 		}
 
-		req, err := http.NewRequest("GET", url, nil)
+		req, err := http.NewRequest("GET", apiURL, nil)
 		if err != nil {
 			return 0, 0, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -493,9 +494,9 @@ func geocodeWithOpenMeteo(city string) (lat, lon float64, err error) {
 
 // geocodeWithNominatim uses Nominatim (OpenStreetMap) search API as fallback
 func geocodeWithNominatim(city string) (lat, lon float64, err error) {
-	url := fmt.Sprintf(
+	apiURL := fmt.Sprintf(
 		"https://nominatim.openstreetmap.org/search?q=%s&format=json&limit=1&accept-language=zh",
-		city,
+		url.QueryEscape(city),
 	)
 
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -506,7 +507,7 @@ func geocodeWithNominatim(city string) (lat, lon float64, err error) {
 			time.Sleep(time.Duration(attempt) * time.Second)
 		}
 
-		req, err := http.NewRequest("GET", url, nil)
+		req, err := http.NewRequest("GET", apiURL, nil)
 		if err != nil {
 			return 0, 0, fmt.Errorf("failed to create request: %w", err)
 		}
