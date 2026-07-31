@@ -49,7 +49,7 @@ func SearchCities(query string) ([]CityInfo, error) {
 	if n, err := fmt.Sscanf(query, "%f,%f", &lat, &lon); err == nil && n == 2 {
 		cities, err := reverseGeocode(lat, lon)
 		if err == nil {
-			logger.Debug("[WeatherCity] %s → Nominatim reverse: %d results", query, len(cities))
+			logger.Info("[WeatherCity] %s → Nominatim reverse: %d results", query, len(cities))
 		}
 		return cities, err
 	}
@@ -57,7 +57,7 @@ func SearchCities(query string) ([]CityInfo, error) {
 	if qweatherAPIKey != "" {
 		cities, err := searchQWeather(query)
 		if err == nil {
-			logger.Debug("[WeatherCity] %s → QWeather: %d results", query, len(cities))
+			logger.Info("[WeatherCity] %s → QWeather: %d results", query, len(cities))
 			return cities, nil
 		}
 		logger.Debug("[WeatherCity] %s → QWeather failed: %v, fallback to Open-Meteo", query, err)
@@ -65,7 +65,7 @@ func SearchCities(query string) ([]CityInfo, error) {
 
 	cities, err := searchOpenMeteo(query)
 	if err == nil {
-		logger.Debug("[WeatherCity] %s → Open-Meteo: %d results", query, len(cities))
+		logger.Info("[WeatherCity] %s → Open-Meteo: %d results", query, len(cities))
 	} else {
 		logger.Debug("[WeatherCity] %s → all providers failed: %v", query, err)
 	}
@@ -409,7 +409,7 @@ func geocodeCity(city string) (lat, lon float64, err error) {
 	if qweatherAPIKey != "" {
 		lat, lon, err = geocodeWithQWeather(city)
 		if err == nil {
-			logger.Debug("[WeatherGeo] %s → QWeather (%.4f, %.4f)", city, lat, lon)
+			logger.Info("[WeatherGeo] %s → QWeather (%.4f, %.4f)", city, lat, lon)
 			return lat, lon, nil
 		}
 		logger.Debug("[WeatherGeo] %s → QWeather failed: %v, fallback to Open-Meteo", city, err)
@@ -417,14 +417,14 @@ func geocodeCity(city string) (lat, lon float64, err error) {
 
 	lat, lon, err = geocodeWithOpenMeteo(city)
 	if err == nil {
-		logger.Debug("[WeatherGeo] %s → Open-Meteo (%.4f, %.4f)", city, lat, lon)
+		logger.Info("[WeatherGeo] %s → Open-Meteo (%.4f, %.4f)", city, lat, lon)
 		return lat, lon, nil
 	}
 	logger.Debug("[WeatherGeo] %s → Open-Meteo failed: %v, fallback to Nominatim", city, err)
 
 	lat, lon, err = geocodeWithNominatim(city)
 	if err == nil {
-		logger.Debug("[WeatherGeo] %s → Nominatim (%.4f, %.4f)", city, lat, lon)
+		logger.Info("[WeatherGeo] %s → Nominatim (%.4f, %.4f)", city, lat, lon)
 		return lat, lon, nil
 	}
 
@@ -660,14 +660,14 @@ func (s *Service) GetWeatherByCoords(city string, lat, lon float64, date string)
 func (s *Service) fetchWithFallback(city string, lat, lon float64, date string) (*WeatherResult, error) {
 	result, err := FetchFromQWeather(city, lat, lon, date)
 	if err == nil {
-		logger.Debug("[WeatherAPI] %s %s → QWeather", city, date)
+		logger.Info("[WeatherAPI] %s %s → QWeather", city, date)
 		return result, nil
 	}
 	logger.Debug("[WeatherAPI] %s %s → QWeather failed: %v, fallback to Open-Meteo", city, date, err)
 
 	result, err = FetchWeatherFromOpenMeteo(city, lat, lon, date)
 	if err == nil {
-		logger.Debug("[WeatherAPI] %s %s → Open-Meteo", city, date)
+		logger.Info("[WeatherAPI] %s %s → Open-Meteo", city, date)
 		return result, nil
 	}
 

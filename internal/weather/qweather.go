@@ -93,13 +93,14 @@ func FetchFromQWeather(city string, lat, lon float64, date string) (*WeatherResu
 			fmt.Sscanf(d.TempMin, "%f", &tempMin)
 
 			return &WeatherResult{
-				City:    city,
-				WMOCode: QWToWMO(iconCode),
-				TempMin: tempMin,
-				TempMax: tempMax,
-				Date:    targetDate,
-				Lat:     lat,
-				Lon:     lon,
+				City:     city,
+				WMOCode:  QWToWMO(iconCode),
+				TempMin:  tempMin,
+				TempMax:  tempMax,
+				Date:     targetDate,
+				Lat:      lat,
+				Lon:      lon,
+				Provider: "qweather",
 			}, nil
 		}
 	}

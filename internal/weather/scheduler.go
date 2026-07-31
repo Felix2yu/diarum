@@ -138,7 +138,7 @@ func (sc *Scheduler) execute(userID string) error {
 		return err
 	}
 
-	logger.Info("[WeatherAuto] user %s: saved weather for %s: %s", userID, today, FormatDisplay(result.WMOCode, result.TempMin, result.TempMax))
+	logger.Info("[WeatherAuto] user %s: saved weather for %s via %s: %s", userID, today, result.Provider, FormatDisplay(result.WMOCode, result.TempMin, result.TempMax))
 	sc.Refresh(userID)
 	return nil
 }

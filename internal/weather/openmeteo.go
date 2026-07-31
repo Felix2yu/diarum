@@ -73,25 +73,27 @@ func FetchWeatherFromOpenMeteo(city string, lat, lon float64, date string) (*Wea
 	for i, d := range data.Daily.Time {
 		if d == targetDate {
 			return &WeatherResult{
-				City:    city,
-				WMOCode: data.Daily.WeatherCode[i],
-				TempMin: data.Daily.Temperature2mMin[i],
-				TempMax: data.Daily.Temperature2mMax[i],
-				Date:    targetDate,
-				Lat:     lat,
-				Lon:     lon,
+				City:     city,
+				WMOCode:  data.Daily.WeatherCode[i],
+				TempMin:  data.Daily.Temperature2mMin[i],
+				TempMax:  data.Daily.Temperature2mMax[i],
+				Date:     targetDate,
+				Lat:      lat,
+				Lon:      lon,
+				Provider: "openmeteo",
 			}, nil
 		}
 	}
 
 	// If date not found, return first available day
 	return &WeatherResult{
-		City:    city,
-		WMOCode: data.Daily.WeatherCode[0],
-		TempMin: data.Daily.Temperature2mMin[0],
-		TempMax: data.Daily.Temperature2mMax[0],
-		Date:    data.Daily.Time[0],
-		Lat:     lat,
-		Lon:     lon,
+		City:     city,
+		WMOCode:  data.Daily.WeatherCode[0],
+		TempMin:  data.Daily.Temperature2mMin[0],
+		TempMax:  data.Daily.Temperature2mMax[0],
+		Date:     data.Daily.Time[0],
+		Lat:      lat,
+		Lon:      lon,
+		Provider: "openmeteo",
 	}, nil
 }

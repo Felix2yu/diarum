@@ -32,13 +32,14 @@ var SimpleCodeInfo = map[int]struct {
 }
 
 type WeatherResult struct {
-	City    string  `json:"city"`
-	WMOCode int     `json:"wmo_code"`
-	TempMin float64 `json:"temp_min"`
-	TempMax float64 `json:"temp_max"`
-	Date    string  `json:"date"`
-	Lat     float64 `json:"lat"`
-	Lon     float64 `json:"lon"`
+	City     string  `json:"city"`
+	WMOCode  int     `json:"wmo_code"`
+	TempMin  float64 `json:"temp_min"`
+	TempMax  float64 `json:"temp_max"`
+	Date     string  `json:"date"`
+	Lat      float64 `json:"lat"`
+	Lon      float64 `json:"lon"`
+	Provider string  `json:"provider,omitempty"`
 }
 
 func WMOToSimple(wmo int) int {
