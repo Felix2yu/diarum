@@ -61,7 +61,7 @@ func SearchCities(query string) ([]CityInfo, error) {
 // searchQWeather searches cities via QWeather city lookup API.
 // Tries key param first, falls back to Bearer token auth.
 func searchQWeather(query string) ([]CityInfo, error) {
-	baseURL := "https://devapi.qweather.com/geo/v2/city/lookup?location=%s&number=10"
+	baseURL := "https://" + qweatherHost() + "/geo/v2/city/lookup?location=%s&number=10"
 	encodedQuery := url.QueryEscape(query)
 
 	cities, err := searchQwRequest(fmt.Sprintf(baseURL+"&key=%s", encodedQuery, qweatherAPIKey))
@@ -423,7 +423,7 @@ type qwGeoResult struct {
 // geocodeWithQWeather uses QWeather city lookup API.
 // Tries key param first, falls back to Bearer token auth.
 func geocodeWithQWeather(city string) (lat, lon float64, err error) {
-	baseURL := "https://devapi.qweather.com/geo/v2/city/lookup?location=%s&number=1"
+	baseURL := "https://" + qweatherHost() + "/geo/v2/city/lookup?location=%s&number=1"
 	encodedCity := url.QueryEscape(city)
 
 	// Try key param auth first

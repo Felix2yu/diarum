@@ -10,13 +10,23 @@ import (
 )
 
 var qweatherAPIKey string
+var qweatherAPIHost string
 
 func init() {
 	qweatherAPIKey = os.Getenv("QWEATHER_API_KEY")
+	qweatherAPIHost = os.Getenv("QWEATHER_API_HOST")
 }
 
 func QWeatherEnabled() bool {
 	return qweatherAPIKey != ""
+}
+
+// qweatherHost returns the QWeather API host, defaulting to devapi.qweather.com
+func qweatherHost() string {
+	if qweatherAPIHost != "" {
+		return qweatherAPIHost
+	}
+	return "devapi.qweather.com"
 }
 
 type qwDailyResponse struct {
@@ -43,8 +53,8 @@ func FetchFromQWeather(city string, lat, lon float64, date string) (*WeatherResu
 	}
 
 	url := fmt.Sprintf(
-		"https://devapi.qweather.com/v7/weather/3d?location=%.4f,%.4f&key=%s",
-		lon, lat, qweatherAPIKey,
+		"https://%s/v7/weather/3d?location=%.4f,%.4f&key=%s",
+		qweatherHost(), lon, lat, qweatherAPIKey,
 	)
 
 	client := &http.Client{Timeout: 10 * time.Second}
