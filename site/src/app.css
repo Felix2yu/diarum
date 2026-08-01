@@ -18,6 +18,7 @@
 	--color-accent-foreground: hsl(var(--accent-foreground));
 	--color-card: hsl(var(--card));
 	--color-card-foreground: hsl(var(--card-foreground));
+	--color-switch-on: hsl(var(--switch-on));
 }
 
 @layer base {
@@ -52,6 +53,8 @@
 		--card: 45 20% 99%;
 		/* 深棕色卡片文字 */
 		--card-foreground: 25 35% 25%;
+		/* 开关开启背景色（深棕，与浅色关闭态区分明显） */
+		--switch-on: 25 45% 30%;
 
 		/* 响应式排版 - 根据视口宽度自适应缩放 */
 		--scale-factor: 1;
@@ -89,6 +92,8 @@
 		--card: 26 28% 10%;
 		/* 浅米黄卡片文字 */
 		--card-foreground: 45 25% 90%;
+		/* 开关开启背景色（中亮琥珀棕，避免近白导致滑块对比不足） */
+		--switch-on: 38 55% 52%;
 	}
 
 	/* 响应式容器宽度变量 - 根据视口宽度自适应 */

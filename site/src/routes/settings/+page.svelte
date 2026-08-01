@@ -1107,10 +1107,10 @@
 							onclick={handleToggle}
 							disabled={toggling}
 							aria-label="切换 API 访问"
-							class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {tokenStatus.enabled ? 'bg-primary' : 'bg-border'}"
+							class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {tokenStatus.enabled ? 'bg-switch-on' : 'bg-border'}"
 						>
 							<span
-								class="inline-block h-4 w-4 transform rounded-full transition-transform duration-200 {tokenStatus.enabled ? 'translate-x-6 bg-primary-foreground' : 'translate-x-1 bg-white'}"
+								class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {tokenStatus.enabled ? 'translate-x-6' : 'translate-x-1'}"
 							></span>
 						</button>
 					</div>
@@ -1246,10 +1246,10 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 						<button
 							onclick={() => memosSettings.enabled = !memosSettings.enabled}
 							aria-label="切换 Memos 同步"
-							class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {memosSettings.enabled ? 'bg-primary' : 'bg-border'}"
+							class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {memosSettings.enabled ? 'bg-switch-on' : 'bg-border'}"
 						>
 							<span
-								class="inline-block h-4 w-4 transform rounded-full transition-transform duration-200 {memosSettings.enabled ? 'translate-x-6 bg-primary-foreground' : 'translate-x-1 bg-white'}"
+								class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {memosSettings.enabled ? 'translate-x-6' : 'translate-x-1'}"
 							></span>
 						</button>
 					</div>
@@ -1352,9 +1352,9 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							<button
 								type="button"
 								onclick={() => weatherEnabled = !weatherEnabled}
-								class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {weatherEnabled ? 'bg-primary' : 'bg-border'}"
+								class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {weatherEnabled ? 'bg-switch-on' : 'bg-border'}"
 							>
-								<span class="inline-block h-4 w-4 transform rounded-full transition-transform duration-200 {weatherEnabled ? 'translate-x-6 bg-primary-foreground' : 'translate-x-1 bg-white'}"></span>
+								<span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {weatherEnabled ? 'translate-x-6' : 'translate-x-1'}"></span>
 							</button>
 						</div>
 
@@ -1381,9 +1381,9 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								<button
 									type="button"
 									onclick={() => weatherAutoFetch = !weatherAutoFetch}
-									class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {weatherAutoFetch ? 'bg-primary' : 'bg-border'}"
+									class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {weatherAutoFetch ? 'bg-switch-on' : 'bg-border'}"
 								>
-									<span class="inline-block h-4 w-4 transform rounded-full transition-transform duration-200 {weatherAutoFetch ? 'translate-x-6 bg-primary-foreground' : 'translate-x-1 bg-white'}"></span>
+									<span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {weatherAutoFetch ? 'translate-x-6' : 'translate-x-1'}"></span>
 								</button>
 							</div>
 
@@ -1791,10 +1791,10 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								onclick={() => { if (canEnableAI) aiSettings.enabled = !aiSettings.enabled; }}
 								disabled={!canEnableAI && !aiSettings.enabled}
 								aria-label="切换 AI 功能"
-								class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {aiSettings.enabled ? 'bg-primary' : 'bg-border'} {!canEnableAI && !aiSettings.enabled ? 'opacity-50 cursor-not-allowed' : ''}"
+								class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {aiSettings.enabled ? 'bg-switch-on' : 'bg-border'} {!canEnableAI && !aiSettings.enabled ? 'opacity-50 cursor-not-allowed' : ''}"
 							>
 								<span
-									class="inline-block h-4 w-4 transform rounded-full transition-transform duration-200 {aiSettings.enabled ? 'translate-x-6 bg-primary-foreground' : 'translate-x-1 bg-white'}"
+									class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {aiSettings.enabled ? 'translate-x-6' : 'translate-x-1'}"
 								></span>
 							</button>
 						</div>
