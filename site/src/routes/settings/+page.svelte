@@ -1110,7 +1110,7 @@
 							class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {tokenStatus.enabled ? 'bg-primary' : 'bg-border'}"
 						>
 							<span
-								class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {tokenStatus.enabled ? 'translate-x-6' : 'translate-x-1'}"
+								class="inline-block h-4 w-4 transform rounded-full transition-transform duration-200 {tokenStatus.enabled ? 'translate-x-6 bg-primary-foreground' : 'translate-x-1 bg-white'}"
 							></span>
 						</button>
 					</div>
@@ -1249,7 +1249,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							class="relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {memosSettings.enabled ? 'bg-primary' : 'bg-border'}"
 						>
 							<span
-								class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {memosSettings.enabled ? 'translate-x-6' : 'translate-x-1'}"
+								class="inline-block h-4 w-4 transform rounded-full transition-transform duration-200 {memosSettings.enabled ? 'translate-x-6 bg-primary-foreground' : 'translate-x-1 bg-white'}"
 							></span>
 						</button>
 					</div>
@@ -1354,7 +1354,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								onclick={() => weatherEnabled = !weatherEnabled}
 								class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {weatherEnabled ? 'bg-primary' : 'bg-border'}"
 							>
-								<span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {weatherEnabled ? 'translate-x-6' : 'translate-x-1'}"></span>
+								<span class="inline-block h-4 w-4 transform rounded-full transition-transform duration-200 {weatherEnabled ? 'translate-x-6 bg-primary-foreground' : 'translate-x-1 bg-white'}"></span>
 							</button>
 						</div>
 
@@ -1383,7 +1383,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									onclick={() => weatherAutoFetch = !weatherAutoFetch}
 									class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {weatherAutoFetch ? 'bg-primary' : 'bg-border'}"
 								>
-									<span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {weatherAutoFetch ? 'translate-x-6' : 'translate-x-1'}"></span>
+									<span class="inline-block h-4 w-4 transform rounded-full transition-transform duration-200 {weatherAutoFetch ? 'translate-x-6 bg-primary-foreground' : 'translate-x-1 bg-white'}"></span>
 								</button>
 							</div>
 
@@ -1794,7 +1794,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {aiSettings.enabled ? 'bg-primary' : 'bg-border'} {!canEnableAI && !aiSettings.enabled ? 'opacity-50 cursor-not-allowed' : ''}"
 							>
 								<span
-									class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {aiSettings.enabled ? 'translate-x-6' : 'translate-x-1'}"
+									class="inline-block h-4 w-4 transform rounded-full transition-transform duration-200 {aiSettings.enabled ? 'translate-x-6 bg-primary-foreground' : 'translate-x-1 bg-white'}"
 								></span>
 							</button>
 						</div>
