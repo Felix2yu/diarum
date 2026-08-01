@@ -940,13 +940,41 @@ func TestDiaryRoutesSearchStatsAndAccessBranches(t *testing.T) {
 		t.Fatalf("UpsertDiary other: %v", err)
 	}
 
-	rec := performRequest(t, e, http.MethodGet, "/api/v1/diaries/exists", nil, nil)
+	rec := performRequest(t, e, http.MethodGet, "/api/v1/diaries/exists?start="+yesterday+"&end="+today, nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /diaries/exists default status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	payload := decodeJSONBody(t, rec)
 	if len(payload["dates"].([]any)) < 2 {
 		t.Fatalf("exists dates = %#v", payload)
+	}
+
+	// 只有天气、没有实际内容的记录不应被当作"有日记"
+	weatherOnly := time.Now().UTC().AddDate(0, 0, 1).Format("2006-01-02")
+	if _, err := s.UpsertDiaryWeather(user.ID, weatherOnly, "999", "City", 12, 30); err != nil {
+		t.Fatalf("UpsertDiaryWeather: %v", err)
+	}
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/diaries/exists?start="+weatherOnly+"&end="+weatherOnly, nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /diaries/exists weather-only status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	payload = decodeJSONBody(t, rec)
+	if dates := payload["dates"].([]any); len(dates) != 0 {
+		t.Fatalf("weather-only diary must not appear in exists dates: %#v", payload)
+	}
+
+	// 只有心情、没有内容与天气的记录应视为有日记
+	moodOnly := time.Now().UTC().AddDate(0, 0, 2).Format("2006-01-02")
+	if _, _, err := s.UpsertDiary(user.ID, moodOnly, "", 4, nil, nil, "", nil, "", 0, 0); err != nil {
+		t.Fatalf("UpsertDiary mood-only: %v", err)
+	}
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/diaries/exists?start="+moodOnly+"&end="+moodOnly, nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /diaries/exists mood-only status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	payload = decodeJSONBody(t, rec)
+	if dates := payload["dates"].([]any); len(dates) != 1 {
+		t.Fatalf("mood-only diary should appear in exists dates: %#v", payload)
 	}
 
 	rec = performRequest(t, e, http.MethodGet, "/api/v1/diaries/stats?tz=UTC", nil, nil)

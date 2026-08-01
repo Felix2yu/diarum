@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/labstack/echo/v5"
@@ -111,6 +112,9 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		dates := make([]string, 0, len(diaries))
 		entries := make([]map[string]any, 0, len(diaries))
 		for _, diary := range diaries {
+			if !diaryHasContent(diary) {
+				continue
+			}
 			date := store.DateOnly(diary.Date)
 			dates = append(dates, date)
 			entries = append(entries, map[string]any{"date": date, "mood": diary.Mood, "weather": diary.Weather, "city": diary.City, "temp_min": diary.TempMin, "temp_max": diary.TempMax})
@@ -313,6 +317,36 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		}
 		return c.JSON(http.StatusOK, map[string]any{"tag": tag, "diaries": result, "total": len(result)})
 	})
+}
+
+// diaryHasContent 判断一条日记记录是否包含实际内容。
+// 仅含自动填充的天气信息（weather/city/temp）不视为有日记内容。
+func diaryHasContent(d *store.Diary) bool {
+	if d.Mood != 0 || len(d.MoodStates) > 0 || len(d.Scenarios) > 0 || len(d.Tags) > 0 {
+		return true
+	}
+	return !isBlankDiaryContent(d.Content)
+}
+
+// isBlankDiaryContent 判断日记正文是否为空白（去除 HTML 标签与空白后）。
+func isBlankDiaryContent(content string) bool {
+	normalized := strings.ReplaceAll(strings.ReplaceAll(content, "&nbsp;", " "), "&#160;", " ")
+	var b strings.Builder
+	inTag := false
+	for _, r := range normalized {
+		if r == '<' {
+			inTag = true
+			continue
+		}
+		if r == '>' {
+			inTag = false
+			continue
+		}
+		if !inTag {
+			b.WriteRune(r)
+		}
+	}
+	return strings.TrimSpace(b.String()) == ""
 }
 
 func diaryResponse(diary *store.Diary, date string, exists bool) map[string]any {
