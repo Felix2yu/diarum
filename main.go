@@ -226,6 +226,11 @@ func run(args []string, stdout io.Writer) error {
 	api.RegisterVersionRoutes(e, Version, Name)
 	api.RegisterMetricsRoutes(e)
 
+	// Debug 模式下注册 OpenAPI 文档路由
+	if logger.GetLevel() <= logger.LevelDebug {
+		api.RegisterOpenAPIRoutes(e, Version, Name)
+	}
+
 	// Initialize MCP server
 	mcpSrv := mcpserver.New(appStore)
 	mcpHandler := mcpSrv.GetStreamableHTTPServer()
