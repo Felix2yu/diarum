@@ -210,7 +210,7 @@
 	}
 
 	function hasDiary(date: Date): boolean {
-		return metaByDate.has(formatDate(date));
+		return metaByDate.get(formatDate(date))?.has_content ?? false;
 	}
 
 	function getDateMeta(date: Date): CalendarDiaryMeta | undefined {
@@ -311,7 +311,7 @@
 
 	function yearHasDiary(month: number, day: number): boolean {
 		const dateStr = `${currentYear}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-		return yearMetaByDate.has(dateStr);
+		return yearMetaByDate.get(dateStr)?.has_content ?? false;
 	}
 
 	function yearGetMeta(month: number, day: number): CalendarDiaryMeta | undefined {
@@ -487,6 +487,7 @@
 			<!-- Calendar Days -->
 			<div class="days-grid">
 				{#each calendarDays as date, i}
+					{@const meta = getDateMeta(date)}
 					<button
 						onclick={() => handleDateClick(date)}
 						class="day aspect-square rounded-lg transition-all duration-200 flex flex-col items-center justify-center relative
@@ -499,24 +500,21 @@
 					>
 						<span class="text-sm">{date.getDate()}</span>
 
-						{#if hasDiary(date)}
-							{@const meta = getDateMeta(date)}
-							{#if meta?.weather || meta?.mood}
-								<div class="absolute inset-x-0 top-1.5 flex items-center justify-center gap-1 text-[11px] leading-none">
-									{#if meta?.weather && isWMOCode(meta.weather)}
-										{@const weatherInfo = getWeatherInfo(parseInt(meta.weather))}
-										<span class="emoji-chip" title="天气：{weatherInfo.label}{meta?.temp_min != null && meta?.temp_max != null ? ` ${Math.round(meta.temp_min)}°~${Math.round(meta.temp_max)}°` : ''}">{weatherInfo.icon}</span>
-									{/if}
+						{#if (meta?.weather && isWMOCode(meta.weather)) || meta?.mood}
+							<div class="absolute inset-x-0 top-1.5 flex items-center justify-center gap-1 text-[11px] leading-none">
+								{#if meta?.weather && isWMOCode(meta.weather)}
+									{@const weatherInfo = getWeatherInfo(parseInt(meta.weather))}
+									<span class="emoji-chip" title="天气：{weatherInfo.label}{meta?.temp_min != null && meta?.temp_max != null ? ` ${Math.round(meta.temp_min)}°~${Math.round(meta.temp_max)}°` : ''}">{weatherInfo.icon}</span>
+								{/if}
 								{#if meta?.mood}
 									{@const moodEmoji = moodToEmoji(meta.mood)}
 									{#if moodEmoji}
 										<span class="emoji-chip" title="心情：{moodToLabel(meta.mood)}">{moodEmoji}</span>
 									{/if}
 								{/if}
-								</div>
-							{:else}
-								<span class="absolute bottom-1 w-1 h-1 bg-amber-500 rounded-full"></span>
-							{/if}
+							</div>
+						{:else if hasDiary(date)}
+							<span class="absolute bottom-1 w-1 h-1 bg-amber-500 rounded-full"></span>
 						{/if}
 					</button>
 				{/each}

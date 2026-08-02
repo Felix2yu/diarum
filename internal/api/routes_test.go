@@ -949,7 +949,7 @@ func TestDiaryRoutesSearchStatsAndAccessBranches(t *testing.T) {
 		t.Fatalf("exists dates = %#v", payload)
 	}
 
-	// 只有天气、没有实际内容的记录不应被当作"有日记"
+	// 只有天气、没有实际内容的记录仍应返回（用于显示天气图标），但 has_content 应为 false
 	weatherOnly := time.Now().UTC().AddDate(0, 0, 1).Format("2006-01-02")
 	if _, err := s.UpsertDiaryWeather(user.ID, weatherOnly, "999", "City", 12, 30); err != nil {
 		t.Fatalf("UpsertDiaryWeather: %v", err)
@@ -959,8 +959,13 @@ func TestDiaryRoutesSearchStatsAndAccessBranches(t *testing.T) {
 		t.Fatalf("GET /diaries/exists weather-only status = %d body=%s", rec.Code, rec.Body.String())
 	}
 	payload = decodeJSONBody(t, rec)
-	if dates := payload["dates"].([]any); len(dates) != 0 {
-		t.Fatalf("weather-only diary must not appear in exists dates: %#v", payload)
+	if dates := payload["dates"].([]any); len(dates) != 1 {
+		t.Fatalf("weather-only diary should still appear in exists dates: %#v", payload)
+	}
+	entries := payload["entries"].([]any)
+	weatherEntry := entries[0].(map[string]any)
+	if weatherEntry["has_content"] != false {
+		t.Fatalf("weather-only diary has_content = %#v, want false: %#v", weatherEntry["has_content"], payload)
 	}
 
 	// 只有心情、没有内容与天气的记录应视为有日记
@@ -975,6 +980,11 @@ func TestDiaryRoutesSearchStatsAndAccessBranches(t *testing.T) {
 	payload = decodeJSONBody(t, rec)
 	if dates := payload["dates"].([]any); len(dates) != 1 {
 		t.Fatalf("mood-only diary should appear in exists dates: %#v", payload)
+	}
+	entries = payload["entries"].([]any)
+	moodEntry := entries[0].(map[string]any)
+	if moodEntry["has_content"] != true {
+		t.Fatalf("mood-only diary has_content = %#v, want true: %#v", moodEntry["has_content"], payload)
 	}
 
 	rec = performRequest(t, e, http.MethodGet, "/api/v1/diaries/stats?tz=UTC", nil, nil)

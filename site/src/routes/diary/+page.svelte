@@ -28,7 +28,8 @@
 		diaryMeta = await getDatesWithDiaries(range.start, range.end);
 		loading = false;
 	}
-	$: datesWithDiaries = diaryMeta.map(item => item.date);
+	$: datesWithDiaries = diaryMeta.filter(item => item.has_content !== false).map(item => item.date);
+	$: yearDiaryCount = yearDiaryMeta.filter(item => item.has_content !== false).length;
 
 
 	async function loadRecentDiaries() {
@@ -127,7 +128,7 @@
 						<div class="text-xs text-muted-foreground">{yearViewActive ? '今年' : '本月'}</div>
 						<div class="text-xl font-bold text-foreground mt-1 h-7 flex items-center">
 							{#if yearViewActive}
-								<span class="animate-fade-in-only">{yearDiaryMeta.length}</span>
+								<span class="animate-fade-in-only">{yearDiaryCount}</span>
 							{:else if loading}
 								<span class="inline-block w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></span>
 							{:else}

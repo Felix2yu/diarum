@@ -112,12 +112,17 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		dates := make([]string, 0, len(diaries))
 		entries := make([]map[string]any, 0, len(diaries))
 		for _, diary := range diaries {
-			if !diaryHasContent(diary) {
-				continue
-			}
 			date := store.DateOnly(diary.Date)
 			dates = append(dates, date)
-			entries = append(entries, map[string]any{"date": date, "mood": diary.Mood, "weather": diary.Weather, "city": diary.City, "temp_min": diary.TempMin, "temp_max": diary.TempMax})
+			entries = append(entries, map[string]any{
+				"date":        date,
+				"mood":        diary.Mood,
+				"weather":     diary.Weather,
+				"city":        diary.City,
+				"temp_min":    diary.TempMin,
+				"temp_max":    diary.TempMax,
+				"has_content": diaryHasContent(diary),
+			})
 		}
 		return c.JSON(http.StatusOK, map[string]any{"dates": dates, "entries": entries})
 	})

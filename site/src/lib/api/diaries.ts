@@ -14,6 +14,7 @@ export interface CalendarDiaryMeta {
 	city?: string;
 	temp_min?: number;
 	temp_max?: number;
+	has_content?: boolean;
 }
 
 /**
@@ -279,12 +280,13 @@ export async function getDatesWithDiaries(start: string, end: string): Promise<C
 				weather: entry.weather || '',
 				city: entry.city || '',
 				temp_min: entry.temp_min || 0,
-				temp_max: entry.temp_max || 0
+				temp_max: entry.temp_max || 0,
+				has_content: entry.has_content ?? true
 			}));
 		}
 
 		if (Array.isArray(data.dates)) {
-			return data.dates.map((date: string) => ({ date, mood: '', weather: '', city: '', temp_min: 0, temp_max: 0 }));
+			return data.dates.map((date: string) => ({ date, mood: '', weather: '', city: '', temp_min: 0, temp_max: 0, has_content: true }));
 		}
 
 		return [];
