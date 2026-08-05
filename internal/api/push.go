@@ -17,6 +17,16 @@ func RegisterPushRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middle
 	configService := config.NewConfigService(s)
 	group := e.Group("/api/v1/push", authMiddleware)
 
+	// Record the deployment hostname on each authenticated request so push
+	// notifications can build a valid VAPID subject and Topic header (required
+	// by Apple's push service).
+	group.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			push.SiteHost = push.NormalizeHost(c.Request().Host)
+			return next(c)
+		}
+	})
+
 	// GET the VAPID public key used to create a push subscription.
 	group.GET("/vapid-public-key", func(c *echo.Context) error {
 		key, err := sender.PublicKey()
@@ -95,10 +105,10 @@ func RegisterPushRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middle
 		userID := auth.CurrentUser(c).ID
 
 		var body struct {
-			Enabled bool   `json:"enabled"`
-			Time    string `json:"time"`
+			Enabled  bool   `json:"enabled"`
+			Time     string `json:"time"`
 			TimeZone string `json:"timezone"`
-			Message string `json:"message"`
+			Message  string `json:"message"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)

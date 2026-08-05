@@ -1,11 +1,15 @@
 package push
 
 import (
+	"context"
+	"crypto/tls"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/SherClockHolmes/webpush-go"
 	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/store"
 )
@@ -130,6 +134,100 @@ func TestSendSuccess(t *testing.T) {
 	}
 	if calls != 1 {
 		t.Fatalf("calls=%d want 1", calls)
+	}
+}
+
+func TestNormalizeHost(t *testing.T) {
+	for _, c := range []struct{ in, want string }{
+		{"diarum.example.com", "diarum.example.com"},
+		{"diarum.example.com:443", "diarum.example.com"},
+		{"EXAMPLE.com:8443", "example.com"},
+		{"", ""},
+		{"  192.168.1.5:8080  ", "192.168.1.5"},
+	} {
+		if got := NormalizeHost(c.in); got != c.want {
+			t.Errorf("NormalizeHost(%q)=%q want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestSubscriberUsesSiteHost(t *testing.T) {
+	_, _, _, sender, _ := newHarness(t)
+	SiteHost = "diarum.example.com"
+	if got := sender.subscriber(); got != "mailto:webpush@diarum.example.com" {
+		t.Errorf("subscriber=%q", got)
+	}
+	SiteHost = ""
+	if got := sender.subscriber(); got != SubscriberEmail {
+		t.Errorf("subscriber fallback=%q", got)
+	}
+}
+
+func TestSendSetsTopicForApple(t *testing.T) {
+	_, u, _, sender, _ := newHarness(t)
+	if err := sender.EnsureVAPIDKeys(); err != nil {
+		t.Fatalf("keys: %v", err)
+	}
+	SiteHost = "diarum.example.com"
+	defer func() { SiteHost = "" }()
+
+	var gotTopic string
+	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotTopic = r.Header.Get("Topic")
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+
+	_, port, _ := net.SplitHostPort(srv.Listener.Addr().String())
+	// Route the Apple-style endpoint through a transport that dials our
+	// local test server so the Topic header can be asserted.
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return net.Dial(network, net.JoinHostPort("127.0.0.1", port))
+		},
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+	}
+
+	sub := webpush.Subscription{
+		Endpoint: "https://web.push.apple.com/ab8c-def0",
+		Keys: webpush.Keys{
+			Auth:   "PTFm9pC-W6LdLpqR8BOaKg",
+			P256dh: "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM",
+		},
+	}
+	if err := sender.store.SavePushSubscription(u.ID, sub.Endpoint, sub.Keys.P256dh, sub.Keys.Auth); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+
+	// Send with a sender that shares keys but a custom client+options path:
+	// reuse SendNotification but inject the transport via a direct send.
+	if err := sender.SendNotificationWithClient(u.ID, "t", "b", &http.Client{Transport: transport}); err != nil {
+		t.Fatalf("send: %v", err)
+	}
+	if gotTopic != "diarum.example.com" {
+		t.Fatalf("Topic=%q want diarum.example.com", gotTopic)
+	}
+}
+
+func TestSendNoTopicForNonApple(t *testing.T) {
+	_, u, _, sender, _ := newHarness(t)
+	if err := sender.EnsureVAPIDKeys(); err != nil {
+		t.Fatalf("keys: %v", err)
+	}
+	var gotTopic string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotTopic = r.Header.Get("Topic")
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	if err := sender.store.SavePushSubscription(u.ID, srv.URL, "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM", "PTFm9pC-W6LdLpqR8BOaKg"); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if err := sender.SendNotification(u.ID, "t", "b"); err != nil {
+		t.Fatalf("send: %v", err)
+	}
+	if gotTopic != "" {
+		t.Fatalf("Topic=%q want empty for non-Apple endpoint", gotTopic)
 	}
 }
 

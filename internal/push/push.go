@@ -7,7 +7,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -16,9 +18,26 @@ import (
 	"github.com/songtianlun/diarum/internal/store"
 )
 
-// SubscriberEmail is the "sub" claim used in the VAPID JWT token. Push services
-// require a contact; admins may override via SetSubscriberEmail.
+// SubscriberEmail is the fallback "sub" claim used in the VAPID JWT token when
+// the deployment hostname is not yet known. Apple's Web Push service rejects
+// subjects that are not a valid URL or mailto: address, so prefer a subject
+// derived from the site host (see subscriber()).
 var SubscriberEmail = "diarum@localhost"
+
+// SiteHost records the deployment hostname (e.g. "diarum.example.com") seen on
+// the latest authenticated request. It is used to build a valid VAPID subject
+// and as the Topic header, which Apple's push service expects to match the
+// subscribed origin. It is populated by the push API middleware.
+var SiteHost string
+
+// NormalizeHost strips the port and lowercases a Host header value.
+func NormalizeHost(host string) string {
+	h := strings.ToLower(strings.TrimSpace(host))
+	if i := strings.Index(h, ":"); i >= 0 {
+		h = h[:i]
+	}
+	return h
+}
 
 // Sender manages VAPID keys and sends push notifications to stored subscriptions.
 type Sender struct {
@@ -85,9 +104,25 @@ func (s *Sender) PublicKey() (string, error) {
 	return s.pubKey, nil
 }
 
+// subscriber returns the VAPID "sub" claim. It prefers a mailto: derived from
+// the deployment hostname, falling back to SubscriberEmail. Apple's push
+// service rejects subjects that are not a valid URL or mailto: address.
+func (s *Sender) subscriber() string {
+	if host := NormalizeHost(SiteHost); host != "" {
+		return "mailto:webpush@" + host
+	}
+	return SubscriberEmail
+}
+
 // SendNotification sends a push notification to all subscriptions owned by the user.
 // Subscriptions that return 410 Gone are removed from the store.
 func (s *Sender) SendNotification(owner, title, body string) error {
+	return s.SendNotificationWithClient(owner, title, body, &http.Client{Timeout: 15 * time.Second})
+}
+
+// SendNotificationWithClient is SendNotification with an explicit HTTP client
+// (used by tests to route requests through a custom transport).
+func (s *Sender) SendNotificationWithClient(owner, title, body string, client *http.Client) error {
 	subs, err := s.store.ListPushSubscriptions(owner)
 	if err != nil {
 		return err
@@ -101,7 +136,9 @@ func (s *Sender) SendNotification(owner, title, body string) error {
 		return err
 	}
 
-	var client = &http.Client{Timeout: 15 * time.Second}
+	// Apple's push service requires the Topic header to match the subscribed
+	// origin and rejects requests without it. Other push services ignore it.
+	topic := NormalizeHost(SiteHost)
 	for _, sub := range subs {
 		wpSub := &webpush.Subscription{
 			Endpoint: sub.Endpoint,
@@ -110,25 +147,30 @@ func (s *Sender) SendNotification(owner, title, body string) error {
 				P256dh: sub.P256dh,
 			},
 		}
-		resp, err := webpush.SendNotificationWithContext(context.Background(), payload, wpSub, &webpush.Options{
+		opts := &webpush.Options{
 			HTTPClient:      client,
-			Subscriber:      SubscriberEmail,
+			Subscriber:      s.subscriber(),
 			TTL:             60,
 			VAPIDPublicKey:  s.pubKey,
 			VAPIDPrivateKey: s.privKey,
-		})
+		}
+		if strings.Contains(sub.Endpoint, "web.push.apple.com") && topic != "" {
+			opts.Topic = topic
+		}
+		resp, err := webpush.SendNotificationWithContext(context.Background(), payload, wpSub, opts)
 		if err != nil {
 			logger.Warn("[Push] failed to send to %s: %v", sub.Endpoint, err)
 			continue
 		}
-		defer resp.Body.Close()
+		reason, _ := io.ReadAll(io.LimitReader(resp.Body, 256))
+		resp.Body.Close()
 		if resp.StatusCode == http.StatusGone || resp.StatusCode == http.StatusNotFound {
 			logger.Info("[Push] subscription expired (%d), removing %s", resp.StatusCode, sub.Endpoint)
 			_ = s.store.DeletePushSubscription(owner, sub.Endpoint)
 			continue
 		}
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			logger.Warn("[Push] push service returned %d for %s", resp.StatusCode, sub.Endpoint)
+			logger.Warn("[Push] push service returned %d for %s: %s", resp.StatusCode, sub.Endpoint, strings.TrimSpace(string(reason)))
 			continue
 		}
 		logger.Debug("[Push] sent notification to %s", sub.Endpoint)
