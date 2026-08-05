@@ -245,9 +245,10 @@ func (s *Sender) SendNotificationWithClient(owner, title, body string, client *h
 		return err
 	}
 
-	// Apple's push service requires the Topic header to match the subscribed
-	// origin and rejects requests without it. Other push services ignore it.
-	topic := NormalizeHost(SiteHost)
+	// NOTE: we intentionally do NOT set the Topic header. RFC 8030 §5.4 limits
+	// Topic to 1-32 URL-and-Filename-Safe characters and Apple rejects values
+	// like a dotted hostname with 400 BadWebPushTopic. Topic is optional and
+	// only affects message collapsing, which a once-a-day reminder does not need.
 	subClaim := s.subscriber()
 	for _, sub := range subs {
 		wpSub := &webpush.Subscription{
@@ -264,9 +265,6 @@ func (s *Sender) SendNotificationWithClient(owner, title, body string, client *h
 			VAPIDPublicKey:  pubKey,
 			VAPIDPrivateKey: privKey,
 		}
-		if strings.Contains(sub.Endpoint, "web.push.apple.com") && topic != "" {
-			opts.Topic = topic
-		}
 		resp, err := webpush.SendNotificationWithContext(context.Background(), payload, wpSub, opts)
 		if err != nil {
 			logger.Warn("[Push] failed to send to %s: %v", sub.Endpoint, err)
@@ -280,7 +278,7 @@ func (s *Sender) SendNotificationWithClient(owner, title, body string, client *h
 			continue
 		}
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			logger.Warn("[Push] push service returned %d for %s: %s (sub=%q topic=%q)", resp.StatusCode, sub.Endpoint, strings.TrimSpace(string(reason)), subClaim, topic)
+			logger.Warn("[Push] push service returned %d for %s: %s (sub=%q)", resp.StatusCode, sub.Endpoint, strings.TrimSpace(string(reason)), subClaim)
 			continue
 		}
 		logger.Debug("[Push] sent notification to %s", sub.Endpoint)

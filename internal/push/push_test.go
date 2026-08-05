@@ -347,13 +347,13 @@ func TestSendWithoutExplicitKeyLoad(t *testing.T) {
 	}
 }
 
-func TestSendSetsTopicForApple(t *testing.T) {
+func TestSendNoTopicForApple(t *testing.T) {
 	_, u, _, sender, _ := newHarness(t)
 	if err := sender.EnsureVAPIDKeys(); err != nil {
 		t.Fatalf("keys: %v", err)
 	}
+	t.Cleanup(func() { SiteHost = "" })
 	SiteHost = "diarum.example.com"
-	defer func() { SiteHost = "" }()
 
 	var gotTopic string
 	srv := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -364,7 +364,7 @@ func TestSendSetsTopicForApple(t *testing.T) {
 
 	_, port, _ := net.SplitHostPort(srv.Listener.Addr().String())
 	// Route the Apple-style endpoint through a transport that dials our
-	// local test server so the Topic header can be asserted.
+	// local test server so the headers can be asserted.
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			return net.Dial(network, net.JoinHostPort("127.0.0.1", port))
@@ -383,13 +383,13 @@ func TestSendSetsTopicForApple(t *testing.T) {
 		t.Fatalf("save: %v", err)
 	}
 
-	// Send with a sender that shares keys but a custom client+options path:
-	// reuse SendNotification but inject the transport via a direct send.
+	// Regression: Apple rejects a dotted-hostname Topic with 400 BadWebPushTopic,
+	// so we must NOT send a Topic header at all.
 	if err := sender.SendNotificationWithClient(u.ID, "t", "b", &http.Client{Transport: transport}); err != nil {
 		t.Fatalf("send: %v", err)
 	}
-	if gotTopic != "diarum.example.com" {
-		t.Fatalf("Topic=%q want diarum.example.com", gotTopic)
+	if gotTopic != "" {
+		t.Fatalf("Topic=%q want empty (BadWebPushTopic regression)", gotTopic)
 	}
 }
 
