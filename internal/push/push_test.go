@@ -163,6 +163,44 @@ func TestSubscriberUsesSiteHost(t *testing.T) {
 	}
 }
 
+func TestSendWithoutExplicitKeyLoad(t *testing.T) {
+	// A fresh Sender that has NOT had EnsureVAPIDKeys called must still send:
+	// keys are loaded lazily inside SendNotification. Regression for
+	// "ecdsa: private key scalar is zero or negative".
+	s, u, err := func() (*store.Store, *store.User, error) {
+		st, err := store.Open(t.TempDir())
+		if err != nil {
+			return nil, nil, err
+		}
+		us, err := st.CreateUser("tester", "t@example.com", "hash")
+		return st, us, err
+	}()
+	if err != nil {
+		t.Fatalf("setup: %v", err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+
+	sender := NewSender(s)
+	calls := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	if err := sender.store.SavePushSubscription(u.ID, srv.URL, "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM", "PTFm9pC-W6LdLpqR8BOaKg"); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if err := sender.SendNotification(u.ID, "t", "b"); err != nil {
+		t.Fatalf("send: %v", err)
+	}
+	if calls != 1 {
+		t.Fatalf("calls=%d want 1", calls)
+	}
+	if !sender.loaded {
+		t.Fatalf("scheduler not marked loaded after send")
+	}
+}
+
 func TestSendSetsTopicForApple(t *testing.T) {
 	_, u, _, sender, _ := newHarness(t)
 	if err := sender.EnsureVAPIDKeys(); err != nil {

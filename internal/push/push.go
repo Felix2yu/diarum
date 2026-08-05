@@ -123,6 +123,16 @@ func (s *Sender) SendNotification(owner, title, body string) error {
 // SendNotificationWithClient is SendNotification with an explicit HTTP client
 // (used by tests to route requests through a custom transport).
 func (s *Sender) SendNotificationWithClient(owner, title, body string, client *http.Client) error {
+	// Guarantee the VAPID key pair is loaded before sending, no matter which
+	// Sender instance or code path triggered the notification.
+	if err := s.EnsureVAPIDKeys(); err != nil {
+		return fmt.Errorf("ensure vapid keys: %w", err)
+	}
+	s.mu.Lock()
+	pubKey := s.pubKey
+	privKey := s.privKey
+	s.mu.Unlock()
+
 	subs, err := s.store.ListPushSubscriptions(owner)
 	if err != nil {
 		return err
@@ -151,8 +161,8 @@ func (s *Sender) SendNotificationWithClient(owner, title, body string, client *h
 			HTTPClient:      client,
 			Subscriber:      s.subscriber(),
 			TTL:             60,
-			VAPIDPublicKey:  s.pubKey,
-			VAPIDPrivateKey: s.privKey,
+			VAPIDPublicKey:  pubKey,
+			VAPIDPrivateKey: privKey,
 		}
 		if strings.Contains(sub.Endpoint, "web.push.apple.com") && topic != "" {
 			opts.Topic = topic
