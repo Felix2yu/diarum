@@ -61,6 +61,17 @@ func TestRegistryHelpers(t *testing.T) {
 	if got := maskSensitiveValue("1234567890"); got != "1234***7890" {
 		t.Fatalf("maskSensitiveValue = %q, want 1234***7890", got)
 	}
+
+	// Web push reminder keys
+	if meta, ok := GetConfigMeta("webpush.enabled"); !ok || meta.Type != "bool" {
+		t.Fatalf("GetConfigMeta(webpush.enabled) = %#v, %v", meta, ok)
+	}
+	if got := GetDefault("webpush.time"); got != "21:00" {
+		t.Fatalf("GetDefault(webpush.time) = %#v, want 21:00", got)
+	}
+	if IsEncrypted("webpush.message") {
+		t.Fatal("webpush.message should not be encrypted")
+	}
 }
 
 func TestConfigServiceCRUDAndDefaults(t *testing.T) {

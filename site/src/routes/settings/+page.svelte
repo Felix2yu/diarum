@@ -23,6 +23,14 @@
 	import { defaultImageUploadSettings, getImageUploadSettings, saveImageUploadSettings, testCheveretoConnection, type ImageUploadProvider, type ImageUploadSettings } from '$lib/api/imageUpload';
 	import { loadImageUploadSettings } from '$lib/stores/imageUpload';
 	import { pb } from '$lib/api/client';
+	import { reminderSettings } from '$lib/stores/notifications';
+	import {
+		enableNotifications,
+		disableNotifications,
+		saveReminderSettings,
+		sendTest,
+		notificationPermission
+	} from '$lib/utils/notifications';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import {
 		DEFAULT_WEATHER_OPTIONS,
@@ -33,10 +41,11 @@
 		moodToEmoji
 	} from '$lib/utils/diaryEmoji';
 
-	type SettingsTab = 'general' | 'api-access' | 'weather' | 'ai-assistant' | 'image-upload' | 'memos-sync' | 'data-management';
+	type SettingsTab = 'general' | 'notifications' | 'api-access' | 'weather' | 'ai-assistant' | 'image-upload' | 'memos-sync' | 'data-management';
 
 	const settingsTabs: { id: SettingsTab; label: string }[] = [
 		{ id: 'general', label: '通用' },
+		{ id: 'notifications', label: '通知提醒' },
 		{ id: 'ai-assistant', label: 'AI 助手' },
 		{ id: 'weather', label: '天气设置' },
 		{ id: 'api-access', label: 'API 访问' },
@@ -787,6 +796,100 @@
 		importing = false;
 	}
 
+	// Notification reminder settings
+	let notificationPermissionState: NotificationPermission = 'default';
+	let hasPushSubscription = false;
+	let notificationBusy = false;
+	let notificationError = '';
+	let notificationSuccess = '';
+
+	async function loadNotificationState() {
+		notificationPermissionState = notificationPermission.current();
+		try {
+			const { hasActiveSubscription } = await import('$lib/utils/notifications');
+			hasPushSubscription = await hasActiveSubscription();
+		} catch (e) {
+			hasPushSubscription = false;
+		}
+	}
+
+	async function handleRequestNotificationPermission() {
+		notificationError = '';
+		notificationSuccess = '';
+		notificationBusy = true;
+		try {
+			const ok = await enableNotifications();
+			notificationPermissionState = notificationPermission.current();
+			const { hasActiveSubscription } = await import('$lib/utils/notifications');
+			hasPushSubscription = await hasActiveSubscription();
+			const { getReminderSettings } = await import('$lib/stores/notifications');
+			const current = getReminderSettings();
+			if (ok && hasPushSubscription && current.enabled) {
+				// Re-sync schedule so the backend knows a subscription exists.
+				await saveReminderSettings(current);
+				notificationSuccess = '通知已开启 ✓';
+			} else if (!ok) {
+				notificationError = '未获得通知权限，或当前环境不支持推送（需 HTTPS）。';
+			}
+		} catch (e) {
+			notificationError = e instanceof Error ? e.message : '开启通知失败';
+		}
+		setTimeout(() => (notificationSuccess = ''), 3000);
+		notificationBusy = false;
+	}
+
+	async function handleDisableNotification() {
+		notificationError = '';
+		notificationSuccess = '';
+		notificationBusy = true;
+		try {
+			await disableNotifications();
+			hasPushSubscription = false;
+			const { updateReminderSettings, getReminderSettings } = await import('$lib/stores/notifications');
+			updateReminderSettings({ enabled: false });
+			await saveReminderSettings({ ...getReminderSettings(), enabled: false });
+			notificationSuccess = '通知已关闭';
+		} catch (e) {
+			notificationError = e instanceof Error ? e.message : '关闭通知失败';
+		}
+		setTimeout(() => (notificationSuccess = ''), 3000);
+		notificationBusy = false;
+	}
+
+	async function handleSaveNotification() {
+		notificationError = '';
+		notificationSuccess = '';
+		notificationBusy = true;
+		try {
+			const { getReminderSettings } = await import('$lib/stores/notifications');
+			await saveReminderSettings(getReminderSettings());
+			notificationSuccess = '提醒设置已保存';
+		} catch (e) {
+			notificationError = e instanceof Error ? e.message : '保存提醒设置失败';
+		}
+		setTimeout(() => (notificationSuccess = ''), 3000);
+		notificationBusy = false;
+	}
+
+	async function handleTestNotification() {
+		notificationError = '';
+		notificationSuccess = '';
+		notificationBusy = true;
+		try {
+			if (!hasPushSubscription) {
+				notificationError = '此浏览器尚未开启通知，请先点击“开启通知”。';
+				notificationBusy = false;
+				return;
+			}
+			await sendTest();
+			notificationSuccess = '测试通知已发送，请留意系统通知栏';
+		} catch (e) {
+			notificationError = e instanceof Error ? e.message : '发送测试通知失败';
+		}
+		setTimeout(() => (notificationSuccess = ''), 3000);
+		notificationBusy = false;
+	}
+
 	// Backup functions
 	import {
 		loadBackups as fetchBackups,
@@ -1020,7 +1123,7 @@
 		}
 
 		loading = true;
-		await Promise.all([loadGeneralSettings(), loadTokenStatus(), loadWeatherSettingsLocal(), loadMemosSettingsLocal(), loadAISettings(), loadImageUploadSettingsLocal()]);
+		await Promise.all([loadGeneralSettings(), loadTokenStatus(), loadWeatherSettingsLocal(), loadMemosSettingsLocal(), loadAISettings(), loadImageUploadSettingsLocal(), loadNotificationState()]);
 		loading = false;
 		// Load backup settings separately (may fail if endpoint not deployed)
 		loadBackupSettingsData().catch(() => {});
@@ -1650,6 +1753,114 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 						>
 							{savingGeneral ? '保存中...' : '保存'}
 						</button>
+					</div>
+				</div>
+				{/if}
+
+				{#if activeTab === 'notifications'}
+				<!-- Notification Reminder Section -->
+				<div id="notifications" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
+					<h2 class="text-lg font-semibold text-foreground mb-4">通知提醒</h2>
+					<p class="text-sm text-muted-foreground mb-6">
+						设置每天固定的提醒时间，通过系统通知提醒你写日记。当天已经写过日记时不会打扰你。
+					</p>
+
+					{#if notificationError}
+						<div class="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+							{notificationError}
+						</div>
+					{/if}
+
+					{#if notificationSuccess}
+						<div class="mb-4 p-3 bg-green-500/10 text-green-600 rounded-lg text-sm">
+							{notificationSuccess}
+						</div>
+					{/if}
+
+					<div class="space-y-4">
+						<!-- Enable toggle -->
+						<div class="flex items-center justify-between p-4 bg-muted/30 rounded-lg">
+							<div>
+								<div class="font-medium text-foreground">开启日记提醒</div>
+								<div class="text-sm text-muted-foreground">
+									{$reminderSettings.enabled ? '已开启' : '已关闭'}
+									{#if notificationPermissionState === 'granted' && hasPushSubscription}
+										· 此设备已订阅推送
+									{:else if notificationPermissionState === 'denied'}
+										· 系统通知权限已被拒绝
+									{/if}
+								</div>
+							</div>
+							<button
+								type="button"
+								onclick={() => {
+									if (!$reminderSettings.enabled) {
+										handleRequestNotificationPermission();
+									} else {
+										handleDisableNotification();
+									}
+								}}
+								disabled={notificationBusy}
+								class="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 {$reminderSettings.enabled ? 'bg-switch-on' : 'bg-border'}"
+							>
+								<span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-200 {$reminderSettings.enabled ? 'translate-x-6' : 'translate-x-1'}"></span>
+							</button>
+						</div>
+
+						{#if $reminderSettings.enabled}
+							<!-- Reminder time -->
+							<div class="p-4 bg-muted/30 rounded-lg">
+								<label for="reminder-time" class="block text-sm font-medium text-foreground mb-2">每日提醒时间</label>
+								<input
+									id="reminder-time"
+									type="time"
+									bind:value={$reminderSettings.time}
+									class="w-32 px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+								<p class="text-xs text-muted-foreground mt-1">到达该时间时若当天还未写日记，将收到系统通知。</p>
+							</div>
+
+							<!-- Reminder message -->
+							<div class="p-4 bg-muted/30 rounded-lg">
+								<label for="reminder-message" class="block text-sm font-medium text-foreground mb-2">提醒文案</label>
+								<input
+									id="reminder-message"
+									type="text"
+									maxlength="80"
+									bind:value={$reminderSettings.message}
+									placeholder="该写今天的日记啦 ✍️"
+									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+							</div>
+
+							<div class="flex flex-wrap items-center gap-3 pt-1">
+								<button
+									type="button"
+									onclick={handleSaveNotification}
+									disabled={notificationBusy}
+									class="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+								>
+									{notificationBusy ? '保存中...' : '保存提醒设置'}
+								</button>
+								<button
+									type="button"
+									onclick={handleTestNotification}
+									disabled={notificationBusy || !hasPushSubscription}
+									class="px-4 py-2 bg-muted text-foreground rounded-lg text-sm font-medium hover:bg-muted/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+								>
+									发送测试通知
+								</button>
+							</div>
+						{/if}
+
+						<!-- HTTPS/unsupported notice -->
+						<div class="p-4 bg-muted/30 rounded-lg text-xs text-muted-foreground space-y-1">
+							<p>
+								推送通知基于 Web Push，需要 <span class="text-foreground">HTTPS</span>（或 localhost）环境才能注册订阅。
+								若在设置中无法开启，请确认站点通过 HTTPS 访问。
+							</p>
+							<p>当天已写过日记（有内容）时，提醒将自动跳过，不会打扰你。</p>
+						</div>
 					</div>
 				</div>
 				{/if}

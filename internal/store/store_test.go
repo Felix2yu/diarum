@@ -2830,3 +2830,130 @@ func TestGetDiariesByMonthDayShortDate(t *testing.T) {
 		t.Fatalf("GetDiariesByMonthDay short = %d, want 0", len(diaries))
 	}
 }
+
+func TestPushSubscriptionLifecycle(t *testing.T) {
+	s := newTestStore(t)
+	u := newTestUser(t, s)
+
+	// Save two subscriptions
+	if err := s.SavePushSubscription(u.ID, "https://push.example/1", "p256dh-1", "auth-1"); err != nil {
+		t.Fatalf("save sub 1: %v", err)
+	}
+	if err := s.SavePushSubscription(u.ID, "https://push.example/2", "p256dh-2", "auth-2"); err != nil {
+		t.Fatalf("save sub 2: %v", err)
+	}
+
+	subs, err := s.ListPushSubscriptions(u.ID)
+	if err != nil {
+		t.Fatalf("list subs: %v", err)
+	}
+	if len(subs) != 2 {
+		t.Fatalf("list subs = %d, want 2", len(subs))
+	}
+
+	// Upsert updates an existing endpoint rather than duplicating it
+	if err := s.SavePushSubscription(u.ID, "https://push.example/1", "p256dh-1b", "auth-1b"); err != nil {
+		t.Fatalf("upsert sub: %v", err)
+	}
+	subs, err = s.ListPushSubscriptions(u.ID)
+	if err != nil {
+		t.Fatalf("list subs after upsert: %v", err)
+	}
+	if len(subs) != 2 {
+		t.Fatalf("list subs after upsert = %d, want 2", len(subs))
+	}
+	hasUpdated := false
+	for _, sub := range subs {
+		if sub.Endpoint == "https://push.example/1" && sub.P256dh == "p256dh-1b" && sub.Auth == "auth-1b" {
+			hasUpdated = true
+		}
+	}
+	if !hasUpdated {
+		t.Fatalf("expected refreshed sub not found")
+	}
+
+	// Delete one
+	if err := s.DeletePushSubscription(u.ID, "https://push.example/1"); err != nil {
+		t.Fatalf("delete sub: %v", err)
+	}
+	subs, err = s.ListPushSubscriptions(u.ID)
+	if err != nil {
+		t.Fatalf("list subs after delete: %v", err)
+	}
+	if len(subs) != 1 {
+		t.Fatalf("list subs after delete = %d, want 1", len(subs))
+	}
+
+	// Deleting a different user's subscription is a no-op
+	if err := s.DeletePushSubscription("nobody", "https://push.example/2"); err != nil {
+		t.Fatalf("delete other user: %v", err)
+	}
+	subs, _ = s.ListPushSubscriptions(u.ID)
+	if len(subs) != 1 {
+		t.Fatalf("subs leaked across users = %d, want 1", len(subs))
+	}
+}
+
+func TestHasDiaryContent(t *testing.T) {
+	s := newTestStore(t)
+	u := newTestUser(t, s)
+
+	// No diary yet
+	has, err := s.HasDiaryContent(u.ID, "2026-01-01")
+	if err != nil {
+		t.Fatalf("has diary: %v", err)
+	}
+	if has {
+		t.Fatalf("HasDiaryContent = true before creating, want false")
+	}
+
+	// Empty content is not "written"
+	if _, _, err := s.UpsertDiary(u.ID, "2026-01-01", "", 0, nil, nil, "", nil, "", 0, 0); err != nil {
+		t.Fatalf("upsert empty diary: %v", err)
+	}
+	has, _ = s.HasDiaryContent(u.ID, "2026-01-01")
+	if has {
+		t.Fatalf("HasDiaryContent = true for empty diary, want false")
+	}
+
+	// Non-empty content counts as written
+	if _, _, err := s.UpsertDiary(u.ID, "2026-01-01", "今天写了日记", 4, nil, nil, "", nil, "", 0, 0); err != nil {
+		t.Fatalf("upsert diary: %v", err)
+	}
+	has, _ = s.HasDiaryContent(u.ID, "2026-01-01")
+	if !has {
+		t.Fatalf("HasDiaryContent = false after writing, want true")
+	}
+
+	// Other dates are unaffected
+	has, _ = s.HasDiaryContent(u.ID, "2026-01-02")
+	if has {
+		t.Fatalf("HasDiaryContent = true for a different date, want false")
+	}
+}
+
+func TestVAPIDKeyRoundTrip(t *testing.T) {
+	s := newTestStore(t)
+
+	if err := s.SetVAPIDKey("public", "pubval"); err != nil {
+		t.Fatalf("set public: %v", err)
+	}
+	if err := s.SetVAPIDKey("private", "privval"); err != nil {
+		t.Fatalf("set private: %v", err)
+	}
+
+	pub, err := s.GetVAPIDKey("public")
+	if err != nil {
+		t.Fatalf("get public: %v", err)
+	}
+	if pub != "pubval" {
+		t.Fatalf("public = %q, want pubval", pub)
+	}
+	priv, err := s.GetVAPIDKey("private")
+	if err != nil {
+		t.Fatalf("get private: %v", err)
+	}
+	if priv != "privval" {
+		t.Fatalf("private = %q, want privval", priv)
+	}
+}

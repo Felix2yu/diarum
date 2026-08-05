@@ -369,6 +369,18 @@ func createSchema(db *sql.DB) error {
 			FOREIGN KEY(owner) REFERENCES users(id) ON DELETE CASCADE
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_backups_owner ON backups(owner, created DESC)`,
+		`CREATE TABLE IF NOT EXISTS push_subscriptions (
+			id TEXT PRIMARY KEY NOT NULL,
+			owner TEXT DEFAULT '' NOT NULL,
+			endpoint TEXT DEFAULT '' NOT NULL,
+			p256dh TEXT DEFAULT '' NOT NULL,
+			auth TEXT DEFAULT '' NOT NULL,
+			created TEXT NOT NULL,
+			updated TEXT NOT NULL,
+			FOREIGN KEY(owner) REFERENCES users(id) ON DELETE CASCADE
+		)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_push_subscriptions_owner_endpoint ON push_subscriptions(owner, endpoint)`,
+		`CREATE INDEX IF NOT EXISTS idx_push_subscriptions_owner ON push_subscriptions(owner)`,
 		`INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(1, datetime('now'))`,
 	}
 	for _, statement := range statements {
@@ -2352,6 +2364,79 @@ func (s *Store) UploadToS3(userID, key string, data []byte) error {
 		Body:   bytes.NewReader(data),
 	})
 	return err
+}
+
+// PushSubscription represents a browser push subscription for web push notifications.
+type PushSubscription struct {
+	ID       string `json:"id"`
+	Owner    string `json:"owner"`
+	Endpoint string `json:"endpoint"`
+	P256dh   string `json:"p256dh"`
+	Auth     string `json:"auth"`
+	Created  string `json:"created"`
+	Updated  string `json:"updated"`
+}
+
+// SavePushSubscription stores (or replaces) a push subscription for a user.
+func (s *Store) SavePushSubscription(userID, endpoint, p256dh, auth string) error {
+	id, err := GenerateID()
+	if err != nil {
+		return err
+	}
+	ts := nowString()
+	_, err = s.DB.Exec(`
+		INSERT INTO push_subscriptions(id, owner, endpoint, p256dh, auth, created, updated)
+		VALUES(?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(owner, endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth, updated = excluded.updated`,
+		id, userID, endpoint, p256dh, auth, ts, ts)
+	return err
+}
+
+// ListPushSubscriptions returns all push subscriptions for a user.
+func (s *Store) ListPushSubscriptions(userID string) ([]PushSubscription, error) {
+	rows, err := s.DB.Query(`SELECT id, owner, endpoint, p256dh, auth, created, updated FROM push_subscriptions WHERE owner = ?`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var subs []PushSubscription
+	for rows.Next() {
+		var sub PushSubscription
+		if err := rows.Scan(&sub.ID, &sub.Owner, &sub.Endpoint, &sub.P256dh, &sub.Auth, &sub.Created, &sub.Updated); err != nil {
+			continue
+		}
+		subs = append(subs, sub)
+	}
+	return subs, rows.Err()
+}
+
+// DeletePushSubscription removes a push subscription for a user by endpoint.
+func (s *Store) DeletePushSubscription(userID, endpoint string) error {
+	_, err := s.DB.Exec(`DELETE FROM push_subscriptions WHERE owner = ? AND endpoint = ?`, userID, endpoint)
+	return err
+}
+
+// HasDiaryContent reports whether a diary with non-empty content exists for the
+// given owner and date. Used to skip reminder notifications when the day's diary
+// has already been written.
+func (s *Store) HasDiaryContent(owner, date string) (bool, error) {
+	datePrefix := date + " "
+	var count int
+	err := s.DB.QueryRow(`SELECT COUNT(*) FROM diaries WHERE owner = ? AND date LIKE ? AND content != ''`, owner, datePrefix+"%").Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// GetVAPIDKey returns a stored VAPID key (public or private) by name.
+func (s *Store) GetVAPIDKey(name string) (string, error) {
+	return getMeta(s.DB, "webpush."+name)
+}
+
+// SetVAPIDKey stores a VAPID key (public or private) by name.
+func (s *Store) SetVAPIDKey(name, value string) error {
+	return setMeta(s.DB, "webpush."+name, value)
 }
 
 

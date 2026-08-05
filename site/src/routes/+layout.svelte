@@ -5,6 +5,7 @@
 	import { installUnauthorizedApiHandler } from '$lib/api/client';
 	import { initTheme } from '$lib/stores/theme';
 	import { initPWA } from '$lib/utils/pwa';
+	import { ensureNotifyWorker } from '$lib/utils/notifications';
 	import { initDiaryCache } from '$lib/stores/diaryCache';
 	import PWAInstallPrompt from '$lib/components/PWAInstallPrompt.svelte';
 	import PWAUpdatePrompt from '$lib/components/PWAUpdatePrompt.svelte';
@@ -25,6 +26,7 @@
 		initFontSize();
 		initPWA();
 		initDiaryCache();
+		ensureNotifyWorker();
 		return installUnauthorizedApiHandler(() => {
 			if (window.location.pathname !== '/login') {
 				goto('/login');

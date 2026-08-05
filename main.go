@@ -25,6 +25,7 @@ import (
 	"github.com/songtianlun/diarum/internal/embedding"
 	"github.com/songtianlun/diarum/internal/logger"
 	mcpserver "github.com/songtianlun/diarum/internal/mcp"
+	"github.com/songtianlun/diarum/internal/push"
 	"github.com/songtianlun/diarum/internal/static"
 	"github.com/songtianlun/diarum/internal/store"
 	"github.com/songtianlun/diarum/internal/weather"
@@ -270,6 +271,13 @@ func run(args []string, stdout io.Writer) error {
 	// Start weather auto-fetch scheduler
 	weatherScheduler.Start()
 	defer weatherScheduler.Stop()
+
+	// Start push reminder scheduler
+	pushSender := push.NewSender(appStore)
+	pushScheduler := push.NewScheduler(appStore, configService, pushSender)
+	api.RegisterPushRoutes(e, appStore, authMiddleware, pushScheduler)
+	pushScheduler.Start()
+	defer pushScheduler.Stop()
 
 	staticFS, err := static.GetFS()
 	if err != nil {

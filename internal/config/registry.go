@@ -69,6 +69,12 @@ var ConfigRegistry = map[string]ConfigMeta{
 	"backup.day_of_month":     {Type: "int", Default: 1, Encrypted: false},
 	"backup.retention_days":   {Type: "int", Default: 90, Encrypted: false},
 	"backup.upload_s3":        {Type: "bool", Default: false, Encrypted: false},
+
+	// Web push reminder notifications
+	"webpush.enabled": {Type: "bool", Default: false, Encrypted: false},
+	"webpush.time":    {Type: "string", Default: "21:00", Encrypted: false},
+	"webpush.tz":      {Type: "string", Default: "", Encrypted: false},
+	"webpush.message": {Type: "string", Default: "该写今天的日记啦 ✍️", Encrypted: false},
 }
 
 // GetConfigMeta returns the metadata for a configuration key
