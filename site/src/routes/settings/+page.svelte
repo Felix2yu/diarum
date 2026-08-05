@@ -822,11 +822,11 @@
 			notificationPermissionState = notificationPermission.current();
 			const { hasActiveSubscription } = await import('$lib/utils/notifications');
 			hasPushSubscription = await hasActiveSubscription();
-			const { getReminderSettings } = await import('$lib/stores/notifications');
-			const current = getReminderSettings();
-			if (ok && hasPushSubscription && current.enabled) {
-				// Re-sync schedule so the backend knows a subscription exists.
-				await saveReminderSettings(current);
+			if (ok && hasPushSubscription) {
+				const { updateReminderSettings, getReminderSettings } = await import('$lib/stores/notifications');
+				updateReminderSettings({ enabled: true });
+				// Sync schedule so the backend knows reminders are on.
+				await saveReminderSettings(getReminderSettings());
 				notificationSuccess = '通知已开启 ✓';
 			} else if (!ok) {
 				notificationError = '未获得通知权限，或当前环境不支持推送（需 HTTPS）。';
