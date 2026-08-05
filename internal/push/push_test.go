@@ -151,15 +151,67 @@ func TestNormalizeHost(t *testing.T) {
 	}
 }
 
-func TestSubscriberUsesSiteHost(t *testing.T) {
+func TestSubscriberResolution(t *testing.T) {
 	_, _, _, sender, _ := newHarness(t)
-	SiteHost = "diarum.example.com"
-	if got := sender.subscriber(); got != "mailto:webpush@diarum.example.com" {
-		t.Errorf("subscriber=%q", got)
+	t.Cleanup(func() {
+		SiteHost, SiteOrigin, SubscriberOverride = "", "", ""
+	})
+
+	cases := []struct {
+		name     string
+		origin   string
+		host     string
+		override string
+		want     string
+	}{
+		{"origin preferred", "https://diarum.example.com", "localhost:1323", "", "mailto:webpush@diarum.example.com"},
+		{"host fallback", "", "diarum.example.com", "", "mailto:webpush@diarum.example.com"},
+		{"origin localhost rejected, host used", "https://localhost:1323", "diarum.example.com", "", "mailto:webpush@diarum.example.com"},
+		{"ip rejected, host used", "", "192.168.1.5", "", SubscriberEmail},
+		{"localhost rejected", "", "localhost", "", SubscriberEmail},
+		{"override wins", "https://a.example.com", "b.example.com", "mailto:admin@diarum.app", "mailto:admin@diarum.app"},
+		{"empty all", "", "", "", SubscriberEmail},
 	}
-	SiteHost = ""
-	if got := sender.subscriber(); got != SubscriberEmail {
-		t.Errorf("subscriber fallback=%q", got)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			SiteOrigin, SiteHost, SubscriberOverride = c.origin, c.host, c.override
+			if got := sender.subscriber(); got != c.want {
+				t.Errorf("subscriber()=%q want %q", got, c.want)
+			}
+		})
+	}
+}
+
+func TestOriginHost(t *testing.T) {
+	for _, c := range []struct{ in, want string }{
+		{"https://diarum.example.com", "diarum.example.com"},
+		{"https://diarum.example.com:8443", "diarum.example.com"},
+		{"https://localhost:1323", "localhost"},
+		{"not a url", ""},
+		{"", ""},
+	} {
+		if got := OriginHost(c.in); got != c.want {
+			t.Errorf("OriginHost(%q)=%q want %q", c.in, got, c.want)
+		}
+	}
+}
+
+func TestIsPublicHost(t *testing.T) {
+	for _, c := range []struct {
+		in   string
+		want bool
+	}{
+		{"diarum.example.com", true},
+		{"", false},
+		{"localhost", false},
+		{"127.0.0.1", false},
+		{"192.168.1.5", false},
+		{"myhost.local", false},
+		{"myhost.lan", false},
+	} {
+		if got := isPublicHost(c.in); got != c.want {
+			t.Errorf("isPublicHost(%q)=%v want %v", c.in, got, c.want)
+		}
 	}
 }
 

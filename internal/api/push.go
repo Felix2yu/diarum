@@ -17,12 +17,19 @@ func RegisterPushRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middle
 	configService := config.NewConfigService(s)
 	group := e.Group("/api/v1/push", authMiddleware)
 
-	// Record the deployment hostname on each authenticated request so push
-	// notifications can build a valid VAPID subject and Topic header (required
-	// by Apple's push service).
+	// Record the deployment hostname/origin on each authenticated request so
+	// push notifications can build a valid VAPID subject and Topic header
+	// (required by Apple's push service). Origin is preferred over Host
+	// because it carries the true public origin the browser subscribed under.
 	group.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			push.SiteHost = push.NormalizeHost(c.Request().Host)
+			origin := c.Request().Header.Get("Origin")
+			push.SiteOrigin = origin
+			if host := push.OriginHost(origin); host != "" {
+				push.SiteHost = host
+			} else {
+				push.SiteHost = push.NormalizeHost(c.Request().Host)
+			}
 			return next(c)
 		}
 	})

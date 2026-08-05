@@ -273,6 +273,9 @@ func run(args []string, stdout io.Writer) error {
 	defer weatherScheduler.Stop()
 
 	// Start push reminder scheduler
+	if sub := os.Getenv("DIARUM_PUSH_SUBSCRIBER"); sub != "" {
+		push.SubscriberOverride = sub
+	}
 	pushSender := push.NewSender(appStore)
 	pushScheduler := push.NewScheduler(appStore, configService, pushSender)
 	api.RegisterPushRoutes(e, appStore, authMiddleware, pushScheduler)

@@ -8,7 +8,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -19,16 +21,28 @@ import (
 )
 
 // SubscriberEmail is the fallback "sub" claim used in the VAPID JWT token when
-// the deployment hostname is not yet known. Apple's Web Push service rejects
-// subjects that are not a valid URL or mailto: address, so prefer a subject
-// derived from the site host (see subscriber()).
+// no usable deployment hostname or override is available. Apple's Web Push
+// service rejects subjects that are not a valid URL or mailto: address with a
+// public email domain, so a caller that relies on this fallback will be
+// rejected by Apple (it still works with Chrome/Firefox push services).
 var SubscriberEmail = "diarum@localhost"
 
+// SubscriberOverride, when set, is used verbatim as the VAPID "sub" claim.
+// Admins can pin a valid contact (e.g. via the DIARUM_PUSH_SUBSCRIBER env var)
+// when the deployment host cannot be auto-detected reliably.
+var SubscriberOverride string
+
 // SiteHost records the deployment hostname (e.g. "diarum.example.com") seen on
-// the latest authenticated request. It is used to build a valid VAPID subject
-// and as the Topic header, which Apple's push service expects to match the
-// subscribed origin. It is populated by the push API middleware.
+// the latest request. It is used to build the VAPID subject and the Topic
+// header, which Apple's push service expects to match the subscribed origin.
+// It is populated by the push API middleware.
 var SiteHost string
+
+// SiteOrigin records the full Origin (e.g. "https://diarum.example.com") seen
+// on the latest request. It is preferred over SiteHost because reverse proxies
+// often rewrite the Host header but preserve the browser's Origin, which is
+// the true public origin that Safari subscribed under.
+var SiteOrigin string
 
 // NormalizeHost strips the port and lowercases a Host header value.
 func NormalizeHost(host string) string {
@@ -37,6 +51,35 @@ func NormalizeHost(host string) string {
 		h = h[:i]
 	}
 	return h
+}
+
+// OriginHost extracts a normalized hostname from an Origin/URL string.
+func OriginHost(origin string) string {
+	origin = strings.TrimSpace(origin)
+	if origin == "" {
+		return ""
+	}
+	u, err := url.Parse(origin)
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	return NormalizeHost(u.Host)
+}
+
+// isPublicHost reports whether host is usable as a VAPID subject domain.
+// Apple rejects mailto: subjects whose domain is not a real public domain
+// (e.g. "localhost", IP addresses, ".local" mDNS names).
+func isPublicHost(host string) bool {
+	if host == "" || host == "localhost" {
+		return false
+	}
+	if ip := net.ParseIP(host); ip != nil {
+		return false
+	}
+	if strings.HasSuffix(host, ".local") || strings.HasSuffix(host, ".lan") {
+		return false
+	}
+	return true
 }
 
 // Sender manages VAPID keys and sends push notifications to stored subscriptions.
@@ -104,12 +147,18 @@ func (s *Sender) PublicKey() (string, error) {
 	return s.pubKey, nil
 }
 
-// subscriber returns the VAPID "sub" claim. It prefers a mailto: derived from
-// the deployment hostname, falling back to SubscriberEmail. Apple's push
-// service rejects subjects that are not a valid URL or mailto: address.
+// subscriber returns the VAPID "sub" claim. It prefers an explicitly pinned
+// override, then a mailto: derived from the site origin/host. Apple's push
+// service rejects subjects that are not a URL or mailto: with a real public
+// email domain.
 func (s *Sender) subscriber() string {
-	if host := NormalizeHost(SiteHost); host != "" {
-		return "mailto:webpush@" + host
+	if SubscriberOverride != "" {
+		return SubscriberOverride
+	}
+	for _, candidate := range []string{OriginHost(SiteOrigin), NormalizeHost(SiteHost)} {
+		if isPublicHost(candidate) {
+			return "mailto:webpush@" + candidate
+		}
 	}
 	return SubscriberEmail
 }
