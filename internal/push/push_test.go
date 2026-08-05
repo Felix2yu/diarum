@@ -3,9 +3,12 @@ package push
 import (
 	"context"
 	"crypto/tls"
+	"encoding/base64"
+	"encoding/json"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -164,12 +167,14 @@ func TestSubscriberResolution(t *testing.T) {
 		override string
 		want     string
 	}{
-		{"origin preferred", "https://diarum.example.com", "localhost:1323", "", "mailto:webpush@diarum.example.com"},
-		{"host fallback", "", "diarum.example.com", "", "mailto:webpush@diarum.example.com"},
-		{"origin localhost rejected, host used", "https://localhost:1323", "diarum.example.com", "", "mailto:webpush@diarum.example.com"},
+		{"origin preferred", "https://diarum.example.com", "localhost:1323", "", "webpush@diarum.example.com"},
+		{"host fallback", "", "diarum.example.com", "", "webpush@diarum.example.com"},
+		{"origin localhost rejected, host used", "https://localhost:1323", "diarum.example.com", "", "webpush@diarum.example.com"},
 		{"ip rejected, host used", "", "192.168.1.5", "", SubscriberEmail},
 		{"localhost rejected", "", "localhost", "", SubscriberEmail},
-		{"override wins", "https://a.example.com", "b.example.com", "mailto:admin@diarum.app", "mailto:admin@diarum.app"},
+		{"override mailto stripped", "https://a.example.com", "b.example.com", "mailto:admin@diarum.app", "admin@diarum.app"},
+		{"override bare email kept", "", "", "admin@diarum.app", "admin@diarum.app"},
+		{"override https kept", "", "", "https://diarum.yufei.im", "https://diarum.yufei.im"},
 		{"empty all", "", "", "", SubscriberEmail},
 	}
 	for _, c := range cases {
@@ -246,6 +251,61 @@ func TestIsPublicHost(t *testing.T) {
 		if got := isPublicHost(c.in); got != c.want {
 			t.Errorf("isPublicHost(%q)=%v want %v", c.in, got, c.want)
 		}
+	}
+}
+
+func TestNoDoubleMailtoPrefix(t *testing.T) {
+	// Regression: webpush-go prepends "mailto:" to bare e-mail subjects, so the
+	// exact subject passed must not already carry the prefix (which produced
+	// "mailto:mailto:..." and a 403 BadJwtToken from Apple).
+	_, u, _, sender, _ := newHarness(t)
+	t.Cleanup(func() { SiteHost, SiteOrigin, SubscriberOverride = "", "", "" })
+	SiteOrigin = "https://diarum.yufei.im"
+	SubscriberOverride = "mailto:webpush@diarum.yufei.im"
+
+	var auth string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auth = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+	if err := sender.store.SavePushSubscription(u.ID, srv.URL, "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QTpQtUbVlUls0VJXg7A8u-Ts1XbjhazAkj7I99e8QcYP7DkM", "PTFm9pC-W6LdLpqR8BOaKg"); err != nil {
+		t.Fatalf("save: %v", err)
+	}
+	if err := sender.SendNotification(u.ID, "t", "b"); err != nil {
+		t.Fatalf("send: %v", err)
+	}
+
+	// Extract the JWT (t parameter) and decode its payload.
+	i := strings.Index(auth, "t=")
+	if i < 0 {
+		t.Fatalf("no t= in authorization: %q", auth)
+	}
+	rest := auth[i+2:]
+	if j := strings.Index(rest, ","); j >= 0 {
+		rest = rest[:j]
+	}
+	parts := strings.Split(rest, ".")
+	if len(parts) != 3 {
+		t.Fatalf("malformed jwt: %q", rest)
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	var claims struct {
+		Sub string `json:"sub"`
+		Aud string `json:"aud"`
+		Exp int64  `json:"exp"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if got := strings.Count(claims.Sub, "mailto:"); got != 1 {
+		t.Errorf("sub %q has %d mailto: prefixes, want exactly 1", claims.Sub, got)
+	}
+	if claims.Sub != "mailto:webpush@diarum.yufei.im" {
+		t.Errorf("sub=%q", claims.Sub)
 	}
 }
 

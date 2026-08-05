@@ -21,10 +21,11 @@ import (
 )
 
 // SubscriberEmail is the fallback "sub" claim used in the VAPID JWT token when
-// no usable deployment hostname or override is available. Apple's Web Push
-// service rejects subjects that are not a valid URL or mailto: address with a
-// public email domain, so a caller that relies on this fallback will be
-// rejected by Apple (it still works with Chrome/Firefox push services).
+// no usable deployment hostname or override is available. It is a bare e-mail
+// (webpush-go adds the "mailto:" scheme). Apple's Web Push service rejects
+// subjects whose e-mail domain is not a real public domain (e.g. "localhost"),
+// so a caller that relies on this fallback will be rejected by Apple (it still
+// works with Chrome/Firefox push services).
 var SubscriberEmail = "diarum@localhost"
 
 // SubscriberOverride, when set, is used verbatim as the VAPID "sub" claim.
@@ -185,20 +186,31 @@ func (s *Sender) PublicKey() (string, error) {
 	return s.pubKey, nil
 }
 
-// subscriber returns the VAPID "sub" claim. It prefers an explicitly pinned
-// override, then a mailto: derived from the site origin/host. Apple's push
-// service rejects subjects that are not a URL or mailto: with a real public
-// email domain.
+// subscriber returns the VAPID "sub" claim. NOTE: webpush-go itself prepends
+// "mailto:" to any subject that doesn't start with "https:" (vapid.go), so we
+// must NOT include the "mailto:" prefix here — otherwise the token's sub would
+// become "mailto:mailto:...", which Apple rejects as an invalid subject
+// (403 BadJwtToken).
 func (s *Sender) subscriber() string {
 	if SubscriberOverride != "" {
-		return SubscriberOverride
+		return normalizeSubjectForScheme(SubscriberOverride)
 	}
 	for _, candidate := range []string{OriginHost(SiteOrigin), NormalizeHost(SiteHost)} {
 		if isPublicHost(candidate) {
-			return "mailto:webpush@" + candidate
+			return "webpush@" + candidate
 		}
 	}
 	return SubscriberEmail
+}
+
+// normalizeSubjectForScheme strips a leading "mailto:" so webpush-go prepends
+// exactly one. "https:" and bare e-mail subjects are passed through untouched.
+func normalizeSubjectForScheme(sub string) string {
+	sub = strings.TrimSpace(sub)
+	if strings.HasPrefix(strings.ToLower(sub), "mailto:") {
+		return sub[len("mailto:"):]
+	}
+	return sub
 }
 
 // SendNotification sends a push notification to all subscriptions owned by the user.
