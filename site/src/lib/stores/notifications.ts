@@ -45,7 +45,37 @@ function persist(settings: ReminderSettings) {
 	}
 }
 
-export const reminderSettings = writable<ReminderSettings>(loadSettings());
+/**
+ * A persistence-aware store: every update (including Svelte 5 property
+ * bindings like `bind:value={$reminderSettings.time}`, which call .set/.update
+ * directly) is mirrored to localStorage immediately. Without this, edits to the
+ * reminder time/message that bypassed updateReminderSettings were never
+ * persisted and reverted on the next page load ("保存后丢失").
+ */
+function createReminderSettingsStore() {
+	const { subscribe, set, update } = writable<ReminderSettings>(loadSettings());
+
+	function emit(next: ReminderSettings) {
+		set(next);
+		persist(next);
+	}
+
+	return {
+		subscribe,
+		set(value: ReminderSettings) {
+			emit(value);
+		},
+		update(fn: (value: ReminderSettings) => ReminderSettings) {
+			update((v) => {
+				const next = fn(v);
+				persist(next);
+				return next;
+			});
+		}
+	};
+}
+
+export const reminderSettings = createReminderSettingsStore();
 
 export function getReminderSettings(): ReminderSettings {
 	return get(reminderSettings);
@@ -54,6 +84,5 @@ export function getReminderSettings(): ReminderSettings {
 export function updateReminderSettings(partial: Partial<ReminderSettings>): ReminderSettings {
 	const next = { ...get(reminderSettings), ...partial };
 	reminderSettings.set(next);
-	persist(next);
 	return next;
 }
