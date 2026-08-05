@@ -831,7 +831,10 @@
 				await saveReminderSettings(getReminderSettings());
 				notificationSuccess = '通知已开启 ✓';
 			} else if (!result.ok) {
-				notificationError = describeNotificationFailure(result.reason, result.standalone);
+				const { notificationEnvironmentInfo } = await import('$lib/utils/notifications');
+				const envInfo = notificationEnvironmentInfo();
+				console.warn('[Notifications] enable failed, env:', envInfo);
+				notificationError = describeNotificationFailure(result.reason, result.standalone) + ' 诊断：' + envInfo;
 			}
 		} catch (e) {
 			notificationError = e instanceof Error ? e.message : '开启通知失败';
