@@ -31,8 +31,7 @@
 		sendTest,
 		notificationPermission,
 		hasActiveSubscription,
-		describeNotificationFailure,
-		requestNotificationPermission
+		describeNotificationFailure
 	} from '$lib/utils/notifications';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import {
@@ -820,11 +819,9 @@
 		notificationSuccess = '';
 		notificationBusy = true;
 		try {
-			// 关键：Notification.requestPermission 必须在点击手势内同步触发，
-			// 不能在授权前 await import 或包在多层 async 中，否则 Safari 会
-			// 静默忽略而不弹授权框（permission 保持 default）。
-			const permissionPromise = requestNotificationPermission();
-			const result = await enableNotifications(permissionPromise);
+			// 注意：Notification.requestPermission 必须在用户手势窗口内同步触发，
+			// 不能在授权前 await import，否则 Safari 可能不弹授权框。
+			const result = await enableNotifications();
 			notificationPermissionState = result.permission;
 			hasPushSubscription = await hasActiveSubscription();
 			if (result.ok && hasPushSubscription) {

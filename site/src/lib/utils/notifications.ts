@@ -67,12 +67,12 @@ export interface EnableNotificationResult {
 export function notificationEnvironmentInfo(): string {
 	if (!browser) return 'SSR';
 	const parts = [
-		`href=${location.href}`,
 		`secure=${window.isSecureContext}`,
 		`notification=${'Notification' in window}`,
 		`permission=${'Notification' in window ? Notification.permission : 'n/a'}`,
 		`sw=${'serviceWorker' in navigator}`,
 		`standalone=${window.matchMedia('(display-mode: standalone)').matches}`,
+		`displayMode=${window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser'}`,
 		`ua=${navigator.userAgent}`
 	];
 	return parts.join(' | ');
@@ -127,28 +127,11 @@ export async function registerNotifyWorker(): Promise<ServiceWorkerRegistration 
 }
 
 /**
- * Synchronously fire `Notification.requestPermission()` and return its promise.
- * Safari requires the permission request to be initiated directly inside the
- * user-gesture handler; wrapping it behind an `await` may silently swallow it.
- * Returns `null` when the environment cannot request permission at all.
- */
-export function requestNotificationPermission(): Promise<NotificationPermission> | null {
-	if (!isSupported()) return null;
-	if (!window.isSecureContext) return null;
-	return Notification.requestPermission();
-}
-
-/**
  * Request notification permission and register a push subscription.
  * Returns a detailed result so the UI can show a targeted message instead of
  * collapsing every failure into one generic hint.
- *
- * `permissionPromise` should come from `requestNotificationPermission()` called
- * synchronously in the click handler, so Safari's user-gesture window is kept.
  */
-export async function enableNotifications(
-	permissionPromise?: Promise<NotificationPermission> | null
-): Promise<EnableNotificationResult> {
+export async function enableNotifications(): Promise<EnableNotificationResult> {
 	const standalone = isStandalone();
 
 	// 1. Environment support.
@@ -159,15 +142,10 @@ export async function enableNotifications(
 		return { ok: false, reason: 'not-secure', permission: 'denied', standalone };
 	}
 
-	// 2. Resolve permission (the request itself was fired synchronously by the
-	// caller's click handler; fall back here only if no promise was passed).
+	// 2. Request permission (must be triggered by a user gesture).
 	let permission: NotificationPermission;
 	try {
-		const req = permissionPromise ?? requestNotificationPermission();
-		if (!req) {
-			return { ok: false, reason: 'not-granted', permission: 'default', standalone };
-		}
-		permission = await req;
+		permission = await Notification.requestPermission();
 	} catch (e) {
 		console.warn('[Notifications] requestPermission threw:', e);
 		return { ok: false, reason: 'not-granted', permission: 'default', standalone };
