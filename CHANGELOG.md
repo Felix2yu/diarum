@@ -4,7 +4,49 @@
 
 ---
 
-## v1.11 - 2026-07-06
+## v1.12 - 2026-08-05
+
+> 发布日期：2026-08-05
+> 对比基线：`v1.11 (76e66b8)` → `v1.12 (d85ecdf)`，**86 个文件，+10045 / -1692 行**
+
+### ✨ 新增 Features
+
+- **Web Push 日记提醒通知** — 设置每日提醒时间，到点若当天还不曾写下正文则推送系统通知并跳过，避免打扰；VAPID 密钥自动生成并持久化，同时兼容 Apple APNs / Chrome(FCM) / Firefox Autopush，支持自定义提醒文案与本地时区
+- **向量嵌入优化** — 智能分块、加权平均聚合与自动重试生成向量嵌入，提升 AI 对话的检索质量与稳定性
+- **天气重构** — 接入和风天气(QWeather)并精简为 10 类，支持定时自动获取、历史日期补全、地理编码搜索，新增 `QWEATHER_API_HOST` 独立地址配置
+- **天气跨设备同步** — `diaries` 表新增 `city` / `temp_min` / `temp_max` 字段，天气与温度数据在设备间同步
+- **自动日记备份** — 定时导出日记并按计划上传 S3
+- **通用设置标签页** — 支持默认页面、字体大小与外观模式切换
+- **天气设置页增强** — 和风天气可用状态提示与定时获取配置
+
+### 🐛 Bug 修复
+
+- **Apple APNs 推送** — 修复 VAPID JWT `sub` 双 `mailto:` 前缀导致的 `BadJwtToken`，以及非法 `Topic` 头导致的 `BadWebPushTopic`；VAPID subject 优先取自站点 Origin 公网域名并拒绝 localhost/IP，支持 `DIARUM_PUSH_SUBSCRIBER` 覆盖
+- **提醒设置保存后丢失** — 每日提醒时间 / 文案编辑即时持久化到 localStorage，刷新不再回退
+- **提醒开关** — 开启提醒时正确将 `enabled` 置位
+- **天气** — 修复定时自动获取 403、新日记获取天气竞态、手动选天气不显示图标、温度被覆盖为 0 等多项问题
+- **iOS** — 录音 / 听写时启用 Wake Lock 防锁屏，修复 iOS 音频格式兼容
+- **MCP** — 修复 `create_diary` 工具 `mood_states` / `scenarios` / `tags` 参数 JSON Schema 无效；`fine` LobeHub OAuth Protected Resource Metadata 与 CORS
+- **日历 / 设置** — 仅含天气的日期不再标记为有日记底色；暗色模式下开关状态改用高对比色
+
+### 🔧 技术改进
+
+- **安全修复** — 修复 `brace-expansion` high 漏洞与 `fast-uri` CVE-2026-16221
+- **依赖升级** — npm 与 Go 依赖大版本升级，Tailwind v4 迁移，升级 `x/text` v0.40.0、Echo v5.3.0
+- **Docker 构建** — 构建镜像升级至 `node:26`，`npm ci` 增加 `--legacy-peer-deps` 适配 TypeScript 7
+- **代码清理** — 移除 Footer 组件、调试日志与 OpenAPI debug 页面，前端字体大小改为根元素 `fontSize` 全局生效
+
+### 📁 主要变更文件
+
+- `internal/push/` — Web Push 发送与提醒调度器（新增）
+- `internal/store/store.go` — `push_subscriptions` 表、VAPID meta、`HasDiaryContent`、`city`/`temp_*` 字段
+- `internal/api/push.go` — `/api/v1/push/*` 路由
+- `internal/config/registry.go` — `webpush.*` 配置项
+- `site/src/lib/stores/notifications.ts`、`site/src/lib/api/notifications.ts`、`site/static/sw/notify.js` — 前端订阅与通知（新增）
+- `site/src/routes/settings/+page.svelte` — 通知提醒标签页
+- `internal/weather/` — 和风天气重构与定时获取
+
+---
 
 > 发布日期：2026-07-06
 > 对比基线：`v1.10 (db59953)` → `v1.11 (3c0af40)`

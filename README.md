@@ -28,6 +28,8 @@
 16. zstd + brotli 预压缩（静态资源传输体积减少 75-78%）
 17. 清理 tiptap 死代码与未使用依赖（减少约 50MB node_modules）
 18. MCP Server（Model Context Protocol）— 内置 MCP 服务端，支持 Cherry Studio、Claude Desktop 等 AI 客户端直接读写日记
+19. Web Push 日记提醒通知 — 设置每日提醒时间，到点若当天还未写日记则推送系统通知（兼容 Apple APNs / Chrome / Firefox）
+20. 循环重构 — 接入和风天气(QWeather)、定时自动获取与历史补全；自动日记备份并上传 S3
 ---
 
 ## 中文
@@ -89,6 +91,9 @@
 - 📅 **往昔今朝 / 时空穿越** - 日历视图中回顾历年同日日记，随机翻阅历史记录
 - 🔗 **Memos Webhook 同步** - 接收 Memos 新增、更新、删除 webhook 事件，并同步写入 memo 创建日期对应的日记
 - 🤝 **MCP Server** - 内置 Model Context Protocol 服务端，支持 Cherry Studio、Claude Desktop 等 AI 客户端直接读写日记
+- 🔔 **Web Push 日记提醒** - 设置每日提醒时间，到点若当天还未写日记则收到系统通知，不打扰已完成的记录（支持 Apple APNs / Chrome / Firefox）
+- 🌤️ **智能天气** - 接入和风天气，定时自动获取、历史日期补全，天气与温度跨设备同步
+- 🔒 **自动备份** - 定时导出日记并上传 S3，数据更安心
 - 🔒 **自托管** - 完全掌控你的个人数据
 - 🚀 **易于部署** - 单一二进制文件，内嵌前端，随处部署
 - 💾 **原生 SQLite 后端** - 内置用户体系、本地媒体存储与旧数据自动迁移
