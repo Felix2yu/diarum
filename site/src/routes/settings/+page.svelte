@@ -29,9 +29,7 @@
 		disableNotifications,
 		saveReminderSettings,
 		sendTest,
-		notificationPermission,
-		hasActiveSubscription,
-		describeNotificationFailure
+		notificationPermission
 	} from '$lib/utils/notifications';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import {
@@ -808,6 +806,7 @@
 	async function loadNotificationState() {
 		notificationPermissionState = notificationPermission.current();
 		try {
+			const { hasActiveSubscription } = await import('$lib/utils/notifications');
 			hasPushSubscription = await hasActiveSubscription();
 		} catch (e) {
 			hasPushSubscription = false;
@@ -819,19 +818,18 @@
 		notificationSuccess = '';
 		notificationBusy = true;
 		try {
-			// 注意：Notification.requestPermission 必须在用户手势窗口内同步触发，
-			// 不能在授权前 await import，否则 Safari 可能不弹授权框。
-			const result = await enableNotifications();
-			notificationPermissionState = result.permission;
+			const ok = await enableNotifications();
+			notificationPermissionState = notificationPermission.current();
+			const { hasActiveSubscription } = await import('$lib/utils/notifications');
 			hasPushSubscription = await hasActiveSubscription();
-			if (result.ok && hasPushSubscription) {
+			if (ok && hasPushSubscription) {
 				const { updateReminderSettings, getReminderSettings } = await import('$lib/stores/notifications');
 				updateReminderSettings({ enabled: true });
 				// Sync schedule so the backend knows reminders are on.
 				await saveReminderSettings(getReminderSettings());
 				notificationSuccess = '通知已开启 ✓';
-			} else if (!result.ok) {
-				notificationError = describeNotificationFailure(result.reason, result.standalone);
+			} else if (!ok) {
+				notificationError = '未获得通知权限，或当前环境不支持推送（需 HTTPS）。';
 			}
 		} catch (e) {
 			notificationError = e instanceof Error ? e.message : '开启通知失败';
@@ -1860,13 +1858,6 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							<p>
 								推送通知基于 Web Push，需要 <span class="text-foreground">HTTPS</span>（或 localhost）环境才能注册订阅。
 								若在设置中无法开启，请确认站点通过 HTTPS 访问。
-							</p>
-							<p>
-								<span class="text-foreground">macOS 网页 App：</span>请使用 Safari 的「文件 > 添加到程序坞」安装并在该网页 App 的
-								<span class="text-foreground">独立窗口</span>内开启提醒并回应授权（不要在返回的 Safari 浏览器窗口里回应）。
-								若一直不弹授权框，请到「Safari 设置 > 网站 > 通知」确认勾选了「允许网站请求发送通知的权限」，并将本站点设为
-								<span class="text-foreground">允许/询问</span>（此前拒绝过会沿用拒绝而不弹窗，清除网站数据不会重置），
-								再到「系统设置 > 通知」中允许该网页 App 发送通知。
 							</p>
 							<p>当天已写过日记（有内容）时，提醒将自动跳过，不会打扰你。</p>
 						</div>
