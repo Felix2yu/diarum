@@ -19,17 +19,18 @@ func RegisterPushRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middle
 
 	// Record the deployment hostname/origin on each authenticated request so
 	// push notifications can build a valid VAPID subject and Topic header
-	// (required by Apple's push service). Origin is preferred over Host
-	// because it carries the true public origin the browser subscribed under.
+	// (required by Apple's push service). We consider the Origin header,
+	// X-Forwarded-* (reverse proxies), the Referer and finally the Host.
 	group.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			origin := c.Request().Header.Get("Origin")
-			push.SiteOrigin = origin
-			if host := push.OriginHost(origin); host != "" {
-				push.SiteHost = host
-			} else {
-				push.SiteHost = push.NormalizeHost(c.Request().Host)
-			}
+			req := c.Request()
+			push.SetSiteFromRequest(
+				req.Header.Get("Origin"),
+				req.Referer(),
+				req.Header.Get("X-Forwarded-Proto"),
+				req.Header.Get("X-Forwarded-Host"),
+				req.Host,
+			)
 			return next(c)
 		}
 	})

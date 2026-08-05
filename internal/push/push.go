@@ -66,6 +66,44 @@ func OriginHost(origin string) string {
 	return NormalizeHost(u.Host)
 }
 
+// SetSiteFromRequest records the best-known public origin/host from an inbound
+// request. Order of preference: Origin header, X-Forwarded-Proto/Host (reverse
+// proxies), Referer, then the raw Host. Non-public hosts found only via weaker
+// sources are still recorded so SiteHost/Topic remain usable; sub selection is
+// handled by subscriber().
+func SetSiteFromRequest(origin, referer, forwardProto, forwardHost, host string) {
+	SiteHost = ""
+	SiteOrigin = ""
+
+	candidates := []string{
+		OriginHost(origin),
+		OriginHost(combinedHost(forwardProto, forwardHost)),
+		OriginHost(referer),
+		NormalizeHost(host),
+	}
+	for _, h := range candidates {
+		if h == "" {
+			continue
+		}
+		SiteHost = h
+		if isPublicHost(h) {
+			SiteOrigin = "https://" + h
+			return
+		}
+	}
+}
+
+func combinedHost(proto, host string) string {
+	host = NormalizeHost(host)
+	if host == "" {
+		return ""
+	}
+	if proto != "" && proto != "http" {
+		return proto + "://" + host
+	}
+	return host
+}
+
 // isPublicHost reports whether host is usable as a VAPID subject domain.
 // Apple rejects mailto: subjects whose domain is not a real public domain
 // (e.g. "localhost", IP addresses, ".local" mDNS names).
@@ -198,6 +236,7 @@ func (s *Sender) SendNotificationWithClient(owner, title, body string, client *h
 	// Apple's push service requires the Topic header to match the subscribed
 	// origin and rejects requests without it. Other push services ignore it.
 	topic := NormalizeHost(SiteHost)
+	subClaim := s.subscriber()
 	for _, sub := range subs {
 		wpSub := &webpush.Subscription{
 			Endpoint: sub.Endpoint,
@@ -208,7 +247,7 @@ func (s *Sender) SendNotificationWithClient(owner, title, body string, client *h
 		}
 		opts := &webpush.Options{
 			HTTPClient:      client,
-			Subscriber:      s.subscriber(),
+			Subscriber:      subClaim,
 			TTL:             60,
 			VAPIDPublicKey:  pubKey,
 			VAPIDPrivateKey: privKey,
@@ -229,7 +268,7 @@ func (s *Sender) SendNotificationWithClient(owner, title, body string, client *h
 			continue
 		}
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-			logger.Warn("[Push] push service returned %d for %s: %s", resp.StatusCode, sub.Endpoint, strings.TrimSpace(string(reason)))
+			logger.Warn("[Push] push service returned %d for %s: %s (sub=%q topic=%q)", resp.StatusCode, sub.Endpoint, strings.TrimSpace(string(reason)), subClaim, topic)
 			continue
 		}
 		logger.Debug("[Push] sent notification to %s", sub.Endpoint)

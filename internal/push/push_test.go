@@ -182,6 +182,40 @@ func TestSubscriberResolution(t *testing.T) {
 	}
 }
 
+func TestSetSiteFromRequest(t *testing.T) {
+	t.Cleanup(func() { SiteHost, SiteOrigin = "", "" })
+
+	// Origin wins.
+	SetSiteFromRequest("https://diarum.example.com", "", "", "", "localhost:1323")
+	if SiteHost != "diarum.example.com" || SiteOrigin != "https://diarum.example.com" {
+		t.Errorf("origin case: host=%q origin=%q", SiteHost, SiteOrigin)
+	}
+
+	// No Origin, but X-Forwarded-Host/Proto from a reverse proxy.
+	SetSiteFromRequest("", "", "https", "diarum.example.com", "internal:1323")
+	if SiteHost != "diarum.example.com" || SiteOrigin != "https://diarum.example.com" {
+		t.Errorf("forwarded case: host=%q origin=%q", SiteHost, SiteOrigin)
+	}
+
+	// Referer fallback.
+	SetSiteFromRequest("", "https://diarum.example.com/settings", "", "", "localhost")
+	if SiteHost != "diarum.example.com" {
+		t.Errorf("referer case: host=%q", SiteHost)
+	}
+
+	// Raw host fallback; non-public hosts do not set SiteOrigin.
+	SetSiteFromRequest("", "", "", "", "diarum:1323")
+	if SiteHost != "diarum" {
+		t.Errorf("raw host case: host=%q", SiteHost)
+	}
+
+	// Everything empty.
+	SetSiteFromRequest("", "", "", "", "")
+	if SiteHost != "" {
+		t.Errorf("empty case: host=%q", SiteHost)
+	}
+}
+
 func TestOriginHost(t *testing.T) {
 	for _, c := range []struct{ in, want string }{
 		{"https://diarum.example.com", "diarum.example.com"},
