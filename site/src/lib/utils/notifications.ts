@@ -61,24 +61,6 @@ export interface EnableNotificationResult {
 }
 
 /**
- * 输出当前环境的通知相关诊断信息，用于定位 Safari「不弹授权框」等问题。
- * 失败时由 UI 附加到错误提示中，方便用户直接回传。
- */
-export function notificationEnvironmentInfo(): string {
-	if (!browser) return 'SSR';
-	const parts = [
-		`secure=${window.isSecureContext}`,
-		`notification=${'Notification' in window}`,
-		`permission=${'Notification' in window ? Notification.permission : 'n/a'}`,
-		`sw=${'serviceWorker' in navigator}`,
-		`standalone=${window.matchMedia('(display-mode: standalone)').matches}`,
-		`displayMode=${window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser'}`,
-		`ua=${navigator.userAgent}`
-	];
-	return parts.join(' | ');
-}
-
-/**
  * 将失败原因映射为面向用户的中文提示。针对 macOS Safari 网页 App 场景，
  * 额外给出“在网页 App 窗口内授权 + 检查系统通知”的可执行指引。
  */
@@ -87,9 +69,9 @@ export function describeNotificationFailure(
 	standalone: boolean
 ): string {
 	const macWebAppHint = isSafari()
-		? ' 提示：请先到「Safari 设置 > 网站 > 通知」，确认勾选窗口底部的「允许网站请求发送通知的权限」——若未勾选，所有网站都静默拒绝、不弹框。勾选后刷新本页重试，若仍未弹框，再将本站点从「拒绝」改回「允许/询问」（若之前拒绝过，网页 App 会直接沿用拒绝而不再弹窗）。macOS 网页 App 的通知权限继承自 Safari：请在网页 App 自己的窗口（Safari「文件 > 添加到程序坞」安装，当前' +
-		  (standalone ? '已以独立窗口运行' : '未以独立窗口运行，请先删除旧实例并用 Safari「文件 > 添加到程序坞」重新安装') +
-		  '）里点击开启并回应授权，最后到「系统设置 > 通知」中允许该网页 App 发送通知。'
+		? ' 提示：macOS 网页 App 的通知权限继承自 Safari。若一直不弹授权框，请到「Safari 设置 > 网站 > 通知」中：确认勾选了「允许网站请求发送通知的权限」，并将本站点改回「允许/询问」（若之前拒绝过，网页 App 会直接沿用拒绝而不再弹窗，清除网站数据也不会重置）。然后在网页 App 自己的窗口里（而不是 Safari 浏览器窗口）点击开启并回应授权，最后到「系统设置 > 通知」中允许该网页 App 发送通知。当前' +
+		  (standalone ? '已以独立窗口运行' : '未以独立窗口运行（请用 Safari「文件 > 添加到程序坞」重新安装，并删除旧实例）') +
+		  '。'
 		: '';
 	switch (reason) {
 		case 'unsupported':
