@@ -15,7 +15,7 @@
 	import { getDiaryEmojiSettings } from '$lib/api/settings';
 	import { fetchWeather, fetchWeatherByCoords, type WeatherResult } from '$lib/api/weather';
 	import type { CityInfo } from '$lib/types/city';
-	import { WEATHER_CODES } from '$lib/utils/weatherCodes';
+	import { WEATHER_CODES, manualWeatherToWMO } from '$lib/utils/weatherCodes';
 	import {
 		formatDisplayDate,
 		formatShortDate,
@@ -1038,13 +1038,13 @@
 										<button
 											type="button"
 											onclick={() => {
-												selectedWeather = String(wmo.code);
+												selectedWeather = String(manualWeatherToWMO(wmo.code));
 												if (weatherData) {
-													weatherData = { ...weatherData, wmo_code: wmo.code };
+													weatherData = { ...weatherData, wmo_code: manualWeatherToWMO(wmo.code) };
 												}
 												updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, temp_min: weatherData?.temp_min ?? 0, temp_max: weatherData?.temp_max ?? 0, tags });
 											}}
-											class="flex flex-col items-center p-1.5 rounded-lg text-[10px] transition-colors {selectedWeather === String(wmo.code) ? 'bg-primary/20 text-primary' : 'bg-muted/30 hover:bg-muted/50 text-muted-foreground'}"
+											class="flex flex-col items-center p-1.5 rounded-lg text-[10px] transition-colors {selectedWeather === String(manualWeatherToWMO(wmo.code)) ? 'bg-primary/20 text-primary' : 'bg-muted/30 hover:bg-muted/50 text-muted-foreground'}"
 											title={wmo.label}
 										>
 											<span class="text-sm leading-none">{wmo.icon}</span>
@@ -1282,13 +1282,13 @@
 										<button
 											type="button"
 											onclick={() => {
-												selectedWeather = String(wmo.code);
+												selectedWeather = String(manualWeatherToWMO(wmo.code));
 												if (weatherData) {
-													weatherData = { ...weatherData, wmo_code: wmo.code };
+													weatherData = { ...weatherData, wmo_code: manualWeatherToWMO(wmo.code) };
 												}
 												updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: selectedWeather, city: selectedCity, temp_min: weatherData?.temp_min ?? 0, temp_max: weatherData?.temp_max ?? 0, tags });
 											}}
-											class="flex flex-col items-center p-1.5 rounded-lg text-[10px] transition-colors {selectedWeather === String(wmo.code) ? 'bg-primary/20 text-primary' : 'bg-muted/30 hover:bg-muted/50 text-muted-foreground'}"
+											class="flex flex-col items-center p-1.5 rounded-lg text-[10px] transition-colors {selectedWeather === String(manualWeatherToWMO(wmo.code)) ? 'bg-primary/20 text-primary' : 'bg-muted/30 hover:bg-muted/50 text-muted-foreground'}"
 											title={wmo.label}
 										>
 											<span class="text-sm leading-none">{wmo.icon}</span>

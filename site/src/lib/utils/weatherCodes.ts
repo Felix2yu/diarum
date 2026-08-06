@@ -46,6 +46,27 @@ export function getWeatherInfo(code: number): WeatherCode {
 	return WEATHER_CODES[simple] ?? { code, label: '未知', icon: '❓' };
 }
 
+// A representative real WMO code for each manual weather option. `diary.weather`
+// must store a real WMO code (so it round-trips through wmoToSimple on display),
+// not the simple 0-9 key directly — otherwise the simple key would be mapped
+// again and drift to a different condition.
+export const MANUAL_WEATHER_TO_WMO: Record<number, number> = {
+	0: 0, // 晴
+	1: 1, // 多云
+	2: 3, // 阴
+	3: 45, // 雾/霾
+	4: 51, // 雨
+	5: 71, // 雪
+	6: 68, // 雨夹雪
+	7: 95, // 雷暴
+	8: 18, // 大风
+	9: 30 // 沙尘
+};
+
+export function manualWeatherToWMO(code: number): number {
+	return MANUAL_WEATHER_TO_WMO[code] ?? code;
+}
+
 export function isWMOCode(value: string): boolean {
 	const num = Number(value);
 	return !isNaN(num) && num >= 0 && num <= 99;
