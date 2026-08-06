@@ -1,4 +1,4 @@
-import { getApiToken } from './settings';
+import { pb } from './client';
 
 const API_BASE = '/api/v1';
 
@@ -31,10 +31,9 @@ export interface BackupListResponse {
 }
 
 async function authHeaders(): Promise<HeadersInit> {
-	const token = await getApiToken();
 	return {
 		'Content-Type': 'application/json',
-		Authorization: `Bearer ${token}`
+		Authorization: `Bearer ${pb.authStore.token}`
 	};
 }
 
@@ -53,9 +52,8 @@ export async function getBackup(id: string): Promise<Backup> {
 }
 
 export async function downloadBackup(id: string): Promise<void> {
-	const token = await getApiToken();
 	const res = await fetch(`${API_BASE}/backups/${id}/download`, {
-		headers: { Authorization: `Bearer ${token}` }
+		headers: { Authorization: `Bearer ${pb.authStore.token}` }
 	});
 	if (!res.ok) throw new Error(`Failed to download backup: ${res.statusText}`);
 	const blob = await res.blob();
