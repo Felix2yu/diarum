@@ -41,13 +41,14 @@
 		moodToEmoji
 	} from '$lib/utils/diaryEmoji';
 
-	type SettingsTab = 'general' | 'notifications' | 'api-access' | 'weather' | 'ai-assistant' | 'image-upload' | 'memos-sync' | 'data-management';
+	type SettingsTab = 'general' | 'notifications' | 'api-access' | 'weather' | 'ai-assistant' | 'image-upload' | 'memos-sync' | 'data-management' | 'backup';
 
 	const settingsTabs: { id: SettingsTab; label: string }[] = [
 		{ id: 'general', label: '通用' },
 		{ id: 'notifications', label: '通知提醒' },
 		{ id: 'ai-assistant', label: 'AI 助手' },
 		{ id: 'weather', label: '天气设置' },
+		{ id: 'backup', label: '自动备份' },
 		{ id: 'api-access', label: 'API 访问' },
 		{ id: 'memos-sync', label: 'Memos 同步' },
 		{ id: 'image-upload', label: '图片上传' },
@@ -178,7 +179,6 @@
 	let isDragOver = false;
 
 	// Backup settings
-	let showBackupOptions = false;
 	let backupSettingsLocal = {
 		enabled: false,
 		frequency: 'daily',
@@ -188,10 +188,11 @@
 		retention_days: 90,
 		upload_s3: false
 	};
+	let backupSettingsLoading = true;
 	let backupTriggering = false;
 	let backupError = '';
 	let backupSuccess = '';
-	let backupRecords: any[] = [];
+	let backupRecords: Backup[] = [];
 	let backupTotal = 0;
 	let backupCurrentPage = 1;
 	let backupTotalPages = 0;
@@ -891,7 +892,13 @@
 	}
 
 	// Backup functions
+	import { get } from 'svelte/store';
 	import {
+		backups as backupsStore,
+		backupTotal as backupTotalStore,
+		backupPage as backupPageStore,
+		backupPages as backupPagesStore,
+		backupSettings as backupSettingsStore,
 		loadBackups as fetchBackups,
 		loadBackupSettings as fetchBackupSettings,
 		saveBackupSettingsLocal as saveBackupSettingsAPI,
@@ -901,35 +908,34 @@
 		type Backup
 	} from '$lib/stores/backup';
 
+	function syncBackupRecordsFromStore() {
+		backupRecords = get(backupsStore);
+		backupTotal = get(backupTotalStore);
+		backupCurrentPage = get(backupPageStore);
+		backupTotalPages = get(backupPagesStore);
+	}
+
 	async function loadBackupRecords(page = 1) {
 		try {
-			const res = await fetch(`/api/v1/backups?page=${page}&per_page=10`, {
-				headers: { Authorization: `Bearer ${pb.authStore.token}` }
-			});
-			if (res.ok) {
-				const data = await res.json();
-				backupRecords = data.backups || [];
-				backupTotal = data.total;
-				backupCurrentPage = data.page;
-				backupTotalPages = data.pages;
-			}
+			await fetchBackups(page);
+			syncBackupRecordsFromStore();
 		} catch (e) {
-			// Backup endpoint may not exist yet
+			backupError = '加载备份记录失败';
+			setTimeout(() => (backupError = ''), 3000);
 		}
 	}
 
 	async function loadBackupSettingsData() {
+		backupSettingsLoading = true;
 		try {
-			const res = await fetch('/api/v1/backups/settings', {
-				headers: { Authorization: `Bearer ${pb.authStore.token}` }
-			});
-			if (res.ok) {
-				const data = await res.json();
-				backupSettingsLocal = data;
-				await loadBackupRecords();
-			}
+			await fetchBackupSettings();
+			backupSettingsLocal = { ...get(backupSettingsStore) };
+			await loadBackupRecords();
 		} catch (e) {
-			// Backup endpoint may not exist yet
+			backupError = '加载备份设置失败';
+			setTimeout(() => (backupError = ''), 3000);
+		} finally {
+			backupSettingsLoading = false;
 		}
 	}
 
@@ -939,14 +945,7 @@
 		if (backupSettingTimeout) clearTimeout(backupSettingTimeout);
 		backupSettingTimeout = setTimeout(async () => {
 			try {
-				await fetch('/api/v1/backups/settings', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: `Bearer ${pb.authStore.token}`
-					},
-					body: JSON.stringify(backupSettingsLocal)
-				});
+				await saveBackupSettingsAPI(backupSettingsLocal);
 				backupSuccess = '设置已保存';
 				setTimeout(() => (backupSuccess = ''), 3000);
 			} catch (e) {
@@ -961,13 +960,10 @@
 		backupError = '';
 		backupSuccess = '';
 		try {
-			await fetch('/api/v1/backups/trigger', {
-				method: 'POST',
-				headers: { Authorization: `Bearer ${pb.authStore.token}` }
-			});
+			await triggerBackupNow();
+			syncBackupRecordsFromStore();
 			backupSuccess = '备份完成';
 			setTimeout(() => (backupSuccess = ''), 3000);
-			await loadBackupRecords();
 		} catch (e) {
 			backupError = '备份失败';
 			setTimeout(() => (backupError = ''), 3000);
@@ -977,20 +973,7 @@
 
 	async function handleDownloadBackup(id: string) {
 		try {
-			const token = await getApiToken();
-			const res = await fetch(`/api/v1/backups/${id}/download`, {
-				headers: { Authorization: `Bearer ${token}` }
-			});
-			if (res.ok) {
-				const blob = await res.blob();
-				const backup = backupRecords.find((b) => b.id === id);
-				const url = URL.createObjectURL(blob);
-				const a = document.createElement('a');
-				a.href = url;
-				a.download = backup?.filename || 'backup.zip';
-				a.click();
-				URL.revokeObjectURL(url);
-			}
+			await downloadBackupById(id);
 		} catch (e) {
 			backupError = '下载失败';
 			setTimeout(() => (backupError = ''), 3000);
@@ -1000,11 +983,8 @@
 	async function handleDeleteBackup(id: string) {
 		if (!confirm('确定要删除这个备份吗？')) return;
 		try {
-			await fetch(`/api/v1/backups/${id}`, {
-				method: 'DELETE',
-				headers: { Authorization: `Bearer ${pb.authStore.token}` }
-			});
-			await loadBackupRecords(backupCurrentPage);
+			await deleteBackupById(id);
+			syncBackupRecordsFromStore();
 		} catch (e) {
 			backupError = '删除失败';
 			setTimeout(() => (backupError = ''), 3000);
@@ -2073,237 +2053,19 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									{#if buildResult.error_details && buildResult.error_details.length > 0}
 										<div class="mt-2 pt-2 border-t border-border/50">
 											<div class="font-medium text-destructive mb-1">错误：</div>
-											<div class="text-xs text-muted-foreground space-y-1 max-h-32 overflow-y-auto">
-												{#each buildResult.error_details as error}
-													<div>{error}</div>
-												{/each}
-					</div>
-
-					<!-- 自动备份 -->
-					<div class="py-4 border-t border-border/50">
-						<div class="flex items-center justify-between mb-1">
-							<div class="font-medium text-foreground">自动备份</div>
-							<button
-								onclick={() => showBackupOptions = !showBackupOptions}
-								class="text-xs text-primary hover:underline"
-							>
-								{showBackupOptions ? '隐藏选项' : '显示选项'}
-							</button>
+							<div class="text-xs text-muted-foreground space-y-1 max-h-32 overflow-y-auto">
+								{#each buildResult.error_details as error}
+									<div>{error}</div>
+								{/each}
+							</div>
 						</div>
-						<div class="text-sm text-muted-foreground mb-3">按设定频率自动备份日记数据到服务器本地</div>
-
-						{#if showBackupOptions}
-							<div class="mb-4 p-4 bg-muted/50 rounded-lg space-y-4">
-								<!-- 启用开关 -->
-								<label class="flex items-center gap-3 cursor-pointer">
-									<input type="checkbox" bind:checked={backupSettingsLocal.enabled} onchange={handleBackupSettingChange} class="rounded" />
-									<span class="text-sm text-foreground">启用自动备份</span>
-								</label>
-
-								{#if backupSettingsLocal.enabled}
-									<!-- 频率 -->
-									<div>
-										<label for="backup-frequency" class="block text-sm font-medium text-foreground mb-2">备份频率</label>
-										<div class="relative">
-											<select
-												id="backup-frequency"
-												bind:value={backupSettingsLocal.frequency}
-												onchange={handleBackupSettingChange}
-												class="w-full pl-3 pr-9 py-2 bg-background rounded-lg text-sm text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
-											>
-												<option value="daily">每日</option>
-												<option value="weekly">每周</option>
-												<option value="monthly">每月</option>
-											</select>
-											<svg class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-											</svg>
-										</div>
-									</div>
-
-									<!-- 时间 -->
-									<div>
-										<label for="backup-time" class="block text-sm font-medium text-foreground mb-2">执行时间</label>
-										<input
-											id="backup-time"
-											type="time"
-											bind:value={backupSettingsLocal.time}
-											onchange={handleBackupSettingChange}
-											class="w-full px-3 py-2 bg-background rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
-										/>
-									</div>
-
-									<!-- 周几 (weekly) -->
-									{#if backupSettingsLocal.frequency === 'weekly'}
-										<div>
-											<label for="backup-dow" class="block text-sm font-medium text-foreground mb-2">每周几</label>
-											<div class="relative">
-												<select
-													id="backup-dow"
-													bind:value={backupSettingsLocal.day_of_week}
-													onchange={handleBackupSettingChange}
-													class="w-full pl-3 pr-9 py-2 bg-background rounded-lg text-sm text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
-												>
-													<option value={1}>周一</option>
-													<option value={2}>周二</option>
-													<option value={3}>周三</option>
-													<option value={4}>周四</option>
-													<option value={5}>周五</option>
-													<option value={6}>周六</option>
-													<option value={0}>周日</option>
-												</select>
-												<svg class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-												</svg>
-											</div>
-										</div>
-									{/if}
-
-									<!-- 几号 (monthly) -->
-									{#if backupSettingsLocal.frequency === 'monthly'}
-										<div>
-											<label for="backup-dom" class="block text-sm font-medium text-foreground mb-2">每月几号</label>
-											<input
-												id="backup-dom"
-												type="number"
-												min="1"
-												max="28"
-												bind:value={backupSettingsLocal.day_of_month}
-												onchange={handleBackupSettingChange}
-												class="w-full px-3 py-2 bg-background rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
-											/>
-										</div>
-									{/if}
-
-									<!-- 保留天数 -->
-									<div>
-										<label for="backup-retention" class="block text-sm font-medium text-foreground mb-2">保留天数（0 = 永久）</label>
-										<input
-											id="backup-retention"
-											type="number"
-											min="0"
-											max="3650"
-											bind:value={backupSettingsLocal.retention_days}
-											onchange={handleBackupSettingChange}
-											class="w-full px-3 py-2 bg-background rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
-										/>
-									</div>
-
-									<!-- S3 上传 -->
-									{#if imageUploadSettingsLocal.provider === 's3'}
-										<label class="flex items-center gap-3 cursor-pointer">
-											<input type="checkbox" bind:checked={backupSettingsLocal.upload_s3} onchange={handleBackupSettingChange} class="rounded" />
-											<span class="text-sm text-foreground">同时上传到 S3</span>
-										</label>
-									{/if}
-								{/if}
-							</div>
-						{/if}
-
-						<!-- 手动触发 -->
-						<div class="flex items-center gap-3 mb-3">
-							<button
-								onclick={handleTriggerBackup}
-								disabled={backupTriggering}
-								class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 flex items-center gap-2"
-							>
-								{#if backupTriggering}
-									<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-									</svg>
-									备份中...
-								{:else}
-									手动备份
-								{/if}
-							</button>
-						</div>
-
-						{#if backupError}
-							<div class="mb-3 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-								{backupError}
-							</div>
-						{/if}
-
-						{#if backupSuccess}
-							<div class="mb-3 p-3 bg-green-500/10 text-green-600 rounded-lg text-sm">
-								{backupSuccess}
-							</div>
-						{/if}
-
-						<!-- 备份记录 -->
-						{#if backupRecords.length > 0}
-							<div class="mt-4">
-								<div class="text-sm font-medium text-foreground mb-2">备份记录</div>
-								<div class="overflow-x-auto">
-									<table class="w-full text-sm">
-										<thead>
-											<tr class="text-left text-muted-foreground border-b border-border/50">
-												<th class="pb-2 font-medium">文件名</th>
-												<th class="pb-2 font-medium">大小</th>
-												<th class="pb-2 font-medium">时间</th>
-												<th class="pb-2 font-medium">操作</th>
-											</tr>
-										</thead>
-										<tbody>
-											{#each backupRecords as record}
-												<tr class="border-b border-border/30">
-													<td class="py-2 text-foreground truncate max-w-[200px]">{record.filename}</td>
-													<td class="py-2 text-muted-foreground">{formatFileSize(record.size)}</td>
-													<td class="py-2 text-muted-foreground">{formatDate(record.created)}</td>
-													<td class="py-2">
-														<div class="flex items-center gap-2">
-															<button
-																onclick={() => handleDownloadBackup(record.id)}
-																class="text-xs text-primary hover:underline"
-															>
-																下载
-															</button>
-															<button
-																onclick={() => handleDeleteBackup(record.id)}
-																class="text-xs text-destructive hover:underline"
-															>
-																删除
-															</button>
-														</div>
-													</td>
-												</tr>
-											{/each}
-										</tbody>
-									</table>
-								</div>
-
-								{#if backupTotalPages > 1}
-									<div class="flex items-center justify-center gap-2 mt-3">
-										<button
-											onclick={() => loadBackupRecords(backupCurrentPage - 1)}
-											disabled={backupCurrentPage <= 1}
-											class="px-3 py-1 text-xs bg-muted rounded hover:bg-muted/80 disabled:opacity-50"
-										>
-											上一页
-										</button>
-										<span class="text-xs text-muted-foreground">{backupCurrentPage} / {backupTotalPages}</span>
-										<button
-											onclick={() => loadBackupRecords(backupCurrentPage + 1)}
-											disabled={backupCurrentPage >= backupTotalPages}
-											class="px-3 py-1 text-xs bg-muted rounded hover:bg-muted/80 disabled:opacity-50"
-										>
-											下一页
-										</button>
-									</div>
-								{/if}
-							</div>
-						{:else if backupSettingsLocal.enabled}
-							<div class="mt-4 text-sm text-muted-foreground">暂无备份记录</div>
-						{/if}
+					{/if}
 					</div>
-				</div>
 				{/if}
-								</div>
-							{/if}
-						</div>
 
-						<!-- 向量索引状态 -->
+					</div>
+
+					<!-- 向量索引状态 -->
 						<div class="py-4 border-b border-border/50">
 							<div class="font-medium text-foreground mb-2">向量索引状态</div>
 							{#if loadingStats}
@@ -2521,6 +2283,224 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							</span>
 						{/if}
 					</div>
+				</div>
+				{/if}
+
+				{#if activeTab === 'backup'}
+				<div id="backup" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
+					<h2 class="text-lg font-semibold text-foreground mb-1">自动备份</h2>
+					<p class="text-sm text-muted-foreground mb-6">按设定频率自动备份日记数据到服务器本地，并提供手动备份与历史记录管理。</p>
+
+					{#if backupSettingsLoading}
+						<div class="flex items-center gap-2 text-sm text-muted-foreground">
+							<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+								<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+								<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+							</svg>
+							加载中...
+						</div>
+					{:else}
+						<label class="flex items-center gap-3 cursor-pointer mb-4">
+							<input type="checkbox" bind:checked={backupSettingsLocal.enabled} onchange={handleBackupSettingChange} class="rounded" />
+							<span class="text-sm text-foreground">启用自动备份</span>
+						</label>
+
+						{#if backupSettingsLocal.enabled}
+							<div class="mb-4 p-4 bg-muted/50 rounded-lg space-y-4">
+								<!-- 频率 -->
+								<div>
+									<label for="backup-frequency" class="block text-sm font-medium text-foreground mb-2">备份频率</label>
+									<div class="relative">
+										<select
+											id="backup-frequency"
+											bind:value={backupSettingsLocal.frequency}
+											onchange={handleBackupSettingChange}
+											class="w-full pl-3 pr-9 py-2 bg-background rounded-lg text-sm text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
+										>
+											<option value="daily">每日</option>
+											<option value="weekly">每周</option>
+											<option value="monthly">每月</option>
+										</select>
+										<svg class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+										</svg>
+									</div>
+								</div>
+
+								<!-- 时间 -->
+								<div>
+									<label for="backup-time" class="block text-sm font-medium text-foreground mb-2">执行时间</label>
+									<input
+										id="backup-time"
+										type="time"
+										bind:value={backupSettingsLocal.time}
+										onchange={handleBackupSettingChange}
+										class="w-full px-3 py-2 bg-background rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
+									/>
+								</div>
+
+								<!-- 周几 (weekly) -->
+								{#if backupSettingsLocal.frequency === 'weekly'}
+									<div>
+										<label for="backup-dow" class="block text-sm font-medium text-foreground mb-2">每周几</label>
+										<div class="relative">
+											<select
+												id="backup-dow"
+												bind:value={backupSettingsLocal.day_of_week}
+												onchange={handleBackupSettingChange}
+												class="w-full pl-3 pr-9 py-2 bg-background rounded-lg text-sm text-foreground appearance-none focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
+											>
+												<option value={1}>周一</option>
+												<option value={2}>周二</option>
+												<option value={3}>周三</option>
+												<option value={4}>周四</option>
+												<option value={5}>周五</option>
+												<option value={6}>周六</option>
+												<option value={0}>周日</option>
+											</select>
+											<svg class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+											</svg>
+										</div>
+									</div>
+								{/if}
+
+								<!-- 几号 (monthly) -->
+								{#if backupSettingsLocal.frequency === 'monthly'}
+									<div>
+										<label for="backup-dom" class="block text-sm font-medium text-foreground mb-2">每月几号</label>
+										<input
+											id="backup-dom"
+											type="number"
+											min="1"
+											max="28"
+											bind:value={backupSettingsLocal.day_of_month}
+											onchange={handleBackupSettingChange}
+											class="w-full px-3 py-2 bg-background rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
+										/>
+									</div>
+								{/if}
+
+								<!-- 保留天数 -->
+								<div>
+									<label for="backup-retention" class="block text-sm font-medium text-foreground mb-2">保留天数（0 = 永久）</label>
+									<input
+										id="backup-retention"
+										type="number"
+										min="0"
+										max="3650"
+										bind:value={backupSettingsLocal.retention_days}
+										onchange={handleBackupSettingChange}
+										class="w-full px-3 py-2 bg-background rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary border border-border/50"
+									/>
+								</div>
+
+								<!-- S3 上传 -->
+								{#if imageUploadSettingsLocal.provider === 's3'}
+									<label class="flex items-center gap-3 cursor-pointer">
+										<input type="checkbox" bind:checked={backupSettingsLocal.upload_s3} onchange={handleBackupSettingChange} class="rounded" />
+										<span class="text-sm text-foreground">同时上传到 S3</span>
+									</label>
+								{/if}
+							</div>
+						{/if}
+					{/if}
+
+					{#if backupError}
+						<div class="mb-3 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+							{backupError}
+						</div>
+					{/if}
+					{#if backupSuccess}
+						<div class="mb-3 p-3 bg-green-500/10 text-green-600 rounded-lg text-sm">
+							{backupSuccess}
+						</div>
+					{/if}
+
+					<!-- 手动触发 -->
+					<div class="flex items-center gap-3 mb-3">
+						<button
+							onclick={handleTriggerBackup}
+							disabled={backupTriggering}
+							class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 flex items-center gap-2"
+						>
+							{#if backupTriggering}
+								<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+								</svg>
+								备份中...
+							{:else}
+								手动备份
+							{/if}
+						</button>
+					</div>
+
+					<!-- 备份记录 -->
+					{#if backupRecords.length > 0}
+						<div class="mt-4">
+							<div class="text-sm font-medium text-foreground mb-2">备份记录</div>
+							<div class="overflow-x-auto">
+								<table class="w-full text-sm">
+									<thead>
+										<tr class="text-left text-muted-foreground border-b border-border/50">
+											<th class="pb-2 font-medium">文件名</th>
+											<th class="pb-2 font-medium">大小</th>
+											<th class="pb-2 font-medium">时间</th>
+											<th class="pb-2 font-medium">操作</th>
+										</tr>
+									</thead>
+									<tbody>
+										{#each backupRecords as record}
+											<tr class="border-b border-border/30">
+												<td class="py-2 text-foreground truncate max-w-[200px]">{record.filename}</td>
+												<td class="py-2 text-muted-foreground">{formatFileSize(record.size)}</td>
+												<td class="py-2 text-muted-foreground">{formatDate(record.created)}</td>
+												<td class="py-2">
+													<div class="flex items-center gap-2">
+														<button
+															onclick={() => handleDownloadBackup(record.id)}
+															class="text-xs text-primary hover:underline"
+														>
+															下载
+														</button>
+														<button
+															onclick={() => handleDeleteBackup(record.id)}
+															class="text-xs text-destructive hover:underline"
+														>
+															删除
+														</button>
+													</div>
+												</td>
+											</tr>
+										{/each}
+									</tbody>
+								</table>
+							</div>
+
+							{#if backupTotalPages > 1}
+								<div class="flex items-center justify-center gap-2 mt-3">
+									<button
+										onclick={() => loadBackupRecords(backupCurrentPage - 1)}
+										disabled={backupCurrentPage <= 1}
+										class="px-3 py-1 text-xs bg-muted rounded hover:bg-muted/80 disabled:opacity-50"
+									>
+										上一页
+									</button>
+									<span class="text-xs text-muted-foreground">{backupCurrentPage} / {backupTotalPages}</span>
+									<button
+										onclick={() => loadBackupRecords(backupCurrentPage + 1)}
+										disabled={backupCurrentPage >= backupTotalPages}
+										class="px-3 py-1 text-xs bg-muted rounded hover:bg-muted/80 disabled:opacity-50"
+									>
+										下一页
+									</button>
+								</div>
+							{/if}
+						</div>
+					{:else if backupSettingsLocal.enabled}
+						<div class="mt-4 text-sm text-muted-foreground">暂无备份记录</div>
+					{/if}
 				</div>
 				{/if}
 
