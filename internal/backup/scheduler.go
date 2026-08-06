@@ -124,11 +124,13 @@ func (sc *Scheduler) execute(userID string) error {
 
 	// Upload to S3 if configured
 	s3Key := ""
+	var s3Err error
 	uploadS3, _ := sc.configService.GetBool(userID, "backup.upload_s3")
 	if uploadS3 {
 		s3Key = fmt.Sprintf("backups/%s/%s", userID, filename)
 		if err := sc.store.UploadToS3(userID, s3Key, buf.Bytes()); err != nil {
 			logger.Error("[Backup] S3 upload failed for user %s: %v", userID, err)
+			s3Err = err
 			s3Key = ""
 		}
 	}
@@ -150,6 +152,13 @@ func (sc *Scheduler) execute(userID string) error {
 		if len(removed) > 0 {
 			logger.Info("[Backup] cleaned up %d old backups for user %s", len(removed), userID)
 		}
+	}
+
+	if s3Err != nil {
+		// The local backup succeeded, but surfacing the S3 error lets a manual
+		// trigger report it instead of silently succeeding.
+		logger.Error("[Backup] local backup saved but S3 upload failed for user %s: %v", userID, s3Err)
+		return fmt.Errorf("local backup saved but S3 upload failed: %w", s3Err)
 	}
 
 	logger.Info("[Backup] backup completed for user %s: %s (%d bytes)", userID, filename, buf.Len())

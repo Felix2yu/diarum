@@ -74,7 +74,10 @@ export async function deleteBackup(id: string): Promise<void> {
 export async function triggerBackup(): Promise<void> {
 	const headers = await authHeaders();
 	const res = await fetch(`${API_BASE}/backups/trigger`, { method: 'POST', headers });
-	if (!res.ok) throw new Error(`Failed to trigger backup: ${res.statusText}`);
+	if (!res.ok) {
+		const data = await res.json().catch(() => ({}));
+		throw new Error(data?.message || `Failed to trigger backup: ${res.statusText}`);
+	}
 }
 
 export async function getBackupSettings(): Promise<BackupSettings> {

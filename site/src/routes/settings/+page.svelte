@@ -965,8 +965,8 @@
 			backupSuccess = '备份完成';
 			setTimeout(() => (backupSuccess = ''), 3000);
 		} catch (e) {
-			backupError = '备份失败';
-			setTimeout(() => (backupError = ''), 3000);
+			backupError = e instanceof Error && e.message ? e.message : '备份失败';
+			setTimeout(() => (backupError = ''), 5000);
 		}
 		backupTriggering = false;
 	}
