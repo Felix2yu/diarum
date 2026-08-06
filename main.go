@@ -225,6 +225,7 @@ func run(args []string, stdout io.Writer) error {
 	api.RegisterWeatherRoutes(e, appStore, authMiddleware)
 	api.RegisterPublicRoutes(e, appStore)
 	api.RegisterVersionRoutes(e, Version, Name)
+	api.RegisterHealthRoutes(e, appStore)
 	api.RegisterMetricsRoutes(e)
 
 	// Debug 模式下注册 OpenAPI 文档路由
