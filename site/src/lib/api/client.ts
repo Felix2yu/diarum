@@ -160,13 +160,18 @@ export function installUnauthorizedApiHandler(onUnauthorized: () => void): () =>
     window.fetch = async (input, init) => {
         const response = await originalFetch(input, init);
 
+        // Only treat a 401 as "session expired" when the local token is already
+        // invalid. A transient 401 on a still-valid session (e.g. a misrouted
+        // endpoint) must not wipe auth and bounce the user to the login page.
         if (response.status === 401 && shouldHandleUnauthorized(input) && !handlingUnauthorized) {
-            handlingUnauthorized = true;
-            pb.authStore.clear();
-            onUnauthorized();
-            queueMicrotask(() => {
-                handlingUnauthorized = false;
-            });
+            if (!pb.authStore.isValid) {
+                handlingUnauthorized = true;
+                pb.authStore.clear();
+                onUnauthorized();
+                queueMicrotask(() => {
+                    handlingUnauthorized = false;
+                });
+            }
         }
 
         return response;

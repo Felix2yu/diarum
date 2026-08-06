@@ -2,9 +2,11 @@ package api
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo/v5"
 
+	"github.com/songtianlun/diarum/internal/auth"
 	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/store"
 )
@@ -15,7 +17,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 
 	// Reads
 	e.GET("/api/v1/diaries", func(c *echo.Context) error {
-		userId, err := authenticatePublicRequest(configService, c)
+		userId, err := authenticatePublicRequest(configService, s, c)
 		if err != nil {
 			return err
 		}
@@ -49,7 +51,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 
 	// Create or update a diary by date
 	e.POST("/api/v1/diaries", func(c *echo.Context) error {
-		userId, err := authenticatePublicRequest(configService, c)
+		userId, err := authenticatePublicRequest(configService, s, c)
 		if err != nil {
 			return err
 		}
@@ -89,7 +91,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 
 	// Update a diary by ID
 	e.PUT("/api/v1/diaries/:id", func(c *echo.Context) error {
-		userId, err := authenticatePublicRequest(configService, c)
+		userId, err := authenticatePublicRequest(configService, s, c)
 		if err != nil {
 			return err
 		}
@@ -161,7 +163,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 
 	// Delete a diary by date
 	e.DELETE("/api/v1/diaries", func(c *echo.Context) error {
-		userId, err := authenticatePublicRequest(configService, c)
+		userId, err := authenticatePublicRequest(configService, s, c)
 		if err != nil {
 			return err
 		}
@@ -182,15 +184,21 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 	})
 }
 
-// authenticatePublicRequest extracts and validates an API token from the request.
-// It returns the authenticated user ID or an echo error response.
-func authenticatePublicRequest(configService *config.ConfigService, c *echo.Context) (string, error) {
+// authenticatePublicRequest extracts and validates either an API token or a JWT
+// session token. It returns the authenticated user ID or an echo error response.
+//
+// The public routes share exact paths with the protected (JWT) routes. Requests
+// from the logged-in web app carry the JWT in the Authorization header, so those
+// must also be accepted here to avoid spurious 401s that log the user out.
+func authenticatePublicRequest(configService *config.ConfigService, s *store.Store, c *echo.Context) (string, error) {
 	token := c.QueryParam("token")
+	fromHeader := false
 	if token == "" {
 		if bearer := c.Request().Header.Get("Authorization"); bearer != "" {
 			const prefix = "Bearer "
 			if len(bearer) > len(prefix) {
-				token = bearer[len(prefix):]
+				token = strings.TrimSpace(bearer[len(prefix):])
+				fromHeader = true
 			}
 		}
 	}
@@ -198,12 +206,21 @@ func authenticatePublicRequest(configService *config.ConfigService, c *echo.Cont
 		return "", unauthorized("API token is required")
 	}
 
+	// First, validate as an API token (?token= or API consumers using the header).
 	userId, err := configService.ValidateTokenAndGetUser(token)
 	if err == config.ErrAPIDisabled {
 		return "", unauthorized("API is disabled for this user")
 	}
-	if err != nil || userId == "" {
-		return "", unauthorized("Invalid API token")
+	if err == nil && userId != "" {
+		return userId, nil
 	}
-	return userId, nil
+
+	// Fall back to a JWT session token sent by the logged-in web app.
+	if fromHeader {
+		if user, jwtErr := auth.NewService(s).ParseToken(token); jwtErr == nil && user != nil {
+			return user.ID, nil
+		}
+	}
+
+	return "", unauthorized("Invalid API token")
 }
