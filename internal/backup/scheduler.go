@@ -146,8 +146,13 @@ func (sc *Scheduler) execute(userID string) error {
 	retentionDays, _ := sc.configService.GetInt(userID, "backup.retention_days")
 	if retentionDays > 0 {
 		removed, _ := sc.store.CleanupOldBackups(userID, retentionDays)
-		for _, fp := range removed {
-			_ = os.Remove(fp)
+		for _, b := range removed {
+			_ = os.Remove(b.Filepath)
+			if b.S3Key != "" {
+				if err := sc.store.DeleteObjectFromS3(userID, b.S3Key); err != nil {
+					logger.Error("[Backup] failed to delete S3 object %s for user %s: %v", b.S3Key, userID, err)
+				}
+			}
 		}
 		if len(removed) > 0 {
 			logger.Info("[Backup] cleaned up %d old backups for user %s", len(removed), userID)

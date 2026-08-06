@@ -7,9 +7,10 @@ import (
 
 	"github.com/labstack/echo/v5"
 
-	"github.com/songtianlun/diarum/internal/backup"
 	"github.com/songtianlun/diarum/internal/auth"
+	"github.com/songtianlun/diarum/internal/backup"
 	"github.com/songtianlun/diarum/internal/config"
+	"github.com/songtianlun/diarum/internal/logger"
 	"github.com/songtianlun/diarum/internal/store"
 )
 
@@ -73,6 +74,11 @@ func RegisterBackupRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Midd
 		}
 		// Remove file from disk
 		_ = os.Remove(b.Filepath)
+		if b.S3Key != "" {
+			if err := s.DeleteObjectFromS3(userID, b.S3Key); err != nil {
+				logger.Warn("[Backup] failed to delete S3 object %s for user %s: %v", b.S3Key, userID, err)
+			}
+		}
 		// Remove DB record
 		if err := s.DeleteBackup(id, userID); err != nil {
 			return badRequest("Failed to delete backup", err)

@@ -2297,24 +2297,25 @@ func (s *Store) DeleteBackup(id, owner string) error {
 	return nil
 }
 
-// CleanupOldBackups removes backup records older than retentionDays
-func (s *Store) CleanupOldBackups(owner string, retentionDays int) ([]string, error) {
+// CleanupOldBackups removes backup records older than retentionDays and returns
+// the removed records (including their S3 keys) so callers can delete the files.
+func (s *Store) CleanupOldBackups(owner string, retentionDays int) ([]Backup, error) {
 	if retentionDays <= 0 {
 		return nil, nil
 	}
 	cutoff := time.Now().UTC().AddDate(0, 0, -retentionDays).Format("2006-01-02T15:04:05.000Z")
-	rows, err := s.DB.Query(`SELECT id, filepath FROM backups WHERE owner = ? AND created < ?`, owner, cutoff)
+	rows, err := s.DB.Query(`SELECT id, owner, filename, filepath, size, s3_key, created FROM backups WHERE owner = ? AND created < ?`, owner, cutoff)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var removed []string
+	var removed []Backup
 	for rows.Next() {
-		var id, filepath string
-		if err := rows.Scan(&id, &filepath); err != nil {
+		var b Backup
+		if err := rows.Scan(&b.ID, &b.Owner, &b.Filename, &b.Filepath, &b.Size, &b.S3Key, &b.Created); err != nil {
 			continue
 		}
-		removed = append(removed, filepath)
+		removed = append(removed, b)
 	}
 	if len(removed) > 0 {
 		_, err = s.DB.Exec(`DELETE FROM backups WHERE owner = ? AND created < ?`, owner, cutoff)
@@ -2323,6 +2324,34 @@ func (s *Store) CleanupOldBackups(owner string, retentionDays int) ([]string, er
 		}
 	}
 	return removed, nil
+}
+
+// DeleteObjectFromS3 deletes a single object from a user's S3 bucket. It is a
+// no-op when the user has no S3 configured or the key is empty.
+func (s *Store) DeleteObjectFromS3(userID, key string) error {
+	if key == "" {
+		return nil
+	}
+	cfg := s.userS3Config(userID)
+	if cfg == nil {
+		return nil
+	}
+	client, err := newS3Client(cfg)
+	if err != nil {
+		return err
+	}
+	if client == nil {
+		return nil
+	}
+	_, err = client.DeleteObject(context.Background(), &awss3.DeleteObjectInput{
+		Bucket: aws.String(cfg.Bucket),
+		Key:    aws.String(key),
+	})
+	var noSuchKey *awstypes.NoSuchKey
+	if errors.As(err, &noSuchKey) {
+		return nil
+	}
+	return err
 }
 
 // ListUsers returns all users (for scheduler initialization)
@@ -2438,5 +2467,3 @@ func (s *Store) GetVAPIDKey(name string) (string, error) {
 func (s *Store) SetVAPIDKey(name, value string) error {
 	return setMeta(s.DB, "webpush."+name, value)
 }
-
-
