@@ -11,16 +11,25 @@
 
 	let mediaList = $state<MediaWithDiary[]>([]);
 	let loading = $state(true);
+	let error = $state('');
 	let currentPage = $state(1);
 	let totalPages = $state(1);
 	let searchQuery = $state('');
 
 	async function loadMedia() {
 		loading = true;
-		const result = await getAllMedia(currentPage, 24);
-		mediaList = result.items;
-		totalPages = result.totalPages;
-		loading = false;
+		error = '';
+		try {
+			const result = await getAllMedia(currentPage, 24);
+			mediaList = result.items;
+			totalPages = result.totalPages;
+		} catch (err) {
+			error = err instanceof Error ? err.message : '加载媒体库失败';
+			mediaList = [];
+			totalPages = 1;
+		} finally {
+			loading = false;
+		}
 	}
 
 	function handleSelect(media: MediaWithDiary) {
@@ -98,6 +107,11 @@
 						<path class="spinner-fg" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
 					</svg>
 					<span>加载中...</span>
+				</div>
+			{:else if error}
+				<div class="error-state">
+					<p>{error}</p>
+					<button class="retry-btn" onclick={loadMedia}>重试</button>
 				</div>
 			{:else if filteredMedia.length === 0}
 				<div class="empty-state">
@@ -246,6 +260,36 @@
 		gap: 0.75rem;
 		padding: 3rem 1rem;
 		color: hsl(var(--muted-foreground, 0 0% 50%));
+	}
+
+	.error-state {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.75rem;
+		padding: 3rem 1rem;
+		color: hsl(var(--destructive, 0 72% 51%));
+	}
+
+	.error-state p {
+		margin: 0;
+		font-size: 0.875rem;
+	}
+
+	.retry-btn {
+		padding: 0.375rem 1rem;
+		font-size: 0.8rem;
+		border: 1px solid hsl(var(--border, 0 0% 90%));
+		border-radius: 6px;
+		background: transparent;
+		color: hsl(var(--foreground, 0 0% 10%));
+		cursor: pointer;
+		transition: all 0.15s ease;
+	}
+
+	.retry-btn:hover {
+		background: hsl(var(--muted, 0 0% 95%) / 0.5);
 	}
 
 	.spinner {

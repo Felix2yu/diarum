@@ -1662,12 +1662,25 @@ func (s *Store) InsertImportedMedia(owner, id, file, name, alt string, diary []s
 	if id == "" {
 		return nil, fmt.Errorf("media id is required")
 	}
+	// 防御路径穿越：文件名必须是纯文件名，不得包含目录分隔符或 ".."
+	if !isSafeStoredFilename(file) {
+		return nil, fmt.Errorf("invalid media filename: %q", file)
+	}
 	now := nowString()
 	_, err := s.DB.Exec(`INSERT INTO media(alt, created, file, id, name, owner, updated, diary) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`, alt, now, file, id, name, owner, now, encodeJSON(diary))
 	if err != nil {
 		return nil, err
 	}
 	return s.GetMedia(id, owner)
+}
+
+// isSafeStoredFilename 校验存储文件名不包含路径分隔符或 ".."（防御路径穿越）
+func isSafeStoredFilename(name string) bool {
+	return name != "" &&
+		name == filepath.Base(name) &&
+		!strings.Contains(name, "/") &&
+		!strings.Contains(name, `\`) &&
+		!strings.Contains(name, "..")
 }
 
 func (s *Store) UpdateMediaDiary(id, owner string, diary []string) (*Media, error) {
@@ -1920,7 +1933,7 @@ func (s *Store) DeleteConversation(id, owner string) error {
 }
 
 func (s *Store) ListMessages(conversationID string, limit int) ([]*Message, error) {
-	query := `SELECT content, conversation, created, id, owner, referenced_diaries, role, updated FROM ai_messages WHERE conversation = ? ORDER BY created ASC`
+	query := `SELECT content, conversation, created, id, owner, referenced_diaries, role, updated FROM ai_messages WHERE conversation = ? ORDER BY created DESC`
 	args := []any{conversationID}
 	if limit > 0 {
 		query += ` LIMIT ?`
@@ -1939,7 +1952,14 @@ func (s *Store) ListMessages(conversationID string, limit int) ([]*Message, erro
 		}
 		items = append(items, item)
 	}
-	return items, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// 取最新 N 条后反转，保证返回顺序为时间正序（与调用方预期一致）
+	for i, j := 0, len(items)-1; i < j; i, j = i+1, j-1 {
+		items[i], items[j] = items[j], items[i]
+	}
+	return items, nil
 }
 
 func (s *Store) CountMessages(conversationID string) (int, error) {

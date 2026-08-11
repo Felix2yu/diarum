@@ -56,9 +56,17 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 	group.GET("/by-date/:date", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		dateStr := c.Param("date")
+		// 严格校验日期格式，避免非法值进入 SQL 日期范围
+		if _, err := time.Parse("2006-01-02", dateStr); err != nil {
+			return badRequest("Invalid date format, expected YYYY-MM-DD", nil)
+		}
 		start, end := dateStr+" 00:00:00.000Z", dateStr+" 23:59:59.999Z"
 		diary, err := s.GetDiaryByDate(user.ID, start, end)
 		if err != nil {
+			// 未找到日记是正常情况，返回空日记；其余错误按服务器错误处理
+			if !errors.Is(err, sql.ErrNoRows) {
+				return serverError("Failed to fetch diary", err)
+			}
 			return c.JSON(http.StatusOK, map[string]any{"date": dateStr, "content": "", "exists": false})
 		}
 		return c.JSON(http.StatusOK, diaryResponse(diary, dateStr, true))

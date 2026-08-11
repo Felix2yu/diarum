@@ -997,7 +997,7 @@
 								<div class="text-sm font-semibold text-foreground">天气</div>
 								{#if selectedWeather || selectedCity}
 									<button
-										onclick={() => { selectedWeather = ''; selectedCity = ''; weatherData = null; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: '', tags, city: '', temp_min: 0, temp_max: 0 }); }}
+										onclick={() => { selectedWeather = ''; selectedCity = ''; weatherData = null; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: '', clearWeather: true, tags, city: '', temp_min: 0, temp_max: 0 }); }}
 										class="text-[11px] px-2 py-1 rounded-full bg-muted/70 hover:bg-muted border border-border/70 transition-colors text-muted-foreground"
 									>
 										清除
@@ -1241,7 +1241,7 @@
 								</div>
 								{#if selectedWeather || selectedCity}
 									<button
-										onclick={() => { selectedWeather = ''; selectedCity = ''; weatherData = null; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: '', tags, city: '', temp_min: 0, temp_max: 0 }); }}
+										onclick={() => { selectedWeather = ''; selectedCity = ''; weatherData = null; updateLocalCache(date, { content, mood: selectedMood, mood_states: selectedMoodStates, scenarios: selectedScenarios, weather: '', clearWeather: true, tags, city: '', temp_min: 0, temp_max: 0 }); }}
 										class="text-[11px] px-2 py-1 rounded-full bg-background/70 hover:bg-background border border-border/70 transition-colors"
 									>
 										清除

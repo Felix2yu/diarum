@@ -9,6 +9,8 @@ export interface PersistedEntry {
 	mood_states?: string[];
 	scenarios?: string[];
 	weather?: string;
+	/** 显式清除天气标记（前端专用） */
+	clearWeather?: boolean;
 	city?: string;
 	temp_min?: number;
 	temp_max?: number;

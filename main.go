@@ -212,7 +212,7 @@ func run(args []string, stdout io.Writer) error {
 
 	api.RegisterAuthRoutes(e, appStore, authService)
 	api.RegisterDiaryRoutes(e, appStore, authMiddleware, onDiaryChanged)
-	api.RegisterMediaRoutes(e, appStore, authMiddleware)
+	api.RegisterMediaRoutes(e, appStore, authMiddleware, authService)
 	api.RegisterImageUploadRoutes(e, appStore, authMiddleware)
 	// Initialize weather service (needed by settings routes for scheduler notifications)
 	weatherSvc := weather.NewService()

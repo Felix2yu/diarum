@@ -225,25 +225,38 @@ export async function saveAISettings(settings: AISettings): Promise<{ success: b
  * Fetch available models from OpenAI-compatible API
  */
 export async function fetchModels(apiKey: string, baseUrl: string): Promise<ModelInfo[]> {
-	const response = await fetch('/api/v1/ai/models', {
-		method: 'POST',
-		headers: {
-			'Authorization': `Bearer ${pb.authStore.token}`,
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({
-			api_key: apiKey,
-			base_url: baseUrl
-		})
-	});
+	// 8 秒超时：外部模型列表接口无响应时快速失败，避免设置页卡死
+	const controller = new AbortController();
+	const timeoutId = setTimeout(() => controller.abort(), 8000);
+	try {
+		const response = await fetch('/api/v1/ai/models', {
+			method: 'POST',
+			headers: {
+				'Authorization': `Bearer ${pb.authStore.token}`,
+				'Content-Type': 'application/json'
+			},
+			body: JSON.stringify({
+				api_key: apiKey,
+				base_url: baseUrl
+			}),
+			signal: controller.signal
+		});
 
-	if (!response.ok) {
+		if (!response.ok) {
+			const data = await response.json();
+			throw new Error(data.message || 'Failed to fetch models');
+		}
+
 		const data = await response.json();
-		throw new Error(data.message || 'Failed to fetch models');
+		return data.models || [];
+	} catch (err) {
+		if (err instanceof DOMException && err.name === 'AbortError') {
+			throw new Error('获取模型列表超时，请检查服务地址与网络');
+		}
+		throw err;
+	} finally {
+		clearTimeout(timeoutId);
 	}
-
-	const data = await response.json();
-	return data.models || [];
 }
 
 /**

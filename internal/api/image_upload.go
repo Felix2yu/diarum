@@ -38,6 +38,14 @@ type imageUploadSettingsResponse struct {
 	Chevereto imageUploadCheveretoSettings `json:"chevereto"`
 }
 
+// maskImageUploadSecrets 将响应中的密钥字段替换为掩码，避免明文回读
+func maskImageUploadSecrets(settings *imageUploadSettingsResponse) *imageUploadSettingsResponse {
+	settings.S3.AccessKey = maskSecret(settings.S3.AccessKey)
+	settings.S3.Secret = maskSecret(settings.S3.Secret)
+	settings.Chevereto.APIKey = maskSecret(settings.Chevereto.APIKey)
+	return settings
+}
+
 func RegisterImageUploadRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.MiddlewareFunc) {
 	configService := config.NewConfigService(s)
 	group := e.Group("/api/v1/image-upload", authMiddleware)
@@ -48,7 +56,7 @@ func RegisterImageUploadRoutes(e *echo.Echo, s *store.Store, authMiddleware echo
 		if err != nil {
 			return serverError("Failed to load image upload settings", err)
 		}
-		return c.JSON(http.StatusOK, settings)
+		return c.JSON(http.StatusOK, maskImageUploadSecrets(settings))
 	})
 
 	group.PUT("/settings", func(c *echo.Context) error {
@@ -56,6 +64,21 @@ func RegisterImageUploadRoutes(e *echo.Echo, s *store.Store, authMiddleware echo
 		var body imageUploadSettingsResponse
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
+		}
+
+		// 密钥字段为空或掩码时保留原值，避免前端提交掩码/空串覆盖真实密钥
+		existing, err := loadImageUploadSettings(configService, s, userID)
+		if err != nil {
+			return serverError("Failed to load existing image upload settings", err)
+		}
+		if isSecretPlaceholder(body.S3.AccessKey) {
+			body.S3.AccessKey = existing.S3.AccessKey
+		}
+		if isSecretPlaceholder(body.S3.Secret) {
+			body.S3.Secret = existing.S3.Secret
+		}
+		if isSecretPlaceholder(body.Chevereto.APIKey) {
+			body.Chevereto.APIKey = existing.Chevereto.APIKey
 		}
 
 		settings, err := normalizeImageUploadSettings(body, s)
@@ -89,7 +112,7 @@ func RegisterImageUploadRoutes(e *echo.Echo, s *store.Store, authMiddleware echo
 		if err != nil {
 			return serverError("Failed to reload image upload settings", err)
 		}
-		return c.JSON(http.StatusOK, map[string]any{"success": true, "settings": updated})
+		return c.JSON(http.StatusOK, map[string]any{"success": true, "settings": maskImageUploadSecrets(updated)})
 	})
 }
 

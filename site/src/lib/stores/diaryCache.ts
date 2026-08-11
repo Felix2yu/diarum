@@ -16,6 +16,8 @@ export interface CacheEntry {
 	mood_states: string[];
 	scenarios: string[];
 	weather: string;
+	/** 显式清除天气标记：为 true 时同步会真正清空服务器上的天气字段 */
+	clearWeather?: boolean;
 	city: string;
 	temp_min: number;
 	temp_max: number;
@@ -100,6 +102,7 @@ function reloadFromStorage(): void {
 			mood_states: Array.isArray(entry.mood_states) ? entry.mood_states : [],
 			scenarios: Array.isArray(entry.scenarios) ? entry.scenarios : [],
 			weather: entry.weather || '',
+			clearWeather: entry.clearWeather,
 			city: entry.city || '',
 			temp_min: entry.temp_min || 0,
 			temp_max: entry.temp_max || 0,
@@ -229,14 +232,24 @@ export function getCachedContent(date: string): CacheEntry | null {
  */
 export function updateLocalCache(
 	date: string,
-	updates: { content: string; mood?: number; mood_states?: string[]; scenarios?: string[]; weather?: string; city?: string; temp_min?: number; temp_max?: number; tags?: string[] }
+	updates: { content: string; mood?: number; mood_states?: string[]; scenarios?: string[]; weather?: string; clearWeather?: boolean; city?: string; temp_min?: number; temp_max?: number; tags?: string[] }
 ): void {
 	const existing = getCachedContent(date);
 
-	// Weather fields keep previously cached values when the incoming value is empty,
-	// so editing while offline does not wipe out weather already known locally.
-	const weather = updates.weather || existing?.weather || '';
+	// 天气字段语义：
+	// - updates.weather 为 undefined 或空字符串且未带 clearWeather → 保留缓存旧值（离线编辑不清天气）
+	// - updates.clearWeather === true → 显式清除天气（连同 city/temp 一起清空）
+	// - updates.weather 非空 → 使用新值
+	let weather: string;
+	if (updates.clearWeather === true) {
+		weather = '';
+	} else if (updates.weather !== undefined && updates.weather !== '') {
+		weather = updates.weather;
+	} else {
+		weather = existing?.weather || '';
+	}
 	const hasWeather = !!weather;
+	const weatherCleared = updates.clearWeather === true && !!(existing?.weather || '');
 
 	const entry: CacheEntry = {
 		content: updates.content,
@@ -244,9 +257,10 @@ export function updateLocalCache(
 		mood_states: Array.isArray(updates.mood_states) ? updates.mood_states : existing?.mood_states ?? [],
 		scenarios: Array.isArray(updates.scenarios) ? updates.scenarios : existing?.scenarios ?? [],
 		weather: weather,
-		city: hasWeather ? (updates.city || existing?.city || '') : (existing?.city || ''),
-		temp_min: hasWeather ? (updates.temp_min ?? existing?.temp_min ?? 0) : (existing?.temp_min ?? 0),
-		temp_max: hasWeather ? (updates.temp_max ?? existing?.temp_max ?? 0) : (existing?.temp_max ?? 0),
+		clearWeather: updates.clearWeather === true ? true : (existing?.clearWeather ?? false),
+		city: weatherCleared ? '' : (hasWeather ? (updates.city || existing?.city || '') : (existing?.city || '')),
+		temp_min: weatherCleared ? 0 : (hasWeather ? (updates.temp_min ?? existing?.temp_min ?? 0) : (existing?.temp_min ?? 0)),
+		temp_max: weatherCleared ? 0 : (hasWeather ? (updates.temp_max ?? existing?.temp_max ?? 0) : (existing?.temp_max ?? 0)),
 		tags: Array.isArray(updates.tags) ? updates.tags : existing?.tags ?? [],
 		localUpdatedAt: Date.now(),
 		serverUpdatedAt: existing?.serverUpdatedAt || null,
@@ -266,6 +280,7 @@ export function updateLocalCache(
 		mood_states: entry.mood_states,
 		scenarios: entry.scenarios,
 		weather: entry.weather,
+		clearWeather: entry.clearWeather,
 		city: entry.city,
 		temp_min: entry.temp_min,
 		temp_max: entry.temp_max,
@@ -344,6 +359,7 @@ export function getDirtyEntries(): {
 	mood_states: string[];
 	scenarios: string[];
 	weather: string;
+	clearWeather?: boolean;
 	city: string;
 	temp_min: number;
 	temp_max: number;
@@ -359,6 +375,7 @@ export function getDirtyEntries(): {
 			mood_states: entry.mood_states || [],
 			scenarios: entry.scenarios || [],
 			weather: entry.weather || '',
+			clearWeather: entry.clearWeather,
 			city: entry.city || '',
 			temp_min: entry.temp_min || 0,
 			temp_max: entry.temp_max || 0,
@@ -456,6 +473,11 @@ function scheduleSyncToServer(isRetry: boolean = false): void {
 		syncDirtyEntries();
 	}, interval);
 }
+/**
+ * 全局同步互斥：同一时刻只允许一个同步循环执行，
+ * 防止自动同步与手动同步（forceSyncNow）并发导致旧内容覆盖新内容。
+ */
+let syncInFlight: Promise<boolean> | null = null;
 
 /**
  * Sync all dirty entries to server.
@@ -467,6 +489,23 @@ function scheduleSyncToServer(isRetry: boolean = false): void {
  *    - 权限/认证/服务器业务错误 → 停止自动重试（由用户手动触发）
  */
 async function syncDirtyEntries(): Promise<void> {
+	if (syncInFlight) {
+		// 已有同步循环在运行，本次定时触发直接跳过（不会丢数据，稍后会再次调度）
+		return;
+	}
+	await runSyncLoop(false);
+}
+
+async function runSyncLoop(manual: boolean): Promise<boolean> {
+	syncInFlight = executeSyncLoop(manual);
+	try {
+		return await syncInFlight;
+	} finally {
+		syncInFlight = null;
+	}
+}
+
+async function executeSyncLoop(manual: boolean): Promise<boolean> {
 	const dirtyEntries = getDirtyEntries();
 
 	if (dirtyEntries.length === 0) {
@@ -476,7 +515,7 @@ async function syncDirtyEntries(): Promise<void> {
 			status: 'idle',
 			message: ''
 		});
-		return;
+		return true;
 	}
 
 	// Check online status first
@@ -489,8 +528,10 @@ async function syncDirtyEntries(): Promise<void> {
 			message: 'Offline'
 		});
 		// 明确的离线 → 总是可以重试
-		scheduleSyncToServer(true);
-		return;
+		if (!manual) {
+			scheduleSyncToServer(true);
+		}
+		return false;
 	}
 
 	retryCount = 0;
@@ -523,6 +564,7 @@ async function syncDirtyEntries(): Promise<void> {
 				mood_states: entry.mood_states,
 				scenarios: entry.scenarios,
 				weather: entry.weather,
+				clearWeather: entry.clearWeather,
 				city: entry.city,
 				temp_min: entry.temp_min,
 				temp_max: entry.temp_max,
@@ -548,8 +590,12 @@ async function syncDirtyEntries(): Promise<void> {
 			} else {
 				// saveDiary 返回 false：这一般是 4xx/5xx 类错误
 				failedDates.push(entry.date);
-				encounteredRetryable = true;
-				latestMessage = '部分日记同步失败，稍后重试';
+				if (manual) {
+					latestMessage = '同步失败';
+				} else {
+					encounteredRetryable = true;
+					latestMessage = '部分日记同步失败，稍后重试';
+				}
 				// 继续同步其他条目
 			}
 		} catch (error) {
@@ -566,6 +612,30 @@ async function syncDirtyEntries(): Promise<void> {
 			}
 			// 继续同步其他条目
 		}
+	}
+
+	if (manual) {
+		const overallSuccess = failedDates.length === 0;
+
+		syncState.set({
+			isSyncing: false,
+			currentDate: null,
+			status: overallSuccess ? 'saved' : 'error',
+			message: overallSuccess
+				? '已保存'
+				: `已同步 ${syncedCount} 条，${failedDates.length} 条失败`
+		});
+
+		setTimeout(() => {
+			syncState.update(s => {
+				if (s.status === 'saved' || s.status === 'error') {
+					return { ...s, status: 'idle', message: '' };
+				}
+				return s;
+			});
+		}, 2000);
+
+		return overallSuccess;
 	}
 
 	// 全部成功
@@ -585,7 +655,7 @@ async function syncDirtyEntries(): Promise<void> {
 				return s;
 			});
 		}, 2000);
-		return;
+		return true;
 	}
 
 	// 部分失败：根据错误类型决定是否自动重试
@@ -597,7 +667,7 @@ async function syncDirtyEntries(): Promise<void> {
 			status: 'error',
 			message: `有 ${failedDates.length} 条日记需要手动同步`
 		});
-		return;
+		return false;
 	}
 
 	if (encounteredRetryable) {
@@ -609,7 +679,7 @@ async function syncDirtyEntries(): Promise<void> {
 			message: latestMessage
 		});
 		scheduleSyncToServer(true);
-		return;
+		return false;
 	}
 
 	// 兜底
@@ -620,11 +690,13 @@ async function syncDirtyEntries(): Promise<void> {
 		message: latestMessage
 	});
 	scheduleSyncToServer(true);
+	return false;
 }
 
 /**
  * Force sync immediately —— 用户手动触发的同步。
  * 单条失败不会终止，会继续尝试其他条目；最后返回整体结果。
+ * 若已有同步循环在运行，则复用其结果，避免并发同步互相覆盖。
  */
 export async function forceSyncNow(): Promise<boolean> {
 	if (syncTimer) {
@@ -632,95 +704,11 @@ export async function forceSyncNow(): Promise<boolean> {
 		syncTimer = null;
 	}
 
-	const dirtyEntries = getDirtyEntries();
-	if (dirtyEntries.length === 0) return true;
-
-	const online = await checkOnlineStatus();
-	if (!online) {
-		syncState.set({
-			isSyncing: false,
-			currentDate: null,
-			status: 'error',
-			message: 'Offline'
-		});
-		return false;
+	if (syncInFlight) {
+		return syncInFlight;
 	}
 
-	// 手动触发同步时，重置重试计数，给一次完整的尝试机会
-	retryCount = 0;
-
-	syncState.set({
-		isSyncing: true,
-		currentDate: dirtyEntries[0].date,
-		status: 'saving',
-		message: '正在保存...'
-	});
-
-	const { saveDiary, getDiaryByDateResult } = await import('$lib/api/diaries');
-
-	// 记录同步开始时的本地修改时间快照，用于检测同步期间的并发编辑
-	const snapshotTimes = new Map(dirtyEntries.map(e => [e.date, getCachedContent(e.date)?.localUpdatedAt ?? null]));
-
-	let syncedCount = 0;
-	let failedCount = 0;
-
-	for (const entry of dirtyEntries) {
-		try {
-			const success = await saveDiary({
-				date: entry.date,
-				content: entry.content,
-				mood: entry.mood,
-				mood_states: entry.mood_states,
-				scenarios: entry.scenarios,
-				weather: entry.weather,
-				city: entry.city,
-				temp_min: entry.temp_min,
-				temp_max: entry.temp_max,
-				tags: entry.tags
-			});
-
-			if (success) {
-				const serverState = await getDiaryByDateResult(entry.date);
-				if (serverState.status === 'not_found') {
-					clearCache(entry.date);
-					syncedCount++;
-				} else if (serverState.status === 'error') {
-					failedCount++;
-					// 继续同步其他条目
-				} else {
-					markAsSynced(entry.date, serverState.diary.updated || new Date().toISOString(), snapshotTimes.get(entry.date) ?? undefined);
-					syncedCount++;
-				}
-			} else {
-				failedCount++;
-			}
-		} catch (error) {
-			console.error(`Failed to sync diary for ${entry.date}:`, error);
-			failedCount++;
-		}
-	}
-
-	const overallSuccess = failedCount === 0;
-
-	syncState.set({
-		isSyncing: false,
-		currentDate: null,
-		status: overallSuccess ? 'saved' : 'error',
-		message: overallSuccess
-			? '已保存'
-			: `已同步 ${syncedCount} 条，${failedCount} 条失败`
-	});
-
-	setTimeout(() => {
-		syncState.update(s => {
-			if (s.status === 'saved' || s.status === 'error') {
-				return { ...s, status: 'idle', message: '' };
-			}
-			return s;
-		});
-	}, 2000);
-
-	return overallSuccess;
+	return runSyncLoop(true);
 }
 
 /**

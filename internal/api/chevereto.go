@@ -27,7 +27,7 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 		domain, _ := configService.GetString(userId, "chevereto.domain")
 		apiKey, _ := configService.GetString(userId, "chevereto.api_key")
 		albumId, _ := configService.GetString(userId, "chevereto.album_id")
-		return c.JSON(http.StatusOK, map[string]any{"enabled": enabled, "domain": domain, "api_key": apiKey, "album_id": albumId})
+		return c.JSON(http.StatusOK, map[string]any{"enabled": enabled, "domain": domain, "api_key": maskSecret(apiKey), "album_id": albumId})
 	})
 
 	group.PUT("/settings", func(c *echo.Context) error {
@@ -41,6 +41,10 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
 		}
+		// API key 为空或掩码时保留原值
+		if isSecretPlaceholder(body.APIKey) {
+			body.APIKey, _ = configService.GetString(userId, "chevereto.api_key")
+		}
 		if body.Enabled && (strings.TrimSpace(body.Domain) == "" || strings.TrimSpace(body.APIKey) == "") {
 			return badRequest("Domain and API Key are required to enable Chevereto", nil)
 		}
@@ -53,12 +57,17 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 	})
 
 	group.POST("/test", func(c *echo.Context) error {
+		userId := auth.CurrentUser(c).ID
 		var body struct {
 			Domain string `json:"domain"`
 			APIKey string `json:"api_key"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
+		}
+		// API key 为空或掩码时使用已保存的密钥
+		if isSecretPlaceholder(body.APIKey) {
+			body.APIKey, _ = configService.GetString(userId, "chevereto.api_key")
 		}
 		if strings.TrimSpace(body.Domain) == "" || strings.TrimSpace(body.APIKey) == "" {
 			return badRequest("Domain and API Key are required", nil)

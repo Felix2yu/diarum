@@ -152,7 +152,8 @@ export function getMediaUrl(media: Media, thumb?: string): string {
 	}
 
 	const url = `/api/v1/files/media/${encodeURIComponent(media.id)}/${encodeURIComponent(media.file)}`;
-	return thumb ? `${url}?thumb=${encodeURIComponent(thumb)}` : url;
+	const token = pb.authStore.token ? `token=${encodeURIComponent(pb.authStore.token)}` : '';
+	return thumb ? `${url}?thumb=${encodeURIComponent(thumb)}&${token}` : token ? `${url}?${token}` : url;
 }
 
 /**

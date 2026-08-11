@@ -84,6 +84,9 @@
 	let copied = false;
 	let resetting = false;
 	let toggling = false;
+	// 后端返回的密钥掩码值；新 token 仅在创建/重置后返回一次
+	const MASKED_SECRET = '********';
+	let justCreatedToken = false;
 
 	// General settings
 	let defaultView: 'diary' | 'calendar' = 'diary';
@@ -159,6 +162,9 @@
 	// Image upload settings
 	let imageUploadSettingsLocal: ImageUploadSettings = structuredClone(defaultImageUploadSettings);
 	let originalImageUploadSettings: ImageUploadSettings = structuredClone(defaultImageUploadSettings);
+	let hasS3AccessKey = false;
+	let hasS3Secret = false;
+	let hasCheveretoApiKey = false;
 	let imageUploadSaving = false;
 	let imageUploadError = '';
 	let imageUploadSuccess = '';
@@ -444,6 +450,7 @@
 		toggling = true;
 		try {
 			tokenStatus = await toggleApiToken();
+			justCreatedToken = !!tokenStatus.token;
 		} catch (e) {
 			console.error('切换 API token 失败');
 		}
@@ -457,6 +464,7 @@
 		resetting = true;
 		try {
 			tokenStatus = await resetApiToken();
+			justCreatedToken = !!tokenStatus.token;
 		} catch (e) {
 			console.error('重置 API token 失败');
 		}
@@ -527,8 +535,16 @@
 	}
 
 	// AI Settings functions
+	let hasConfiguredApiKey = false;
+	let hasConfiguredSpeechKey = false;
+
 	async function loadAISettings() {
 		aiSettings = await getAISettings();
+		// 密钥被后端掩码，不回填输入框；记录已配置状态，留空保存表示不修改
+		hasConfiguredApiKey = !!aiSettings.api_key && aiSettings.api_key !== MASKED_SECRET;
+		if (hasConfiguredApiKey) aiSettings.api_key = '';
+		hasConfiguredSpeechKey = !!aiSettings.speech_api_key && aiSettings.speech_api_key !== MASKED_SECRET;
+		if (hasConfiguredSpeechKey) aiSettings.speech_api_key = '';
 		// 若后端未保存自定义提示词，则预填充系统默认值，方便在默认基础上修改
 		if (!aiSettings.analysis_system_prompt) {
 			aiSettings.analysis_system_prompt = DEFAULT_ANALYSIS_SYSTEM_PROMPT;
@@ -546,7 +562,7 @@
 	}
 
 	async function handleFetchModels() {
-		if (!aiSettings.api_key || !aiSettings.base_url) {
+		if (!(aiSettings.api_key || hasConfiguredApiKey) || !aiSettings.base_url) {
 			modelsError = '请先输入 API Key 和 Base URL';
 			return;
 		}
@@ -554,7 +570,7 @@
 		fetchingModels = true;
 		modelsError = '';
 		try {
-			models = await fetchModels(aiSettings.api_key, aiSettings.base_url);
+			models = await fetchModels(aiSettings.api_key || '********', aiSettings.base_url);
 		} catch (e) {
 			modelsError = e instanceof Error ? e.message : '获取模型列表失败';
 		}
@@ -567,7 +583,7 @@
 
 		// Validate: if enabling, all fields must be filled
 		if (aiSettings.enabled) {
-			if (!aiSettings.api_key || !aiSettings.base_url || !aiSettings.chat_model || !aiSettings.embedding_model) {
+			if (!(aiSettings.api_key || hasConfiguredApiKey) || !aiSettings.base_url || !aiSettings.chat_model || !aiSettings.embedding_model) {
 				aiError = '启用 AI 功能前请填写所有字段';
 				return;
 			}
@@ -576,6 +592,8 @@
 		aiSaving = true;
 		try {
 			await saveAISettings(aiSettings);
+			hasConfiguredApiKey = !!aiSettings.api_key;
+			hasConfiguredSpeechKey = !!aiSettings.speech_api_key;
 			originalAISettings = JSON.parse(JSON.stringify(aiSettings));
 			aiSuccess = 'AI 设置已成功保存';
 			setTimeout(() => aiSuccess = '', 3000);
@@ -623,14 +641,13 @@
 	}
 
 	// Check if AI can be enabled
-	$: canEnableAI = aiSettings.api_key && aiSettings.base_url && aiSettings.chat_model && aiSettings.embedding_model;
+	$: canEnableAI = (aiSettings.api_key || hasConfiguredApiKey) && aiSettings.base_url && aiSettings.chat_model && aiSettings.embedding_model;
 
 	$: memosSettingsChanged = memosSettings.enabled !== originalMemosSettings.enabled ||
 		memosSettings.base_url !== originalMemosSettings.base_url;
 
-	// Check if AI settings have changed
-	$: aiSettingsChanged = aiSettings.api_key !== originalAISettings.api_key ||
-		aiSettings.base_url !== originalAISettings.base_url ||
+	// Check if AI settings have changed（密钥字段为空表示不修改，不参与变更判定）
+	$: aiSettingsChanged = aiSettings.base_url !== originalAISettings.base_url ||
 		aiSettings.chat_model !== originalAISettings.chat_model ||
 		aiSettings.embedding_model !== originalAISettings.embedding_model ||
 		(aiSettings.analysis_system_prompt ?? '') !== (originalAISettings.analysis_system_prompt ?? '') ||
@@ -638,9 +655,10 @@
 		aiSettings.enabled !== originalAISettings.enabled ||
 		(aiSettings.speech_provider ?? '') !== (originalAISettings.speech_provider ?? '') ||
 		(aiSettings.speech_base_url ?? '') !== (originalAISettings.speech_base_url ?? '') ||
-		(aiSettings.speech_api_key ?? '') !== (originalAISettings.speech_api_key ?? '') ||
 		(aiSettings.speech_model ?? '') !== (originalAISettings.speech_model ?? '') ||
-		(aiSettings.speech_language ?? '') !== (originalAISettings.speech_language ?? '');
+		(aiSettings.speech_language ?? '') !== (originalAISettings.speech_language ?? '') ||
+		!!aiSettings.api_key !== !!hasConfiguredApiKey ||
+		!!aiSettings.speech_api_key !== !!hasConfiguredSpeechKey;
 
 	// Embedding model keywords for sorting
 	const embeddingKeywords = ['embed', 'bge', 'e5', 'voyage', 'jina'];
@@ -677,15 +695,23 @@
 	// Image upload functions
 	async function loadImageUploadSettingsLocal() {
 		imageUploadSettingsLocal = await getImageUploadSettings();
+		// 密钥被后端掩码，不回填输入框；记录已配置状态，留空保存表示不修改
+		const s3 = imageUploadSettingsLocal.s3;
+		if (s3.access_key && s3.access_key !== MASKED_SECRET) hasS3AccessKey = true;
+		if (s3.secret && s3.secret !== MASKED_SECRET) hasS3Secret = true;
+		if (s3.access_key === MASKED_SECRET) s3.access_key = '';
+		if (s3.secret === MASKED_SECRET) s3.secret = '';
+		if (imageUploadSettingsLocal.chevereto.api_key && imageUploadSettingsLocal.chevereto.api_key !== MASKED_SECRET) hasCheveretoApiKey = true;
+		if (imageUploadSettingsLocal.chevereto.api_key === MASKED_SECRET) imageUploadSettingsLocal.chevereto.api_key = '';
 		originalImageUploadSettings = JSON.parse(JSON.stringify(imageUploadSettingsLocal));
 	}
 
-	$: canTestChevereto = imageUploadSettingsLocal.chevereto.domain && imageUploadSettingsLocal.chevereto.api_key;
+	$: canTestChevereto = imageUploadSettingsLocal.chevereto.domain && (imageUploadSettingsLocal.chevereto.api_key || hasCheveretoApiKey);
 
 	$: imageUploadSettingsChanged = JSON.stringify(imageUploadSettingsLocal) !== JSON.stringify(originalImageUploadSettings);
 
 	async function handleTestChevereto() {
-		if (!imageUploadSettingsLocal.chevereto.domain || !imageUploadSettingsLocal.chevereto.api_key) {
+		if (!imageUploadSettingsLocal.chevereto.domain || !(imageUploadSettingsLocal.chevereto.api_key || hasCheveretoApiKey)) {
 			imageUploadError = '请先输入域名和 API Key';
 			return;
 		}
@@ -695,7 +721,7 @@
 		try {
 			cheveretoTestResult = await testCheveretoConnection(
 				imageUploadSettingsLocal.chevereto.domain,
-				imageUploadSettingsLocal.chevereto.api_key
+				imageUploadSettingsLocal.chevereto.api_key || MASKED_SECRET
 			);
 		} catch (e) {
 			imageUploadError = e instanceof Error ? e.message : '连接测试失败';
@@ -708,13 +734,13 @@
 		imageUploadSuccess = '';
 
 		if (imageUploadSettingsLocal.provider === 's3') {
-			if (!imageUploadSettingsLocal.s3.bucket || !imageUploadSettingsLocal.s3.region || !imageUploadSettingsLocal.s3.access_key || !imageUploadSettingsLocal.s3.secret) {
+			if (!imageUploadSettingsLocal.s3.bucket || !imageUploadSettingsLocal.s3.region || !(imageUploadSettingsLocal.s3.access_key || hasS3AccessKey) || !(imageUploadSettingsLocal.s3.secret || hasS3Secret)) {
 				imageUploadError = 'S3 需要填写 Bucket、region、access key 和 secret';
 				return;
 			}
 		}
 		if (imageUploadSettingsLocal.provider === 'chevereto') {
-			if (!imageUploadSettingsLocal.chevereto.domain || !imageUploadSettingsLocal.chevereto.api_key) {
+			if (!imageUploadSettingsLocal.chevereto.domain || !(imageUploadSettingsLocal.chevereto.api_key || hasCheveretoApiKey)) {
 				imageUploadError = 'Chevereto 需要填写域名和 API Key';
 				return;
 			}
@@ -723,6 +749,13 @@
 		imageUploadSaving = true;
 		try {
 			const result = await saveImageUploadSettings(imageUploadSettingsLocal);
+			// 保存后重新整理掩码状态（后端返回掩码值）
+			if (result.settings) {
+				const s3 = result.settings.s3;
+				if (s3.access_key === MASKED_SECRET) s3.access_key = '';
+				if (s3.secret === MASKED_SECRET) s3.secret = '';
+				if (result.settings.chevereto.api_key === MASKED_SECRET) result.settings.chevereto.api_key = '';
+			}
 			imageUploadSettingsLocal = result.settings ?? imageUploadSettingsLocal;
 			originalImageUploadSettings = JSON.parse(JSON.stringify(imageUploadSettingsLocal));
 			await loadImageUploadSettings();
@@ -1204,7 +1237,7 @@
 							<div class="font-medium text-foreground mb-2">您的 API Token</div>
 							<div class="flex items-center gap-2">
 								<code class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm font-mono text-foreground overflow-x-auto">
-									{tokenStatus.token}
+									{tokenStatus.token || '&lt;YOUR_TOKEN&gt;'}
 								</code>
 								<button
 									onclick={copyToken}
@@ -1214,9 +1247,22 @@
 								</button>
 							</div>
 							<p class="text-xs text-muted-foreground mt-2">
-								请妥善保管此 token。任何持有此 token 的人都可以读取、修改或删除您的日记内容。
+								{#if justCreatedToken}
+									新 token 仅显示一次，请立即妥善保存。任何持有此 token 的人都可以读取、修改或删除您的日记内容。
+								{:else}
+									请妥善保管此 token。任何持有此 token 的人都可以读取、修改或删除您的日记内容。
+								{/if}
 							</p>
 						</div>
+					{:else if tokenStatus.enabled}
+						<!-- API Token 已存在但已隐藏 -->
+						<div class="py-4 border-b border-border/50">
+							<div class="font-medium text-foreground mb-2">您的 API Token</div>
+							<div class="text-sm text-muted-foreground">
+								Token 已配置，出于安全考虑不再显示。如需获取新的 token，请点击下方「重置 Token」。
+							</div>
+						</div>
+					{/if}
 
 						<!-- 重置 Token -->
 						<div class="py-4 border-b border-border/50">
@@ -1242,19 +1288,19 @@
 								<div>
 									<div class="text-muted-foreground mb-1">按日期获取日记（GET）：</div>
 									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
-										GET {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}&date=YYYY-MM-DD
+										GET {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '&lt;YOUR_TOKEN&gt;'}&date=YYYY-MM-DD
 									</code>
 								</div>
 								<div>
 									<div class="text-muted-foreground mb-1">按日期范围获取日记（GET）：</div>
 									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
-										GET {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}&start=YYYY-MM-DD&end=YYYY-MM-DD
+										GET {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '&lt;YOUR_TOKEN&gt;'}&start=YYYY-MM-DD&end=YYYY-MM-DD
 									</code>
 								</div>
 								<div>
 									<div class="text-muted-foreground mb-1">创建或更新日记（POST）：</div>
 									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
-POST {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}
+POST {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '&lt;YOUR_TOKEN&gt;'}
 Content-Type: application/json
 
 {"{"}"date":"2025-01-15","content":"今天是个好日子","mood":"开心","weather":"晴"{"}"}
@@ -1263,7 +1309,7 @@ Content-Type: application/json
 								<div>
 									<div class="text-muted-foreground mb-1">按 ID 更新日记（PUT）：</div>
 									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
-PUT {getBaseUrl()}/api/v1/diaries/&lt;diary-id&gt;?token={tokenStatus.token}
+PUT {getBaseUrl()}/api/v1/diaries/&lt;diary-id&gt;?token={tokenStatus.token || '&lt;YOUR_TOKEN&gt;'}
 Content-Type: application/json
 
 {"{"}"content":"更新后的内容","mood":"平静"{"}"}
@@ -1272,32 +1318,31 @@ Content-Type: application/json
 								<div>
 									<div class="text-muted-foreground mb-1">按 ID 删除日记（DELETE）：</div>
 									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
-										DELETE {getBaseUrl()}/api/v1/diaries/&lt;diary-id&gt;?token={tokenStatus.token}
+										DELETE {getBaseUrl()}/api/v1/diaries/&lt;diary-id&gt;?token={tokenStatus.token || '&lt;YOUR_TOKEN&gt;'}
 									</code>
 								</div>
 								<div>
 									<div class="text-muted-foreground mb-1">按日期删除日记（DELETE）：</div>
 									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
-										DELETE {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}&date=YYYY-MM-DD
+										DELETE {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '&lt;YOUR_TOKEN&gt;'}&date=YYYY-MM-DD
 									</code>
 								</div>
 								<div>
 									<div class="text-muted-foreground mb-1">curl 读取示例：</div>
 									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
-curl "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}&date={new Date().toISOString().split('T')[0]}"
+curl "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '&lt;YOUR_TOKEN&gt;'}&date={new Date().toISOString().split('T')[0]}"
 									</code>
 								</div>
 								<div>
 									<div class="text-muted-foreground mb-1">curl 写入示例：</div>
 									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
-curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
+curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '&lt;YOUR_TOKEN&gt;'}" \
   -H "Content-Type: application/json" \
   -d '{"{"}"date":"{new Date().toISOString().split('T')[0]}","content":"API 测试写入","mood":"","weather":""{"}"}'
 									</code>
 								</div>
 							</div>
 						</div>
-					{/if}
 				</div>
 				{/if}
 
@@ -1872,7 +1917,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							id="ai-api-key"
 							type="password"
 							bind:value={aiSettings.api_key}
-							placeholder="sk-..."
+							placeholder={hasConfiguredApiKey ? '已配置（留空表示不修改）' : 'sk-...'}
 							class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
 						/>
 						<p class="text-xs text-muted-foreground mt-1">AI 服务的 API Key。OpenAI key 以 sk- 开头，例如 sk-xxx...</p>
@@ -2187,7 +2232,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									id="speech-api-key"
 									type="password"
 									bind:value={aiSettings.speech_api_key}
-									placeholder="留空则使用上面 AI 助手的 API 密钥"
+									placeholder={hasConfiguredSpeechKey ? '已配置（留空不修改）' : '留空则使用上面 AI 助手的 API 密钥'}
 									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
 								/>
 							</div>
@@ -2583,11 +2628,11 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 							<div class="grid gap-4 md:grid-cols-2">
 								<div>
 									<label for="s3-access-key" class="block font-medium text-foreground mb-2">访问密钥</label>
-									<input id="s3-access-key" type="text" bind:value={imageUploadSettingsLocal.s3.access_key} class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+									<input id="s3-access-key" type="text" bind:value={imageUploadSettingsLocal.s3.access_key} placeholder={hasS3AccessKey ? '已配置（留空不修改）' : ''} class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
 								</div>
 								<div>
 									<label for="s3-secret" class="block font-medium text-foreground mb-2">秘密访问密钥</label>
-									<input id="s3-secret" type="password" bind:value={imageUploadSettingsLocal.s3.secret} class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
+									<input id="s3-secret" type="password" bind:value={imageUploadSettingsLocal.s3.secret} placeholder={hasS3Secret ? '已配置（留空不修改）' : ''} class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary" />
 								</div>
 							</div>
 							<p class="text-xs text-muted-foreground">如果您是从 PocketBase S3 存储迁移而来，这些凭据也将用于保持旧相册图片的可访问性。</p>
@@ -2610,7 +2655,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 									id="chevereto-api-key"
 									type="password"
 									bind:value={imageUploadSettingsLocal.chevereto.api_key}
-									placeholder="chv-key-..."
+									placeholder={hasCheveretoApiKey ? '已配置（留空不修改）' : 'chv-key-...'}
 									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
 								/>
 							</div>

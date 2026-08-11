@@ -20,6 +20,8 @@ export interface Diary {
     temp_min?: number;
     temp_max?: number;
     tags?: string[];
+    /** 前端专用标志：显式清除天气（服务器忽略此字段） */
+    clearWeather?: boolean;
     owner: string;
     created?: string;
     updated?: string;

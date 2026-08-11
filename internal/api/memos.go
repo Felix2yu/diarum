@@ -449,7 +449,8 @@ func upsertMemosBlock(s *store.Store, userID, memoID, date, block string) (bool,
 	if !replaced {
 		content = appendMemosBlock(diary.Content, block)
 	}
-	_, _, err = s.UpsertDiary(userID, store.DateOnly(diary.Date), content, diary.Mood, nil, nil, diary.Weather, diary.Tags, diary.City, diary.TempMin, diary.TempMax)
+	// 原样保留 mood_states/scenarios 等字段，避免 memos 同步清空当天日记的心情/情景数据
+	_, _, err = s.UpsertDiary(userID, store.DateOnly(diary.Date), content, diary.Mood, diary.MoodStates, diary.Scenarios, diary.Weather, diary.Tags, diary.City, diary.TempMin, diary.TempMax)
 	return err == nil, err
 }
 
@@ -465,7 +466,8 @@ func removeMemosBlock(s *store.Store, userID, memoID, date string) (bool, error)
 	if !removed {
 		return false, nil
 	}
-	_, _, err = s.UpsertDiary(userID, store.DateOnly(diary.Date), strings.TrimSpace(content), diary.Mood, nil, nil, diary.Weather, diary.Tags, diary.City, diary.TempMin, diary.TempMax)
+	// 原样保留 mood_states/scenarios 等字段，避免 memos 同步清空当天日记的心情/情景数据
+	_, _, err = s.UpsertDiary(userID, store.DateOnly(diary.Date), strings.TrimSpace(content), diary.Mood, diary.MoodStates, diary.Scenarios, diary.Weather, diary.Tags, diary.City, diary.TempMin, diary.TempMax)
 	return err == nil, err
 }
 

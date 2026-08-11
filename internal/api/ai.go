@@ -55,7 +55,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		speechModel, _ := configService.GetString(userId, "ai.speech.model")
 		speechLanguage, _ := configService.GetString(userId, "ai.speech.language")
 		return c.JSON(http.StatusOK, map[string]any{
-			"api_key":                 apiKey,
+			"api_key":                 maskSecret(apiKey),
 			"base_url":                baseUrl,
 			"chat_model":              chatModel,
 			"embedding_model":         embeddingModel,
@@ -64,7 +64,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			"enabled":                 enabled,
 			"speech_provider":         speechProvider,
 			"speech_base_url":         speechBaseUrl,
-			"speech_api_key":          speechAPIKey,
+			"speech_api_key":          maskSecret(speechAPIKey),
 			"speech_model":            speechModel,
 			"speech_language":         speechLanguage,
 		})
@@ -89,11 +89,20 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
 		}
-		if body.Enabled && (body.APIKey == "" || body.BaseURL == "" || body.ChatModel == "" || body.EmbeddingModel == "") {
+		// 密钥字段为空或掩码值时保留原值，避免前端提交掩码/空串覆盖真实密钥
+		apiKey := body.APIKey
+		if isSecretPlaceholder(apiKey) {
+			apiKey, _ = configService.GetString(userId, "ai.api_key")
+		}
+		speechAPIKey := body.SpeechAPIKey
+		if isSecretPlaceholder(speechAPIKey) {
+			speechAPIKey, _ = configService.GetString(userId, "ai.speech.api_key")
+		}
+		if body.Enabled && (apiKey == "" || body.BaseURL == "" || body.ChatModel == "" || body.EmbeddingModel == "") {
 			return badRequest("All AI settings must be configured before enabling AI features", nil)
 		}
 		settings := map[string]any{
-			"ai.api_key":                 body.APIKey,
+			"ai.api_key":                 apiKey,
 			"ai.base_url":                body.BaseURL,
 			"ai.chat_model":              body.ChatModel,
 			"ai.embedding_model":         body.EmbeddingModel,
@@ -102,7 +111,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			"ai.enabled":                 body.Enabled,
 			"ai.speech.provider":         body.SpeechProvider,
 			"ai.speech.base_url":         body.SpeechBaseURL,
-			"ai.speech.api_key":          body.SpeechAPIKey,
+			"ai.speech.api_key":          speechAPIKey,
 			"ai.speech.model":            body.SpeechModel,
 			"ai.speech.language":         body.SpeechLanguage,
 		}
@@ -113,12 +122,17 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	})
 
 	group.POST("/models", func(c *echo.Context) error {
+		userId := auth.CurrentUser(c).ID
 		var body struct {
 			APIKey  string `json:"api_key"`
 			BaseURL string `json:"base_url"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
+		}
+		// API key 为空或掩码时使用已保存的密钥
+		if isSecretPlaceholder(body.APIKey) {
+			body.APIKey, _ = configService.GetString(userId, "ai.api_key")
 		}
 		if body.APIKey == "" || body.BaseURL == "" {
 			return badRequest("API key and base URL are required", nil)

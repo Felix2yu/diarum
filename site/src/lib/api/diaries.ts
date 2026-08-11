@@ -200,12 +200,21 @@ export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
 		const effectiveMood = diary.mood !== undefined ? diary.mood : existing?.mood;
 		const effectiveMoodStates = diary.mood_states !== undefined ? diary.mood_states : existing?.mood_states ?? [];
 		const effectiveScenarios = diary.scenarios !== undefined ? diary.scenarios : existing?.scenarios ?? [];
-		// Weather fields fall back to existing values when empty: an empty string
-		// (e.g. edited while offline) must not wipe out weather already on the server.
-		const effectiveWeather = diary.weather || existing?.weather || '';
-		const effectiveCity = effectiveWeather ? (diary.city || existing?.city || '') : (existing?.city || '');
-		const effectiveTempMin = effectiveWeather ? (diary.temp_min ?? existing?.temp_min ?? 0) : (existing?.temp_min ?? 0);
-		const effectiveTempMax = effectiveWeather ? (diary.temp_max ?? existing?.temp_max ?? 0) : (existing?.temp_max ?? 0);
+		// Weather fields fall back to existing values only when the incoming value is absent (undefined)
+		// or empty without an explicit clear flag, so editing while offline does not wipe out
+		// weather already on the server. 显式清除（clearWeather: true）则会真正清空天气字段。
+		let effectiveWeather: string;
+		if (diary.clearWeather === true) {
+			effectiveWeather = '';
+		} else if (diary.weather !== undefined && diary.weather !== '') {
+			effectiveWeather = diary.weather;
+		} else {
+			effectiveWeather = existing?.weather || '';
+		}
+		const weatherCleared = diary.clearWeather === true && !!(existing?.weather || '');
+		const effectiveCity = weatherCleared ? '' : (effectiveWeather ? (diary.city || existing?.city || '') : (existing?.city || ''));
+		const effectiveTempMin = weatherCleared ? 0 : (effectiveWeather ? (diary.temp_min ?? existing?.temp_min ?? 0) : (existing?.temp_min ?? 0));
+		const effectiveTempMax = weatherCleared ? 0 : (effectiveWeather ? (diary.temp_max ?? existing?.temp_max ?? 0) : (existing?.temp_max ?? 0));
 		const effectiveTags = diary.tags !== undefined ? diary.tags : existing?.tags ?? [];
 
 	// 空内容判定基于用户本次实际提交的字段，而不是回退到服务器已有值。

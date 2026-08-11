@@ -409,8 +409,13 @@ func handleImport(c *echo.Context, s *store.Store, embeddingService *embedding.E
 		stats.DiaryDetails = append(stats.DiaryDetails, importDiaryDetail{Date: d.Date, Status: "imported"})
 	}
 	for _, m := range data.Media {
+		// 防御路径穿越：m.File 必须是纯文件名（无目录分隔符、无 ".."）
+		if m.File == "" || m.File != filepath.Base(m.File) || strings.ContainsAny(m.File, "/\\") || strings.Contains(m.File, "..") {
+			stats.Media.Failed++
+			continue
+		}
 		fileBytes, ok := mediaFiles[m.File]
-		if m.File == "" || !ok {
+		if !ok {
 			stats.Media.Failed++
 			continue
 		}

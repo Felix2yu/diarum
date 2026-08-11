@@ -344,14 +344,15 @@ func TestAuthAndSettingsRoutes(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("toggle existing api-token status = %d", rec.Code)
 	}
-	if payload := decodeJSONBody(t, rec); payload["enabled"] != false || payload["token"] != secondToken {
+	if payload := decodeJSONBody(t, rec); payload["enabled"] != false || payload["token"] != "" {
 		t.Fatalf("toggle existing api-token payload = %#v", payload)
 	}
 	rec = performRequest(t, e, http.MethodGet, "/api/v1/settings/api-token", nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET disabled api-token status = %d", rec.Code)
 	}
-	if payload := decodeJSONBody(t, rec); payload["exists"] != true || payload["enabled"] != false || payload["token"] != secondToken {
+	// 已存在的 token 不回读明文（掩码/空串），仅返回状态
+	if payload := decodeJSONBody(t, rec); payload["exists"] != true || payload["enabled"] != false || payload["token"] != "" {
 		t.Fatalf("GET disabled api-token payload = %#v", payload)
 	}
 
@@ -375,7 +376,7 @@ func TestDiaryMediaAndPublicRoutes(t *testing.T) {
 			changeCount++
 		}
 	})
-	RegisterMediaRoutes(e, s, authMiddlewareFor(user))
+	RegisterMediaRoutes(e, s, authMiddlewareFor(user), iauth.NewService(s))
 	RegisterPublicRoutes(e, s)
 
 	configService := config.NewConfigService(s)
@@ -481,11 +482,17 @@ func TestDiaryMediaAndPublicRoutes(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /media/:id status = %d", rec.Code)
 	}
-	rec = performRequest(t, e, http.MethodGet, "/api/v1/files/media/"+mediaID+"/photo.png", nil, nil)
+	// /files/media 需要认证后才能访问（v1.12+ 收紧媒体文件访问）
+	authToken, err := iauth.NewService(s).IssueToken(user)
+	if err != nil {
+		t.Fatalf("IssueToken: %v", err)
+	}
+	mediaHeaders := map[string]string{"Authorization": "Bearer " + authToken}
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/files/media/"+mediaID+"/photo.png", nil, mediaHeaders)
 	if rec.Code != http.StatusOK || len(rec.Body.Bytes()) == 0 {
 		t.Fatalf("GET /files/media status = %d body=%q", rec.Code, rec.Body.Bytes())
 	}
-	rec = performRequest(t, e, http.MethodGet, "/api/v1/files/media/"+mediaID+"/wrong.png", nil, nil)
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/files/media/"+mediaID+"/wrong.png", nil, mediaHeaders)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("GET /files/media filename mismatch status = %d", rec.Code)
 	}
@@ -497,7 +504,7 @@ func TestDiaryMediaAndPublicRoutes(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("DELETE /media missing status = %d", rec.Code)
 	}
-	rec = performRequest(t, e, http.MethodGet, "/api/v1/files/media/"+mediaID+"/photo.png", nil, nil)
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/files/media/"+mediaID+"/photo.png", nil, mediaHeaders)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("GET deleted media file status = %d", rec.Code)
 	}
@@ -1305,7 +1312,7 @@ func TestMediaRoutesStoreErrors(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
 	e := echo.New()
-	RegisterMediaRoutes(e, s, authMiddlewareFor(user))
+	RegisterMediaRoutes(e, s, authMiddlewareFor(user), iauth.NewService(s))
 
 	rec := performRequest(t, e, http.MethodPost, "/api/v1/media", nil, map[string]string{"Content-Type": "multipart/form-data"})
 	if rec.Code != http.StatusBadRequest {
