@@ -233,15 +233,20 @@ export function updateLocalCache(
 ): void {
 	const existing = getCachedContent(date);
 
+	// Weather fields keep previously cached values when the incoming value is empty,
+	// so editing while offline does not wipe out weather already known locally.
+	const weather = updates.weather || existing?.weather || '';
+	const hasWeather = !!weather;
+
 	const entry: CacheEntry = {
 		content: updates.content,
 		mood: updates.mood ?? existing?.mood ?? 0,
 		mood_states: Array.isArray(updates.mood_states) ? updates.mood_states : existing?.mood_states ?? [],
 		scenarios: Array.isArray(updates.scenarios) ? updates.scenarios : existing?.scenarios ?? [],
-		weather: updates.weather ?? existing?.weather ?? '',
-		city: updates.city ?? existing?.city ?? '',
-		temp_min: updates.temp_min ?? existing?.temp_min ?? 0,
-		temp_max: updates.temp_max ?? existing?.temp_max ?? 0,
+		weather: weather,
+		city: hasWeather ? (updates.city || existing?.city || '') : (existing?.city || ''),
+		temp_min: hasWeather ? (updates.temp_min ?? existing?.temp_min ?? 0) : (existing?.temp_min ?? 0),
+		temp_max: hasWeather ? (updates.temp_max ?? existing?.temp_max ?? 0) : (existing?.temp_max ?? 0),
 		tags: Array.isArray(updates.tags) ? updates.tags : existing?.tags ?? [],
 		localUpdatedAt: Date.now(),
 		serverUpdatedAt: existing?.serverUpdatedAt || null,
@@ -362,10 +367,22 @@ export function getDirtyEntries(): {
 }
 
 /**
- * Mark entry as synced
+ * Mark entry as synced.
+ *
+ * @param sinceLocalUpdatedAt 同步开始时的 localUpdatedAt。若同步期间该日期又被
+ * 用户编辑（localUpdatedAt 已变化），则保留本地脏数据等待下次同步，避免把
+ * 尚未上传的新内容随缓存一起清除。
  */
-export function markAsSynced(date: string, serverUpdatedAt: string): void {
-	void serverUpdatedAt;
+export function markAsSynced(date: string, serverUpdatedAt: string, sinceLocalUpdatedAt?: number): void {
+	const entry = getCachedContent(date);
+	if (entry && sinceLocalUpdatedAt !== undefined && entry.localUpdatedAt !== sinceLocalUpdatedAt) {
+		entry.serverUpdatedAt = serverUpdatedAt;
+		entry.isDirty = true;
+		diaryCache.update(cache => ({ ...cache, [date]: entry }));
+		updateCacheStats();
+		return;
+	}
+
 	// Browser cache is disabled: once synced, remove local draft snapshot.
 	clearCache(date);
 
@@ -487,6 +504,9 @@ async function syncDirtyEntries(): Promise<void> {
 
 	const { saveDiary, getDiaryByDateResult } = await import('$lib/api/diaries');
 
+	// 记录同步开始时的本地修改时间快照，用于检测同步期间的并发编辑
+	const snapshotTimes = new Map(dirtyEntries.map(e => [e.date, getCachedContent(e.date)?.localUpdatedAt ?? null]));
+
 	// 记录本次同步结果，用于决定是否需要整体重试
 	let syncedCount = 0;
 	let failedDates: string[] = [];
@@ -522,7 +542,7 @@ async function syncDirtyEntries(): Promise<void> {
 				if (serverState.status === 'not_found') {
 					clearCache(entry.date);
 				} else {
-					markAsSynced(entry.date, serverState.diary.updated || new Date().toISOString());
+					markAsSynced(entry.date, serverState.diary.updated || new Date().toISOString(), snapshotTimes.get(entry.date) ?? undefined);
 				}
 				syncedCount++;
 			} else {
@@ -638,6 +658,9 @@ export async function forceSyncNow(): Promise<boolean> {
 
 	const { saveDiary, getDiaryByDateResult } = await import('$lib/api/diaries');
 
+	// 记录同步开始时的本地修改时间快照，用于检测同步期间的并发编辑
+	const snapshotTimes = new Map(dirtyEntries.map(e => [e.date, getCachedContent(e.date)?.localUpdatedAt ?? null]));
+
 	let syncedCount = 0;
 	let failedCount = 0;
 
@@ -665,7 +688,7 @@ export async function forceSyncNow(): Promise<boolean> {
 					failedCount++;
 					// 继续同步其他条目
 				} else {
-					markAsSynced(entry.date, serverState.diary.updated || new Date().toISOString());
+					markAsSynced(entry.date, serverState.diary.updated || new Date().toISOString(), snapshotTimes.get(entry.date) ?? undefined);
 					syncedCount++;
 				}
 			} else {

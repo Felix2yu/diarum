@@ -750,6 +750,26 @@
 		previousDate = date;
 		loadDiary(date);
 	}
+
+	// 断网重连后自动刷新：离线时编辑页天气为空，重新联网后应自动重新加载
+	// 日记与天气，而不需要用户手动刷新页面或切换日期。
+	let wasOffline = false;
+	$: if ($onlineState.isOnline && wasOffline && cacheReady && typeof window !== 'undefined') {
+		wasOffline = false;
+		if (hasDirtyCache(date)) {
+			// 本地有未同步编辑：保留用户内容，仅尝试补充天气
+			if (selectedCity && !weatherData) {
+				void handleCitySelect({ name: selectedCity, lat: 0, lon: 0, province: '', country: '' });
+			} else if (!selectedCity) {
+				void autoFetchWeather();
+			}
+		} else {
+			void loadDiary(date);
+		}
+	}
+	$: if (!$onlineState.isOnline) {
+		wasOffline = true;
+	}
 </script>
 
 <svelte:head>

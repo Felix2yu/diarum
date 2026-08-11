@@ -200,19 +200,24 @@ export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
 		const effectiveMood = diary.mood !== undefined ? diary.mood : existing?.mood;
 		const effectiveMoodStates = diary.mood_states !== undefined ? diary.mood_states : existing?.mood_states ?? [];
 		const effectiveScenarios = diary.scenarios !== undefined ? diary.scenarios : existing?.scenarios ?? [];
-		const effectiveWeather = diary.weather !== undefined ? diary.weather : existing?.weather;
-		const effectiveCity = diary.city !== undefined ? diary.city : existing?.city ?? '';
-		const effectiveTempMin = diary.temp_min !== undefined ? diary.temp_min : existing?.temp_min ?? 0;
-		const effectiveTempMax = diary.temp_max !== undefined ? diary.temp_max : existing?.temp_max ?? 0;
+		// Weather fields fall back to existing values when empty: an empty string
+		// (e.g. edited while offline) must not wipe out weather already on the server.
+		const effectiveWeather = diary.weather || existing?.weather || '';
+		const effectiveCity = effectiveWeather ? (diary.city || existing?.city || '') : (existing?.city || '');
+		const effectiveTempMin = effectiveWeather ? (diary.temp_min ?? existing?.temp_min ?? 0) : (existing?.temp_min ?? 0);
+		const effectiveTempMax = effectiveWeather ? (diary.temp_max ?? existing?.temp_max ?? 0) : (existing?.temp_max ?? 0);
 		const effectiveTags = diary.tags !== undefined ? diary.tags : existing?.tags ?? [];
 
+	// 空内容判定基于用户本次实际提交的字段，而不是回退到服务器已有值。
+	// 这样离线清空日记（天气为空）时，不会被服务器自动抓取的天气"误判为非空"，
+	// 从而正确删除空记录；而正常编辑时天气字段仍通过 effectiveWeather 保护不被覆盖。
 	const allEmpty =
-		isContentEmpty(effectiveContent) &&
-		!effectiveMood &&
-		!effectiveMoodStates?.length &&
-		!effectiveScenarios?.length &&
-		!effectiveWeather?.trim() &&
-		(effectiveTags.length === 0);
+		isContentEmpty(diary.content) &&
+		!diary.mood &&
+		!(diary.mood_states?.length ?? 0) &&
+		!(diary.scenarios?.length ?? 0) &&
+		!diary.weather?.trim() &&
+		!(diary.tags?.length ?? 0);
 
 		if (existing && existing.id) {
 			if (allEmpty) {
@@ -238,7 +243,7 @@ export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
 				mood: diary.mood ?? existing?.mood ?? 0,
 				mood_states: effectiveMoodStates,
 				scenarios: effectiveScenarios,
-				weather: diary.weather ?? existing?.weather ?? '',
+				weather: effectiveWeather,
 				city: effectiveCity,
 				temp_min: effectiveTempMin,
 				temp_max: effectiveTempMax,
