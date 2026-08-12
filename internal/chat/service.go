@@ -261,6 +261,8 @@ Always reference specific dates when discussing diary entries. Respond in the sa
 }
 
 // GetConversationHistory retrieves message history for a conversation
+// 返回时间正序（最早在前），供 AI 上下文组装使用。
+// store.ListMessages 按 created DESC（最新在前），这里反转回正序。
 func (s *ChatService) GetConversationHistory(conversationID string, limit int) ([]ChatMessage, error) {
 	messages, err := s.store.ListMessages(conversationID, limit)
 	if err != nil {
@@ -268,7 +270,8 @@ func (s *ChatService) GetConversationHistory(conversationID string, limit int) (
 	}
 
 	history := make([]ChatMessage, 0, len(messages))
-	for _, msg := range messages {
+	for i := len(messages) - 1; i >= 0; i-- {
+		msg := messages[i]
 		history = append(history, ChatMessage{
 			Role:    msg.Role,
 			Content: msg.Content,
