@@ -1455,3 +1455,67 @@ func TestPublicRoutesWriteOperations(t *testing.T) {
 		t.Fatalf("DELETE /diaries no token status = %d", rec.Code)
 	}
 }
+
+func TestDiaryUpsertPartialUpdatePreservesFields(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	e := echo.New()
+	RegisterDiaryRoutes(e, s, authMiddlewareFor(user), nil)
+
+	// Step 1: Create diary with all fields
+	rec := performRequest(t, e, http.MethodPost, "/api/v1/diaries/upsert",
+		strings.NewReader(`{"date":"2025-03-10","content":"full diary","mood":4,"weather":"sunny","city":"Beijing","temp_min":5.5,"temp_max":18.2,"mood_states":["happy","calm"],"scenarios":["work"],"tags":["#daily"]}`),
+		map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("create status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	created := decodeJSONBody(t, rec)
+	diaryID := created["id"].(string)
+
+	// Step 2: Content-only update (no mood, weather, tags, etc.)
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/diaries/upsert",
+		strings.NewReader(`{"date":"2025-03-10","content":"updated content only"}`),
+		map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("partial update status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	updated := decodeJSONBody(t, rec)
+
+	// Content should change
+	if updated["content"] != "updated content only" {
+		t.Fatalf("content = %v, want 'updated content only'", updated["content"])
+	}
+	// All other fields should be preserved
+	if updated["mood"].(float64) != 4 {
+		t.Fatalf("mood = %v, want 4 (preserved)", updated["mood"])
+	}
+	if updated["weather"] != "sunny" {
+		t.Fatalf("weather = %v, want sunny (preserved)", updated["weather"])
+	}
+	if updated["city"] != "Beijing" {
+		t.Fatalf("city = %v, want Beijing (preserved)", updated["city"])
+	}
+	if updated["temp_min"].(float64) != 5.5 {
+		t.Fatalf("temp_min = %v, want 5.5 (preserved)", updated["temp_min"])
+	}
+	if updated["temp_max"].(float64) != 18.2 {
+		t.Fatalf("temp_max = %v, want 18.2 (preserved)", updated["temp_max"])
+	}
+	moodStates := updated["mood_states"].([]any)
+	if len(moodStates) != 2 || moodStates[0] != "happy" {
+		t.Fatalf("mood_states = %v, want [happy calm] (preserved)", moodStates)
+	}
+	tags := updated["tags"].([]any)
+	if len(tags) != 1 || tags[0] != "#daily" {
+		t.Fatalf("tags = %v, want [#daily] (preserved)", tags)
+	}
+	scenarios := updated["scenarios"].([]any)
+	if len(scenarios) != 1 || scenarios[0] != "work" {
+		t.Fatalf("scenarios = %v, want [work] (preserved)", scenarios)
+	}
+
+	// Verify same diary ID
+	if updated["id"] != diaryID {
+		t.Fatalf("id changed: %v != %v", updated["id"], diaryID)
+	}
+}

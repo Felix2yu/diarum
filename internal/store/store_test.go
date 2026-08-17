@@ -2960,3 +2960,95 @@ func TestVAPIDKeyRoundTrip(t *testing.T) {
 		t.Fatalf("private = %q, want privval", priv)
 	}
 }
+
+func TestUpsertDiaryPartialUpdatePreservesExistingFields(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	moodStates := []string{"开心", "满足"}
+	scenarios := []string{"work", "exercise"}
+	tags := []string{"#daily", "#work"}
+
+	diary, created, err := s.UpsertDiary(user.ID, "2025-01-15", "original content",
+		intPtr(4), &moodStates, &scenarios, &tags, strPtr("sunny"), strPtr("Beijing"), floatPtr(5.0), floatPtr(15.0))
+	if err != nil {
+		t.Fatalf("initial upsert: %v", err)
+	}
+	if !created {
+		t.Fatal("expected first upsert to insert")
+	}
+
+	// Partial update: only content, everything else nil (leave unchanged)
+	updated, _, err := s.UpsertDiary(user.ID, "2025-01-15", "updated content only",
+		nil, nil, nil, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("partial upsert: %v", err)
+	}
+
+	if updated.Content != "updated content only" {
+		t.Fatalf("content = %q, want updated content", updated.Content)
+	}
+	if updated.Mood != 4 {
+		t.Fatalf("mood = %d, want 4 (should be preserved)", updated.Mood)
+	}
+	if len(updated.MoodStates) != 2 || updated.MoodStates[0] != "开心" {
+		t.Fatalf("mood_states = %v, want [开心 满足]", updated.MoodStates)
+	}
+	if len(updated.Scenarios) != 2 || updated.Scenarios[0] != "work" {
+		t.Fatalf("scenarios = %v, want [work exercise]", updated.Scenarios)
+	}
+	if len(updated.Tags) != 2 || updated.Tags[0] != "#daily" {
+		t.Fatalf("tags = %v, want [#daily #work]", updated.Tags)
+	}
+	if updated.Weather != "sunny" {
+		t.Fatalf("weather = %q, want sunny (should be preserved)", updated.Weather)
+	}
+	if updated.City != "Beijing" {
+		t.Fatalf("city = %q, want Beijing (should be preserved)", updated.City)
+	}
+	if updated.TempMin != 5.0 {
+		t.Fatalf("temp_min = %f, want 5.0 (should be preserved)", updated.TempMin)
+	}
+	if updated.TempMax != 15.0 {
+		t.Fatalf("temp_max = %f, want 15.0 (should be preserved)", updated.TempMax)
+	}
+	if updated.ID != diary.ID {
+		t.Fatalf("ID changed: %s != %s (should be same diary)", updated.ID, diary.ID)
+	}
+}
+
+func TestUpsertDiaryExplicitZeroClearsFields(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	moodStates := []string{"开心"}
+	tags := []string{"#test"}
+
+	_, _, err := s.UpsertDiary(user.ID, "2025-02-01", "content",
+		intPtr(4), &moodStates, nil, &tags, strPtr("sunny"), nil, nil, nil)
+	if err != nil {
+		t.Fatalf("initial upsert: %v", err)
+	}
+
+	// Explicit empty arrays should clear the fields
+	emptySlice := []string{}
+	updated, _, err := s.UpsertDiary(user.ID, "2025-02-01", "same content",
+		intPtr(2), &emptySlice, nil, &emptySlice, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("update with empties: %v", err)
+	}
+	if updated.Mood != 2 {
+		t.Fatalf("mood = %d, want 2", updated.Mood)
+	}
+	if len(updated.MoodStates) != 0 {
+		t.Fatalf("mood_states = %v, want empty", updated.MoodStates)
+	}
+	if len(updated.Tags) != 0 {
+		t.Fatalf("tags = %v, want empty", updated.Tags)
+	}
+	if updated.Weather != "sunny" {
+		t.Fatalf("weather = %q, should be preserved (nil pointer)", updated.Weather)
+	}
+}
+
+func floatPtr(v float64) *float64 { return &v }

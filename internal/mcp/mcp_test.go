@@ -12,6 +12,7 @@ import (
 
 func intPtr(v int) *int       { return &v }
 func strPtr(v string) *string { return &v }
+func floatPtr(v float64) *float64 { return &v }
 
 func newTestServer(t *testing.T) (*Server, *store.Store, string, func()) {
 	t.Helper()
@@ -291,5 +292,97 @@ func TestGetWeatherSuccess(t *testing.T) {
 	}
 	if _, err := json.Marshal(res); err != nil {
 		t.Fatalf("marshal result: %v", err)
+	}
+}
+
+func TestCreateDiaryPartialUpdatePreservesFields(t *testing.T) {
+	svr, s, uid, cleanup := newTestServer(t)
+	defer cleanup()
+
+	// Step 1: Create diary with all fields
+	_, _, err := s.UpsertDiary(uid, "2025-04-01", "original content",
+		intPtr(4), &[]string{"happy"}, &[]string{"work"}, &[]string{"#daily"},
+		strPtr("sunny"), strPtr("Shanghai"), floatPtr(10.0), floatPtr(22.0))
+	if err != nil {
+		t.Fatalf("seed diary: %v", err)
+	}
+
+	// Step 2: MCP call with only date + content (no mood/weather/tags)
+	res := callTool(t, svr, uid, "create_diary", map[string]any{
+		"date":    "2025-04-01",
+		"content": "updated via MCP",
+	})
+	if res.IsError {
+		t.Fatalf("unexpected error: %s", res.Content)
+	}
+
+	// Step 3: Verify via store that all original fields are preserved
+	diary, err := s.GetDiaryByDate(uid, "2025-04-01 00:00:00.000Z", "2025-04-01 23:59:59.999Z")
+	if err != nil {
+		t.Fatalf("GetDiaryByDate: %v", err)
+	}
+	if diary.Content != "updated via MCP" {
+		t.Fatalf("content = %q, want 'updated via MCP'", diary.Content)
+	}
+	if diary.Mood != 4 {
+		t.Fatalf("mood = %d, want 4 (preserved)", diary.Mood)
+	}
+	if len(diary.MoodStates) != 1 || diary.MoodStates[0] != "happy" {
+		t.Fatalf("mood_states = %v, want [happy] (preserved)", diary.MoodStates)
+	}
+	if len(diary.Scenarios) != 1 || diary.Scenarios[0] != "work" {
+		t.Fatalf("scenarios = %v, want [work] (preserved)", diary.Scenarios)
+	}
+	if len(diary.Tags) != 1 || diary.Tags[0] != "#daily" {
+		t.Fatalf("tags = %v, want [#daily] (preserved)", diary.Tags)
+	}
+	if diary.Weather != "sunny" {
+		t.Fatalf("weather = %q, want sunny (preserved)", diary.Weather)
+	}
+	if diary.City != "Shanghai" {
+		t.Fatalf("city = %q, want Shanghai (preserved)", diary.City)
+	}
+	if diary.TempMin != 10.0 {
+		t.Fatalf("temp_min = %f, want 10.0 (preserved)", diary.TempMin)
+	}
+	if diary.TempMax != 22.0 {
+		t.Fatalf("temp_max = %f, want 22.0 (preserved)", diary.TempMax)
+	}
+}
+
+func TestCreateDiaryExplicitOverwriteClearsFields(t *testing.T) {
+	svr, s, uid, cleanup := newTestServer(t)
+	defer cleanup()
+
+	// Seed with mood=4, weather=sunny
+	_, _, err := s.UpsertDiary(uid, "2025-04-02", "seed",
+		intPtr(4), nil, nil, nil, strPtr("sunny"), nil, nil, nil)
+	if err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	// MCP call that explicitly sets mood=1 and weather="" (clear weather)
+	res := callTool(t, svr, uid, "create_diary", map[string]any{
+		"date":    "2025-04-02",
+		"content": "new content",
+		"mood":    float64(1),
+		"weather": "",
+	})
+	if res.IsError {
+		t.Fatalf("unexpected error: %s", res.Content)
+	}
+
+	diary, err := s.GetDiaryByDate(uid, "2025-04-02 00:00:00.000Z", "2025-04-02 23:59:59.999Z")
+	if err != nil {
+		t.Fatalf("GetDiaryByDate: %v", err)
+	}
+	if diary.Mood != 1 {
+		t.Fatalf("mood = %d, want 1 (explicitly overwritten)", diary.Mood)
+	}
+	if diary.Weather != "" {
+		t.Fatalf("weather = %q, want empty (explicitly cleared)", diary.Weather)
+	}
+	if diary.Content != "new content" {
+		t.Fatalf("content = %q, want 'new content'", diary.Content)
 	}
 }
