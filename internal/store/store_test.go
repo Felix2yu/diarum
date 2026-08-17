@@ -1,8 +1,5 @@
 package store
 
-func intPtr(v int) *int       { return &v }
-func strPtr(v string) *string { return &v }
-
 import (
 	"bytes"
 	"context"
@@ -21,6 +18,9 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 )
+
+func intPtr(v int) *int       { return &v }
+func strPtr(v string) *string { return &v }
 
 func newTestStore(t *testing.T) *Store {
 	t.Helper()
