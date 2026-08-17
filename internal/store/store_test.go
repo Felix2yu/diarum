@@ -1,5 +1,8 @@
 package store
 
+func intPtr(v int) *int       { return &v }
+func strPtr(v string) *string { return &v }
+
 import (
 	"bytes"
 	"context"
@@ -158,7 +161,7 @@ func TestStoreUserDiarySettingsConversationFlows(t *testing.T) {
 		t.Fatalf("rolled back setting error = %v, want sql.ErrNoRows", err)
 	}
 
-	created, inserted, err := s.UpsertDiary(user.ID, "2024-05-20", "first entry", 4, nil, nil, "sunny", nil, "", 0, 0)
+	created, inserted, err := s.UpsertDiary(user.ID, "2024-05-20", "first entry", intPtr(4), nil, nil, nil, strPtr("sunny"), nil, nil, nil)
 	if err != nil {
 		t.Fatalf("UpsertDiary create: %v", err)
 	}
@@ -169,7 +172,7 @@ func TestStoreUserDiarySettingsConversationFlows(t *testing.T) {
 		t.Fatalf("created diary date = %q", created.Date)
 	}
 
-	updated, inserted, err := s.UpsertDiary(user.ID, "2024-05-20", "updated entry", 4, nil, nil, "rain", nil, "", 0, 0)
+	updated, inserted, err := s.UpsertDiary(user.ID, "2024-05-20", "updated entry", intPtr(4), nil, nil, nil, strPtr("rain"), nil, nil, nil)
 	if err != nil {
 		t.Fatalf("UpsertDiary update: %v", err)
 	}
@@ -610,7 +613,7 @@ func TestStoreClosedDatabaseErrorBranches(t *testing.T) {
 		{"GetUserByID", func() error { _, err := s.GetUserByID(user.ID); return err }},
 		{"GetUserByIdentity", func() error { _, err := s.GetUserByIdentity(user.Email); return err }},
 		{"CreateUser", func() error { _, err := s.CreateUser("closed", "closed@example.com", "hash"); return err }},
-		{"UpsertDiary", func() error { _, _, err := s.UpsertDiary(user.ID, "2024-01-02", "x", 0, nil, nil, "", nil, "", 0, 0); return err }},
+		{"UpsertDiary", func() error { _, _, err := s.UpsertDiary(user.ID, "2024-01-02", "x", nil, nil, nil, nil, nil, nil, nil, nil); return err }},
 		{"GetDiaryByDate", func() error {
 			_, err := s.GetDiaryByDate(user.ID, "2024-01-01 00:00:00.000Z", "2024-01-01 23:59:59.999Z")
 			return err
@@ -1230,15 +1233,15 @@ func TestStoreAdditionalLowCoverageBranches(t *testing.T) {
 	if _, err := s.CreateUser(user.Username, "other@example.com", "hash"); err == nil {
 		t.Fatal("CreateUser should fail for duplicate username")
 	}
-	if _, inserted, err := s.UpsertDiary("missing-owner", "2024-07-01", "x", 0, nil, nil, "", nil, "", 0, 0); err == nil || !inserted {
+	if _, inserted, err := s.UpsertDiary("missing-owner", "2024-07-01", "x", nil, nil, nil, nil, nil, nil, nil, nil); err == nil || !inserted {
 		t.Fatalf("UpsertDiary missing owner inserted/error = %v/%v, want insert attempt FK error", inserted, err)
 	}
 
-	first, _, err := s.UpsertDiary(user.ID, "2024-07-01", "first", 0, nil, nil, "", nil, "", 0, 0)
+	first, _, err := s.UpsertDiary(user.ID, "2024-07-01", "first", nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("UpsertDiary first: %v", err)
 	}
-	_, _, err = s.UpsertDiary(user.ID, "2024-07-02", "second", 0, nil, nil, "", nil, "", 0, 0)
+	_, _, err = s.UpsertDiary(user.ID, "2024-07-02", "second", nil, nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("UpsertDiary second: %v", err)
 	}
@@ -2105,7 +2108,7 @@ func TestStoreWriteAndQueryErrorsAfterClose(t *testing.T) {
 	}{
 		{"transaction", func() error { return s.Transaction(context.Background(), func(*sql.Tx) error { return nil }) }},
 		{"create user", func() error { _, err := s.CreateUser("user", "email@example.com", "hash"); return err }},
-		{"upsert diary", func() error { _, _, err := s.UpsertDiary("owner", "2024-01-01", "body", 0, nil, nil, "", nil, "", 0, 0); return err }},
+		{"upsert diary", func() error { _, _, err := s.UpsertDiary("owner", "2024-01-01", "body", nil, nil, nil, nil, nil, nil, nil, nil); return err }},
 		{"delete diary", func() error { return s.DeleteDiary("id", "owner") }},
 		{"list diaries", func() error { _, err := s.ListDiaries("owner", "", "", "-date", 1); return err }},
 		{"search diaries", func() error { _, err := s.SearchDiaries("owner", "body", "", 1); return err }},
@@ -2357,7 +2360,7 @@ func TestUpsertDiaryWithMoodStates(t *testing.T) {
 	user := newTestUser(t, s)
 
 	states := []string{"开心", "满足"}
-	diary, created, err := s.UpsertDiary(user.ID, "2024-09-01", "test mood states", 4, states, nil, "sunny", []string{"work"}, "", 0, 0)
+	diary, created, err := s.UpsertDiary(user.ID, "2024-09-01", "test mood states", intPtr(4), &states, nil, &[]string{"work"}, strPtr("sunny"), nil, nil, nil)
 	if err != nil {
 		t.Fatalf("UpsertDiary: %v", err)
 	}
@@ -2377,7 +2380,7 @@ func TestUpsertDiaryWithMoodStates(t *testing.T) {
 	}
 
 	states2 := []string{"兴奋"}
-	diary2, created, err := s.UpsertDiary(user.ID, "2024-09-01", "updated", 5, states2, nil, "rain", nil, "", 0, 0)
+	diary2, created, err := s.UpsertDiary(user.ID, "2024-09-01", "updated", intPtr(5), &states2, nil, nil, strPtr("rain"), nil, nil, nil)
 	if err != nil {
 		t.Fatalf("UpsertDiary update: %v", err)
 	}
@@ -2908,7 +2911,7 @@ func TestHasDiaryContent(t *testing.T) {
 	}
 
 	// Empty content is not "written"
-	if _, _, err := s.UpsertDiary(u.ID, "2026-01-01", "", 0, nil, nil, "", nil, "", 0, 0); err != nil {
+	if _, _, err := s.UpsertDiary(u.ID, "2026-01-01", "", nil, nil, nil, nil, nil, nil, nil, nil); err != nil {
 		t.Fatalf("upsert empty diary: %v", err)
 	}
 	has, _ = s.HasDiaryContent(u.ID, "2026-01-01")
@@ -2917,7 +2920,7 @@ func TestHasDiaryContent(t *testing.T) {
 	}
 
 	// Non-empty content counts as written
-	if _, _, err := s.UpsertDiary(u.ID, "2026-01-01", "今天写了日记", 4, nil, nil, "", nil, "", 0, 0); err != nil {
+	if _, _, err := s.UpsertDiary(u.ID, "2026-01-01", "今天写了日记", intPtr(4), nil, nil, nil, nil, nil, nil, nil); err != nil {
 		t.Fatalf("upsert diary: %v", err)
 	}
 	has, _ = s.HasDiaryContent(u.ID, "2026-01-01")

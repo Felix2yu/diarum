@@ -34,6 +34,9 @@ const (
 
 var ErrNotFound = sql.ErrNoRows
 
+// ErrAPIDisabled is returned when the API is disabled for a user
+var ErrAPIDisabled = errors.New("api disabled")
+
 type Store struct {
 	DB                *sql.DB
 	DataDir           string
@@ -1066,12 +1069,43 @@ func scanUser(row interface{ Scan(dest ...any) error }) (*User, error) {
 	return user, nil
 }
 
-func (s *Store) UpsertDiary(owner, date, content string, mood int, moodStates []string, scenarios []string, weather string, tags []string, city string, tempMin, tempMax float64) (*Diary, bool, error) {
+func (s *Store) UpsertDiary(owner, date, content string, mood *int, moodStates *[]string, scenarios *[]string, tags *[]string, weather *string, city *string, tempMin, tempMax *float64) (*Diary, bool, error) {
 	start, end := dayRange(date)
 	existing, err := s.GetDiaryByDate(owner, start, end)
 	if err == nil && existing != nil {
+		m := existing.Mood
+		if mood != nil {
+			m = *mood
+		}
+		ms := existing.MoodStates
+		if moodStates != nil {
+			ms = *moodStates
+		}
+		sc := existing.Scenarios
+		if scenarios != nil {
+			sc = *scenarios
+		}
+		tg := existing.Tags
+		if tags != nil {
+			tg = *tags
+		}
+		w := existing.Weather
+		if weather != nil {
+			w = *weather
+		}
+		c := existing.City
+		if city != nil {
+			c = *city
+		}
+		tmin, tmax := existing.TempMin, existing.TempMax
+		if tempMin != nil {
+			tmin = *tempMin
+		}
+		if tempMax != nil {
+			tmax = *tempMax
+		}
 		now := nowString()
-		_, err := s.DB.Exec(`UPDATE diaries SET content = ?, mood = ?, mood_states = ?, scenarios = ?, weather = ?, city = ?, temp_min = ?, temp_max = ?, tags = ?, updated = ? WHERE id = ? AND owner = ?`, content, mood, encodeJSON(moodStates), encodeJSON(scenarios), weather, city, tempMin, tempMax, encodeJSON(normalizeTags(tags)), now, existing.ID, owner)
+		_, err := s.DB.Exec(`UPDATE diaries SET content = ?, mood = ?, mood_states = ?, scenarios = ?, weather = ?, city = ?, temp_min = ?, temp_max = ?, tags = ?, updated = ? WHERE id = ? AND owner = ?`, content, m, encodeJSON(ms), encodeJSON(sc), w, c, tmin, tmax, encodeJSON(normalizeTags(tg)), now, existing.ID, owner)
 		if err != nil {
 			return nil, false, err
 		}
@@ -1081,12 +1115,43 @@ func (s *Store) UpsertDiary(owner, date, content string, mood int, moodStates []
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, false, err
 	}
+	m := 0
+	if mood != nil {
+		m = *mood
+	}
+	ms := []string{}
+	if moodStates != nil {
+		ms = *moodStates
+	}
+	sc := []string{}
+	if scenarios != nil {
+		sc = *scenarios
+	}
+	tg := []string{}
+	if tags != nil {
+		tg = *tags
+	}
+	w := ""
+	if weather != nil {
+		w = *weather
+	}
+	c := ""
+	if city != nil {
+		c = *city
+	}
+	var tmin, tmax float64
+	if tempMin != nil {
+		tmin = *tempMin
+	}
+	if tempMax != nil {
+		tmax = *tempMax
+	}
 	id, err := GenerateID()
 	if err != nil {
 		return nil, false, err
 	}
 	now := nowString()
-	_, err = s.DB.Exec(`INSERT INTO diaries(content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, city, temp_min, temp_max, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, content, now, date+" 00:00:00.000Z", id, mood, encodeJSON(moodStates), encodeJSON(scenarios), owner, now, weather, city, tempMin, tempMax, encodeJSON(normalizeTags(tags)))
+	_, err = s.DB.Exec(`INSERT INTO diaries(content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, city, temp_min, temp_max, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, content, now, date+" 00:00:00.000Z", id, m, encodeJSON(ms), encodeJSON(sc), owner, now, w, c, tmin, tmax, encodeJSON(normalizeTags(tg)))
 	if err != nil {
 		return nil, true, err
 	}
@@ -1576,7 +1641,7 @@ func (s *Store) ValidateAPIToken(token string) (string, error) {
 		_ = json.Unmarshal([]byte(enabledRaw.String), &enabled)
 	}
 	if !enabled {
-		return "", errors.New("api disabled")
+		return "", ErrAPIDisabled
 	}
 	return userID, nil
 }
