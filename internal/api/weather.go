@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/labstack/echo/v5"
@@ -13,6 +14,9 @@ import (
 	"github.com/songtianlun/diarum/internal/store"
 	"github.com/songtianlun/diarum/internal/weather"
 )
+
+// backfillLocks 防止同一用户并发发起补全任务（避免重复调用外部 API）
+var backfillLocks sync.Map
 
 func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.MiddlewareFunc) {
 	configService := config.NewConfigService(s)
@@ -156,11 +160,26 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 		c.Response().Header().Set("Connection", "keep-alive")
 		c.Response().Header().Set("X-Accel-Buffering", "no")
 
+		// 同一用户已有补全任务在运行时直接返回，避免重复消耗外部 API
+		if _, inFlight := backfillLocks.LoadOrStore(userID, true); inFlight {
+			return c.JSON(http.StatusConflict, map[string]string{
+				"error": "天气补全任务已在运行中，请稍候",
+			})
+		}
+		defer backfillLocks.Delete(userID)
+
 		writer := &sseWriter{w: c.Response()}
-		sendEvent := func(event string, data any) {
-			jsonData, _ := json.Marshal(data)
-			fmt.Fprintf(writer, "event: %s\ndata: %s\n\n", event, jsonData)
+		// 返回 error：写入失败（客户端断开）时立即中止，不再继续请求外部 API
+		sendEvent := func(event string, data any) error {
+			jsonData, err := json.Marshal(data)
+			if err != nil {
+				return err
+			}
+			if _, err := fmt.Fprintf(writer, "event: %s\ndata: %s\n\n", event, jsonData); err != nil {
+				return err
+			}
 			writer.Flush()
+			return nil
 		}
 
 		updated := 0
@@ -170,13 +189,19 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 		today := time.Now().Format("2006-01-02")
 
 		// Send initial progress
-		sendEvent("progress", map[string]any{
+		if err := sendEvent("progress", map[string]any{
 			"current": 0,
 			"total":   len(diaries),
 			"status":  "开始补全天气...",
-		})
+		}); err != nil {
+			return nil
+		}
 
 		for i, diary := range diaries {
+			// 客户端断开连接时立即停止循环，避免继续调用外部 API
+			if c.Request().Context().Err() != nil {
+				return nil
+			}
 			date := store.DateOnly(diary.Date)
 
 			// Check if weather is a valid WMO code (numeric)
@@ -192,41 +217,49 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 			// Skip if already has valid weather data
 			if hasValidWeather {
 				skipped++
-				sendEvent("skipped", map[string]any{
+				if err := sendEvent("skipped", map[string]any{
 					"date":   date,
 					"reason": "已有有效天气代码",
-				})
+				}); err != nil {
+					return nil
+				}
 				continue
 			}
 
 			// Skip future dates
 			if date > today {
 				skipped++
-				sendEvent("skipped", map[string]any{
+				if err := sendEvent("skipped", map[string]any{
 					"date":   date,
 					"reason": "未来日期",
-				})
+				}); err != nil {
+					return nil
+				}
 				continue
 			}
 
 			// Skip empty content if requested
 			if body.SkipEmpty && diary.Content == "" {
 				skipped++
-				sendEvent("skipped", map[string]any{
+				if err := sendEvent("skipped", map[string]any{
 					"date":   date,
 					"reason": "无内容",
-				})
+				}); err != nil {
+					return nil
+				}
 				continue
 			}
 
 			// If has old emoji data, note it will be overwritten
 			if diary.Weather != "" {
-				sendEvent("progress", map[string]any{
+				if err := sendEvent("progress", map[string]any{
 					"current": i + 1,
 					"total":   len(diaries),
 					"date":    date,
 					"status":  fmt.Sprintf("替换旧天气数据: %s", diary.Weather),
-				})
+				}); err != nil {
+					return nil
+				}
 			}
 
 			// Fetch weather for this date
@@ -236,12 +269,14 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 			}
 
 			// Send progress before API call
-			sendEvent("progress", map[string]any{
+			if err := sendEvent("progress", map[string]any{
 				"current": i + 1,
 				"total":   len(diaries),
 				"date":    date,
 				"status":  fmt.Sprintf("正在获取 %s 的天气...", date),
-			})
+			}); err != nil {
+				return nil
+			}
 
 			// Rate limit: wait between API calls to avoid throttling
 			time.Sleep(150 * time.Millisecond)
@@ -249,51 +284,54 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 			result, err := svc.GetWeather(city, date)
 			if err != nil {
 				failed++
-				sendEvent("error", map[string]any{
+				if err := sendEvent("error", map[string]any{
 					"date":  date,
 					"error": err.Error(),
-				})
+				}); err != nil {
+					return nil
+				}
 				continue
 			}
 
-			// Update diary with weather data
-			_, _, err = s.UpsertDiary(
+			// 仅更新天气字段，避免用查询时点的快照覆盖用户随后编辑的 content/mood/tags
+			_, err = s.UpsertDiaryWeather(
 				userID,
 				date,
-				diary.Content,
-				diary.Mood,
-				diary.MoodStates,
-				diary.Scenarios,
 				fmt.Sprintf("%d", result.WMOCode),
-				diary.Tags,
 				city,
 				result.TempMin,
 				result.TempMax,
 			)
 			if err != nil {
 				failed++
-				sendEvent("error", map[string]any{
+				if err := sendEvent("error", map[string]any{
 					"date":  date,
 					"error": err.Error(),
-				})
+				}); err != nil {
+					return nil
+				}
 				continue
 			}
 
 			updated++
-			sendEvent("updated", map[string]any{
+			if err := sendEvent("updated", map[string]any{
 				"date":    date,
 				"weather": fmt.Sprintf("%d", result.WMOCode),
 				"updated": updated,
-			})
+			}); err != nil {
+				return nil
+			}
 		}
 
 		// Send completion event
-		sendEvent("complete", map[string]any{
+		if err := sendEvent("complete", map[string]any{
 			"total":   len(diaries),
 			"updated": updated,
 			"skipped": skipped,
 			"failed":  failed,
-		})
+		}); err != nil {
+			return nil
+		}
 
 		return nil
 	})

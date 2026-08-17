@@ -24,13 +24,13 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		var body struct {
 			Date       string   `json:"date"`
 			Content    string   `json:"content"`
-			Mood       int      `json:"mood"`
+			Mood       *int     `json:"mood"`
 			MoodStates []string `json:"mood_states"`
 			Scenarios  []string `json:"scenarios"`
-			Weather    string   `json:"weather"`
-			City       string   `json:"city"`
-			TempMin    float64  `json:"temp_min"`
-			TempMax    float64  `json:"temp_max"`
+			Weather    *string  `json:"weather"`
+			City       *string  `json:"city"`
+			TempMin    *float64 `json:"temp_min"`
+			TempMax    *float64 `json:"temp_max"`
 			Tags       []string `json:"tags"`
 		}
 		if err := c.Bind(&body); err != nil {
@@ -39,11 +39,25 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		if body.Date == "" {
 			return badRequest("date is required", nil)
 		}
-		if body.Tags == nil {
-			body.Tags = []string{}
+
+		// nil slices/pointers mean "leave unchanged"; only override when the client
+		// explicitly sent the field. This preserves mood/weather/tags on partial
+		// updates (e.g. a content-only save) instead of zeroing them out.
+		var moodStates, scenarios, tags *[]string
+		if body.MoodStates != nil {
+			v := body.MoodStates
+			moodStates = &v
+		}
+		if body.Scenarios != nil {
+			v := body.Scenarios
+			scenarios = &v
+		}
+		if body.Tags != nil {
+			v := body.Tags
+			tags = &v
 		}
 
-		diary, _, err := s.UpsertDiary(user.ID, body.Date, body.Content, body.Mood, body.MoodStates, body.Scenarios, body.Weather, body.Tags, body.City, body.TempMin, body.TempMax)
+		diary, _, err := s.UpsertDiary(user.ID, body.Date, body.Content, body.Mood, moodStates, scenarios, tags, body.Weather, body.City, body.TempMin, body.TempMax)
 		if err != nil {
 			return badRequest("Failed to save diary", err)
 		}
@@ -56,9 +70,17 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 	group.GET("/by-date/:date", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		dateStr := c.Param("date")
+		// 严格校验日期格式，避免非法值进入 SQL 日期范围
+		if _, err := time.Parse("2006-01-02", dateStr); err != nil {
+			return badRequest("Invalid date format, expected YYYY-MM-DD", nil)
+		}
 		start, end := dateStr+" 00:00:00.000Z", dateStr+" 23:59:59.999Z"
 		diary, err := s.GetDiaryByDate(user.ID, start, end)
 		if err != nil {
+			// 未找到日记是正常情况，返回空日记；其余错误按服务器错误处理
+			if !errors.Is(err, sql.ErrNoRows) {
+				return serverError("Failed to fetch diary", err)
+			}
 			return c.JSON(http.StatusOK, map[string]any{"date": dateStr, "content": "", "exists": false})
 		}
 		return c.JSON(http.StatusOK, diaryResponse(diary, dateStr, true))

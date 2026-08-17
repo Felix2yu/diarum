@@ -20,21 +20,29 @@ var currentLevel = LevelInfo
 
 func init() {
 	// Set log level from environment variable
+	currentLevel = LevelFromEnv()
+}
+
+// LevelFromEnv resolves the initial logging level from the LOG_LEVEL and DEBUG
+// environment variables. It is exported so the resolution logic can be unit
+// tested independently of package initialization.
+func LevelFromEnv() Level {
 	level := strings.ToUpper(os.Getenv("LOG_LEVEL"))
 	switch level {
 	case "DEBUG":
-		currentLevel = LevelDebug
+		return LevelDebug
 	case "INFO":
-		currentLevel = LevelInfo
+		return LevelInfo
 	case "WARN":
-		currentLevel = LevelWarn
+		return LevelWarn
 	case "ERROR":
-		currentLevel = LevelError
+		return LevelError
 	default:
 		// Also check DEBUG env var for backwards compatibility
 		if os.Getenv("DEBUG") != "" {
-			currentLevel = LevelDebug
+			return LevelDebug
 		}
+		return LevelInfo
 	}
 }
 

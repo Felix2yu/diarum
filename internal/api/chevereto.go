@@ -27,7 +27,7 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 		domain, _ := configService.GetString(userId, "chevereto.domain")
 		apiKey, _ := configService.GetString(userId, "chevereto.api_key")
 		albumId, _ := configService.GetString(userId, "chevereto.album_id")
-		return c.JSON(http.StatusOK, map[string]any{"enabled": enabled, "domain": domain, "api_key": apiKey, "album_id": albumId})
+		return c.JSON(http.StatusOK, map[string]any{"enabled": enabled, "domain": domain, "api_key": maskSecret(apiKey), "album_id": albumId})
 	})
 
 	group.PUT("/settings", func(c *echo.Context) error {
@@ -41,6 +41,10 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
 		}
+		// API key 为空或掩码时保留原值
+		if isSecretPlaceholder(body.APIKey) {
+			body.APIKey, _ = configService.GetString(userId, "chevereto.api_key")
+		}
 		if body.Enabled && (strings.TrimSpace(body.Domain) == "" || strings.TrimSpace(body.APIKey) == "") {
 			return badRequest("Domain and API Key are required to enable Chevereto", nil)
 		}
@@ -53,12 +57,17 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 	})
 
 	group.POST("/test", func(c *echo.Context) error {
+		userId := auth.CurrentUser(c).ID
 		var body struct {
 			Domain string `json:"domain"`
 			APIKey string `json:"api_key"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
+		}
+		// API key 为空或掩码时使用已保存的密钥
+		if isSecretPlaceholder(body.APIKey) {
+			body.APIKey, _ = configService.GetString(userId, "chevereto.api_key")
 		}
 		if strings.TrimSpace(body.Domain) == "" || strings.TrimSpace(body.APIKey) == "" {
 			return badRequest("Domain and API Key are required", nil)
@@ -75,12 +84,28 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 			return c.JSON(http.StatusOK, map[string]any{"success": false, "message": fmt.Sprintf("Connection failed: %v", err)})
 		}
 		defer resp.Body.Close()
-		io.Copy(io.Discard, resp.Body)
+		respBody, _ := io.ReadAll(resp.Body)
 		if resp.StatusCode == http.StatusNotFound {
 			return c.JSON(http.StatusOK, map[string]any{"success": false, "message": "Chevereto API endpoint not found. Please check the domain."})
 		}
 		if resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden {
 			return c.JSON(http.StatusOK, map[string]any{"success": false, "message": "Authentication failed. Please check your API key."})
+		}
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+			message := fmt.Sprintf("Chevereto returned status %d", resp.StatusCode)
+			var parsed map[string]any
+			if err := json.Unmarshal(respBody, &parsed); err == nil {
+				if msg, ok := parsed["message"].(string); ok && msg != "" {
+					message = msg
+				}
+			}
+			return c.JSON(http.StatusOK, map[string]any{"success": false, "message": message})
+		}
+		// Validate that the response is well-formed JSON so a proxy/error page
+		// masquerading as a 2xx response is not reported as a success.
+		var probe map[string]any
+		if err := json.Unmarshal(respBody, &probe); err != nil {
+			return c.JSON(http.StatusOK, map[string]any{"success": false, "message": fmt.Sprintf("Invalid response from Chevereto: %v", err)})
 		}
 		return c.JSON(http.StatusOK, map[string]any{"success": true, "message": "Connection successful"})
 	})

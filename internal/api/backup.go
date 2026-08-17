@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -61,7 +62,13 @@ func RegisterBackupRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Midd
 		if err != nil || b.Owner != userID {
 			return notFound("Backup not found")
 		}
-		return c.File(b.Filepath)
+		// Backups are stored at absolute filesystem paths. echo's c.File/c.FileFS
+		// open through c.echo.Filesystem (default os.DirFS(".")) which cannot
+		// resolve absolute paths, so serve the file directly instead.
+		c.Response().Header().Set(echo.HeaderContentDisposition, fmt.Sprintf("attachment; filename=%q", b.Filename))
+		c.Response().Header().Set(echo.HeaderContentType, "application/zip")
+		http.ServeFile(c.Response(), c.Request(), b.Filepath)
+		return nil
 	})
 
 	// Delete backup

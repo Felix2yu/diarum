@@ -59,13 +59,13 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 		var body struct {
 			Date       string   `json:"date"`
 			Content    string   `json:"content"`
-			Mood       int      `json:"mood"`
+			Mood       *int     `json:"mood"`
 			MoodStates []string `json:"mood_states"`
 			Scenarios  []string `json:"scenarios"`
-			Weather    string   `json:"weather"`
-			City       string   `json:"city"`
-			TempMin    float64  `json:"temp_min"`
-			TempMax    float64  `json:"temp_max"`
+			Weather    *string  `json:"weather"`
+			City       *string  `json:"city"`
+			TempMin    *float64 `json:"temp_min"`
+			TempMax    *float64 `json:"temp_max"`
 			Tags       []string `json:"tags"`
 		}
 		if err := c.Bind(&body); err != nil {
@@ -74,11 +74,24 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 		if body.Date == "" {
 			return badRequest("date is required", nil)
 		}
-		if body.Tags == nil {
-			body.Tags = []string{}
+
+		// nil slices/pointers mean "leave unchanged"; only override when the client
+		// explicitly sent the field.
+		var moodStates, scenarios, tags *[]string
+		if body.MoodStates != nil {
+			v := body.MoodStates
+			moodStates = &v
+		}
+		if body.Scenarios != nil {
+			v := body.Scenarios
+			scenarios = &v
+		}
+		if body.Tags != nil {
+			v := body.Tags
+			tags = &v
 		}
 
-		diary, created, err := s.UpsertDiary(userId, body.Date, body.Content, body.Mood, body.MoodStates, body.Scenarios, body.Weather, body.Tags, body.City, body.TempMin, body.TempMax)
+		diary, created, err := s.UpsertDiary(userId, body.Date, body.Content, body.Mood, moodStates, scenarios, tags, body.Weather, body.City, body.TempMin, body.TempMax)
 		if err != nil {
 			return serverError("Failed to save diary", err)
 		}
@@ -154,7 +167,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			tags = existing.Tags
 		}
 
-		diary, _, err := s.UpsertDiary(userId, store.DateOnly(existing.Date), content, mood, moodStates, scenarios, weather, tags, city, tempMin, tempMax)
+		diary, _, err := s.UpsertDiary(userId, store.DateOnly(existing.Date), content, &mood, &moodStates, &scenarios, &tags, &weather, &city, &tempMin, &tempMax)
 		if err != nil {
 			return serverError("Failed to update diary", err)
 		}

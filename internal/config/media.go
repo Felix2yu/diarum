@@ -1,19 +1,19 @@
 package config
 
 import (
-	"bytes"
 	"net/http"
 	"strings"
 )
 
 // AllowedMediaMimeTypes defines the allowed MIME types for media files
 // This is the single source of truth for media type validation
+// Note: SVG is intentionally excluded — SVG can embed scripts and would
+// enable stored XSS when served inline from the media endpoint.
 var AllowedMediaMimeTypes = []string{
 	"image/jpeg",
 	"image/png",
 	"image/gif",
 	"image/webp",
-	"image/svg+xml",
 }
 
 // allowedMediaMimeSet is a map for fast lookup
@@ -35,17 +35,9 @@ func IsAllowedMediaType(data []byte) (string, bool) {
 	baseMime := strings.Split(mimeType, ";")[0]
 	baseMime = strings.TrimSpace(baseMime)
 
-	// Special handling for SVG (may be detected as text/xml or application/xml)
+	// SVG is never allowed (stored XSS risk)
 	if baseMime == "text/xml" || baseMime == "application/xml" {
-		// Check if it looks like SVG by examining content
-		checkLen := len(data)
-		if checkLen > 1024 {
-			checkLen = 1024
-		}
-		if checkLen > 0 && (bytes.Contains(data[:checkLen], []byte("<svg")) ||
-			bytes.Contains(data[:checkLen], []byte("<!DOCTYPE svg"))) {
-			return "image/svg+xml", true
-		}
+		return baseMime, false
 	}
 
 	return baseMime, allowedMediaMimeSet[baseMime]

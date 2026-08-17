@@ -43,6 +43,11 @@ func getSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
 		if err != nil {
 			return badRequest("Failed to get setting", err)
 		}
+		if config.IsEncrypted(key) {
+			if s, ok := value.(string); ok {
+				value = maskSecret(s)
+			}
+		}
 
 		return c.JSON(http.StatusOK, map[string]any{
 			"key":   key,
@@ -114,18 +119,11 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 			logger.Debug("[GET /api/v1/settings/api-token] error getting enabled: %v", err)
 		}
 
-		if token == "" {
-			return c.JSON(http.StatusOK, map[string]any{
-				"exists":  false,
-				"enabled": false,
-				"token":   "",
-			})
-		}
-
+		// 不返回明文 token，只返回状态；token 仅在创建/重置时返回一次
 		return c.JSON(http.StatusOK, map[string]any{
-			"exists":  true,
-			"enabled": enabled,
-			"token":   token,
+			"exists":  token != "",
+			"enabled": enabled && token != "",
+			"token":   "",
 		})
 	})
 
@@ -168,9 +166,10 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 			return badRequest("Failed to update token", err)
 		}
 
+		// 已存在的 token 不再回读明文
 		return c.JSON(http.StatusOK, map[string]any{
 			"enabled": newEnabled,
-			"token":   token,
+			"token":   "",
 		})
 	})
 
@@ -214,6 +213,15 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 		settings, err := configService.GetBatch(userId)
 		if err != nil {
 			return badRequest("Failed to get settings", err)
+		}
+
+		// 加密键的明文不返回给客户端，只返回掩码
+		for key, value := range settings {
+			if config.IsEncrypted(key) {
+				if s, ok := value.(string); ok {
+					settings[key] = maskSecret(s)
+				}
+			}
 		}
 
 		return c.JSON(http.StatusOK, map[string]any{

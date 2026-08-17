@@ -286,13 +286,13 @@ func TestValidateTokenAndGetUser(t *testing.T) {
 
 func TestIsAllowedMediaType(t *testing.T) {
 	svg := []byte(`<?xml version="1.0" encoding="UTF-8"?><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"></svg>`)
-	if got, allowed := IsAllowedMediaType(svg); !allowed || got != "image/svg+xml" {
-		t.Fatalf("IsAllowedMediaType(svg) = %q, %v", got, allowed)
+	if got, allowed := IsAllowedMediaType(svg); allowed {
+		t.Fatalf("IsAllowedMediaType(svg) = %q, %v, want not allowed (XSS)", got, allowed)
 	}
 
 	applicationXML := []byte(`<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"></svg>`)
-	if got, allowed := IsAllowedMediaType(applicationXML); !allowed || got != "image/svg+xml" {
-		t.Fatalf("IsAllowedMediaType(application/xml svg) = %q, %v", got, allowed)
+	if got, allowed := IsAllowedMediaType(applicationXML); allowed {
+		t.Fatalf("IsAllowedMediaType(application/xml svg) = %q, %v, want not allowed (XSS)", got, allowed)
 	}
 
 	plainXML := []byte(`<?xml version="1.0"?><doc></doc>`)

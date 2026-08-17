@@ -442,14 +442,25 @@ func upsertMemosBlock(s *store.Store, userID, memoID, date, block string) (bool,
 		return false, err
 	}
 	if diary == nil {
-		_, _, err := s.UpsertDiary(userID, date, block, 0, nil, nil, "", nil, "", 0, 0)
+		// New diary: only the memos block content is provided; leave every other
+		// field at its zero value (nil pointers => keep default).
+		_, _, err := s.UpsertDiary(userID, date, block, nil, nil, nil, nil, nil, nil, nil, nil)
 		return err == nil, err
 	}
 	content, replaced := replaceMemosBlock(diary.Content, memoID, block)
 	if !replaced {
 		content = appendMemosBlock(diary.Content, block)
 	}
-	_, _, err = s.UpsertDiary(userID, store.DateOnly(diary.Date), content, diary.Mood, nil, nil, diary.Weather, diary.Tags, diary.City, diary.TempMin, diary.TempMax)
+	// 原样保留 mood_states/scenarios 等字段，避免 memos 同步清空当天日记的心情/情景数据
+	mood := diary.Mood
+	moodStates := diary.MoodStates
+	scenarios := diary.Scenarios
+	weather := diary.Weather
+	tags := diary.Tags
+	city := diary.City
+	tempMin := diary.TempMin
+	tempMax := diary.TempMax
+	_, _, err = s.UpsertDiary(userID, store.DateOnly(diary.Date), content, &mood, &moodStates, &scenarios, &tags, &weather, &city, &tempMin, &tempMax)
 	return err == nil, err
 }
 
@@ -465,7 +476,16 @@ func removeMemosBlock(s *store.Store, userID, memoID, date string) (bool, error)
 	if !removed {
 		return false, nil
 	}
-	_, _, err = s.UpsertDiary(userID, store.DateOnly(diary.Date), strings.TrimSpace(content), diary.Mood, nil, nil, diary.Weather, diary.Tags, diary.City, diary.TempMin, diary.TempMax)
+	// 原样保留 mood_states/scenarios 等字段，避免 memos 同步清空当天日记的心情/情景数据
+	mood := diary.Mood
+	moodStates := diary.MoodStates
+	scenarios := diary.Scenarios
+	weather := diary.Weather
+	tags := diary.Tags
+	city := diary.City
+	tempMin := diary.TempMin
+	tempMax := diary.TempMax
+	_, _, err = s.UpsertDiary(userID, store.DateOnly(diary.Date), strings.TrimSpace(content), &mood, &moodStates, &scenarios, &tags, &weather, &city, &tempMin, &tempMax)
 	return err == nil, err
 }
 

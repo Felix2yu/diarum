@@ -72,3 +72,33 @@ func TestAllLevelsExhaustive(t *testing.T) {
 		}
 	}
 }
+
+// TestInitLogLevelFromEnv verifies the package init() reads LOG_LEVEL / DEBUG
+// environment variables through the exported LevelFromEnv helper.
+func TestInitLogLevelFromEnv(t *testing.T) {
+	cases := []struct {
+		name     string
+		logLevel string
+		debug    string
+		want     Level
+	}{
+		{"debug", "DEBUG", "", LevelDebug},
+		{"info", "INFO", "", LevelInfo},
+		{"warn", "WARN", "", LevelWarn},
+		{"error", "ERROR", "", LevelError},
+		{"lowercase debug", "debug", "", LevelDebug},
+		{"unknown keeps default", "NONSENSE", "", LevelInfo},
+		{"debug var fallback", "", "1", LevelDebug},
+		{"neither set defaults to info", "", "", LevelInfo},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			t.Setenv("LOG_LEVEL", c.logLevel)
+			t.Setenv("DEBUG", c.debug)
+			if got := LevelFromEnv(); got != c.want {
+				t.Fatalf("LevelFromEnv() = %v, want %v", got, c.want)
+			}
+		})
+	}
+}
+
