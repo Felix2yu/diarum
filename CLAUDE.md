@@ -79,7 +79,7 @@ make dev-backend    # 后端开发服务器 (使用 Air 热重载)
 
 ```bash
 make test           # 运行所有测试
-make test-cover     # 运行测试并检查覆盖率 (阈值 93%)
+make test-cover     # 运行测试并检查覆盖率 (阈值 85%)
 ```
 
 ### 其他
