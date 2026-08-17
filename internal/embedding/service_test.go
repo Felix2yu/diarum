@@ -17,6 +17,9 @@ import (
 	"github.com/songtianlun/diarum/internal/store"
 )
 
+func intPtr(v int) *int       { return &v }
+func strPtr(v string) *string { return &v }
+
 func newTestStore(t *testing.T) *store.Store {
 	t.Helper()
 
@@ -280,7 +283,7 @@ func TestBuildQueryAndStats(t *testing.T) {
 		t.Fatalf("parse built_at: %v", err)
 	}
 
-	updatedDiary, _, err := s.UpsertDiary(user.ID, "2024-01-01", "happy sun walk updated", 4, nil, nil, "sunny", nil, "", 0, 0)
+	updatedDiary, _, err := s.UpsertDiary(user.ID, "2024-01-01", "happy sun walk updated", intPtr(4), nil, nil, nil, strPtr("sunny"), nil, nil, nil)
 	if err != nil {
 		t.Fatalf("UpsertDiary update: %v", err)
 	}

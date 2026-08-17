@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v5"
 
@@ -15,7 +16,29 @@ import (
 	"github.com/songtianlun/diarum/internal/store"
 )
 
-func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.MiddlewareFunc) {
+// mediaFileAuth 校验媒体文件访问权限，支持 Authorization header 或 ?token= query 参数。
+// query 形式用于 <img> 标签等无法携带请求头的场景。
+func mediaFileAuth(authService *auth.Service) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			token := strings.TrimSpace(strings.TrimPrefix(c.Request().Header.Get("Authorization"), "Bearer "))
+			if token == "" {
+				token = c.QueryParam("token")
+			}
+			if token == "" {
+				return echo.NewHTTPError(http.StatusUnauthorized, "The request requires valid authorization token.")
+			}
+			user, err := authService.ParseToken(token)
+			if err != nil {
+				return err
+			}
+			c.Set(auth.ContextUserKey, user)
+			return next(c)
+		}
+	}
+}
+
+func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.MiddlewareFunc, authService *auth.Service) {
 	group := e.Group("/api/v1/media", authMiddleware)
 
 	group.GET("", func(c *echo.Context) error {
@@ -115,7 +138,8 @@ func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 	})
 
 	e.GET("/api/v1/files/media/:id/:filename", func(c *echo.Context) error {
-		media, err := s.GetMedia(c.Param("id"), "")
+		user := auth.CurrentUser(c)
+		media, err := s.GetMedia(c.Param("id"), user.ID)
 		if err != nil || media.File != c.Param("filename") {
 			return notFound("File not found")
 		}
@@ -155,7 +179,7 @@ func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		}
 		_, err = io.Copy(c.Response(), reader)
 		return err
-	})
+	}, mediaFileAuth(authService))
 }
 
 func parsePositiveInt(raw string, fallback int) int {

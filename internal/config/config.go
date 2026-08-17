@@ -160,7 +160,7 @@ func (s *ConfigService) ValidateTokenAndGetUser(token string) (string, error) {
 	logger.Debug("[ValidateTokenAndGetUser] validating token: %s", maskSensitiveValue(token))
 
 	userId, err := s.store.ValidateAPIToken(token)
-	if err != nil && err.Error() == "api disabled" {
+	if err != nil && errors.Is(err, store.ErrAPIDisabled) {
 		return "", ErrAPIDisabled
 	}
 	if err != nil || userId == "" {

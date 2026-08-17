@@ -13,6 +13,7 @@ import (
 
 	"github.com/labstack/echo/v5"
 
+	iauth "github.com/songtianlun/diarum/internal/auth"
 	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/embedding"
 )
@@ -143,7 +144,7 @@ func TestAIRoutesHappyPath(t *testing.T) {
 		t.Fatalf("InsertImportedDiary: %v", err)
 	}
 	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"2024-01-01","end":"2024-01-31"}`), map[string]string{"Content-Type": "application/json"})
-	if rec.Code != http.StatusBadRequest {
+	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("POST /ai/analysis disabled with diaries status = %d body=%s", rec.Code, rec.Body.String())
 	}
 
@@ -261,7 +262,13 @@ func TestFocusedMediaRouteErrors(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
 	e := echo.New()
-	RegisterMediaRoutes(e, s, authMiddlewareFor(user))
+	authSvc := iauth.NewService(s)
+	RegisterMediaRoutes(e, s, authMiddlewareFor(user), authSvc)
+	token, err := authSvc.IssueToken(user)
+	if err != nil {
+		t.Fatalf("IssueToken: %v", err)
+	}
+	authHeaders := map[string]string{"Authorization": "Bearer " + token}
 
 	rec := performRequest(t, e, http.MethodGet, "/api/v1/media?page=0&perPage=0", nil, nil)
 	if rec.Code != http.StatusOK {
@@ -280,7 +287,7 @@ func TestFocusedMediaRouteErrors(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("PATCH /media invalid JSON status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	rec = performRequest(t, e, http.MethodGet, "/api/v1/files/media/missing/photo.png", nil, nil)
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/files/media/missing/photo.png", nil, authHeaders)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("GET missing media file status = %d body=%s", rec.Code, rec.Body.String())
 	}
@@ -296,9 +303,14 @@ func TestFocusedMediaRouteErrors(t *testing.T) {
 	if err := os.WriteFile(fallbackPath, pngBytes(), 0o600); err != nil {
 		t.Fatalf("WriteFile fallback media: %v", err)
 	}
-	rec = performRequest(t, e, http.MethodGet, "/api/v1/files/media/"+media.ID+"/"+media.File, nil, nil)
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/files/media/"+media.ID+"/"+media.File, nil, authHeaders)
 	if rec.Code != http.StatusOK || rec.Header().Get(echo.HeaderContentType) != "image/png" || len(rec.Body.Bytes()) == 0 {
 		t.Fatalf("GET fallback media file status = %d content-type=%q body=%q", rec.Code, rec.Header().Get(echo.HeaderContentType), rec.Body.Bytes())
+	}
+
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/files/media/"+media.ID+"/"+media.File, nil, nil)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("GET media file without auth status = %d, want 401", rec.Code)
 	}
 
 	oversized := append([]byte{}, pngBytes()...)
@@ -349,7 +361,7 @@ func TestFocusedMediaUploadCreateError(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
 	e := echo.New()
-	RegisterMediaRoutes(e, s, authMiddlewareFor(user))
+	RegisterMediaRoutes(e, s, authMiddlewareFor(user), iauth.NewService(s))
 	if err := s.DB.Close(); err != nil {
 		t.Fatalf("Close store DB: %v", err)
 	}
@@ -454,7 +466,8 @@ func TestFocusedImageUploadBranches(t *testing.T) {
 	payload = decodeJSONBody(t, rec)
 	settings = payload["settings"].(map[string]any)
 	chevereto := settings["chevereto"].(map[string]any)
-	if settings["provider"] != "chevereto" || chevereto["domain"] != "https://img.example.com" || chevereto["api_key"] != "key" {
+	// api_key 不应回读明文，只返回掩码
+	if settings["provider"] != "chevereto" || chevereto["domain"] != "https://img.example.com" || chevereto["api_key"] != "********" {
 		t.Fatalf("chevereto settings payload = %#v", payload)
 	}
 }
@@ -719,7 +732,7 @@ func TestFocusedClosedStoreRouteErrors(t *testing.T) {
 	e := echo.New()
 	authMiddleware := authMiddlewareFor(user)
 	RegisterDiaryRoutes(e, s, authMiddleware, nil)
-	RegisterMediaRoutes(e, s, authMiddleware)
+	RegisterMediaRoutes(e, s, authMiddleware, iauth.NewService(s))
 	RegisterSettingsRoutes(e, s, authMiddleware, newTestWeatherScheduler(s))
 	RegisterImageUploadRoutes(e, s, authMiddleware)
 	RegisterCheveretoRoutes(e, s, authMiddleware)

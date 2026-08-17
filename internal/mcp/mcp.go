@@ -94,19 +94,55 @@ func (s *Server) registerDiaryTools() {
 
 		date := req.GetString("date", "")
 		content := req.GetString("content", "")
-		weather := req.GetString("weather", "")
-		city := req.GetString("city", "")
-		tempMinStr := req.GetString("temp_min", "0")
-		tempMaxStr := req.GetString("temp_max", "0")
-		var tempMin, tempMax float64
-		fmt.Sscanf(tempMinStr, "%f", &tempMin)
-		fmt.Sscanf(tempMaxStr, "%f", &tempMax)
-		mood := req.GetInt("mood", 0)
-		moodStates := req.GetStringSlice("mood_states", nil)
-		scenarios := req.GetStringSlice("scenarios", nil)
-		tags := req.GetStringSlice("tags", nil)
 
-		diary, created, err := s.store.UpsertDiary(userID, date, content, mood, moodStates, scenarios, weather, tags, city, tempMin, tempMax)
+		// Distinguish "field not provided" from "explicit zero value" by checking
+		// whether the key exists in the raw arguments map. A missing key is passed
+		// as nil (leave unchanged); a present key (even 0/""/[]) is passed by
+		// pointer so the store can overwrite or clear the field deliberately.
+		args := req.GetArguments()
+		has := func(k string) bool { _, ok := args[k]; return ok }
+
+		var mood *int
+		if has("mood") {
+			v := req.GetInt("mood", 0)
+			mood = &v
+		}
+		var weather *string
+		if has("weather") {
+			v := req.GetString("weather", "")
+			weather = &v
+		}
+		var city *string
+		if has("city") {
+			v := req.GetString("city", "")
+			city = &v
+		}
+		var tempMin, tempMax *float64
+		if has("temp_min") {
+			var v float64
+			fmt.Sscanf(req.GetString("temp_min", "0"), "%f", &v)
+			tempMin = &v
+		}
+		if has("temp_max") {
+			var v float64
+			fmt.Sscanf(req.GetString("temp_max", "0"), "%f", &v)
+			tempMax = &v
+		}
+		var moodStates, scenarios, tags *[]string
+		if has("mood_states") {
+			v := req.GetStringSlice("mood_states", nil)
+			moodStates = &v
+		}
+		if has("scenarios") {
+			v := req.GetStringSlice("scenarios", nil)
+			scenarios = &v
+		}
+		if has("tags") {
+			v := req.GetStringSlice("tags", nil)
+			tags = &v
+		}
+
+		diary, created, err := s.store.UpsertDiary(userID, date, content, mood, moodStates, scenarios, tags, weather, city, tempMin, tempMax)
 		if err != nil {
 			return mcp.NewToolResultError(fmt.Sprintf("Failed to save diary: %v", err)), nil
 		}

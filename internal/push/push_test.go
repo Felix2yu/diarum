@@ -13,9 +13,13 @@ import (
 	"time"
 
 	"github.com/SherClockHolmes/webpush-go"
+
 	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/store"
 )
+
+func intPtr(v int) *int       { return &v }
+func strPtr(v string) *string { return &v }
 
 func newHarness(t *testing.T) (*store.Store, *store.User, *config.ConfigService, *Sender, *Scheduler) {
 	t.Helper()
@@ -428,7 +432,7 @@ func TestExecuteSkipsWhenDiaryWritten(t *testing.T) {
 	_ = cfg.Set(u.ID, "webpush.message", "写日记")
 
 	// write today's diary directly through the store
-	if _, _, err := s.UpsertDiary(u.ID, "2026-03-10", "已写", 4, nil, nil, "", nil, "", 0, 0); err != nil {
+	if _, _, err := s.UpsertDiary(u.ID, "2026-03-10", "已写", intPtr(4), nil, nil, nil, nil, nil, nil, nil); err != nil {
 		t.Fatalf("upsert: %v", err)
 	}
 
