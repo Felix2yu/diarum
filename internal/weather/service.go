@@ -360,7 +360,7 @@ func cleanCityName(name string) string {
 		"壮族自治区", "回族自治区", "维吾尔自治区", "自治区",
 		"特别行政区",
 		"朝鲜族自治州", "土家族苗族自治州", "藏族自治州", "蒙古自治州", "自治州",
-		"省", "市", "地区",
+		"盟", "省", "市", "地区",
 	}
 	for _, suffix := range suffixes {
 		if strings.HasSuffix(name, suffix) && len(name) > len(suffix) {
