@@ -7,11 +7,11 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/logger"
+	"github.com/songtianlun/diarum/internal/scheduler"
 	"github.com/songtianlun/diarum/internal/store"
 )
 
@@ -24,19 +24,37 @@ type Scheduler struct {
 	configService *config.ConfigService
 	dataDir       string
 	exportFn      ExportFn
-	mu            sync.Mutex
-	userTimers    map[string]*time.Timer
+	timer         *scheduler.Timer
 }
 
 // NewScheduler creates a new backup scheduler
 func NewScheduler(s *store.Store, cfg *config.ConfigService, dataDir string, exportFn ExportFn) *Scheduler {
-	return &Scheduler{
+	sc := &Scheduler{
 		store:         s,
 		configService: cfg,
 		dataDir:       dataDir,
 		exportFn:      exportFn,
-		userTimers:    make(map[string]*time.Timer),
 	}
+	sc.timer = scheduler.NewTimer(sc.listUserIDs)
+	sc.timer.Enabled = func(userID string) bool {
+		enabled, _ := sc.configService.GetBool(userID, "backup.enabled")
+		return enabled
+	}
+	sc.timer.Next = sc.nextBackupTime
+	sc.timer.Run = func(userID string) { _ = sc.execute(userID) }
+	return sc
+}
+
+func (sc *Scheduler) listUserIDs() ([]string, error) {
+	users, err := sc.store.ListUsers()
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(users))
+	for _, u := range users {
+		ids = append(ids, u.ID)
+	}
+	return ids, nil
 }
 
 // Start initializes timers for all users with backup enabled
@@ -54,41 +72,12 @@ func (sc *Scheduler) Start() {
 
 // Stop cancels all timers
 func (sc *Scheduler) Stop() {
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
-	for uid, t := range sc.userTimers {
-		t.Stop()
-		delete(sc.userTimers, uid)
-	}
+	sc.timer.Stop()
 }
 
 // Refresh recalculates and resets the timer for a user
 func (sc *Scheduler) Refresh(userID string) {
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
-
-	// Cancel existing timer
-	if t, ok := sc.userTimers[userID]; ok {
-		t.Stop()
-		delete(sc.userTimers, userID)
-	}
-
-	enabled, _ := sc.configService.GetBool(userID, "backup.enabled")
-	if !enabled {
-		return
-	}
-
-	next := sc.nextBackupTime(userID)
-	if next.IsZero() {
-		return
-	}
-
-	delay := max(time.Until(next), 0)
-
-	sc.userTimers[userID] = time.AfterFunc(delay, func() {
-		sc.execute(userID)
-	})
-	logger.Debug("[Backup] user %s: next backup at %s (in %s)", userID, next.Format(time.RFC3339), delay)
+	sc.timer.Refresh(userID)
 }
 
 // RunNow triggers an immediate backup for a user

@@ -38,7 +38,7 @@ func TestSchedulerNewStartStop(t *testing.T) {
 	s := newTestStore(t)
 	cfg := config.NewConfigService(s)
 	sc := NewScheduler(s, cfg, t.TempDir(), testExportFn)
-	if sc == nil || sc.userTimers == nil {
+	if sc == nil || sc.timer == nil {
 		t.Fatal("NewScheduler did not initialize userTimers")
 	}
 	sc.Start()
@@ -52,7 +52,7 @@ func TestSchedulerRefreshDisabled(t *testing.T) {
 	u := newTestUser(t, s)
 
 	sc.Refresh(u.ID)
-	if _, ok := sc.userTimers[u.ID]; ok {
+	if _, ok := sc.timer.Timer(u.ID); ok {
 		t.Fatal("timer should not exist when backup disabled")
 	}
 }
@@ -67,7 +67,7 @@ func TestSchedulerRefreshEnabled(t *testing.T) {
 		t.Fatalf("Set enabled: %v", err)
 	}
 	sc.Refresh(u.ID)
-	if _, ok := sc.userTimers[u.ID]; !ok {
+	if _, ok := sc.timer.Timer(u.ID); !ok {
 		t.Fatal("timer should exist when backup enabled")
 	}
 	// 未配置频率 → nextBackupTime 为零值 → timer 被移除

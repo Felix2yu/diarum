@@ -80,7 +80,7 @@ func TestNextNotifyTimeTomorrowWhenPast(t *testing.T) {
 func TestRefreshNoTimerWhenDisabled(t *testing.T) {
 	_, u, _, _, sc := newHarness(t)
 	sc.Refresh(u.ID)
-	if _, ok := sc.userTimers[u.ID]; ok {
+	if _, ok := sc.timer.Timer(u.ID); ok {
 		t.Fatalf("timer exists when reminder disabled")
 	}
 }
@@ -460,11 +460,11 @@ func TestStartAndStop(t *testing.T) {
 	_ = cfg.Set(u.ID, "webpush.time", "21:00")
 	_ = cfg.Set(u.ID, "webpush.tz", "UTC")
 	sc.Start()
-	if _, ok := sc.userTimers[u.ID]; !ok {
+	if _, ok := sc.timer.Timer(u.ID); !ok {
 		t.Fatalf("no timer after Start")
 	}
 	sc.Stop()
-	if _, ok := sc.userTimers[u.ID]; ok {
+	if _, ok := sc.timer.Timer(u.ID); ok {
 		t.Fatalf("timer remains after Stop")
 	}
 }

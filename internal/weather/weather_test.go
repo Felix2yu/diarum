@@ -1954,7 +1954,7 @@ func TestNewScheduler(t *testing.T) {
 	if sc == nil {
 		t.Fatal("NewScheduler returned nil")
 	}
-	if sc.userTimers == nil {
+	if sc.timer == nil {
 		t.Fatal("userTimers not initialized")
 	}
 }
@@ -1968,16 +1968,12 @@ func TestSchedulerStop_Empty(t *testing.T) {
 func TestSchedulerStop_WithTimers(t *testing.T) {
 	sc, cleanup := newTestScheduler(t)
 	defer cleanup()
-	sc.mu.Lock()
-	sc.userTimers["user1"] = time.AfterFunc(time.Hour, func() {})
-	sc.userTimers["user2"] = time.AfterFunc(time.Hour, func() {})
-	sc.mu.Unlock()
+	sc.timer.Inject("user1", time.AfterFunc(time.Hour, func() {}))
+	sc.timer.Inject("user2", time.AfterFunc(time.Hour, func() {}))
 
 	sc.Stop()
 
-	sc.mu.Lock()
-	count := len(sc.userTimers)
-	sc.mu.Unlock()
+	count := sc.timer.Len()
 	if count != 0 {
 		t.Errorf("expected 0 timers after Stop, got %d", count)
 	}
@@ -2091,9 +2087,7 @@ func TestSchedulerRefresh_AutoFetchDisabled(t *testing.T) {
 	// auto_fetch is disabled by default, so Refresh should be a no-op
 	sc.Refresh("test-user")
 
-	sc.mu.Lock()
-	count := len(sc.userTimers)
-	sc.mu.Unlock()
+	count := sc.timer.Len()
 	if count != 0 {
 		t.Errorf("expected 0 timers when auto_fetch disabled, got %d", count)
 	}

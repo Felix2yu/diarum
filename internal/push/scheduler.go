@@ -3,11 +3,11 @@ package push
 import (
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/logger"
+	"github.com/songtianlun/diarum/internal/scheduler"
 	"github.com/songtianlun/diarum/internal/store"
 )
 
@@ -18,20 +18,38 @@ type Scheduler struct {
 	configService *config.ConfigService
 	sender        *Sender
 
-	mu         sync.Mutex
-	userTimers map[string]*time.Timer
-	now        func() time.Time
+	now   func() time.Time
+	timer *scheduler.Timer
 }
 
 // NewScheduler creates a push reminder scheduler.
 func NewScheduler(s *store.Store, cfg *config.ConfigService, sender *Sender) *Scheduler {
-	return &Scheduler{
+	sc := &Scheduler{
 		store:         s,
 		configService: cfg,
 		sender:        sender,
-		userTimers:    make(map[string]*time.Timer),
 		now:           time.Now,
 	}
+	sc.timer = scheduler.NewTimer(sc.listUserIDs, scheduler.WithNow(sc.now))
+	sc.timer.Enabled = func(userID string) bool {
+		enabled, _ := sc.configService.GetBool(userID, "webpush.enabled")
+		return enabled
+	}
+	sc.timer.Next = sc.nextNotifyTime
+	sc.timer.Run = func(userID string) { _ = sc.execute(userID) }
+	return sc
+}
+
+func (sc *Scheduler) listUserIDs() ([]string, error) {
+	users, err := sc.store.ListUsers()
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(users))
+	for _, u := range users {
+		ids = append(ids, u.ID)
+	}
+	return ids, nil
 }
 
 // Start initializes timers for all users with reminders enabled.
@@ -53,41 +71,12 @@ func (sc *Scheduler) Start() {
 
 // Stop cancels all timers.
 func (sc *Scheduler) Stop() {
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
-	for _, t := range sc.userTimers {
-		t.Stop()
-	}
-	clear(sc.userTimers)
+	sc.timer.Stop()
 }
 
 // Refresh recalculates and resets the timer for a user.
 func (sc *Scheduler) Refresh(userID string) {
-	sc.mu.Lock()
-	if t, ok := sc.userTimers[userID]; ok {
-		t.Stop()
-		delete(sc.userTimers, userID)
-	}
-	sc.mu.Unlock()
-
-	enabled, _ := sc.configService.GetBool(userID, "webpush.enabled")
-	if !enabled {
-		return
-	}
-
-	next := sc.nextNotifyTime(userID)
-	if next.IsZero() {
-		return
-	}
-
-	delay := max(time.Until(next), 0)
-
-	sc.mu.Lock()
-	sc.userTimers[userID] = time.AfterFunc(delay, func() {
-		sc.execute(userID)
-	})
-	sc.mu.Unlock()
-	logger.Debug("[Push] user %s: next reminder at %s (in %s)", userID, next.Format(time.RFC3339), delay)
+	sc.timer.Refresh(userID)
 }
 
 // RunNow triggers an immediate reminder for a user (used by the test endpoint).

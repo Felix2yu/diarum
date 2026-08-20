@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/logger"
+	"github.com/songtianlun/diarum/internal/scheduler"
 	"github.com/songtianlun/diarum/internal/store"
 )
 
@@ -24,17 +24,35 @@ type Scheduler struct {
 	store         *store.Store
 	configService *config.ConfigService
 	weatherSvc    *Service
-	mu            sync.Mutex
-	userTimers    map[string]*time.Timer
+	timer         *scheduler.Timer
 }
 
 func NewScheduler(s *store.Store, cfg *config.ConfigService, svc *Service) *Scheduler {
-	return &Scheduler{
+	sc := &Scheduler{
 		store:         s,
 		configService: cfg,
 		weatherSvc:    svc,
-		userTimers:    make(map[string]*time.Timer),
 	}
+	sc.timer = scheduler.NewTimer(sc.listUserIDs)
+	sc.timer.Enabled = func(userID string) bool {
+		enabled, _ := sc.configService.GetBool(userID, "weather.auto_fetch")
+		return enabled
+	}
+	sc.timer.Next = sc.nextFetchTime
+	sc.timer.Run = func(userID string) { _ = sc.execute(userID) }
+	return sc
+}
+
+func (sc *Scheduler) listUserIDs() ([]string, error) {
+	users, err := sc.store.ListUsers()
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(users))
+	for _, u := range users {
+		ids = append(ids, u.ID)
+	}
+	return ids, nil
 }
 
 func (sc *Scheduler) Start() {
@@ -50,39 +68,11 @@ func (sc *Scheduler) Start() {
 }
 
 func (sc *Scheduler) Stop() {
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
-	for _, t := range sc.userTimers {
-		t.Stop()
-	}
-	clear(sc.userTimers)
+	sc.timer.Stop()
 }
 
 func (sc *Scheduler) Refresh(userID string) {
-	sc.mu.Lock()
-	defer sc.mu.Unlock()
-
-	if t, ok := sc.userTimers[userID]; ok {
-		t.Stop()
-		delete(sc.userTimers, userID)
-	}
-
-	enabled, _ := sc.configService.GetBool(userID, "weather.auto_fetch")
-	if !enabled {
-		return
-	}
-
-	next := sc.nextFetchTime(userID)
-	if next.IsZero() {
-		return
-	}
-
-	delay := max(time.Until(next), 0)
-
-	sc.userTimers[userID] = time.AfterFunc(delay, func() {
-		sc.execute(userID)
-	})
-	logger.Debug("[WeatherAuto] user %s: next fetch at %s (in %s)", userID, next.Format(time.RFC3339), delay)
+	sc.timer.Refresh(userID)
 }
 
 func (sc *Scheduler) RunNow(userID string) error {

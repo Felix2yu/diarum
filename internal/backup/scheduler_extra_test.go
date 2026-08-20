@@ -19,13 +19,13 @@ func TestSchedulerRefreshCancelExisting(t *testing.T) {
 	}
 
 	sc.Refresh(u.ID)
-	t1, ok := sc.userTimers[u.ID]
+	t1, ok := sc.timer.Timer(u.ID)
 	if !ok {
 		t.Fatal("timer should be set after first Refresh")
 	}
 
 	sc.Refresh(u.ID)
-	t2, ok := sc.userTimers[u.ID]
+	t2, ok := sc.timer.Timer(u.ID)
 	if !ok {
 		t.Fatal("timer should still exist after re-Refresh")
 	}
@@ -48,7 +48,7 @@ func TestSchedulerStartWithEnabledUser(t *testing.T) {
 	}
 
 	sc.Start()
-	if _, ok := sc.userTimers[u.ID]; !ok {
+	if _, ok := sc.timer.Timer(u.ID); !ok {
 		t.Fatal("expected a timer for the enabled user after Start")
 	}
 	sc.Stop()
@@ -59,7 +59,7 @@ func TestSchedulerStartWithEnabledUser(t *testing.T) {
 		t.Fatalf("Set disabled: %v", err)
 	}
 	sc2.Start()
-	if _, ok := sc2.userTimers[u.ID]; ok {
+	if _, ok := sc2.timer.Timer(u.ID); ok {
 		t.Fatal("disabled user should not get a timer at Start")
 	}
 	sc2.Stop()
