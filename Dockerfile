@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.17
 
 # ---- Go module cache (runs in parallel with frontend) ----
-FROM golang:1.26-alpine AS go-modules
+FROM golang:1.27-alpine AS go-modules
 
 WORKDIR /app
 COPY go.mod go.sum ./
@@ -31,7 +31,7 @@ RUN --mount=type=cache,target=/app/site/.svelte-kit \
     npm run build
 
 # ---- Backend build stage ----
-FROM golang:1.26-alpine AS backend-builder
+FROM golang:1.27-alpine AS backend-builder
 
 WORKDIR /app
 

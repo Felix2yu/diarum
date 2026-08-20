@@ -12,7 +12,7 @@ Diarum（吾身）是一个自托管的 AI 日记应用，核心理念是"一天
 
 | 层级 | 技术 |
 |------|------|
-| 后端语言 | Go 1.26 |
+| 后端语言 | Go 1.27 |
 | HTTP 框架 | Echo v5 |
 | 数据库 | SQLite (modernc.org/sqlite, CGO-free, WAL mode) |
 | 前端框架 | SvelteKit 2 + Svelte 5 (runes) |
