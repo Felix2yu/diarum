@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -200,12 +201,9 @@ func (s *ChatService) SearchDiariesByDateRange(ctx context.Context, userID strin
 				dateFilteredIDs[r.ID] = true
 			}
 
-			filtered := make([]embedding.DiarySearchResult, 0)
-			for _, sr := range semanticResults {
-				if dateFilteredIDs[sr.ID] {
-					filtered = append(filtered, sr)
-				}
-			}
+			filtered := slices.DeleteFunc(semanticResults, func(sr embedding.DiarySearchResult) bool {
+				return !dateFilteredIDs[sr.ID]
+			})
 			if len(filtered) > 0 {
 				results = filtered
 			}

@@ -67,10 +67,11 @@ func (s *Service) ParseToken(token string) (*store.User, error) {
 func (s *Service) Middleware(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c *echo.Context) error {
 		header := c.Request().Header.Get("Authorization")
-		if !strings.HasPrefix(header, "Bearer ") {
+		after, ok := strings.CutPrefix(header, "Bearer ")
+		if !ok {
 			return echo.NewHTTPError(http.StatusUnauthorized, "The request requires valid authorization token.")
 		}
-		user, err := s.ParseToken(strings.TrimSpace(strings.TrimPrefix(header, "Bearer ")))
+		user, err := s.ParseToken(strings.TrimSpace(after))
 		if err != nil {
 			return err
 		}

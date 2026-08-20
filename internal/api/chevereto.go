@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -74,7 +75,7 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 		}
 		domain := strings.TrimRight(strings.TrimSpace(body.Domain), "/")
 		client := &http.Client{Timeout: 10 * time.Second}
-		req, err := http.NewRequest("GET", fmt.Sprintf("%s/api/1/upload", domain), nil)
+		req, err := http.NewRequestWithContext(context.Background(), "GET", fmt.Sprintf("%s/api/1/upload", domain), nil)
 		if err != nil {
 			return c.JSON(http.StatusOK, map[string]any{"success": false, "message": fmt.Sprintf("Invalid domain URL: %v", err)})
 		}
@@ -143,7 +144,7 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 		writer.WriteField("title", header.Filename)
 		writer.Close()
 
-		req, err := http.NewRequest("POST", fmt.Sprintf("%s/api/1/upload", domain), &buf)
+		req, err := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/1/upload", domain), &buf)
 		if err != nil {
 			return badRequest("Failed to create request", err)
 		}

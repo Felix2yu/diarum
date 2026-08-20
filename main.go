@@ -241,10 +241,11 @@ func run(args []string, stdout io.Writer) error {
 	mcpAuth := func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
 			header := c.Request().Header.Get("Authorization")
-			if !strings.HasPrefix(header, "Bearer ") {
+			after, ok := strings.CutPrefix(header, "Bearer ")
+			if !ok {
 				return echo.NewHTTPError(http.StatusUnauthorized, "Authentication required")
 			}
-			rawToken := strings.TrimSpace(strings.TrimPrefix(header, "Bearer "))
+			rawToken := strings.TrimSpace(after)
 
 			userID, err := appStore.ValidateAPIToken(rawToken)
 			if err != nil || userID == "" {

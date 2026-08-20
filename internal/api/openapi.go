@@ -2,7 +2,7 @@ package api
 
 import (
 	"net/http"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/labstack/echo/v5"
@@ -70,11 +70,11 @@ func buildOpenAPISpec(routes echo.Routes, version, name string) map[string]any {
 		routeCopies = append(routeCopies, route)
 	}
 
-	sort.Slice(routeCopies, func(i, j int) bool {
-		if routeCopies[i].Path == routeCopies[j].Path {
-			return routeCopies[i].Method < routeCopies[j].Method
+	slices.SortFunc(routeCopies, func(a, b echo.RouteInfo) int {
+		if a.Path != b.Path {
+			return strings.Compare(a.Path, b.Path)
 		}
-		return routeCopies[i].Path < routeCopies[j].Path
+		return strings.Compare(a.Method, b.Method)
 	})
 
 	for _, route := range routeCopies {

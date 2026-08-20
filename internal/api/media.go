@@ -21,7 +21,8 @@ import (
 func mediaFileAuth(authService *auth.Service) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c *echo.Context) error {
-			token := strings.TrimSpace(strings.TrimPrefix(c.Request().Header.Get("Authorization"), "Bearer "))
+			after, _ := strings.CutPrefix(c.Request().Header.Get("Authorization"), "Bearer ")
+			token := strings.TrimSpace(after)
 			if token == "" {
 				token = c.QueryParam("token")
 			}

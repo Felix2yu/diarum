@@ -4,7 +4,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"errors"
-	"fmt"
+	"strconv"
 
 	"github.com/songtianlun/diarum/internal/logger"
 	"github.com/songtianlun/diarum/internal/store"
@@ -99,8 +99,7 @@ func (s *ConfigService) GetInt(userId, key string) (int, error) {
 	case int:
 		return v, nil
 	case string:
-		var i int
-		if _, err := fmt.Sscanf(v, "%d", &i); err == nil {
+		if i, err := strconv.Atoi(v); err == nil {
 			return i, nil
 		}
 	}

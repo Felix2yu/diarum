@@ -1,6 +1,7 @@
 package weather
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -98,7 +99,7 @@ func searchQwRequest(apiURL string) ([]CityInfo, error) {
 
 func searchQwRequestBearer(apiURL, token string) ([]CityInfo, error) {
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", apiURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("QWeather geo request failed: %w", err)
 	}
@@ -153,7 +154,7 @@ func searchOpenMeteo(query string) ([]CityInfo, error) {
 	)
 
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", apiURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -238,7 +239,7 @@ func reverseGeocode(lat, lon float64) ([]CityInfo, error) {
 			time.Sleep(time.Duration(attempt) * time.Second)
 		}
 
-		req, err := http.NewRequest("GET", url, nil)
+		req, err := http.NewRequestWithContext(context.Background(), "GET", url, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -472,7 +473,7 @@ func qwGeoRequest(apiURL string) (lat, lon float64, err error) {
 
 func qwGeoRequestBearer(apiURL, token string) (lat, lon float64, err error) {
 	client := &http.Client{Timeout: 10 * time.Second}
-	req, err := http.NewRequest("GET", apiURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", apiURL, nil)
 	if err != nil {
 		return 0, 0, fmt.Errorf("QWeather geo request failed: %w", err)
 	}
@@ -532,7 +533,7 @@ func geocodeWithOpenMeteo(city string) (lat, lon float64, err error) {
 			time.Sleep(time.Duration(attempt) * time.Second)
 		}
 
-		req, err := http.NewRequest("GET", apiURL, nil)
+		req, err := http.NewRequestWithContext(context.Background(), "GET", apiURL, nil)
 		if err != nil {
 			return 0, 0, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -591,7 +592,7 @@ func geocodeWithNominatim(city string) (lat, lon float64, err error) {
 			time.Sleep(time.Duration(attempt) * time.Second)
 		}
 
-		req, err := http.NewRequest("GET", apiURL, nil)
+		req, err := http.NewRequestWithContext(context.Background(), "GET", apiURL, nil)
 		if err != nil {
 			return 0, 0, fmt.Errorf("failed to create request: %w", err)
 		}

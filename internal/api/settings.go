@@ -21,6 +21,30 @@ var weatherSettingsKeys = map[string]bool{
 	"weather.enabled":         true,
 }
 
+type settingResponse struct {
+	Key   string `json:"key"`
+	Value any    `json:"value"`
+}
+
+type successResponse struct {
+	Success bool `json:"success"`
+}
+
+type apiTokenStatusResponse struct {
+	Exists  bool   `json:"exists"`
+	Enabled bool   `json:"enabled"`
+	Token   string `json:"token"`
+}
+
+type apiTokenToggleResponse struct {
+	Enabled bool   `json:"enabled"`
+	Token   string `json:"token"`
+}
+
+type settingsBatchResponse struct {
+	Settings map[string]any `json:"settings"`
+}
+
 // generateToken generates a random 32-character hex token
 func generateToken() (string, error) {
 	bytes := make([]byte, 16)
@@ -49,9 +73,9 @@ func getSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
 			}
 		}
 
-		return c.JSON(http.StatusOK, map[string]any{
-			"key":   key,
-			"value": value,
+		return c.JSON(http.StatusOK, settingResponse{
+			Key:   key,
+			Value: value,
 		})
 	}
 }
@@ -76,9 +100,7 @@ func putSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
 			return badRequest("Failed to save setting", err)
 		}
 
-		return c.JSON(http.StatusOK, map[string]any{
-			"success": true,
-		})
+		return c.JSON(http.StatusOK, successResponse{Success: true})
 	}
 }
 
@@ -95,9 +117,7 @@ func deleteSettingHandler(configService *config.ConfigService) echo.HandlerFunc 
 			return badRequest("Failed to delete setting", err)
 		}
 
-		return c.JSON(http.StatusOK, map[string]any{
-			"success": true,
-		})
+		return c.JSON(http.StatusOK, successResponse{Success: true})
 	}
 }
 
@@ -120,10 +140,10 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 		}
 
 		// 不返回明文 token，只返回状态；token 仅在创建/重置时返回一次
-		return c.JSON(http.StatusOK, map[string]any{
-			"exists":  token != "",
-			"enabled": enabled && token != "",
-			"token":   "",
+		return c.JSON(http.StatusOK, apiTokenStatusResponse{
+			Exists:  token != "",
+			Enabled: enabled && token != "",
+			Token:   "",
 		})
 	})
 
@@ -154,9 +174,9 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 				return badRequest("Failed to save enabled status", err)
 			}
 
-			return c.JSON(http.StatusOK, map[string]any{
-				"enabled": true,
-				"token":   newToken,
+			return c.JSON(http.StatusOK, apiTokenToggleResponse{
+				Enabled: true,
+				Token:   newToken,
 			})
 		}
 
@@ -167,9 +187,9 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 		}
 
 		// 已存在的 token 不再回读明文
-		return c.JSON(http.StatusOK, map[string]any{
-			"enabled": newEnabled,
-			"token":   "",
+		return c.JSON(http.StatusOK, apiTokenToggleResponse{
+			Enabled: newEnabled,
+			Token:   "",
 		})
 	})
 
@@ -200,9 +220,9 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 			enabled = true
 		}
 
-		return c.JSON(http.StatusOK, map[string]any{
-			"enabled": enabled,
-			"token":   newToken,
+		return c.JSON(http.StatusOK, apiTokenToggleResponse{
+			Enabled: enabled,
+			Token:   newToken,
 		})
 	})
 
@@ -224,8 +244,8 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 			}
 		}
 
-		return c.JSON(http.StatusOK, map[string]any{
-			"settings": settings,
+		return c.JSON(http.StatusOK, settingsBatchResponse{
+			Settings: settings,
 		})
 	})
 
@@ -259,9 +279,7 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 			}
 		}
 
-		return c.JSON(http.StatusOK, map[string]any{
-			"success": true,
-		})
+		return c.JSON(http.StatusOK, successResponse{Success: true})
 	})
 
 	// Get single setting by key
@@ -291,9 +309,7 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 			weatherScheduler.Refresh(userId)
 		}
 
-		return c.JSON(http.StatusOK, map[string]any{
-			"success": true,
-		})
+		return c.JSON(http.StatusOK, successResponse{Success: true})
 	})
 
 	// Delete single setting by key
@@ -313,8 +329,6 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 			weatherScheduler.Refresh(userId)
 		}
 
-		return c.JSON(http.StatusOK, map[string]any{
-			"success": true,
-		})
+		return c.JSON(http.StatusOK, successResponse{Success: true})
 	})
 }

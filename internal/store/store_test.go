@@ -382,8 +382,7 @@ func TestStoreMediaAndFileHelpers(t *testing.T) {
 	if total != 1 || len(items) != 1 {
 		t.Fatalf("ListMedia total/items = %d/%d", total, len(items))
 	}
-	expand, ok := items[0].Expand["diary"].([]Diary)
-	if !ok || len(expand) != 1 || expand[0].ID != diary.ID {
+	if items[0].Expand == nil || len(items[0].Expand.Diary) != 1 || items[0].Expand.Diary[0].ID != diary.ID {
 		t.Fatalf("ListMedia expand = %#v", items[0].Expand)
 	}
 

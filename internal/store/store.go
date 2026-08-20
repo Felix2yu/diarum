@@ -12,7 +12,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 	"time"
 
@@ -139,9 +139,13 @@ type Message struct {
 	Updated           string   `json:"updated"`
 }
 
+type MediaExpand struct {
+	Diary []Diary `json:"diary,omitempty"`
+}
+
 type MediaWithExpand struct {
 	Media
-	Expand map[string]any `json:"expand,omitempty"`
+	Expand *MediaExpand `json:"expand,omitempty"`
 }
 
 func Open(dataDir string) (*Store, error) {
@@ -1385,20 +1389,14 @@ func scanDiaries(rows *sql.Rows) ([]*Diary, error) {
 
 // normalizeTags cleans tag input: trim whitespace, remove empty duplicates, lowercase optional (kept as-is for user freedom).
 func normalizeTags(tags []string) []string {
-	seen := make(map[string]struct{}, len(tags))
-	result := make([]string, 0, len(tags))
+	trimmed := make([]string, 0, len(tags))
 	for _, t := range tags {
-		t = strings.TrimSpace(t)
-		if t == "" {
-			continue
+		if t = strings.TrimSpace(t); t != "" {
+			trimmed = append(trimmed, t)
 		}
-		if _, ok := seen[t]; ok {
-			continue
-		}
-		seen[t] = struct{}{}
-		result = append(result, t)
 	}
-	return result
+	slices.Sort(trimmed)
+	return slices.Compact(trimmed)
 }
 
 // TagCount represents a distinct tag and how many times it appears in a user's diary collection.
@@ -1433,11 +1431,11 @@ func (s *Store) ListTagCounts(owner string) ([]*TagCount, error) {
 		result = append(result, &TagCount{Tag: tag, Count: count})
 	}
 	// Sort: higher count first, then alphabetical
-	sort.SliceStable(result, func(i, j int) bool {
-		if result[i].Count != result[j].Count {
-			return result[i].Count > result[j].Count
+	slices.SortFunc(result, func(a, b *TagCount) int {
+		if a.Count != b.Count {
+			return b.Count - a.Count
 		}
-		return result[i].Tag < result[j].Tag
+		return strings.Compare(a.Tag, b.Tag)
 	})
 	return result, nil
 }
@@ -1698,7 +1696,7 @@ func (s *Store) ListMedia(owner string, page, perPage int) ([]MediaWithExpand, i
 				diaries = append(diaries, diary)
 			}
 		}
-		items[i].Expand = map[string]any{"diary": diaries}
+		items[i].Expand = &MediaExpand{Diary: diaries}
 	}
 
 	return items, total, nil
@@ -1897,19 +1895,14 @@ func anyToBool(value any) bool {
 }
 
 func uniqueStrings(values []string) []string {
-	seen := make(map[string]struct{}, len(values))
-	result := make([]string, 0, len(values))
-	for _, value := range values {
-		if value == "" {
-			continue
+	filtered := make([]string, 0, len(values))
+	for _, v := range values {
+		if v != "" {
+			filtered = append(filtered, v)
 		}
-		if _, ok := seen[value]; ok {
-			continue
-		}
-		seen[value] = struct{}{}
-		result = append(result, value)
 	}
-	return result
+	slices.Sort(filtered)
+	return slices.Compact(filtered)
 }
 
 func (s *Store) ListConversations(owner string, limit int) ([]*Conversation, error) {
