@@ -22,11 +22,11 @@ type OpenMeteoResponse struct {
 func FetchWeatherFromOpenMeteo(city string, lat, lon float64, date string) (*WeatherResult, error) {
 	targetDate := date
 	if targetDate == "" {
-		targetDate = time.Now().Format("2006-01-02")
+		targetDate = time.Now().Format(time.DateOnly)
 	}
 
 	// Determine if date is in the past (need archive API) or future (forecast API)
-	today := time.Now().Format("2006-01-02")
+	today := time.Now().Format(time.DateOnly)
 	isPast := targetDate < today
 
 	var url string

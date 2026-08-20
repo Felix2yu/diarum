@@ -1,7 +1,8 @@
 package logger
 
 import (
-	"log"
+	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 )
@@ -16,11 +17,27 @@ const (
 	LevelError
 )
 
-var currentLevel = LevelInfo
+func slogLevel(l Level) slog.Level {
+	switch l {
+	case LevelDebug:
+		return slog.LevelDebug
+	case LevelWarn:
+		return slog.LevelWarn
+	case LevelError:
+		return slog.LevelError
+	default:
+		return slog.LevelInfo
+	}
+}
+
+var (
+	currentLevel = LevelInfo
+	levelVar     = new(slog.LevelVar)
+)
 
 func init() {
-	// Set log level from environment variable
 	currentLevel = LevelFromEnv()
+	levelVar.Set(slogLevel(currentLevel))
 }
 
 // LevelFromEnv resolves the initial logging level from the LOG_LEVEL and DEBUG
@@ -46,37 +63,53 @@ func LevelFromEnv() Level {
 	}
 }
 
+// log is the structured logger. The handler can be swapped (e.g. for
+// slog.NewJSONHandler, or slog.NewMultiHandler in Go 1.26) without touching any
+// call sites.
+var log = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: levelVar}))
+
 // Debug logs debug level messages
 func Debug(format string, v ...any) {
 	if currentLevel <= LevelDebug {
-		log.Printf("[DEBUG] "+format, v...)
+		log.Debug(fmt.Sprintf(format, v...))
 	}
 }
 
 // Info logs info level messages
 func Info(format string, v ...any) {
 	if currentLevel <= LevelInfo {
-		log.Printf("[INFO] "+format, v...)
+		log.Info(fmt.Sprintf(format, v...))
 	}
 }
 
 // Warn logs warning level messages
 func Warn(format string, v ...any) {
 	if currentLevel <= LevelWarn {
-		log.Printf("[WARN] "+format, v...)
+		log.Warn(fmt.Sprintf(format, v...))
 	}
 }
 
 // Error logs error level messages
 func Error(format string, v ...any) {
 	if currentLevel <= LevelError {
-		log.Printf("[ERROR] "+format, v...)
+		log.Error(fmt.Sprintf(format, v...))
 	}
+}
+
+// Infow logs a structured info message with key/value pairs.
+func Infow(msg string, kv ...any) {
+	log.Info(msg, kv...)
+}
+
+// Errorw logs a structured error message with key/value pairs.
+func Errorw(msg string, kv ...any) {
+	log.Error(msg, kv...)
 }
 
 // SetLevel sets the current logging level
 func SetLevel(level Level) {
 	currentLevel = level
+	levelVar.Set(slogLevel(level))
 }
 
 // GetLevel returns the current logging level

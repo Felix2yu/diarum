@@ -1645,9 +1645,7 @@ func (s *Store) ValidateAPIToken(token string) (string, error) {
 }
 
 func (s *Store) ListMedia(owner string, page, perPage int) ([]MediaWithExpand, int, error) {
-	if page <= 0 {
-		page = 1
-	}
+	page = max(page, 1)
 	if perPage <= 0 {
 		perPage = 50
 	}
@@ -1678,12 +1676,30 @@ func (s *Store) ListMedia(owner string, page, perPage int) ([]MediaWithExpand, i
 	}
 
 	diariesByID := make(map[string]Diary, len(diaryIDs))
-	for diaryID := range diaryIDs {
-		diary, err := s.GetDiaryByID(diaryID)
-		if err != nil || diary.Owner != owner {
-			continue
+	if len(diaryIDs) > 0 {
+		ids := make([]string, 0, len(diaryIDs))
+		for id := range diaryIDs {
+			ids = append(ids, id)
 		}
-		diariesByID[diaryID] = *diary
+		placeholders := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
+		args := make([]any, 0, len(ids)+1)
+		args = append(args, owner)
+		for _, id := range ids {
+			args = append(args, id)
+		}
+		rows, err := s.DB.Query(`SELECT content, created, date, id, mood, mood_states, scenarios, owner, updated, weather, city, temp_min, temp_max, tags
+			FROM diaries WHERE owner = ? AND id IN (`+placeholders+`)`, args...)
+		if err != nil {
+			return nil, 0, err
+		}
+		defer rows.Close()
+		scanned, err := scanDiaries(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		for _, d := range scanned {
+			diariesByID[d.ID] = *d
+		}
 	}
 
 	for i := range items {
@@ -2221,14 +2237,12 @@ func (s *Store) openMediaFromS3(client *awss3.Client, cfg *LegacyS3Config, media
 			return result.Body, nil
 		}
 		lastErr = err
-		var noSuchKey *awstypes.NoSuchKey
-		if errors.As(err, &noSuchKey) {
+		if _, ok := errors.AsType[*awstypes.NoSuchKey](err); ok {
 			continue
 		}
 	}
 	if lastErr != nil {
-		var noSuchKey *awstypes.NoSuchKey
-		if errors.As(lastErr, &noSuchKey) {
+		if _, ok := errors.AsType[*awstypes.NoSuchKey](lastErr); ok {
 			return nil, os.ErrNotExist
 		}
 		return nil, lastErr
@@ -2249,8 +2263,7 @@ func (s *Store) deleteMediaFromS3(client *awss3.Client, cfg *LegacyS3Config, med
 		if err == nil {
 			continue
 		}
-		var noSuchKey *awstypes.NoSuchKey
-		if errors.As(err, &noSuchKey) {
+		if _, ok := errors.AsType[*awstypes.NoSuchKey](err); ok {
 			continue
 		}
 		if firstErr == nil {
@@ -2273,11 +2286,7 @@ func TotalPages(total, perPage int) int {
 	if perPage <= 0 {
 		return 0
 	}
-	pages := total / perPage
-	if total%perPage != 0 {
-		pages++
-	}
-	return pages
+	return (total + perPage - 1) / perPage
 }
 
 // Backup represents a backup record
@@ -2405,8 +2414,7 @@ func (s *Store) DeleteObjectFromS3(userID, key string) error {
 		Bucket: aws.String(cfg.Bucket),
 		Key:    aws.String(key),
 	})
-	var noSuchKey *awstypes.NoSuchKey
-	if errors.As(err, &noSuchKey) {
+	if _, ok := errors.AsType[*awstypes.NoSuchKey](err); ok {
 		return nil
 	}
 	return err

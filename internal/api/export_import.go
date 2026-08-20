@@ -182,7 +182,7 @@ func BuildExportZip(s *store.Store, userID string, req ExportRequest) (*bytes.Bu
 	if err != nil {
 		return nil, exportStats{}, err
 	}
-	stats := exportStats{DateRangeType: req.DateRange, StartDate: startDate.Format("2006-01-02"), EndDate: endDate.Format("2006-01-02"), FailedItems: make([]exportFailedItem, 0)}
+	stats := exportStats{DateRangeType: req.DateRange, StartDate: startDate.Format(time.DateOnly), EndDate: endDate.Format(time.DateOnly), FailedItems: make([]exportFailedItem, 0)}
 
 	allDiaries, _ := s.ListDiaries(userID, "", "", "-date", 0)
 	allMedia, mediaTotal, _ := s.ListMedia(userID, 1, 1000000)

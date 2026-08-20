@@ -55,10 +55,10 @@ func (sc *Scheduler) Start() {
 func (sc *Scheduler) Stop() {
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
-	for uid, t := range sc.userTimers {
+	for _, t := range sc.userTimers {
 		t.Stop()
-		delete(sc.userTimers, uid)
 	}
+	clear(sc.userTimers)
 }
 
 // Refresh recalculates and resets the timer for a user.
@@ -80,10 +80,7 @@ func (sc *Scheduler) Refresh(userID string) {
 		return
 	}
 
-	delay := time.Until(next)
-	if delay < 0 {
-		delay = 0
-	}
+	delay := max(time.Until(next), 0)
 
 	sc.mu.Lock()
 	sc.userTimers[userID] = time.AfterFunc(delay, func() {
@@ -101,7 +98,7 @@ func (sc *Scheduler) RunNow(userID string) error {
 func (sc *Scheduler) execute(userID string) error {
 	// Skip when today's diary has already been written (in the user's timezone).
 	loc := sc.location(userID)
-	today := sc.now().In(loc).Format("2006-01-02")
+	today := sc.now().In(loc).Format(time.DateOnly)
 	written, err := sc.store.HasDiaryContent(userID, today)
 	if err != nil {
 		logger.Error("[Push] failed to check diary for user %s: %v", userID, err)

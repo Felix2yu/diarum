@@ -52,10 +52,10 @@ func (sc *Scheduler) Start() {
 func (sc *Scheduler) Stop() {
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
-	for uid, t := range sc.userTimers {
+	for _, t := range sc.userTimers {
 		t.Stop()
-		delete(sc.userTimers, uid)
 	}
+	clear(sc.userTimers)
 }
 
 func (sc *Scheduler) Refresh(userID string) {
@@ -77,10 +77,7 @@ func (sc *Scheduler) Refresh(userID string) {
 		return
 	}
 
-	delay := time.Until(next)
-	if delay < 0 {
-		delay = 0
-	}
+	delay := max(time.Until(next), 0)
 
 	sc.userTimers[userID] = time.AfterFunc(delay, func() {
 		sc.execute(userID)
@@ -112,7 +109,7 @@ func (sc *Scheduler) execute(userID string) error {
 		lat, lon = cs.Lat, cs.Lon
 	}
 
-	today := time.Now().Format("2006-01-02")
+	today := time.Now().Format(time.DateOnly)
 
 	var result *WeatherResult
 	var err error

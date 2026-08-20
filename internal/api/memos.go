@@ -24,6 +24,12 @@ const (
 	memosEndPrefix   = "<!-- DIARUM:MEMOS:END"
 )
 
+var (
+	unixTimestampRe = regexp.MustCompile(`^\d{10,19}$`)
+	hrEndRe         = regexp.MustCompile(`(?i)<hr\s*/?>$`)
+	beginBlockRe    = regexp.MustCompile(`(?i)^\s*<!-- DIARUM:MEMOS:BEGIN([^>]*)-->\s*<hr\s*/?>\s*`)
+)
+
 type memosSettings struct {
 	Enabled     bool   `json:"enabled"`
 	BaseURL     string `json:"base_url"`
@@ -354,16 +360,16 @@ func memoDateFromValue(value string) string {
 	if unixDate := memoDateFromUnixTimestamp(value); unixDate != "" {
 		return unixDate
 	}
-	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02 15:04:05", "2006-01-02T15:04:05", "2006-01-02"} {
+	for _, layout := range []string{time.RFC3339Nano, time.RFC3339, "2006-01-02 15:04:05", "2006-01-02T15:04:05", time.DateOnly} {
 		if t, err := time.Parse(layout, value); err == nil {
-			return t.UTC().Format("2006-01-02")
+			return t.UTC().Format(time.DateOnly)
 		}
 	}
 	return ""
 }
 
 func memoDateFromUnixTimestamp(value string) string {
-	if !regexp.MustCompile(`^\d{10,19}$`).MatchString(value) {
+	if !unixTimestampRe.MatchString(value) {
 		return ""
 	}
 	timestamp, err := strconv.ParseInt(value, 10, 64)
@@ -372,13 +378,13 @@ func memoDateFromUnixTimestamp(value string) string {
 	}
 	switch {
 	case len(value) >= 19:
-		return time.Unix(0, timestamp).UTC().Format("2006-01-02")
+		return time.Unix(0, timestamp).UTC().Format(time.DateOnly)
 	case len(value) >= 16:
-		return time.UnixMicro(timestamp).UTC().Format("2006-01-02")
+		return time.UnixMicro(timestamp).UTC().Format(time.DateOnly)
 	case len(value) >= 13:
-		return time.UnixMilli(timestamp).UTC().Format("2006-01-02")
+		return time.UnixMilli(timestamp).UTC().Format(time.DateOnly)
 	default:
-		return time.Unix(timestamp, 0).UTC().Format("2006-01-02")
+		return time.Unix(timestamp, 0).UTC().Format(time.DateOnly)
 	}
 }
 
@@ -531,11 +537,11 @@ func appendMemosBlock(content, block string) string {
 
 func endsWithHorizontalRule(content string) bool {
 	content = strings.TrimSpace(content)
-	return regexp.MustCompile(`(?i)<hr\s*/?>$`).MatchString(content)
+	return hrEndRe.MatchString(content)
 }
 
 func trimLeadingMemosHorizontalRule(block string) string {
-	return regexp.MustCompile(`(?i)^\s*<!-- DIARUM:MEMOS:BEGIN([^>]*)-->\s*<hr\s*/?>\s*`).ReplaceAllString(block, "<!-- DIARUM:MEMOS:BEGIN$1 -->\n")
+	return beginBlockRe.ReplaceAllString(block, "<!-- DIARUM:MEMOS:BEGIN$1 -->\n")
 }
 
 func replaceMemosBlock(content, memoID, block string) (string, bool) {

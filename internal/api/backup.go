@@ -23,9 +23,7 @@ func RegisterBackupRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Midd
 	group.GET("", func(c *echo.Context) error {
 		userID := auth.CurrentUser(c).ID
 		page, _ := strconv.Atoi(c.QueryParam("page"))
-		if page < 1 {
-			page = 1
-		}
+		page = max(page, 1)
 		perPage, _ := strconv.Atoi(c.QueryParam("per_page"))
 		if perPage < 1 {
 			perPage = 20

@@ -83,10 +83,7 @@ func (sc *Scheduler) Refresh(userID string) {
 		return
 	}
 
-	delay := time.Until(next)
-	if delay < 0 {
-		delay = 0
-	}
+	delay := max(time.Until(next), 0)
 
 	sc.userTimers[userID] = time.AfterFunc(delay, func() {
 		sc.execute(userID)
@@ -207,9 +204,7 @@ func (sc *Scheduler) nextBackupTime(userID string) time.Time {
 
 	case "monthly":
 		dom, _ := sc.configService.GetInt(userID, "backup.day_of_month")
-		if dom < 1 {
-			dom = 1
-		}
+		dom = max(dom, 1)
 		next := time.Date(now.Year(), now.Month(), dom, hour, minute, 0, 0, time.UTC)
 		if !next.After(now) {
 			next = next.AddDate(0, 1, 0)

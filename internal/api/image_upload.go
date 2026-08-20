@@ -83,8 +83,7 @@ func RegisterImageUploadRoutes(e *echo.Echo, s *store.Store, authMiddleware echo
 
 		settings, err := normalizeImageUploadSettings(body, s)
 		if err != nil {
-			var httpErr *echo.HTTPError
-			if errors.As(err, &httpErr) {
+			if httpErr, ok := errors.AsType[*echo.HTTPError](err); ok {
 				return httpErr
 			}
 			return badRequest("Invalid image upload settings", err)

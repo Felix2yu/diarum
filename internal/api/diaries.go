@@ -282,12 +282,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 				limit = parsed
 			}
 		}
-		if limit <= 0 {
-			limit = 5
-		}
-		if limit > 100 {
-			limit = 100
-		}
+		limit = min(max(limit, 5), 100)
 		diaries, err := s.ListDiaries(user.ID, "", "", "-date", limit)
 		if err != nil {
 			return badRequest("Failed to fetch recent diaries", err)

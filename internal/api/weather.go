@@ -42,8 +42,7 @@ func RegisterWeatherRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Mid
 		cities, err := weather.SearchCities(query)
 		if err != nil {
 			// Return appropriate status code for Nominatim rate limiting
-			var nomErr *weather.NominatimError
-			if errors.As(err, &nomErr) {
+			if nomErr, ok := errors.AsType[*weather.NominatimError](err); ok {
 				status := http.StatusBadGateway
 				if nomErr.StatusCode == http.StatusTooManyRequests {
 					status = http.StatusTooManyRequests
