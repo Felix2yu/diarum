@@ -1546,6 +1546,9 @@ func TestFetchWithFallback_QWeatherSuccess(t *testing.T) {
 }
 
 func TestFetchWithFallback_QWeatherFails_OpenMeteoSucceeds(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.Skip("skipping network-dependent test in CI")
+	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	}))
@@ -1693,6 +1696,9 @@ func TestSearchQwRequestBearer_ServerError(t *testing.T) {
 }
 
 func TestSearchOpenMeteo_Success(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.Skip("skipping network-dependent test in CI")
+	}
 	cities, err := searchOpenMeteo("Beijing")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -2111,50 +2117,46 @@ func TestSchedulerExecute_NoDefaultCity(t *testing.T) {
 }
 
 func TestSchedulerExecute_WithCoords(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.Skip("skipping network-dependent test in CI")
+	}
 	sc, cleanup := newTestScheduler(t)
 	defer cleanup()
 
-	// Create a user
 	_, err := sc.store.DB.Exec(`INSERT INTO users (id, username, passwordHash, tokenKey, created, updated) VALUES (?, ?, ?, ?, ?, ?)`,
 		"test-user3", "testuser3", "hash", "key", time.Now(), time.Now())
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
 	}
 
-	// Set default city as JSON with coordinates
 	cityJSON := `{"name":"北京","lat":39.9042,"lon":116.4074}`
 	err = sc.configService.Set("test-user3", "weather.default_city", cityJSON)
 	if err != nil {
 		t.Fatalf("failed to set config: %v", err)
 	}
 
-	err = sc.execute("test-user3")
-	if err != nil {
-		t.Logf("Expected error or success: %v", err)
-	}
+	_ = sc.execute("test-user3")
 }
 
 func TestSchedulerExecute_WithoutCoords(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.Skip("skipping network-dependent test in CI")
+	}
 	sc, cleanup := newTestScheduler(t)
 	defer cleanup()
 
-	// Create a user
 	_, err := sc.store.DB.Exec(`INSERT INTO users (id, username, passwordHash, tokenKey, created, updated) VALUES (?, ?, ?, ?, ?, ?)`,
 		"test-user4", "testuser4", "hash", "key", time.Now(), time.Now())
 	if err != nil {
 		t.Fatalf("failed to create user: %v", err)
 	}
 
-	// Set default city as plain string (no coords)
 	err = sc.configService.Set("test-user4", "weather.default_city", "北京")
 	if err != nil {
 		t.Fatalf("failed to set config: %v", err)
 	}
 
-	err = sc.execute("test-user4")
-	if err != nil {
-		t.Logf("Expected error or success: %v", err)
-	}
+	_ = sc.execute("test-user4")
 }
 
 func TestSchedulerStart(t *testing.T) {
@@ -2192,6 +2194,9 @@ func TestCitySettingJSON_PlainString(t *testing.T) {
 }
 
 func TestSchedulerExecute_PastDateWeather(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.Skip("skipping network-dependent test in CI")
+	}
 	sc, cleanup := newTestScheduler(t)
 	defer cleanup()
 
@@ -2207,14 +2212,10 @@ func TestSchedulerExecute_PastDateWeather(t *testing.T) {
 		t.Fatalf("failed to set config: %v", err)
 	}
 
-	// Enable auto fetch
 	err = sc.configService.Set("test-user5", "weather.auto_fetch", true)
 	if err != nil {
 		t.Fatalf("failed to set config: %v", err)
 	}
 
-	err = sc.execute("test-user5")
-	if err != nil {
-		t.Logf("Execute result: %v", err)
-	}
+	_ = sc.execute("test-user5")
 }
