@@ -137,6 +137,47 @@ func mimeByExtension(path string) string {
 	}
 }
 
+func newDiaryChangedHook(configService *config.ConfigService, embeddingService *embedding.EmbeddingService) func(string) {
+	return func(userID string) {
+		enabled, _ := configService.GetBool(userID, "ai.enabled")
+		if !enabled || embeddingService == nil {
+			return
+		}
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+			defer cancel()
+			logger.Info("[AutoVectorBuild] triggered for user: %s", userID)
+			result, err := embeddingService.BuildIncrementalVectors(ctx, userID)
+			if err != nil {
+				logger.Error("[AutoVectorBuild] failed for user %s: %v", userID, err)
+				return
+			}
+			logger.Info("[AutoVectorBuild] completed for user %s: %d built, %d failed", userID, result.Success, result.Failed)
+		}()
+	}
+}
+
+func newMCPAuth(appStore *store.Store) echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c *echo.Context) error {
+			header := c.Request().Header.Get("Authorization")
+			after, ok := strings.CutPrefix(header, "Bearer ")
+			if !ok {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Authentication required")
+			}
+			rawToken := strings.TrimSpace(after)
+
+			userID, err := appStore.ValidateAPIToken(rawToken)
+			if err != nil || userID == "" {
+				return echo.NewHTTPError(http.StatusUnauthorized, "Authentication required")
+			}
+			ctx := context.WithValue(c.Request().Context(), mcpserver.UserIDKey, userID)
+			c.SetRequest(c.Request().WithContext(ctx))
+			return next(c)
+		}
+	}
+}
+
 func main() {
 	if err := run(os.Args[1:], os.Stdout); err != nil {
 		log.Fatal(err)
@@ -192,23 +233,7 @@ func run(args []string, stdout io.Writer) error {
 	e.Use(middleware.Recover())
 
 	authMiddleware := authService.Middleware
-	onDiaryChanged := func(userID string) {
-		enabled, _ := configService.GetBool(userID, "ai.enabled")
-		if !enabled || embeddingService == nil {
-			return
-		}
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-			defer cancel()
-			logger.Info("[AutoVectorBuild] triggered for user: %s", userID)
-			result, err := embeddingService.BuildIncrementalVectors(ctx, userID)
-			if err != nil {
-				logger.Error("[AutoVectorBuild] failed for user %s: %v", userID, err)
-				return
-			}
-			logger.Info("[AutoVectorBuild] completed for user %s: %d built, %d failed", userID, result.Success, result.Failed)
-		}()
-	}
+	onDiaryChanged := newDiaryChangedHook(configService, embeddingService)
 
 	api.RegisterAuthRoutes(e, appStore, authService)
 	api.RegisterDiaryRoutes(e, appStore, authMiddleware, onDiaryChanged)
@@ -238,24 +263,7 @@ func run(args []string, stdout io.Writer) error {
 	mcpHandler := mcpSrv.GetStreamableHTTPServer()
 
 	// MCP auth middleware — inject user_id into request context via Echo middleware chain
-	mcpAuth := func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(c *echo.Context) error {
-			header := c.Request().Header.Get("Authorization")
-			after, ok := strings.CutPrefix(header, "Bearer ")
-			if !ok {
-				return echo.NewHTTPError(http.StatusUnauthorized, "Authentication required")
-			}
-			rawToken := strings.TrimSpace(after)
-
-			userID, err := appStore.ValidateAPIToken(rawToken)
-			if err != nil || userID == "" {
-				return echo.NewHTTPError(http.StatusUnauthorized, "Authentication required")
-			}
-			ctx := context.WithValue(c.Request().Context(), mcpserver.UserIDKey, userID)
-			c.SetRequest(c.Request().WithContext(ctx))
-			return next(c)
-		}
-	}
+	mcpAuth := newMCPAuth(appStore)
 
 	e.Any("/mcp", echo.WrapHandler(mcpHandler), mcpAuth)
 	logger.Info("[MCP] Streamable HTTP server enabled at /mcp")

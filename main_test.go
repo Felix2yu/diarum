@@ -12,10 +12,15 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/labstack/echo/v5"
 
+	"github.com/songtianlun/diarum/internal/config"
+	"github.com/songtianlun/diarum/internal/embedding"
 	"github.com/songtianlun/diarum/internal/logger"
+	mcpserver "github.com/songtianlun/diarum/internal/mcp"
+	"github.com/songtianlun/diarum/internal/store"
 )
 
 type failingWriter struct{}
@@ -296,14 +301,14 @@ func TestMimeByExtension(t *testing.T) {
 
 func TestServeSPACompressed(t *testing.T) {
 	fsys := fstest.MapFS{
-		"index.html":     &fstest.MapFile{Data: []byte("plain")},
-		"app.js":         &fstest.MapFile{Data: []byte("plain-js")},
-		"app.js.zst":     &fstest.MapFile{Data: []byte("zstd-js")},
-		"app.js.br":      &fstest.MapFile{Data: []byte("br-js")},
-		"style.css":      &fstest.MapFile{Data: []byte("plain-css")},
-		"style.css.br":   &fstest.MapFile{Data: []byte("br-css")},
-		"image.png":      &fstest.MapFile{Data: []byte("plain-png")},
-		"image.png.zst":  &fstest.MapFile{Data: []byte("zst-png")},
+		"index.html":    &fstest.MapFile{Data: []byte("plain")},
+		"app.js":        &fstest.MapFile{Data: []byte("plain-js")},
+		"app.js.zst":    &fstest.MapFile{Data: []byte("zstd-js")},
+		"app.js.br":     &fstest.MapFile{Data: []byte("br-js")},
+		"style.css":     &fstest.MapFile{Data: []byte("plain-css")},
+		"style.css.br":  &fstest.MapFile{Data: []byte("br-css")},
+		"image.png":     &fstest.MapFile{Data: []byte("plain-png")},
+		"image.png.zst": &fstest.MapFile{Data: []byte("zst-png")},
 	}
 
 	tests := []struct {
@@ -359,5 +364,213 @@ func TestServeSPAStatError(t *testing.T) {
 func TestMainFunction(t *testing.T) {
 	if err := run([]string{"version"}, io.Discard); err != nil {
 		t.Fatalf("main version: %v", err)
+	}
+}
+
+// ---- fsys mocks for serveSPA stat-error branches ----
+
+type errStatFile struct{}
+
+func (errStatFile) Stat() (fs.FileInfo, error) { return nil, errors.New("stat boom") }
+func (errStatFile) Read([]byte) (int, error)   { return 0, io.EOF }
+func (errStatFile) Close() error               { return nil }
+
+type errStatFS struct{}
+
+func (errStatFS) Open(name string) (fs.File, error) { return errStatFile{}, nil }
+
+type fakeDirFile struct{}
+
+func (fakeDirFile) Stat() (fs.FileInfo, error) { return fakeDirInfo{}, nil }
+func (fakeDirFile) Read([]byte) (int, error)   { return 0, fs.ErrInvalid }
+func (fakeDirFile) Close() error               { return nil }
+
+type fakeDirInfo struct{}
+
+func (fakeDirInfo) Name() string { return "d" }
+func (fakeDirInfo) IsDir() bool  { return true }
+func (fakeDirInfo) Size() int64  { return 0 }
+
+func (fakeDirInfo) Mode() fs.FileMode  { return fs.ModeDir }
+func (fakeDirInfo) ModTime() time.Time { return time.Time{} }
+func (fakeDirInfo) Sys() any           { return nil }
+
+type dirThenErrFS struct{}
+
+func (dirThenErrFS) Open(name string) (fs.File, error) {
+	if strings.HasSuffix(name, "index.html") {
+		return errStatFile{}, nil
+	}
+	return fakeDirFile{}, nil
+}
+
+func TestServeSPAStatErrorOnFile(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/x", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	err := serveSPA(c, errStatFS{})
+	if err == nil || !strings.Contains(err.Error(), "stat boom") {
+		t.Fatalf("serveSPA stat error = %v, want stat boom", err)
+	}
+}
+
+func TestServeSPAStatErrorOnDirIndex(t *testing.T) {
+	e := echo.New()
+	req := httptest.NewRequest(http.MethodGet, "/d", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+	err := serveSPA(c, dirThenErrFS{})
+	if err == nil || !strings.Contains(err.Error(), "stat boom") {
+		t.Fatalf("serveSPA dir index stat error = %v, want stat boom", err)
+	}
+}
+
+func TestMCPAuthMiddleware(t *testing.T) {
+	s, err := store.Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("store open: %v", err)
+	}
+	defer s.Close()
+
+	user, err := s.CreateUser("mcpuser", "mcp@example.com", "hash")
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	if err := s.SetSetting(user.ID, "api.enabled", true, false); err != nil {
+		t.Fatalf("set api.enabled: %v", err)
+	}
+	if err := s.SetSetting(user.ID, "api.token", "good-token", false); err != nil {
+		t.Fatalf("set api.token: %v", err)
+	}
+
+	next := func(c *echo.Context) error {
+		user, _ := c.Request().Context().Value(mcpserver.UserIDKey).(string)
+		return c.String(http.StatusOK, user)
+	}
+	handler := newMCPAuth(s)(next)
+
+	tests := []struct {
+		name       string
+		authHeader string
+		wantStatus int
+		wantBody   string
+	}{
+		{name: "missing header", authHeader: "", wantStatus: http.StatusUnauthorized},
+		{name: "wrong scheme", authHeader: "Basic abc", wantStatus: http.StatusUnauthorized},
+		{name: "unknown token", authHeader: "Bearer nope", wantStatus: http.StatusUnauthorized},
+		{name: "valid token", authHeader: "Bearer good-token", wantStatus: http.StatusOK, wantBody: user.ID},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			e := echo.New()
+			req := httptest.NewRequest(http.MethodPost, "/mcp", nil)
+			if tt.authHeader != "" {
+				req.Header.Set("Authorization", tt.authHeader)
+			}
+			rec := httptest.NewRecorder()
+			c := e.NewContext(req, rec)
+
+			if err := handler(c); err != nil {
+				httpErr, ok := err.(*echo.HTTPError)
+				if !ok {
+					t.Fatalf("handler error = %v, want HTTPError", err)
+				}
+				if httpErr.Code != tt.wantStatus {
+					t.Fatalf("status = %d, want %d", httpErr.Code, tt.wantStatus)
+				}
+				return
+			}
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tt.wantStatus)
+			}
+			if body := rec.Body.String(); body != tt.wantBody {
+				t.Fatalf("body = %q, want %q", body, tt.wantBody)
+			}
+		})
+	}
+}
+
+func TestDiaryChangedHook(t *testing.T) {
+	dataDir := t.TempDir()
+	s, err := store.Open(dataDir)
+	if err != nil {
+		t.Fatalf("store open: %v", err)
+	}
+	defer s.Close()
+
+	configSvc := config.NewConfigService(s)
+
+	hookUser, err := s.CreateUser("hookuser", "hook@example.com", "hash")
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	t.Run("disabled returns immediately", func(t *testing.T) {
+		hook := newDiaryChangedHook(configSvc, nil)
+		hook("user-disabled")
+	})
+
+	t.Run("enabled builds vectors async", func(t *testing.T) {
+		vectorDB, err := embedding.NewVectorDB(dataDir)
+		if err != nil {
+			t.Fatalf("vector db: %v", err)
+		}
+		svc := embedding.NewEmbeddingService(s, vectorDB)
+		hook := newDiaryChangedHook(configSvc, svc)
+
+		if err := configSvc.Set(hookUser.ID, "ai.enabled", true); err != nil {
+			t.Fatalf("set ai.enabled: %v", err)
+		}
+
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			hook(hookUser.ID)
+		}()
+		<-done
+
+		time.Sleep(300 * time.Millisecond)
+	})
+}
+
+func TestRunServeRequestHandling(t *testing.T) {
+	originalStartServer := startServer
+	defer func() { startServer = originalStartServer }()
+
+	t.Setenv("DIARUM_PUSH_SUBSCRIBER", "ci-subscriber")
+
+	var spaFallback bool
+	startServer = func(e *echo.Echo, addr string) error {
+		spaFallback = false
+
+		rec := httptest.NewRecorder()
+		e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/some-spa-route", nil))
+		if rec.Code != http.StatusOK || !strings.Contains(rec.Header().Get("Content-Type"), "text/html") {
+			t.Errorf("SPA fallback status = %d content-type = %q, want 200 text/html", rec.Code, rec.Header().Get("Content-Type"))
+		} else {
+			spaFallback = true
+		}
+
+		rec = httptest.NewRecorder()
+		e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/nonexistent", nil))
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("unknown api route status = %d, want 404", rec.Code)
+		}
+
+		rec = httptest.NewRecorder()
+		e.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/.well-known/test", nil))
+		if rec.Code != http.StatusNotFound {
+			t.Errorf("well-known status = %d, want 404", rec.Code)
+		}
+
+		return http.ErrServerClosed
+	}
+
+	if err := run([]string{"serve", "-data-dir", t.TempDir(), "-http", ":9494"}, io.Discard); err != nil {
+		t.Fatalf("run serve: %v", err)
+	}
+	if !spaFallback {
+		t.Fatal("SPA fallback handler was not exercised")
 	}
 }
