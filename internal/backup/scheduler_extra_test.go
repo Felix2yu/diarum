@@ -64,3 +64,29 @@ func TestSchedulerStartWithEnabledUser(t *testing.T) {
 	}
 	sc2.Stop()
 }
+
+func TestSchedulerListUserIDs(t *testing.T) {
+	s := newTestStore(t)
+	cfg := config.NewConfigService(s)
+	sc := NewScheduler(s, cfg, t.TempDir(), testExportFn)
+
+	u1 := newTestUser(t, s)
+	u2, err := s.CreateUser("second", "second@example.com", "hash")
+	if err != nil {
+		t.Fatalf("create second user: %v", err)
+	}
+
+	ids, err := sc.listUserIDs()
+	if err != nil {
+		t.Fatalf("listUserIDs: %v", err)
+	}
+	got := map[string]bool{}
+	for _, id := range ids {
+		got[id] = true
+	}
+	for _, want := range []string{u1.ID, u2.ID} {
+		if !got[want] {
+			t.Fatalf("listUserIDs = %v, missing %q", ids, want)
+		}
+	}
+}
