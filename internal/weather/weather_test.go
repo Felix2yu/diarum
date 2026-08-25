@@ -1901,6 +1901,9 @@ func TestGetWMOInfo_Unknown(t *testing.T) {
 }
 
 func TestFetchWeatherFromOpenMeteo_WithDate(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.Skip("skipping network-dependent test in CI")
+	}
 	result, err := FetchWeatherFromOpenMeteo("北京", 39.9042, 116.4074, "2025-06-15")
 	if err != nil {
 		t.Fatalf("FetchWeatherFromOpenMeteo failed: %v", err)
