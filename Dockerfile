@@ -1,72 +1,24 @@
 # syntax=docker/dockerfile:1.17
 
-# ---- Go module cache (runs in parallel with frontend) ----
-FROM golang:1.27-alpine AS go-modules
+# Final image assembled from CI-prebuilt artifacts:
+#   - diarum-amd64 / diarum-arm64 -> ./bin/diarum
+#     (Go binary built by the CI `build` job, frontend embedded via go:embed)
+#
+# This Dockerfile only assembles the runtime image — no Node toolchain,
+# no Go compilation happens here.
 
-WORKDIR /app
-COPY go.mod go.sum ./
-COPY main.go diarum.go ./
-COPY internal/ ./internal/
-
-RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod tidy && go mod download
-
-# ---- Frontend build stage ----
-FROM node:26-alpine AS frontend-builder
-
-WORKDIR /app/site
-
-RUN --mount=type=cache,target=/var/cache/apk \
-    apk add --no-cache zstd
-
-COPY site/package*.json ./
-
-RUN --mount=type=cache,target=/root/.npm \
-    npm ci --no-audit --no-fund --loglevel=error --legacy-peer-deps
-
-COPY site/ ./
-
-RUN --mount=type=cache,target=/app/site/.svelte-kit \
-    --mount=type=cache,target=/app/site/node_modules/.vite \
-    npm run build
-
-# ---- Backend build stage ----
-FROM golang:1.27-alpine AS backend-builder
-
-WORKDIR /app
-
-COPY go.mod go.sum ./
-COPY main.go diarum.go ./
-COPY internal/ ./internal/
-
-RUN --mount=type=cache,target=/go/pkg/mod \
-    go mod tidy && go mod download
-
-COPY --from=frontend-builder /app/site/build ./internal/static/build
-
-ARG VERSION=dev
-RUN --mount=type=cache,target=/go/pkg/mod \
-    --mount=type=cache,target=/root/.cache/go-build \
-    echo "Building version: $VERSION" && \
-    CGO_ENABLED=0 GOOS=linux go build \
-      -trimpath \
-      -ldflags "-s -w -X main.Version=$VERSION" \
-      -o diarum .
-
-# ---- Final (runtime) stage ----
 FROM alpine:3.24
 
 WORKDIR /app
 
-RUN --mount=type=cache,target=/var/cache/apk \
-    apk add --no-cache ca-certificates tzdata su-exec && \
+RUN apk add --no-cache ca-certificates tzdata su-exec && \
     adduser -D -H -u 1000 diarum && \
     mkdir -p /app/data && \
     chown -R diarum:diarum /app
 
-COPY --from=backend-builder /app/diarum /app/diarum
+COPY bin/diarum /app/diarum
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+RUN chmod +x /app/diarum /entrypoint.sh
 
 ENV TZ=Asia/Shanghai
 ENV DIARUM_DATA_PATH=/app/data

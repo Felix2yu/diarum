@@ -80,6 +80,7 @@ clean:
 	rm -rf .tmp
 	rm -rf site/build site/node_modules site/.svelte-kit
 	rm -rf dist
+	rm -rf bin
 
 # Run tests
 test-static:
@@ -98,8 +99,12 @@ test-cover test-coverage: test-static
 	echo "Average function coverage: $$coverage%"; \
 	awk "BEGIN { exit !($$coverage >= $(COVERAGE_THRESHOLD)) }" || (echo "Average function coverage $$coverage% is below $(COVERAGE_THRESHOLD)%" && exit 1)
 
-# Build Docker image
+# Build Docker image (Dockerfile only assembles; binary is built locally first)
 docker:
+	@echo "Building binary for Docker image..."
+	$(MAKE) build
+	@mkdir -p bin
+	@cp diarum bin/diarum
 	docker build -t diarum:latest .
 
 # Install dependencies
