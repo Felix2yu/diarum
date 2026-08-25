@@ -616,6 +616,9 @@ func TestSearchCities_Coordinates(t *testing.T) {
 }
 
 func TestSearchCities_OpenMeteoFallback(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.Skip("skipping network-dependent test in CI")
+	}
 	// Ensure QWEATHER_API_KEY is empty so we test Open-Meteo path
 	oldKey := os.Getenv("QWEATHER_API_KEY")
 	os.Unsetenv("QWEATHER_API_KEY")
@@ -634,6 +637,9 @@ func TestSearchCities_OpenMeteoFallback(t *testing.T) {
 }
 
 func TestFetchWeatherFromOpenMeteo_Today(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.Skip("skipping network-dependent test in CI")
+	}
 	result, err := FetchWeatherFromOpenMeteo("北京", 39.9042, 116.4074, "")
 	if err != nil {
 		t.Fatalf("FetchWeatherFromOpenMeteo failed: %v", err)
@@ -647,6 +653,9 @@ func TestFetchWeatherFromOpenMeteo_Today(t *testing.T) {
 }
 
 func TestFetchWeatherFromOpenMeteo_PastDate(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.Skip("skipping network-dependent test in CI")
+	}
 	result, err := FetchWeatherFromOpenMeteo("北京", 39.9042, 116.4074, "2025-01-01")
 	if err != nil {
 		t.Fatalf("FetchWeatherFromOpenMeteo past date failed: %v", err)
@@ -657,6 +666,9 @@ func TestFetchWeatherFromOpenMeteo_PastDate(t *testing.T) {
 }
 
 func TestFetchWeatherFromOpenMeteo_FutureDate(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.Skip("skipping network-dependent test in CI")
+	}
 	result, err := FetchWeatherFromOpenMeteo("北京", 39.9042, 116.4074, "2025-12-31")
 	if err != nil {
 		t.Fatalf("FetchWeatherFromOpenMeteo future date failed: %v", err)
@@ -1472,6 +1484,9 @@ func TestReverseGeocode_RetryOn429(t *testing.T) {
 }
 
 func TestGeocodeWithOpenMeteo_Success(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.Skip("skipping network-dependent test in CI")
+	}
 	lat, lon, err := geocodeWithOpenMeteo("Beijing")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -1492,6 +1507,9 @@ func TestGeocodeWithOpenMeteo_CityNotFound(t *testing.T) {
 }
 
 func TestGeocodeWithNominatim_Success(t *testing.T) {
+	if os.Getenv("CI") != "" {
+		t.Skip("skipping network-dependent test in CI")
+	}
 	lat, _, err := geocodeWithNominatim("Beijing")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
