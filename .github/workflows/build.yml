@@ -101,7 +101,7 @@ jobs:
       # 下载预编译二进制（前端已嵌入），Docker 构建只做最终拼装 ——
       # 无 Node 工具链、无 Go 编译。
       - name: Download prebuilt binary
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: diarum-${{ matrix.label }}
           path: bin
