@@ -24,13 +24,13 @@
 			face: '#CA8A04'
 		},
 		4: {
-			bg: '#DCFCE7',
-			face: '#16A34A',
+			bg: '#DBEAFE',
+			face: '#2563EB',
 			label: '愉快'
 		},
 		5: {
-			bg: '#DBEAFE',
-			face: '#2563EB',
+			bg: '#DCFCE7',
+			face: '#16A34A',
 			label: '非常愉快'
 		}
 	};
