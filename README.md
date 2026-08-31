@@ -209,23 +209,34 @@ Diarum 会在配置的数据目录下使用 `diarum.db` 保存应用数据。启
 
 ### MCP 集成
 
-Diarum 内置 MCP (Model Context Protocol) 服务端，可通过 `/mcp` 端点与 AI 客户端交互。
+Diarum 内置 MCP (Model Context Protocol) 服务端，可通过 `/mcp` 端点与 AI 客户端交互，让 AI 直接读写你的日记。
 
 #### 可用工具
 
 | 工具 | 说明 |
 |------|------|
-| `create_diary` | 创建或更新指定日期的日记 |
+| `create_diary` | 创建或更新指定日期的日记（支持心情、天气、标签等元数据） |
 | `get_diary` | 按日期或 ID 获取日记 |
 | `delete_diary` | 按 ID 删除日记 |
 | `list_recent_diaries` | 获取最近的日记列表 |
 | `search_diaries` | 按关键词搜索日记内容 |
 | `get_tags` | 获取所有标签及使用次数 |
 | `get_stats` | 获取日记统计数据 |
+| `get_weather` | 获取中国城市天气预报 |
+
+#### 获取 API Token
+
+1. 登录 Diarum，进入**设置**页面
+2. 在 **API Token** 区域点击**生成 Token**
+3. 复制生成的 Token（格式：`xxxxx.xxxxx`）
 
 #### 客户端配置
 
-在 Diarum 设置页面生成 API Token，然后在 AI 客户端中配置：
+将下方 `<your-diarum-instance>` 替换为你的 Diarum 地址（如 `http://localhost:8090`），`<your-api-token>` 替换为上一步复制的 Token。
+
+##### Cherry Studio
+
+打开 Cherry Studio → 设置 → MCP 服务器 → 添加服务器，选择 **Streamable HTTP** 类型，填入以下 JSON：
 
 ```json
 {
@@ -240,7 +251,92 @@ Diarum 内置 MCP (Model Context Protocol) 服务端，可通过 `/mcp` 端点�
 }
 ```
 
-支持的客户端：Cherry Studio、Claude Desktop、LobeHub 等所有兼容 MCP 协议的 AI 客户端。
+##### Trae / TraeCode
+
+打开 Trae → 设置 → MCP 服务器 → 手动添加，粘贴以下 JSON：
+
+```json
+{
+  "mcpServers": {
+    "diarum": {
+      "url": "https://your-diarum-instance/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-api-token>"
+      }
+    }
+  }
+}
+```
+
+##### Cursor
+
+在项目根目录创建 `.cursor/mcp.json`，或编辑全局配置 `~/.cursor/mcp.json`：
+
+```json
+{
+  "mcpServers": {
+    "diarum": {
+      "url": "https://your-diarum-instance/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-api-token>"
+      }
+    }
+  }
+}
+```
+
+##### Claude Desktop
+
+编辑配置文件（macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`，Windows: `%APPDATA%\Claude\claude_desktop_config.json`）：
+
+```json
+{
+  "mcpServers": {
+    "diarum": {
+      "url": "https://your-diarum-instance/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-api-token>"
+      }
+    }
+  }
+}
+```
+
+##### Cline (VS Code)
+
+打开 Cline 插件设置 → MCP Servers → 添加 Server，粘贴以下 JSON：
+
+```json
+{
+  "mcpServers": {
+    "diarum": {
+      "url": "https://your-diarum-instance/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-api-token>"
+      }
+    }
+  }
+}
+```
+
+##### 通义灵码 / Lingma
+
+打开通义灵码设置 → MCP 服务器 → 添加，选择 HTTP 类型，填入：
+
+```json
+{
+  "mcpServers": {
+    "diarum": {
+      "url": "https://your-diarum-instance/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-api-token>"
+      }
+    }
+  }
+}
+```
+
+> **提示**：所有支持 MCP Streamable HTTP 协议的客户端均可接入，配置格式相同。如客户端要求 SSE 类型，将 URL 末尾改为 `/mcp` 即可（Diarum 同时兼容两种协议）。
 
 ### 单元测试
 
