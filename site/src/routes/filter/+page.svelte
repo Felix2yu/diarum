@@ -6,7 +6,8 @@
 	import { filterDiaries } from '$lib/api/diaries';
 	import { isAuthenticated } from '$lib/api/client';
 	import { formatDisplayDate, getDayOfWeek } from '$lib/utils/date';
-	import { MOOD_SCALE, moodToEmoji, getMoodStatesForLevel, SCENARIO_OPTIONS } from '$lib/utils/diaryEmoji';
+	import { MOOD_SCALE, getMoodStatesForLevel, SCENARIO_OPTIONS } from '$lib/utils/diaryEmoji';
+	import MoodIcon from '$lib/components/ui/MoodIcon.svelte';
 	import { isWMOCode } from '$lib/utils/weatherCodes';
 
 	interface FilterResult {
@@ -127,8 +128,9 @@
 					{/each}
 				</div>
 				{#if selectedMood > 0}
-					<div class="text-center text-xs text-muted-foreground mt-2">
-						{moodToEmoji(selectedMood)} {MOOD_SCALE.find(l => l.value === selectedMood)?.label || ''}
+					<div class="text-center text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
+						<MoodIcon mood={selectedMood} size={16} />
+						<span>{MOOD_SCALE.find(l => l.value === selectedMood)?.label || ''}</span>
 					</div>
 				{/if}
 			</div>
@@ -188,7 +190,7 @@
 								</span>
 								<span class="text-xs text-muted-foreground">周{getDayOfWeek(result.date)}</span>
 								{#if result.mood}
-									<span class="text-sm">{moodToEmoji(result.mood)}</span>
+									<span class="text-sm"><MoodIcon mood={result.mood} size={16} /></span>
 								{/if}
 								{#if result.weather && isWMOCode(result.weather)}
 									<WeatherDisplay wmoCode={parseInt(result.weather)} size="sm" showTemp={false} />

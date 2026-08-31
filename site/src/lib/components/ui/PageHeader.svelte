@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { searchDiaries } from '$lib/api/diaries';
-	import { moodToEmoji } from '$lib/utils/diaryEmoji';
+	import MoodIcon from '$lib/components/ui/MoodIcon.svelte';
 
 	export let title: string = '';
 	export let sticky: boolean = true;
@@ -227,7 +227,7 @@
 							<div class="flex items-center gap-2 mb-1">
 								<span class="text-xs font-medium text-foreground">{result.date}</span>
 								{#if result.mood}
-									<span class="text-xs">{moodToEmoji(result.mood)}</span>
+									<span class="text-xs"><MoodIcon mood={result.mood} size={14} /></span>
 								{/if}
 							</div>
 							<p class="text-xs text-muted-foreground line-clamp-1">{result.snippet}</p>

@@ -7,7 +7,7 @@
 	import type { Diary } from '$lib/api/client';
 	import { formatDisplayDate } from '$lib/utils/date';
 	import { goto } from '$app/navigation';
-	import { moodToEmoji } from '$lib/utils/diaryEmoji';
+	import MoodIcon from '$lib/components/ui/MoodIcon.svelte';
 	import { isWMOCode } from '$lib/utils/weatherCodes';
 
 	interface TagCount {
@@ -247,7 +247,7 @@
 													{formatDisplayDate(diary.date)}
 												</span>
 											{#if diary.mood}
-												<span class="text-sm">{moodToEmoji(diary.mood)}</span>
+												<span class="text-sm"><MoodIcon mood={diary.mood} size={16} /></span>
 											{/if}
 												{#if diary.weather && isWMOCode(diary.weather)}
 													<WeatherDisplay wmoCode={parseInt(diary.weather)} size="sm" showTemp={false} />

@@ -37,7 +37,8 @@
 		cleanupDiaryCache
 	} from '$lib/stores/diaryCache';
 	import { onlineState } from '$lib/stores/onlineStatus';
-	import { MOOD_SCALE, moodToEmoji, getMoodStatesForLevel, SCENARIO_OPTIONS } from '$lib/utils/diaryEmoji';
+	import { MOOD_SCALE, getMoodStatesForLevel, SCENARIO_OPTIONS } from '$lib/utils/diaryEmoji';
+	import MoodIcon from '$lib/components/ui/MoodIcon.svelte';
 
 	let weatherPresets: string[] = [];
 
@@ -941,8 +942,9 @@
 							{/each}
 						</div>
 						{#if selectedMood > 0}
-							<div class="text-center text-xs text-muted-foreground mt-2">
-								{moodToEmoji(selectedMood)} {MOOD_SCALE.find(l => l.value === selectedMood)?.label || ''}
+							<div class="text-center text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
+								<MoodIcon mood={selectedMood} size={16} />
+								<span>{MOOD_SCALE.find(l => l.value === selectedMood)?.label || ''}</span>
 							</div>
 						{/if}
 					</div>
@@ -1184,8 +1186,9 @@
 								{/each}
 							</div>
 							{#if selectedMood > 0}
-								<div class="text-center text-xs text-muted-foreground mt-2">
-									{moodToEmoji(selectedMood)} {MOOD_SCALE.find(l => l.value === selectedMood)?.label || ''}
+								<div class="text-center text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
+									<MoodIcon mood={selectedMood} size={16} />
+									<span>{MOOD_SCALE.find(l => l.value === selectedMood)?.label || ''}</span>
 								</div>
 							{/if}
 						</div>

@@ -5,14 +5,16 @@ export interface MoodLevel {
 	value: number;
 	emoji: string;
 	label: string;
+	bgColor: string;
+	faceColor: string;
 }
 
 export const MOOD_SCALE: MoodLevel[] = [
-	{ value: 1, emoji: '😞', label: '非常不愉快' },
-	{ value: 2, emoji: '😔', label: '不愉快' },
-	{ value: 3, emoji: '😐', label: '不悲不喜' },
-	{ value: 4, emoji: '😊', label: '愉快' },
-	{ value: 5, emoji: '🤩', label: '非常愉快' }
+	{ value: 1, emoji: '😞', label: '非常不愉快', bgColor: '#FEE2E2', faceColor: '#DC2626' },
+	{ value: 2, emoji: '😔', label: '不愉快', bgColor: '#FFEDD5', faceColor: '#EA580C' },
+	{ value: 3, emoji: '😐', label: '不悲不喜', bgColor: '#FEF9C3', faceColor: '#CA8A04' },
+	{ value: 4, emoji: '😊', label: '愉快', bgColor: '#DCFCE7', faceColor: '#16A34A' },
+	{ value: 5, emoji: '🤩', label: '非常愉快', bgColor: '#DBEAFE', faceColor: '#2563EB' }
 ];
 
 export function moodToEmoji(mood: number): string {

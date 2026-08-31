@@ -4,7 +4,8 @@
 	import { getDatesWithDiaries, getDiariesOnThisDay, getRandomDiary, type CalendarDiaryMeta, type Diary } from '$lib/api/diaries';
 	import CalendarAnalysis from './CalendarAnalysis.svelte';
 	import CalendarYearPicker from './CalendarYearPicker.svelte';
-	import { moodToEmoji, moodToLabel } from '$lib/utils/diaryEmoji';
+	import { moodToLabel } from '$lib/utils/diaryEmoji';
+	import MoodIcon from '$lib/components/ui/MoodIcon.svelte';
 	import { isWMOCode, getWeatherInfo } from '$lib/utils/weatherCodes';
 
 	let {
@@ -507,10 +508,9 @@
 									<span class="emoji-chip" title="天气：{weatherInfo.label}{meta?.temp_min != null && meta?.temp_max != null ? ` ${Math.round(meta.temp_min)}°~${Math.round(meta.temp_max)}°` : ''}">{weatherInfo.icon}</span>
 								{/if}
 								{#if meta?.mood}
-									{@const moodEmoji = moodToEmoji(meta.mood)}
-									{#if moodEmoji}
-										<span class="emoji-chip" title="心情：{moodToLabel(meta.mood)}">{moodEmoji}</span>
-									{/if}
+									<span class="emoji-chip" title="心情：{moodToLabel(meta.mood)}">
+										<MoodIcon mood={meta.mood} size={14} />
+									</span>
 								{/if}
 							</div>
 						{:else if hasDiary(date)}
@@ -698,7 +698,7 @@
                                 <div class="analysis-list-head">
                                     <span class="analysis-list-date">{formatDisplayDate(diary.date)}</span>
                                     <div class="flex items-center gap-2 text-xs text-muted-foreground">
-                                        {#if diary.mood}{@const moodEmoji = moodToEmoji(diary.mood)}{#if moodEmoji}<span title="心情">{moodEmoji}</span>{/if}{/if}
+                                        {#if diary.mood}<span title="心情"><MoodIcon mood={diary.mood} size={14} /></span>{/if}
                                         {#if diary.weather && isWMOCode(diary.weather)}
                                             {@const weatherInfo = getWeatherInfo(parseInt(diary.weather))}
                                             <span title="天气：{weatherInfo.label}{diary.temp_min != null && diary.temp_max != null ? ` ${Math.round(diary.temp_min)}°~${Math.round(diary.temp_max)}°` : ''}">{weatherInfo.icon}</span>

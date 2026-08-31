@@ -2,7 +2,7 @@
 	import { themes, type ShareOptions } from '$lib/utils/imageExport';
 	import { formatDisplayDate, getDayOfWeek } from '$lib/utils/date';
 	import { marked } from 'marked';
-	import { moodToEmoji } from '$lib/utils/diaryEmoji';
+	import MoodIcon from '$lib/components/ui/MoodIcon.svelte';
 
 	export let date: string;
 	export let content: string;
@@ -174,7 +174,7 @@
 				<span>{weather}</span>
 			{/if}
 			{#if options.showMood && mood}
-				<span>{moodToEmoji(mood)}</span>
+				<span><MoodIcon {mood} size={16} /></span>
 			{/if}
 		</div>
 	{/if}

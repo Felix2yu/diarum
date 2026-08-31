@@ -37,9 +37,9 @@
 		MAX_DIARY_EMOJI_OPTION_COUNT,
 		MAX_DIARY_EMOJI_OPTION_LENGTH,
 		countDisplayChars,
-		sanitizeWeatherOptions,
-		moodToEmoji
+		sanitizeWeatherOptions
 	} from '$lib/utils/diaryEmoji';
+	import MoodIcon from '$lib/components/ui/MoodIcon.svelte';
 
 	type SettingsTab = 'general' | 'notifications' | 'api-access' | 'weather' | 'ai-assistant' | 'image-upload' | 'memos-sync' | 'data-management' | 'backup';
 
@@ -3059,9 +3059,9 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 																		{#if hasMoodChanged(detail.old_mood, detail.new_mood)}
 																			<div class="flex items-center gap-2">
 																				<span class="text-muted-foreground">心情：</span>
-																				<span class="px-1.5 py-0.5 bg-red-100 dark:bg-red-950/40 text-red-600 line-through rounded">{detail.old_mood ? moodToEmoji(detail.old_mood) : '无'}</span>
+																				<span class="px-1.5 py-0.5 bg-red-100 dark:bg-red-950/40 text-red-600 line-through rounded">{#if detail.old_mood}<MoodIcon mood={detail.old_mood} size={14} />{:else}无{/if}</span>
 																				<svg class="w-3 h-3 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
-																				<span class="px-1.5 py-0.5 bg-green-100 dark:bg-green-950/40 text-green-600 rounded">{detail.new_mood ? moodToEmoji(detail.new_mood) : '无'}</span>
+																				<span class="px-1.5 py-0.5 bg-green-100 dark:bg-green-950/40 text-green-600 rounded">{#if detail.new_mood}<MoodIcon mood={detail.new_mood} size={14} />{:else}无{/if}</span>
 																			</div>
 																		{/if}
 																		{#if hasWeatherChanged(detail.old_weather, detail.new_weather)}

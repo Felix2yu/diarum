@@ -6,7 +6,7 @@
 	import { searchDiaries } from '$lib/api/diaries';
 	import { isAuthenticated } from '$lib/api/client';
 	import { formatDisplayDate, formatShortDate, getDayOfWeek } from '$lib/utils/date';
-	import { moodToEmoji } from '$lib/utils/diaryEmoji';
+	import MoodIcon from '$lib/components/ui/MoodIcon.svelte';
 
 	interface SearchResult {
 		id: string;
@@ -173,7 +173,7 @@
 								</span>
 								<span class="text-xs text-muted-foreground">周{getDayOfWeek(result.date)}</span>
 								{#if result.mood}
-									<span class="text-sm">{moodToEmoji(result.mood)}</span>
+									<span class="text-sm"><MoodIcon mood={result.mood} size={16} /></span>
 								{/if}
 								{#if result.weather}
 									<span class="text-sm">{result.weather}</span>
