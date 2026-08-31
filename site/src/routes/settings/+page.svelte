@@ -776,10 +776,10 @@
 		const files = e.dataTransfer?.files;
 		if (files && files.length > 0) {
 			const file = files[0];
-			if (file.name.endsWith('.zip')) {
+			if (file.name.endsWith('.json') || file.name.endsWith('.zip')) {
 				importFile = file;
 			} else {
-				importError = '请拖入 .zip 格式的文件';
+				importError = '请拖入 .json 或 .zip 格式的文件';
 			}
 		}
 	}
@@ -2854,7 +2854,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 					<!-- 导入 -->
 					<div class="py-4">
 						<div class="font-medium text-foreground mb-1">导入</div>
-						<div class="text-sm text-muted-foreground mb-3">从 ZIP 文件中恢复日记数据，支持导出的 ZIP 或包含多个 .md 文件的 ZIP。日期冲突时可选择保留哪个版本。</div>
+						<div class="text-sm text-muted-foreground mb-3">从 JSON 或 ZIP 文件中恢复日记数据。支持导出的 diarum_export.json、ZIP 或包含多个 .md 文件的 ZIP。日期冲突时可选择保留哪个版本。</div>
 
 						{#if importError}
 							<div class="mb-3 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
@@ -2887,15 +2887,15 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
 								<svg class="w-8 h-8 mx-auto text-muted-foreground mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
 								</svg>
-								<p class="text-sm text-muted-foreground mb-1">拖放 .zip 文件到此处，或</p>
-								<label class="inline-block px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 cursor-pointer">
-									<span>选择文件</span>
-									<input
-										type="file"
-										accept=".zip"
-										class="hidden"
-										onchange={handleImportFileChange}
-									/>
+							<p class="text-sm text-muted-foreground mb-1">拖放 .json 或 .zip 文件到此处，或</p>
+							<label class="inline-block px-4 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 cursor-pointer">
+								<span>选择文件</span>
+								<input
+									type="file"
+									accept=".json,.zip"
+									class="hidden"
+									onchange={handleImportFileChange}
+								/>
 								</label>
 							{/if}
 						</div>

@@ -309,72 +309,92 @@ func handleImport(c *echo.Context, s *store.Store, embeddingService *embedding.E
 	if fh.Size > maxImportSize {
 		return badRequest("File too large (max 200MB)", nil)
 	}
+	
+	// 检查文件扩展名
+ filename := strings.ToLower(fh.Filename)
+ isJSONFile := strings.HasSuffix(filename, ".json")
+ isZIPFile := strings.HasSuffix(filename, ".zip")
+	
+	if !isJSONFile && !isZIPFile {
+		return badRequest("Only .json and .zip files are supported", nil)
+	}
+	
 	f, err := fh.Open()
 	if err != nil {
 		return badRequest("Failed to open upload", err)
 	}
 	defer f.Close()
-	zipBytes, err := io.ReadAll(io.LimitReader(f, maxImportSize+1))
-	if err != nil || int64(len(zipBytes)) > maxImportSize {
+	fileBytes, err := io.ReadAll(io.LimitReader(f, maxImportSize+1))
+	if err != nil || int64(len(fileBytes)) > maxImportSize {
 		return badRequest("Failed to read upload", err)
 	}
-	zipReader, err := zip.NewReader(bytes.NewReader(zipBytes), int64(len(zipBytes)))
-	if err != nil {
-		return badRequest("Failed to read ZIP file", err)
-	}
-	var exportJSON []byte
+	
+	var data exportData
 	mediaFiles := make(map[string][]byte)
 	mdFiles := make(map[string][]byte)
 	analysisFiles := make(map[string][]byte)
-	for _, zf := range zipReader.File {
-		if !isValidZipPath(zf.Name) || zf.UncompressedSize64 > maxSingleFileSize {
-			continue
+	
+	if isJSONFile {
+		// 直接解析JSON文件
+		if err := json.Unmarshal(fileBytes, &data); err != nil {
+			return badRequest("Failed to parse JSON file", err)
 		}
-		rc, err := zf.Open()
-		if err != nil {
-			continue
-		}
-		data, err := io.ReadAll(io.LimitReader(rc, maxSingleFileSize+1))
-		rc.Close()
-		if err != nil || int64(len(data)) > maxSingleFileSize {
-			continue
-		}
-		switch {
-		case zf.Name == "diarum_export.json":
-			exportJSON = data
-		case strings.HasPrefix(zf.Name, "media/"):
-			name := strings.TrimPrefix(zf.Name, "media/")
-			if name != "" {
-				mediaFiles[name] = data
-			}
-		case strings.HasPrefix(zf.Name, "analysis/"):
-			name := strings.TrimPrefix(zf.Name, "analysis/")
-			if name != "" {
-				analysisFiles[name] = data
-			}
-		case strings.HasSuffix(zf.Name, ".md"):
-			mdFiles[zf.Name] = data
-		}
-	}
-	var data exportData
-	if exportJSON != nil {
-		if err := json.Unmarshal(exportJSON, &data); err != nil {
-			return badRequest("Failed to parse diarum_export.json", err)
-		}
-	} else if len(mdFiles) > 0 {
-		diaries := make([]exportDiary, 0)
-		for name, content := range mdFiles {
-			diary := parseMarkdownFile(name, content)
-			if diary != nil {
-				diaries = append(diaries, *diary)
-			}
-		}
-		if len(diaries) == 0 {
-			return badRequest("No valid diary entries found in .md files", nil)
-		}
-		data = exportData{Version: 1, Diaries: diaries, Media: make([]exportMedia, 0), Conversations: make([]exportConversation, 0)}
 	} else {
-		return badRequest("ZIP missing diarum_export.json or .md files", nil)
+		// 解析ZIP文件
+		zipReader, err := zip.NewReader(bytes.NewReader(fileBytes), int64(len(fileBytes)))
+		if err != nil {
+			return badRequest("Failed to read ZIP file", err)
+		}
+		var exportJSON []byte
+		for _, zf := range zipReader.File {
+			if !isValidZipPath(zf.Name) || zf.UncompressedSize64 > maxSingleFileSize {
+				continue
+			}
+			rc, err := zf.Open()
+			if err != nil {
+				continue
+			}
+			data, err := io.ReadAll(io.LimitReader(rc, maxSingleFileSize+1))
+			rc.Close()
+			if err != nil || int64(len(data)) > maxSingleFileSize {
+				continue
+			}
+			switch {
+			case zf.Name == "diarum_export.json":
+				exportJSON = data
+			case strings.HasPrefix(zf.Name, "media/"):
+				name := strings.TrimPrefix(zf.Name, "media/")
+				if name != "" {
+					mediaFiles[name] = data
+				}
+			case strings.HasPrefix(zf.Name, "analysis/"):
+				name := strings.TrimPrefix(zf.Name, "analysis/")
+				if name != "" {
+					analysisFiles[name] = data
+				}
+			case strings.HasSuffix(zf.Name, ".md"):
+				mdFiles[zf.Name] = data
+			}
+		}
+		if exportJSON != nil {
+			if err := json.Unmarshal(exportJSON, &data); err != nil {
+				return badRequest("Failed to parse diarum_export.json", err)
+			}
+		} else if len(mdFiles) > 0 {
+			diaries := make([]exportDiary, 0)
+			for name, content := range mdFiles {
+				diary := parseMarkdownFile(name, content)
+				if diary != nil {
+					diaries = append(diaries, *diary)
+				}
+			}
+			if len(diaries) == 0 {
+				return badRequest("No valid diary entries found in .md files", nil)
+			}
+			data = exportData{Version: 1, Diaries: diaries, Media: make([]exportMedia, 0), Conversations: make([]exportConversation, 0)}
+		} else {
+			return badRequest("ZIP missing diarum_export.json or .md files", nil)
+		}
 	}
 	stats := importStats{Diaries: importCounters{Total: len(data.Diaries)}, Media: importCounters{Total: len(data.Media)}, Conversations: importCounters{Total: len(data.Conversations)}, DiaryDetails: make([]importDiaryDetail, 0)}
 	diaryIDMap := make(map[string]string)

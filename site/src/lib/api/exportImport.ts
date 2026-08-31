@@ -130,7 +130,7 @@ export async function exportDiaries(options?: ExportOptions): Promise<ExportStat
 }
 
 /**
- * Import diary data from a previously exported ZIP file.
+ * Import diary data from a previously exported JSON or ZIP file.
  */
 export async function importDiaries(file: File): Promise<ImportStats> {
 	const formData = new FormData();
