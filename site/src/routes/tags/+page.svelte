@@ -108,7 +108,9 @@
 
 <div class="flex flex-col min-h-screen min-h-[100dvh] bg-background">
 	<PageHeader title="标签" />
-	<div class="container-responsive py-6 flex-1 flex flex-col">
+	<main id="main-content" tabindex="-1" class="container-responsive py-6 flex-1 flex flex-col">
+		<!-- 页面标题 - 视觉隐藏，用于屏幕阅读器的文档结构 -->
+		<h1 class="sr-only">标签云 — 按标签浏览与检索我的日记</h1>
 		{#if loading}
 			<div class="flex flex-col items-center justify-center py-20 gap-3">
 				<svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
@@ -281,7 +283,7 @@
 				</div>
 			{/if}
 		{/if}
-	</div>
+	</main>
 </div>
 
 <style>

@@ -227,7 +227,7 @@
 		height: 2rem;
 		border-radius: 8px;
 		color: hsl(var(--foreground) / 0.75);
-		transition: all 0.15s ease;
+		transition: background-color, color, opacity 0.15s ease;
 	}
 
 	.year-picker-nav:hover {
@@ -269,7 +269,7 @@
 		color: hsl(var(--foreground) / 0.85);
 		background: hsl(var(--muted) / 0.3);
 		border: 1px solid transparent;
-		transition: all 0.15s ease;
+		transition: background-color, color, border-color, opacity 0.15s ease;
 		font-weight: 500;
 	}
 

@@ -99,10 +99,12 @@
 	<PageHeader title="日历" />
 
 	<!-- Calendar -->
-	<main class="container-responsive py-6 flex-1">
+	<main id="main-content" tabindex="-1" class="container-responsive py-6 flex-1">
 		<div class="flex flex-col lg:flex-row gap-6 lg:min-h-[540px]">
 			<!-- Left: Calendar -->
 			<div class="lg:flex-1 lg:min-w-0 max-w-[900px] mx-auto w-full">
+				<!-- 页面标题 - 视觉隐藏，用于屏幕阅读器的文档结构 -->
+				<h1 class="sr-only">日历 — 查看与浏览我的日记记录</h1>
 				<div class="bg-card rounded-xl shadow-sm border border-border/50 p-5 relative">
 					{#if loading}
 						<div class="absolute inset-0 flex flex-col items-center justify-center gap-3">

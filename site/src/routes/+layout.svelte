@@ -35,6 +35,11 @@
 	});
 </script>
 
+<a
+	href="#main-content"
+	class="sr-only focus:not-sr-only focus:fixed focus:top-safe focus:left-3 focus:z-[200] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground focus:shadow-lg focus:outline-none focus:ring-2 focus:ring-ring focus-visible:outline-none"
+>跳过导航，直接阅读内容</a
+>
 <OnlineStatusBanner />
 {@render children()}
 <PWAInstallPrompt />

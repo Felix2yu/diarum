@@ -23,6 +23,8 @@
 
 @layer base {
 	:root {
+		/* 让原生控件（滚动条/选择框/单选按钮）在浅色模式使用匹配主题的外观 */
+		color-scheme: light;
 		/* 温暖的米黄色背景 */
 		--background: 45 30% 97%;
 		/* 深棕色文字，保证可读性 */
@@ -56,12 +58,28 @@
 		/* 开关开启背景色（深棕，与浅色关闭态区分明显） */
 		--switch-on: 25 45% 30%;
 
+		/* ─ 心情 5 档 · 浅色模式（与整体暖棕基调相融，避免高饱和彩虹）─ */
+		/*  轮廓：柔和 200 浅底 + 800 深五官，背景圈对米白卡片约 1.1–1.3:1，
+		    已靠 0.75px 外环描边（见 MoodIcon）提供辨识度。  */
+		--mood1-bg: #F8D2D6;  /* 玫瑰-200  — 非常不愉快 */
+		--mood1-face: #8F1D37;
+		--mood2-bg: #FBD7B8;  /* 珊瑚-200  — 不愉快 */
+		--mood2-face: #8E3A1A;
+		--mood3-bg: #FBE8A6;  /* 琥珀-200  — 不悲不喜 */
+		--mood3-face: #7A4710;
+		--mood4-bg: #DDF2B3;  /* 柠绿-200  — 愉快 */
+		--mood4-face: #496116;
+		--mood5-bg: #B6E6C7;  /* 翠绿-200  — 非常愉快 */
+		--mood5-face: #0F5C44;
+
 		/* 响应式排版 - 根据视口宽度自适应缩放 */
 		--scale-factor: 1;
 		font-size: clamp(15px, 0.92vw + 8px, 20px);
 	}
 
 	.dark {
+		/* 让原生控件（滚动条/选择框/单选按钮）在深色模式使用匹配主题的外观 */
+		color-scheme: dark;
 		/* 深棕色背景 */
 		--background: 25 30% 8%;
 		/* 浅米黄色文字 */
@@ -94,6 +112,20 @@
 		--card-foreground: 45 25% 90%;
 		/* 开关开启背景色（中亮琥珀棕，避免近白导致滑块对比不足） */
 		--switch-on: 38 55% 52%;
+
+		/* ─ 心情 5 档 · 深色模式（深饱和 700/800 底 + 浅 50/100 脸）
+		   让图标在深棕卡片上不成为"刺眼亮斑"，而是柔和呼吸色块。
+		   背景对卡片约 2.5–3.5:1，脸↔背景 ≥ 3:1。                      */
+		--mood1-bg: #82203A;  /* 玫瑰-800  — 非常不愉快 */
+		--mood1-face: #FFE6EA;
+		--mood2-bg: #7C3A1C;  /* 珊瑚-800  — 不愉快 */
+		--mood2-face: #FFF3E8;
+		--mood3-bg: #704610;  /* 琥珀-800  — 不悲不喜 */
+		--mood3-face: #FFF7DA;
+		--mood4-bg: #4A6116;  /* 柠绿-800  — 愉快 */
+		--mood4-face: #F1FAD8;
+		--mood5-bg: #105C44;  /* 翠绿-800  — 非常愉快 */
+		--mood5-face: #D9F5E6;
 	}
 
 	/* 响应式容器宽度变量 - 根据视口宽度自适应 */
@@ -240,6 +272,22 @@
 	.animate-slide-up,
 	[class*="animate-"] {
 		transition-property: background-color, border-color, color, fill, stroke;
+	}
+}
+
+/* 尊重用户的“减少动态效果”偏好（无障碍 - 前庭功能障碍者） */
+@media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.001ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.001ms !important;
+		scroll-behavior: auto !important;
+	}
+
+	html {
+		scroll-behavior: auto !important;
 	}
 }
 

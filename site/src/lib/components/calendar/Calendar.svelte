@@ -852,7 +852,7 @@
 		align-items: center;
 		padding: 0.125rem 0.5rem;
 		border-radius: 0.375rem;
-		transition: all 0.2s ease;
+		transition: background-color, color, transform, opacity 0.2s ease;
 		position: relative;
 	}
 
@@ -913,7 +913,7 @@
 		border-radius: 0.625rem;
 		border: 1px solid hsl(var(--border) / 0.5);
 		background: hsl(var(--card));
-		transition: all 0.2s ease;
+		transition: background-color, border-color, color, transform, opacity 0.2s ease;
 		cursor: pointer;
 		text-align: left;
 		animation: mini-month-in 0.3s ease-out both;
@@ -974,7 +974,7 @@
 		border-radius: 3px;
 		color: hsl(var(--foreground) / 0.85);
 		cursor: pointer;
-		transition: all 0.15s ease;
+		transition: background-color, color, opacity 0.15s ease;
 	}
 
 	.mini-day:hover {

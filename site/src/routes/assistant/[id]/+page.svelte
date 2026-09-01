@@ -257,7 +257,9 @@
 			</aside>
 
 			<!-- Chat Area -->
-			<main class="flex-1 flex flex-col min-w-0 lg:bg-card/50 lg:border lg:border-border lg:rounded-2xl overflow-hidden">
+			<main id="main-content" tabindex="-1" class="flex-1 flex flex-col min-w-0 lg:bg-card/50 lg:border lg:border-border lg:rounded-2xl overflow:hidden">
+				<!-- 页面标题 - 视觉隐藏，用于屏幕阅读器的文档结构 -->
+				<h1 class="sr-only">AI 助手对话 — 查看历史对话并继续</h1>
 				<!-- Messages -->
 				<div bind:this={messagesContainer} class="flex-1 overflow-y-auto p-4 lg:p-6">
 					{#if messagesLoading}

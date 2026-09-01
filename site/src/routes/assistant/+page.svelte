@@ -267,7 +267,9 @@
 			{/if}
 
 			<!-- Chat Area - New Chat Mode -->
-			<main class="flex-1 flex flex-col min-w-0 lg:bg-card/50 lg:border lg:border-border lg:rounded-2xl overflow-hidden">
+			<main id="main-content" tabindex="-1" class="flex-1 flex flex-col min-w-0 lg:bg-card/50 lg:border lg:border-border lg:rounded-2xl overflow-hidden">
+				<!-- 页面标题 - 视觉隐藏，用于屏幕阅读器的文档结构 -->
+				<h1 class="sr-only">AI 助手 — 与智能助手对话反思你的日记</h1>
 				<!-- Empty state with prompt -->
 				<div class="flex-1 overflow-y-auto p-4 lg:p-6">
 					<div class="flex flex-col items-center justify-center h-full text-center py-12">
