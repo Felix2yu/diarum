@@ -19,7 +19,7 @@
 		"@vite-pwa/sveltekit": "^1.1.0",
 		"autoprefixer": "^10.5.4",
 		"postcss": "^8.5.26",
-"svelte": "^5.56.10",
+"svelte": "^5.57.0",
 		"svelte-check": "^4.7.6",
 		"tailwindcss": "^4.3.3",
 		"typescript": "^7.0.2",
