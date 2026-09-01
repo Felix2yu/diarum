@@ -41,9 +41,21 @@
 	} from '$lib/utils/diaryEmoji';
 	import MoodIcon from '$lib/components/ui/MoodIcon.svelte';
 
-	type SettingsTab = 'general' | 'notifications' | 'api-access' | 'weather' | 'ai-assistant' | 'image-upload' | 'memos-sync' | 'data-management' | 'backup';
+	type SettingsTab =
+		| 'general'
+		| 'notifications'
+		| 'api-access'
+		| 'weather'
+		| 'ai-assistant'
+		| 'ai-vectors'
+		| 'ai-speech'
+		| 'image-upload'
+		| 'memos-sync'
+		| 'data-management'
+		| 'backup';
 
-	const settingsTabs: { id: SettingsTab; label: string }[] = [
+	// 基础 tab 列表（始终显示）
+	const baseSettingsTabs: { id: SettingsTab; label: string }[] = [
 		{ id: 'general', label: '通用' },
 		{ id: 'notifications', label: '通知提醒' },
 		{ id: 'ai-assistant', label: 'AI 助手' },
@@ -54,6 +66,20 @@
 		{ id: 'image-upload', label: '图片上传' },
 		{ id: 'data-management', label: '数据管理' }
 	];
+
+	// AI 启用后额外显示的 tab
+	const aiExtraTabs: { id: SettingsTab; label: string }[] = [
+		{ id: 'ai-speech', label: '语音输入' },
+		{ id: 'ai-vectors', label: '向量索引' }
+	];
+
+	$: settingsTabs = aiSettings.enabled
+		? [
+				...baseSettingsTabs.slice(0, 3),
+				...aiExtraTabs,
+				...baseSettingsTabs.slice(3)
+			]
+		: baseSettingsTabs;
 
 	let activeTab: SettingsTab = 'general';
 
@@ -1852,7 +1878,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '<your-t
 				{/if}
 
 				{#if activeTab === 'ai-assistant'}
-				<!-- AI Settings Section -->
+				<!-- AI 助手核心设置 -->
 				<div id="ai-assistant" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
 					<h2 class="text-lg font-semibold text-foreground mb-4">AI 助手</h2>
 					<p class="text-sm text-muted-foreground mb-6">
@@ -1997,234 +2023,6 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '<your-t
 						</div>
 					</div>
 
-					<!-- Build Vectors -->
-					{#if aiSettings.enabled}
-						<div class="py-4 border-b border-border/50">
-							<div class="flex items-center justify-between">
-								<div>
-									<div class="font-medium text-foreground">构建向量索引</div>
-									<div class="text-sm text-muted-foreground">
-										为日记条目生成嵌入向量
-									</div>
-								</div>
-								<div class="flex items-center gap-2">
-									<button
-										onclick={() => handleBuildVectors(true)}
-										disabled={buildingVectors}
-										class="px-3 py-1.5 text-sm bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors duration-200 disabled:opacity-50 flex items-center gap-1.5"
-										title="仅构建新增和过时的条目"
-									>
-										{#if buildingVectors}
-											<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-											</svg>
-										{:else}
-											<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-											</svg>
-										{/if}
-										更新
-									</button>
-									<button
-										onclick={() => handleBuildVectors(false)}
-										disabled={buildingVectors}
-										class="px-3 py-1.5 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 disabled:opacity-50 flex items-center gap-1.5"
-										title="从头重建所有条目"
-									>
-										<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-										</svg>
-										全部重建
-									</button>
-								</div>
-							</div>
-
-							{#if buildError}
-								<div class="mt-3 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
-									{buildError}
-								</div>
-							{/if}
-
-							{#if buildResult}
-								<div class="mt-3 p-3 bg-muted rounded-lg text-sm">
-									<div class="font-medium text-foreground mb-2">构建结果</div>
-									<div class="space-y-1 text-muted-foreground">
-										<div>日记总数：{buildResult.total}</div>
-										<div class="text-green-600">成功：{buildResult.success}</div>
-										{#if buildResult.failed > 0}
-											<div class="text-destructive">失败：{buildResult.failed}</div>
-										{/if}
-									</div>
-									{#if buildResult.error_details && buildResult.error_details.length > 0}
-										<div class="mt-2 pt-2 border-t border-border/50">
-											<div class="font-medium text-destructive mb-1">错误：</div>
-							<div class="text-xs text-muted-foreground space-y-1 max-h-32 overflow-y-auto">
-								{#each buildResult.error_details as error}
-									<div>{error}</div>
-								{/each}
-							</div>
-						</div>
-					{/if}
-					</div>
-				{/if}
-
-					</div>
-
-					<!-- 向量索引状态 -->
-						<div class="py-4 border-b border-border/50">
-							<div class="font-medium text-foreground mb-2">向量索引状态</div>
-							{#if loadingStats}
-								<div class="flex items-center gap-2 text-sm text-muted-foreground">
-									<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-									</svg>
-									加载中...
-								</div>
-							{:else if vectorStats}
-								<div class="space-y-3">
-									<!-- Segmented Progress Bar -->
-									<div class="space-y-2">
-										<div class="flex items-center justify-between text-sm">
-											<span class="text-muted-foreground">日记总数：</span>
-											<span class="font-medium text-foreground">{vectorStats.diary_count}</span>
-										</div>
-										<div class="w-full bg-muted rounded-full h-2 flex overflow-hidden">
-											{#if vectorStats.diary_count > 0}
-												{#if vectorStats.indexed_count > 0}
-													<div
-														class="h-2 bg-green-500 transition-all duration-300"
-														style="width: {(vectorStats.indexed_count / vectorStats.diary_count * 100)}%"
-													></div>
-												{/if}
-												{#if vectorStats.outdated_count > 0}
-													<div
-														class="h-2 bg-amber-500 transition-all duration-300"
-														style="width: {(vectorStats.outdated_count / vectorStats.diary_count * 100)}%"
-													></div>
-												{/if}
-												{#if vectorStats.pending_count > 0}
-													<div
-														class="h-2 bg-gray-400 transition-all duration-300"
-														style="width: {(vectorStats.pending_count / vectorStats.diary_count * 100)}%"
-													></div>
-												{/if}
-											{/if}
-										</div>
-									</div>
-
-									<!-- Stats Legend -->
-									<div class="flex flex-wrap gap-4 text-xs">
-										<div class="flex items-center gap-1.5">
-											<div class="w-2.5 h-2.5 rounded-full bg-green-500"></div>
-											<span class="text-muted-foreground">已索引： <span class="font-medium text-foreground">{vectorStats.indexed_count}</span></span>
-										</div>
-										<div class="flex items-center gap-1.5">
-											<div class="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
-											<span class="text-muted-foreground">过时： <span class="font-medium text-foreground">{vectorStats.outdated_count}</span></span>
-										</div>
-										<div class="flex items-center gap-1.5">
-											<div class="w-2.5 h-2.5 rounded-full bg-gray-400"></div>
-											<span class="text-muted-foreground">待处理： <span class="font-medium text-foreground">{vectorStats.pending_count}</span></span>
-										</div>
-									</div>
-
-									<!-- Status Message -->
-									{#if vectorStats.indexed_count === vectorStats.diary_count && vectorStats.diary_count > 0}
-										<div class="text-xs text-green-600 flex items-center gap-1">
-											<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-											</svg>
-											所有日记均已索引且为最新
-										</div>
-									{:else if vectorStats.outdated_count > 0 || vectorStats.pending_count > 0}
-										<div class="text-xs text-amber-600 flex items-center gap-1">
-											<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-											</svg>
-											{vectorStats.outdated_count + vectorStats.pending_count} 篇日记需要建立索引
-										</div>
-									{:else if vectorStats.diary_count === 0}
-										<div class="text-xs text-muted-foreground">
-											暂无日记可索引
-										</div>
-									{/if}
-								</div>
-							{:else}
-								<div class="text-sm text-muted-foreground">
-									暂无索引数据
-								</div>
-							{/if}
-						</div>
-					{/if}
-
-					<!-- 语音识别 -->
-					<div class="py-4 border-b border-border/50">
-						<div class="font-medium text-foreground mb-3">语音识别</div>
-						<p class="text-xs text-muted-foreground mb-3">
-							用于日记编辑器中的 AI 语音转文字功能，仅支持 OpenAI 兼容的 /v1/audio/transcriptions 接口（如 whisper、groq、本地 Whisper 部署等）。若未单独填写语音 API 密钥与地址，将回退使用上面"AI 助手"的 Base URL 与密钥。
-						</p>
-						<div class="mb-4">
-							<label for="speech-provider" class="block text-sm text-muted-foreground mb-1.5">启用语音识别</label>
-							<select
-								id="speech-provider"
-								bind:value={aiSettings.speech_provider}
-								class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-							>
-								<option value="none">不启用</option>
-								<option value="openai">OpenAI 兼容接口（推荐）</option>
-							</select>
-						</div>
-						<div class="grid gap-3 md:grid-cols-2 mb-3">
-							<div>
-								<label for="speech-base-url" class="block text-sm text-muted-foreground mb-1.5">API Base URL（可选）</label>
-								<input
-									id="speech-base-url"
-									type="text"
-									bind:value={aiSettings.speech_base_url}
-									placeholder="例如 https://api.openai.com；留空则使用上面 AI 助手的 Base URL"
-									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-								/>
-							</div>
-							<div>
-								<label for="speech-api-key" class="block text-sm text-muted-foreground mb-1.5">API 密钥（可选）</label>
-								<input
-									id="speech-api-key"
-									type="password"
-									bind:value={aiSettings.speech_api_key}
-									placeholder="留空则使用上面 AI 助手的 API 密钥"
-									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-								/>
-							</div>
-						</div>
-						<div class="grid gap-3 md:grid-cols-2">
-							<div>
-								<label for="speech-model" class="block text-sm text-muted-foreground mb-1.5">模型名称</label>
-								<input
-									id="speech-model"
-									type="text"
-									bind:value={aiSettings.speech_model}
-									placeholder="whisper-1"
-									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-								/>
-							</div>
-							<div>
-								<label for="speech-language" class="block text-sm text-muted-foreground mb-1.5">默认语言 (ISO-639-1)</label>
-								<input
-									id="speech-language"
-									type="text"
-									bind:value={aiSettings.speech_language}
-									placeholder="zh / en / ja / …；留空由模型自动识别"
-									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-								/>
-							</div>
-						</div>
-						<p class="text-xs text-muted-foreground mt-2">
-							配置完成后，请点击下方"保存 AI 设置"。随后你可以在日记编辑器顶部看到 🎙️ 录音按钮，点击即可开始录音并自动转录为文字。
-						</p>
-					</div>
-
 					<!-- 周/月分析提示词 -->
 					<div class="py-4 border-b border-border/50">
 						<div class="font-medium text-foreground mb-3">周/月分析提示词</div>
@@ -2234,7 +2032,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '<your-t
 								<button
 									type="button"
 									onclick={() => { aiSettings.analysis_system_prompt = DEFAULT_ANALYSIS_SYSTEM_PROMPT; }}
-									class="text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-0.5 rounded hover:bg-primary/10"
+									class="text-xs text-muted-foreground hover:text-primary transition-colors duration-200 px-2 py-0.5 rounded hover:bg-primary/10"
 								>
 									恢复默认
 								</button>
@@ -2277,7 +2075,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '<your-t
 								</svg>
 								保存中...
 							{:else}
-								保存 AI 设置
+								保存设置
 							{/if}
 						</button>
 						{#if aiSuccess}
@@ -2289,6 +2087,279 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '<your-t
 							</span>
 						{/if}
 					</div>
+				</div>
+				{/if}
+
+				{#if activeTab === 'ai-speech'}
+				<!-- 语音输入设置 -->
+				<div id="ai-speech" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
+					<h2 class="text-lg font-semibold text-foreground mb-4">语音输入</h2>
+					<p class="text-sm text-muted-foreground mb-6">
+						配置 AI 语音转文字，在日记编辑器中用录音按钮直接语音输入。仅支持 OpenAI 兼容的 /v1/audio/transcriptions 接口（如 whisper、groq、本地 Whisper 部署等）。
+					</p>
+
+					{#if aiError}
+						<div class="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+							{aiError}
+						</div>
+					{/if}
+
+					{#if aiSuccess}
+						<div class="mb-4 p-3 bg-green-500/10 text-green-600 rounded-lg text-sm">
+							{aiSuccess}
+						</div>
+					{/if}
+
+					<div class="space-y-6">
+						<!-- 启用语音识别 -->
+						<div>
+							<label for="speech-provider" class="block font-medium text-foreground mb-2">语音识别服务</label>
+							<select
+								id="speech-provider"
+								bind:value={aiSettings.speech_provider}
+								class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+							>
+								<option value="none">不启用</option>
+								<option value="openai">OpenAI 兼容接口（推荐）</option>
+							</select>
+							<p class="text-xs text-muted-foreground mt-1">若未单独填写语音 API 密钥与地址，将回退使用"AI 助手"的 Base URL 与密钥。</p>
+						</div>
+
+						<div class="grid gap-4 md:grid-cols-2">
+							<div>
+								<label for="speech-base-url" class="block font-medium text-foreground mb-2">API Base URL（可选）</label>
+								<input
+									id="speech-base-url"
+									type="text"
+									bind:value={aiSettings.speech_base_url}
+									placeholder="例如 https://api.openai.com"
+									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+							</div>
+							<div>
+								<label for="speech-api-key" class="block font-medium text-foreground mb-2">API 密钥（可选）</label>
+								<input
+									id="speech-api-key"
+									type="password"
+									bind:value={aiSettings.speech_api_key}
+									placeholder="留空则复用 AI 助手密钥"
+									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+							</div>
+						</div>
+
+						<div class="grid gap-4 md:grid-cols-2">
+							<div>
+								<label for="speech-model" class="block font-medium text-foreground mb-2">模型名称</label>
+								<input
+									id="speech-model"
+									type="text"
+									bind:value={aiSettings.speech_model}
+									placeholder="whisper-1"
+									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+							</div>
+							<div>
+								<label for="speech-language" class="block font-medium text-foreground mb-2">默认语言 (ISO-639-1)</label>
+								<input
+									id="speech-language"
+									type="text"
+									bind:value={aiSettings.speech_language}
+									placeholder="zh / en / ja … 留空自动识别"
+									class="w-full px-3 py-2 bg-muted rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+								/>
+							</div>
+						</div>
+					</div>
+
+					<!-- Save Button -->
+					<div class="pt-6 flex items-center gap-3">
+						<button
+							onclick={handleSaveAISettings}
+							disabled={aiSaving || !aiSettingsChanged}
+							class="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+						>
+							{#if aiSaving}
+								<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+								</svg>
+								保存中...
+							{:else}
+								保存设置
+							{/if}
+						</button>
+						{#if aiSuccess}
+							<span class="text-sm text-green-600 flex items-center gap-1 animate-fade-in">
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+								</svg>
+								已保存
+							</span>
+						{/if}
+					</div>
+				</div>
+				{/if}
+
+				{#if activeTab === 'ai-vectors'}
+				<!-- 向量索引管理 -->
+				<div id="ai-vectors" class="bg-card rounded-xl shadow-sm border border-border/50 p-6 animate-fade-in scroll-mt-16">
+					<h2 class="text-lg font-semibold text-foreground mb-4">向量索引</h2>
+					<p class="text-sm text-muted-foreground mb-6">
+						为日记条目构建嵌入向量索引，支持 AI 助手的语义搜索与智能分析。保存日记时会自动增量更新。
+					</p>
+
+					{#if buildError}
+						<div class="mb-4 p-3 bg-destructive/10 text-destructive rounded-lg text-sm">
+							{buildError}
+						</div>
+					{/if}
+
+					<!-- 索引状态 -->
+					<div class="mb-6 p-4 bg-muted/40 rounded-lg space-y-3">
+						<div class="font-medium text-foreground">索引状态</div>
+						{#if loadingStats}
+							<div class="flex items-center gap-2 text-sm text-muted-foreground">
+								<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+									<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+									<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+								</svg>
+								加载中...
+							</div>
+						{:else if vectorStats}
+							<div class="space-y-3">
+								<!-- Segmented Progress Bar -->
+								<div class="space-y-2">
+									<div class="flex items-center justify-between text-sm">
+										<span class="text-muted-foreground">日记总数</span>
+										<span class="font-medium text-foreground">{vectorStats.diary_count}</span>
+									</div>
+									<div class="w-full bg-background rounded-full h-2 flex overflow-hidden">
+										{#if vectorStats.diary_count > 0}
+											{#if vectorStats.indexed_count > 0}
+												<div
+													class="h-2 bg-green-500 transition-all duration-300"
+													style="width: {(vectorStats.indexed_count / vectorStats.diary_count * 100)}%"
+												></div>
+											{/if}
+											{#if vectorStats.outdated_count > 0}
+												<div
+													class="h-2 bg-amber-500 transition-all duration-300"
+													style="width: {(vectorStats.outdated_count / vectorStats.diary_count * 100)}%"
+												></div>
+											{/if}
+											{#if vectorStats.pending_count > 0}
+												<div
+													class="h-2 bg-gray-400 transition-all duration-300"
+													style="width: {(vectorStats.pending_count / vectorStats.diary_count * 100)}%"
+												></div>
+											{/if}
+										{/if}
+									</div>
+								</div>
+
+								<!-- Stats Legend -->
+								<div class="flex flex-wrap gap-4 text-xs">
+									<div class="flex items-center gap-1.5">
+										<div class="w-2.5 h-2.5 rounded-full bg-green-500"></div>
+										<span class="text-muted-foreground">已索引 <span class="font-medium text-foreground">{vectorStats.indexed_count}</span></span>
+									</div>
+									<div class="flex items-center gap-1.5">
+										<div class="w-2.5 h-2.5 rounded-full bg-amber-500"></div>
+										<span class="text-muted-foreground">过时 <span class="font-medium text-foreground">{vectorStats.outdated_count}</span></span>
+									</div>
+									<div class="flex items-center gap-1.5">
+										<div class="w-2.5 h-2.5 rounded-full bg-gray-400"></div>
+										<span class="text-muted-foreground">待处理 <span class="font-medium text-foreground">{vectorStats.pending_count}</span></span>
+									</div>
+								</div>
+
+								<!-- Status Message -->
+								{#if vectorStats.indexed_count === vectorStats.diary_count && vectorStats.diary_count > 0}
+									<div class="text-xs text-green-600 flex items-center gap-1">
+										<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+										</svg>
+										所有日记均已索引且为最新
+									</div>
+								{:else if vectorStats.outdated_count > 0 || vectorStats.pending_count > 0}
+									<div class="text-xs text-amber-600 flex items-center gap-1">
+										<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+										</svg>
+										{vectorStats.outdated_count + vectorStats.pending_count} 篇日记需要建立索引
+									</div>
+								{:else if vectorStats.diary_count === 0}
+									<div class="text-xs text-muted-foreground">暂无日记可索引</div>
+								{/if}
+							</div>
+						{:else}
+							<div class="text-sm text-muted-foreground">暂无索引数据</div>
+						{/if}
+					</div>
+
+					<!-- 操作按钮 -->
+					<div class="space-y-4">
+						<div class="flex items-center gap-3">
+							<button
+								onclick={() => handleBuildVectors(true)}
+								disabled={buildingVectors}
+								class="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors duration-200 disabled:opacity-50 flex items-center gap-2"
+								title="仅更新过时和新增的条目"
+							>
+								{#if buildingVectors}
+									<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+										<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+										<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+									</svg>
+									更新索引
+								{:else}
+									<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+									</svg>
+									更新索引
+								{/if}
+							</button>
+							<button
+								onclick={() => handleBuildVectors(false)}
+								disabled={buildingVectors}
+								class="px-4 py-2 bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 disabled:opacity-50 flex items-center gap-2"
+								title="从头重建所有条目"
+							>
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+								</svg>
+								全部重建
+							</button>
+						</div>
+						<p class="text-xs text-muted-foreground">
+							"更新索引"仅处理过时和未索引的日记；"全部重建"会删除现有索引并从头构建，适合切换嵌入模型后使用。
+						</p>
+					</div>
+
+					<!-- 构建结果 -->
+					{#if buildResult}
+						<div class="mt-4 p-3 bg-muted rounded-lg text-sm">
+							<div class="font-medium text-foreground mb-2">构建完成</div>
+							<div class="space-y-1 text-muted-foreground">
+								<div>日记总数：{buildResult.total}</div>
+								<div class="text-green-600">成功：{buildResult.success}</div>
+								{#if buildResult.failed > 0}
+									<div class="text-destructive">失败：{buildResult.failed}</div>
+								{/if}
+							</div>
+							{#if buildResult.error_details && buildResult.error_details.length > 0}
+								<div class="mt-2 pt-2 border-t border-border/50">
+									<div class="font-medium text-destructive mb-1">错误详情：</div>
+									<div class="text-xs text-muted-foreground space-y-1 max-h-32 overflow-y-auto">
+										{#each buildResult.error_details as error}
+											<div>{error}</div>
+										{/each}
+									</div>
+								</div>
+							{/if}
+						</div>
+					{/if}
 				</div>
 				{/if}
 
