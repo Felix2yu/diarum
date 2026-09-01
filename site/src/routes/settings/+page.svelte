@@ -413,7 +413,6 @@
 									date: data.date || ''
 								};
 							} else if (eventType === 'updated') {
-								backfillProgress.current = data.updated || backfillProgress.current;
 								backfillProgress.status = `已更新 ${data.date}`;
 							} else if (eventType === 'error') {
 								console.error(`补全 ${data.date} 失败:`, data.error);
