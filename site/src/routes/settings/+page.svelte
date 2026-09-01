@@ -1198,106 +1198,111 @@
 						</button>
 					</div>
 
-					{#if tokenStatus.enabled && tokenStatus.token}
-						<!-- API Token Display -->
-						<div class="py-4 border-b border-border/50">
-							<div class="font-medium text-foreground mb-2">您的 API Token</div>
-							<div class="flex items-center gap-2">
-								<code class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm font-mono text-foreground overflow-x-auto">
-									{tokenStatus.token}
-								</code>
-								<button
-									onclick={copyToken}
-									class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200"
-								>
-									{copied ? '已复制！' : '复制'}
-								</button>
-							</div>
-							<p class="text-xs text-muted-foreground mt-2">
+				{#if tokenStatus.enabled && tokenStatus.exists}
+					<!-- API Token Display -->
+					<div class="py-4 border-b border-border/50">
+						<div class="font-medium text-foreground mb-2">您的 API Token</div>
+						<div class="flex items-center gap-2">
+							<code class="flex-1 px-3 py-2 bg-muted rounded-lg text-sm font-mono text-foreground overflow-x-auto">
+								{tokenStatus.token || '••••••••••••••••••••••••••••••••'}
+							</code>
+							<button
+								onclick={copyToken}
+								disabled={!tokenStatus.token}
+								class="px-3 py-2 text-sm bg-muted hover:bg-muted/80 rounded-lg transition-colors duration-200 disabled:opacity-50"
+							>
+								{copied ? '已复制！' : '复制'}
+							</button>
+						</div>
+						<p class="text-xs text-muted-foreground mt-2">
+							{#if tokenStatus.token}
 								请妥善保管此 token。任何持有此 token 的人都可以读取、修改或删除您的日记内容。
-							</p>
-						</div>
+							{:else}
+								为安全起见，token 仅在创建或重置时显示一次。如需查看 token，请点击下方"重置 Token"。
+							{/if}
+						</p>
+					</div>
 
-						<!-- 重置 Token -->
-						<div class="py-4 border-b border-border/50">
-							<div class="flex items-center justify-between">
-								<div>
-									<div class="font-medium text-foreground">重置 Token</div>
-									<div class="text-sm text-muted-foreground">生成新的 API token</div>
-								</div>
-								<button
-									onclick={handleReset}
-									disabled={resetting}
-									class="px-4 py-2 text-sm bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-lg transition-colors duration-200 disabled:opacity-50"
-								>
-									{resetting ? '重置中...' : '重置 Token'}
-								</button>
+					<!-- 重置 Token -->
+					<div class="py-4 border-b border-border/50">
+						<div class="flex items-center justify-between">
+							<div>
+								<div class="font-medium text-foreground">重置 Token</div>
+								<div class="text-sm text-muted-foreground">生成新的 API token（当前 token 将立即失效）</div>
 							</div>
+							<button
+								onclick={handleReset}
+								disabled={resetting}
+								class="px-4 py-2 text-sm bg-destructive/10 text-destructive hover:bg-destructive/20 rounded-lg transition-colors duration-200 disabled:opacity-50"
+							>
+								{resetting ? '重置中...' : '重置 Token'}
+							</button>
 						</div>
+					</div>
 
-						<!-- API Documentation -->
-						<div class="py-4">
-							<div class="font-medium text-foreground mb-3">API 使用说明</div>
-							<div class="space-y-4 text-sm">
-								<div>
-									<div class="text-muted-foreground mb-1">按日期获取日记（GET）：</div>
-									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
-										GET {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}&date=YYYY-MM-DD
-									</code>
-								</div>
-								<div>
-									<div class="text-muted-foreground mb-1">按日期范围获取日记（GET）：</div>
-									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
-										GET {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}&start=YYYY-MM-DD&end=YYYY-MM-DD
-									</code>
-								</div>
-								<div>
-									<div class="text-muted-foreground mb-1">创建或更新日记（POST）：</div>
-									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
-POST {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}
+					<!-- API Documentation -->
+					<div class="py-4">
+						<div class="font-medium text-foreground mb-3">API 使用说明</div>
+						<div class="space-y-4 text-sm">
+							<div>
+								<div class="text-muted-foreground mb-1">按日期获取日记（GET）：</div>
+								<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
+									GET {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '<your-token>'}&date=YYYY-MM-DD
+								</code>
+							</div>
+							<div>
+								<div class="text-muted-foreground mb-1">按日期范围获取日记（GET）：</div>
+								<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
+									GET {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '<your-token>'}&start=YYYY-MM-DD&end=YYYY-MM-DD
+								</code>
+							</div>
+							<div>
+								<div class="text-muted-foreground mb-1">创建或更新日记（POST）：</div>
+								<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
+POST {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '<your-token>'}
 Content-Type: application/json
 
 {"{"}"date":"2025-01-15","content":"今天是个好日子","mood":"开心","weather":"晴"{"}"}
-									</code>
-								</div>
-								<div>
-									<div class="text-muted-foreground mb-1">按 ID 更新日记（PUT）：</div>
-									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
-PUT {getBaseUrl()}/api/v1/diaries/&lt;diary-id&gt;?token={tokenStatus.token}
+								</code>
+							</div>
+							<div>
+								<div class="text-muted-foreground mb-1">按 ID 更新日记（PUT）：</div>
+								<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
+PUT {getBaseUrl()}/api/v1/diaries/&lt;diary-id&gt;?token={tokenStatus.token || '<your-token>'}
 Content-Type: application/json
 
 {"{"}"content":"更新后的内容","mood":"平静"{"}"}
-									</code>
-								</div>
-								<div>
-									<div class="text-muted-foreground mb-1">按 ID 删除日记（DELETE）：</div>
-									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
-										DELETE {getBaseUrl()}/api/v1/diaries/&lt;diary-id&gt;?token={tokenStatus.token}
-									</code>
-								</div>
-								<div>
-									<div class="text-muted-foreground mb-1">按日期删除日记（DELETE）：</div>
-									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
-										DELETE {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}&date=YYYY-MM-DD
-									</code>
-								</div>
-								<div>
-									<div class="text-muted-foreground mb-1">curl 读取示例：</div>
-									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
-curl "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}&date={new Date().toISOString().split('T')[0]}"
-									</code>
-								</div>
-								<div>
-									<div class="text-muted-foreground mb-1">curl 写入示例：</div>
-									<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
-curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token}" \
+								</code>
+							</div>
+							<div>
+								<div class="text-muted-foreground mb-1">按 ID 删除日记（DELETE）：</div>
+								<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
+									DELETE {getBaseUrl()}/api/v1/diaries/&lt;diary-id&gt;?token={tokenStatus.token || '<your-token>'}
+								</code>
+							</div>
+							<div>
+								<div class="text-muted-foreground mb-1">按日期删除日记（DELETE）：</div>
+								<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto">
+									DELETE {getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '<your-token>'}&date=YYYY-MM-DD
+								</code>
+							</div>
+							<div>
+								<div class="text-muted-foreground mb-1">curl 读取示例：</div>
+								<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
+curl "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '<your-token>'}&date={new Date().toISOString().split('T')[0]}"
+								</code>
+							</div>
+							<div>
+								<div class="text-muted-foreground mb-1">curl 写入示例：</div>
+								<code class="block px-3 py-2 bg-muted rounded-lg font-mono text-xs overflow-x-auto whitespace-pre-wrap">
+curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '<your-token>'}" \
   -H "Content-Type: application/json" \
   -d '{"{"}"date":"{new Date().toISOString().split('T')[0]}","content":"API 测试写入","mood":"","weather":""{"}"}'
-									</code>
-								</div>
+								</code>
 							</div>
 						</div>
-					{/if}
+					</div>
+				{/if}
 				</div>
 				{/if}
 
