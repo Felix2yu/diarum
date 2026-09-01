@@ -168,19 +168,20 @@ func (sc *Scheduler) nextBackupTime(userID string) time.Time {
 	}
 
 	hour, minute := parseTime(timeStr)
-	now := time.Now().UTC()
+	now := time.Now()
+	loc := now.Location()
 
 	switch frequency {
 	case "daily":
-		next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, time.UTC)
+		next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, loc)
 		if !next.After(now) {
 			next = next.AddDate(0, 0, 1)
 		}
-		return next
+		return next.UTC()
 
 	case "weekly":
 		dow, _ := sc.configService.GetInt(userID, "backup.day_of_week")
-		next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, time.UTC)
+		next := time.Date(now.Year(), now.Month(), now.Day(), hour, minute, 0, 0, loc)
 		daysAhead := dow - int(next.Weekday())
 		if daysAhead < 0 {
 			daysAhead += 7
@@ -189,16 +190,16 @@ func (sc *Scheduler) nextBackupTime(userID string) time.Time {
 			daysAhead = 7
 		}
 		next = next.AddDate(0, 0, daysAhead)
-		return next
+		return next.UTC()
 
 	case "monthly":
 		dom, _ := sc.configService.GetInt(userID, "backup.day_of_month")
 		dom = max(dom, 1)
-		next := time.Date(now.Year(), now.Month(), dom, hour, minute, 0, 0, time.UTC)
+		next := time.Date(now.Year(), now.Month(), dom, hour, minute, 0, 0, loc)
 		if !next.After(now) {
 			next = next.AddDate(0, 1, 0)
 		}
-		return next
+		return next.UTC()
 	}
 
 	return time.Time{}
