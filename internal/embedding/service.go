@@ -249,7 +249,7 @@ func (s *EmbeddingService) BuildAllVectors(ctx context.Context, userID string) (
 
 	// Process all diaries
 	for _, diary := range diaries {
-		if err := s.processDiary(ctx, collection, diary, embeddingFunc); err != nil {
+		if err := s.processDiary(ctx, collection, diary, embeddingFunc, nil); err != nil {
 			result.Failed++
 			dateStr := store.DateOnly(diary.Date)
 			result.Errors = append(result.Errors, dateStr)
@@ -265,7 +265,9 @@ func (s *EmbeddingService) BuildAllVectors(ctx context.Context, userID string) (
 	return result, nil
 }
 
-// BuildIncrementalVectors builds vectors only for new and outdated diaries
+// BuildIncrementalVectors builds vectors only for new and outdated diaries,
+// optimizing for metadata-only changes (weather/mood/tags/...) by reusing
+// existing embeddings instead of re-calling the embedding API.
 func (s *EmbeddingService) BuildIncrementalVectors(ctx context.Context, userID string) (*BuildResult, error) {
 	logger.Info("[EmbeddingService] starting incremental vector build for user: %s", userID)
 
@@ -303,32 +305,52 @@ func (s *EmbeddingService) BuildIncrementalVectors(ctx context.Context, userID s
 		return result, nil
 	}
 
-	// Process only new and outdated diaries
+	// 分类处理：content 变更 → 重建 embedding；纯 metadata 变更 → 复用向量仅同步 metadata
 	skipped := 0
+	metadataSynced := 0
 	for _, diary := range diaries {
-		if !s.needsBuildVector(ctx, collection, diary) {
+		status, existingDoc, found := s.classifyDiaryStatus(ctx, collection, diary)
+		switch status {
+		case vectorStatusUpToDate:
 			skipped++
 			continue
-		}
-
-		if err := s.processDiary(ctx, collection, diary, embeddingFunc); err != nil {
-			result.Failed++
-			dateStr := store.DateOnly(diary.Date)
-			result.Errors = append(result.Errors, dateStr)
-			logger.Error("[EmbeddingService] Diary %s: %v", dateStr, err)
-		} else {
-			result.Success++
+		case vectorStatusMetadataSyncNeeded:
+			// 复用已有向量，只更新 chromem 里的 metadata（weather/mood/tags 等），不重调 embedding API
+			var existingEmbedding []float32
+			if found {
+				existingEmbedding = existingDoc.Embedding
+			}
+			if err := s.processDiary(ctx, collection, diary, embeddingFunc, existingEmbedding); err != nil {
+				result.Failed++
+				dateStr := store.DateOnly(diary.Date)
+				result.Errors = append(result.Errors, dateStr)
+				logger.Error("[EmbeddingService] Diary %s metadata sync: %v", dateStr, err)
+			} else {
+				metadataSynced++
+				result.Success++
+			}
+		case vectorStatusMissing, vectorStatusRebuildNeeded:
+			// content 变了或 chromem 里没有 → 需要新调用 embedding API
+			if err := s.processDiary(ctx, collection, diary, embeddingFunc, nil); err != nil {
+				result.Failed++
+				dateStr := store.DateOnly(diary.Date)
+				result.Errors = append(result.Errors, dateStr)
+				logger.Error("[EmbeddingService] Diary %s: %v", dateStr, err)
+			} else {
+				result.Success++
+			}
 		}
 	}
 
-	logger.Info("[EmbeddingService] incremental build completed for user %s: %d built, %d skipped, %d failed",
-		userID, result.Success, skipped, result.Failed)
+	logger.Info("[EmbeddingService] incremental build completed for user %s: %d rebuilt, %d metadata-synced, %d skipped, %d failed",
+		userID, result.Success-metadataSynced, metadataSynced, skipped, result.Failed)
 
 	return result, nil
 }
 
-// processDiary processes a single diary entry
-func (s *EmbeddingService) processDiary(ctx context.Context, collection *chromem.Collection, diary *store.Diary, embeddingFunc chromem.EmbeddingFunc) error {
+// processDiary processes a single diary entry.
+// existingEmbedding 为 nil 时会新调用 embedding API；非 nil 时直接复用（仅更新 metadata）。
+func (s *EmbeddingService) processDiary(ctx context.Context, collection *chromem.Collection, diary *store.Diary, embeddingFunc chromem.EmbeddingFunc, existingEmbedding []float32) error {
 	content := diary.Content
 	if content == "" {
 		return nil // Skip empty diaries
@@ -342,10 +364,16 @@ func (s *EmbeddingService) processDiary(ctx context.Context, collection *chromem
 	weather := diary.Weather
 	builtAt := time.Now().UTC().Format(time.RFC3339Nano)
 
-	// Generate embedding directly to avoid issues with collection's embeddingFunc
-	embedding, err := embeddingFunc(ctx, content)
-	if err != nil {
-		return fmt.Errorf("failed to generate embedding: %w", err)
+	var embedding []float32
+	if existingEmbedding != nil {
+		// 复用已有向量（metadata-only sync，不重调 embedding API）
+		embedding = existingEmbedding
+	} else {
+		var err error
+		embedding, err = embeddingFunc(ctx, content)
+		if err != nil {
+			return fmt.Errorf("failed to generate embedding: %w", err)
+		}
 	}
 
 	// Create document with metadata and pre-generated embedding
@@ -363,7 +391,7 @@ func (s *EmbeddingService) processDiary(ctx context.Context, collection *chromem
 		},
 	}
 
-	// Add document to collection
+	// Add document to collection (upsert by ID)
 	if err := collection.AddDocument(ctx, doc); err != nil {
 		return fmt.Errorf("failed to add document: %w", err)
 	}
@@ -381,38 +409,73 @@ func parseStoreTime(value string) (time.Time, error) {
 	return time.Parse(time.RFC3339, value)
 }
 
-// needsBuildVector checks if a diary needs its vector rebuilt
-func (s *EmbeddingService) needsBuildVector(ctx context.Context, collection *chromem.Collection, diary *store.Diary) bool {
+// diaryVectorStatus classifies what action a diary needs relative to the vector index.
+type diaryVectorStatus int
+
+const (
+	vectorStatusMissing diaryVectorStatus = iota // chromem 里没有 → 需要完整构建
+	vectorStatusRebuildNeeded                    // content 变了 → 需要重新 embedding
+	vectorStatusMetadataSyncNeeded               // 只有 metadata 变了 → 只同步 metadata
+	vectorStatusUpToDate                         // 都没变 → 跳过
+)
+
+// classifyDiaryStatus 检查一条日记相对于 chromem 向量索引的状态。
+// 区分 content 变更（需重建 embedding）和纯 metadata 变更（只需同步 metadata）。
+// 返回: 状态、chromem 中的现有文档（仅 metadata sync 时需要其 Embedding 复用）、是否找到现有文档
+func (s *EmbeddingService) classifyDiaryStatus(ctx context.Context, collection *chromem.Collection, diary *store.Diary) (diaryVectorStatus, chromem.Document, bool) {
 	if collection == nil {
-		return true
+		return vectorStatusMissing, chromem.Document{}, false
 	}
 
-	diaryID := diary.ID
-	diaryUpdated, err := parseStoreTime(diary.Updated)
+	doc, err := collection.GetByID(ctx, diary.ID)
 	if err != nil {
-		return true
+		return vectorStatusMissing, chromem.Document{}, false
 	}
 
-	doc, err := collection.GetByID(ctx, diaryID)
+	// content_updated 为空（极旧数据）时降级：视为 content 没变，只比较 updated
+	contentUpdatedStr := diary.ContentUpdated
+	if contentUpdatedStr == "" {
+		contentUpdatedStr = diary.Updated
+	}
+	contentUpdated, err := parseStoreTime(contentUpdatedStr)
 	if err != nil {
-		return true // Not found, needs build
+		return vectorStatusRebuildNeeded, doc, true
+	}
+
+	updated, err := parseStoreTime(diary.Updated)
+	if err != nil {
+		updated = contentUpdated
 	}
 
 	builtAtStr, ok := doc.Metadata["built_at"]
 	if !ok || builtAtStr == "" {
-		return true
+		return vectorStatusRebuildNeeded, doc, true
 	}
-
 	builtAt, err := time.Parse(time.RFC3339Nano, builtAtStr)
 	if err != nil {
-		// Fallback to RFC3339 for backward compatibility
 		builtAt, err = time.Parse(time.RFC3339, builtAtStr)
 		if err != nil {
-			return true
+			return vectorStatusRebuildNeeded, doc, true
 		}
 	}
 
-	return diaryUpdated.After(builtAt)
+	// content 变了 → 需要重建 embedding
+	if contentUpdated.After(builtAt) {
+		return vectorStatusRebuildNeeded, doc, true
+	}
+
+	// 只有 metadata 变了 → 只需同步 metadata
+	if updated.After(builtAt) {
+		return vectorStatusMetadataSyncNeeded, doc, true
+	}
+
+	return vectorStatusUpToDate, doc, true
+}
+
+// needsBuildVector 保留向后兼容：仅判断是否需要重建 embedding（content 变了或缺失）
+func (s *EmbeddingService) needsBuildVector(ctx context.Context, collection *chromem.Collection, diary *store.Diary) bool {
+	status, _, _ := s.classifyDiaryStatus(ctx, collection, diary)
+	return status == vectorStatusMissing || status == vectorStatusRebuildNeeded
 }
 
 // DiarySearchResult represents a diary found by vector search
@@ -509,7 +572,12 @@ func (s *EmbeddingService) GetVectorStats(ctx context.Context, userID string) (*
 	// Compare each diary with its vector
 	for _, diary := range diaries {
 		diaryID := diary.ID
-		diaryUpdated, err := parseStoreTime(diary.Updated)
+		// content_updated 才是向量是否过时的判断依据
+		contentUpdatedStr := diary.ContentUpdated
+		if contentUpdatedStr == "" {
+			contentUpdatedStr = diary.Updated // 旧数据降级
+		}
+		diaryContentUpdated, err := parseStoreTime(contentUpdatedStr)
 		if err != nil {
 			stats.OutdatedCount++
 			continue
@@ -546,8 +614,8 @@ func (s *EmbeddingService) GetVectorStats(ctx context.Context, userID string) (*
 			}
 		}
 
-		// Compare times
-		if diaryUpdated.After(builtAt) {
+		// Compare content update time — 只有 content 变更才会让向量语义过时
+		if diaryContentUpdated.After(builtAt) {
 			stats.OutdatedCount++
 		} else {
 			stats.IndexedCount++

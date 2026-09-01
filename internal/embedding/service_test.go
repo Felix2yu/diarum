@@ -287,9 +287,10 @@ func TestBuildQueryAndStats(t *testing.T) {
 	if err != nil {
 		t.Fatalf("UpsertDiary update: %v", err)
 	}
+	// 同时设大 content_updated 和 updated，确保两者都晚于 chromem 的 built_at
 	outdatedAt := builtAt.Add(time.Nanosecond).Format(time.RFC3339Nano)
-	if _, err := s.DB.Exec(`UPDATE diaries SET updated = ? WHERE id = ?`, outdatedAt, updatedDiary.ID); err != nil {
-		t.Fatalf("force diary updated time: %v", err)
+	if _, err := s.DB.Exec(`UPDATE diaries SET content_updated = ?, updated = ? WHERE id = ?`, outdatedAt, outdatedAt, updatedDiary.ID); err != nil {
+		t.Fatalf("force diary content_updated/updated time: %v", err)
 	}
 	updatedDiary, err = s.GetDiaryByID(updatedDiary.ID)
 	if err != nil {
@@ -367,7 +368,7 @@ func TestHelpersAndEdgeCases(t *testing.T) {
 	}
 
 	emptyDiary := &store.Diary{ID: "empty", Content: ""}
-	if err := service.processDiary(context.Background(), collection, emptyDiary, embeddingFunc); err != nil {
+	if err := service.processDiary(context.Background(), collection, emptyDiary, embeddingFunc, nil); err != nil {
 		t.Fatalf("processDiary empty content: %v", err)
 	}
 
@@ -377,7 +378,7 @@ func TestHelpersAndEdgeCases(t *testing.T) {
 		Content: "plain text",
 		Updated: time.Now().UTC().Format(time.RFC3339Nano),
 	}
-	if err := service.processDiary(context.Background(), collection, diary, embeddingFunc); err != nil {
+	if err := service.processDiary(context.Background(), collection, diary, embeddingFunc, nil); err != nil {
 		t.Fatalf("processDiary: %v", err)
 	}
 	if service.needsBuildVector(context.Background(), nil, diary) == false {
@@ -583,8 +584,11 @@ func TestIncrementalBuildAndStatsEdges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetVectorStats metadata edges: %v", err)
 	}
-	if stats.OutdatedCount != 3 || stats.DiaryCount != 3 {
-		t.Fatalf("GetVectorStats metadata edges = %#v, want 3 outdated of 3", stats)
+	// invalid-updated 的 content_updated 正常但 chromem 里没有 → Pending
+	// missing-built-at chromem 里有但没 built_at metadata → Outdated
+	// bad-built-at chromem 里有但 built_at 不能解析 → Outdated
+	if stats.DiaryCount != 3 || stats.PendingCount != 1 || stats.OutdatedCount != 2 {
+		t.Fatalf("GetVectorStats metadata edges = %#v, want 3 diaries: 1 pending + 2 outdated", stats)
 	}
 
 	if err := s.Close(); err != nil {
