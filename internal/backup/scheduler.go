@@ -101,7 +101,7 @@ func (sc *Scheduler) execute(userID string) error {
 		return err
 	}
 
-	filename := fmt.Sprintf("diarum_backup_%s.zip", time.Now().UTC().Format("20060102_150405"))
+	filename := fmt.Sprintf("diarum_backup_%s.zip", time.Now().Format("20060102_150405"))
 	filePath := filepath.Join(backupDir, filename)
 	if err := os.WriteFile(filePath, buf.Bytes(), 0644); err != nil {
 		logger.Error("[Backup] failed to write %s: %v", filePath, err)
