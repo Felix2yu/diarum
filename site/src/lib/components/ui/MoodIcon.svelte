@@ -9,28 +9,28 @@
 
 	const moodConfigs: Record<number, { bg: string; face: string; label: string }> = {
 		1: {
-			bg: '#FEE2E2',
-			face: '#DC2626',
+			bg: '#FCA5A5',
+			face: '#991B1B',
 			label: '非常不愉快'
 		},
 		2: {
-			bg: '#FFEDD5',
-			face: '#EA580C',
+			bg: '#FDBA74',
+			face: '#9A3412',
 			label: '不愉快'
 		},
 		3: {
-			bg: '#FEF9C3',
-			label: '不悲不喜',
-			face: '#CA8A04'
+			bg: '#FDE047',
+			face: '#854D0E',
+			label: '不悲不喜'
 		},
 		4: {
-			bg: '#DBEAFE',
-			face: '#2563EB',
+			bg: '#93C5FD',
+			face: '#1E40AF',
 			label: '愉快'
 		},
 		5: {
-			bg: '#DCFCE7',
-			face: '#16A34A',
+			bg: '#86EFAC',
+			face: '#166534',
 			label: '非常愉快'
 		}
 	};

@@ -937,13 +937,13 @@
 									title={level.label}
 									aria-label={`心情 ${level.label}`}
 								>
-									<span class="mood-slider-emoji">{level.emoji}</span>
+									<span class="mood-slider-emoji"><MoodIcon mood={level.value} size={24} /></span>
 								</button>
 							{/each}
 						</div>
 						{#if selectedMood > 0}
 							<div class="text-center text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
-								<MoodIcon mood={selectedMood} size={16} />
+								<MoodIcon mood={selectedMood} size={20} />
 								<span>{MOOD_SCALE.find(l => l.value === selectedMood)?.label || ''}</span>
 							</div>
 						{/if}
@@ -1181,13 +1181,13 @@
 										title={level.label}
 										aria-label={`心情 ${level.label}`}
 									>
-								<span class="mood-slider-emoji"><MoodIcon mood={level.value} size={20} /></span>
+								<span class="mood-slider-emoji"><MoodIcon mood={level.value} size={24} /></span>
 									</button>
 								{/each}
 							</div>
 							{#if selectedMood > 0}
 								<div class="text-center text-xs text-muted-foreground mt-2 flex items-center justify-center gap-1">
-									<MoodIcon mood={selectedMood} size={16} />
+									<MoodIcon mood={selectedMood} size={20} />
 									<span>{MOOD_SCALE.find(l => l.value === selectedMood)?.label || ''}</span>
 								</div>
 							{/if}
@@ -1519,7 +1519,7 @@
 									title={level.label}
 									aria-label={`心情 ${level.label}`}
 								>
-									<span class="mood-slider-emoji"><MoodIcon mood={level.value} size={20} /></span>
+								<span class="mood-slider-emoji"><MoodIcon mood={level.value} size={24} /></span>
 								</button>
 							{/each}
 						</div>
