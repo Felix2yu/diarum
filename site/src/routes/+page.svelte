@@ -73,7 +73,7 @@
 
 {#if !ready}
 	<div class="flex items-center justify-center min-h-screen">
-		<p class="text-muted-foreground">加载中...</p>
+		<p class="text-muted-foreground">加载中…</p>
 	</div>
 {:else}
 	<div class="min-h-screen min-h-[100dvh] flex flex-col bg-background">
@@ -95,8 +95,9 @@
 			</div>
 		</nav>
 
-		<!-- Hero Section -->
-		<section class="pt-32 pb-20 container-responsive">
+		<main id="main-content" tabindex="-1">
+			<!-- Hero Section -->
+			<section class="pt-32 pb-20 container-responsive">
 			<div class="max-w-4xl mx-auto text-center animate-fade-in">
 				<h1 class="text-4xl sm:text-5xl lg:text-6xl font-bold text-foreground mb-6 leading-tight">
 					你的个人空间，用于
@@ -312,5 +313,6 @@
 				</p>
 			</div>
 		</section>
+		</main>
 </div>
 {/if}

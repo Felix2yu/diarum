@@ -1130,7 +1130,9 @@
 	<!-- Main Content -->
 	<div class="container-responsive py-6 flex-1">
 		<div class="flex justify-center">
-			<main class="w-full max-w-5xl">
+			<main id="main-content" tabindex="-1" class="w-full max-w-5xl">
+				<!-- 页面标题 - 视觉隐藏，用于屏幕阅读器的文档结构 -->
+				<h1 class="sr-only">设置 — 个性化你的吾身应用</h1>
 				<div class="mb-4 space-y-3">
 					<div class="sm:hidden">
 						<label for="settings-tab-select" class="sr-only">选择设置分区</label>

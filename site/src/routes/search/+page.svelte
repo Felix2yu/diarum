@@ -98,7 +98,7 @@
 <div class="flex flex-col min-h-screen min-h-[100dvh] bg-background">
 	<PageHeader title="搜索" />
 
-	<main class="container-responsive py-8 flex-1">
+	<main id="main-content" tabindex="-1" class="container-responsive py-8 flex-1">
 		<div class="mb-8 animate-fade-in">
 			<h1 class="text-2xl font-bold text-foreground mb-2">搜索日记</h1>
 			<p class="text-sm text-muted-foreground">通过关键词查找你的日记条目</p>

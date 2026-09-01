@@ -783,7 +783,9 @@
 	<div class="container-responsive py-6 flex-1 flex flex-col">
 		<!-- 主内容布局：导航条与编辑器同宽 -->
 		<div class="diary-layout flex gap-6 mx-auto transition-all duration-300 flex-1 min-h-0" class:with-desktop-sidebar={showDesktopToc}>
-			<main class="diary-main w-full min-w-0 flex flex-col min-h-0">
+			<main id="main-content" tabindex="-1" class="diary-main w-full min-w-0 flex flex-col min-h-0">
+			<!-- 页面标题 - 视觉隐藏，用于屏幕阅读器的文档结构 -->
+			<h1 class="sr-only">日记：{formatDisplayDate(date)} — 编辑与记录</h1>
 			<!-- 日期导航：紧贴编辑器上方，宽度随编辑器一致 -->
 			<div class="mb-4">
 				<div class="flex items-center bg-card rounded-xl border border-border/50 px-3 py-2.5 shadow-sm hover:shadow-md transition-shadow">
@@ -1655,7 +1657,7 @@
 		border: 2px solid hsl(var(--border) / 0.6);
 		background: hsl(var(--background));
 		cursor: pointer;
-		transition: all 0.2s ease;
+	transition: transform, background-color, border-color, opacity 0.2s ease;
 	}
 
 	.mood-slider-stop:hover {
@@ -1689,7 +1691,7 @@
 		font-size: 0.7rem;
 		color: hsl(var(--muted-foreground));
 		cursor: pointer;
-		transition: all 0.15s ease;
+		transition: transform, background-color, color, opacity 0.15s ease;
 		white-space: nowrap;
 	}
 

@@ -94,7 +94,7 @@
 <div class="flex flex-col min-h-screen min-h-[100dvh] bg-background">
 	<PageHeader title="心情筛选" />
 
-	<main class="container-responsive py-8 flex-1">
+	<main id="main-content" tabindex="-1" class="container-responsive py-8 flex-1">
 		<!-- Header -->
 		<div class="mb-8 animate-fade-in">
 			<h1 class="text-2xl font-bold text-foreground mb-2">心情筛选</h1>
@@ -268,7 +268,7 @@
 		border: 2px solid hsl(var(--border) / 0.6);
 		background: hsl(var(--background));
 		cursor: pointer;
-		transition: all 0.2s ease;
+	transition: transform, background-color, border-color, opacity 0.2s ease;
 	}
 
 	.mood-slider-stop:hover {
@@ -302,7 +302,7 @@
 		font-size: 0.75rem;
 		color: hsl(var(--muted-foreground));
 		cursor: pointer;
-		transition: all 0.15s ease;
+	transition: transform, background-color, color, opacity 0.15s ease;
 		white-space: nowrap;
 	}
 

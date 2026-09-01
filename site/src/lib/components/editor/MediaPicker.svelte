@@ -197,7 +197,7 @@
 		border-radius: 6px;
 		color: hsl(var(--muted-foreground, 0 0% 50%));
 		cursor: pointer;
-		transition: all 0.15s ease;
+		transition: background-color, color, opacity 0.15s ease;
 	}
 
 	.close-btn:hover {
@@ -282,7 +282,7 @@
 		background: hsl(var(--muted, 0 0% 95%) / 0.3);
 		border: 2px solid transparent;
 		cursor: pointer;
-		transition: all 0.15s ease;
+		transition: background-color, border-color, transform, opacity 0.15s ease;
 		padding: 0;
 	}
 
@@ -334,7 +334,7 @@
 		background: transparent;
 		color: hsl(var(--foreground, 0 0% 10%));
 		cursor: pointer;
-		transition: all 0.15s ease;
+		transition: background-color, color, opacity 0.15s ease;
 	}
 
 	.media-picker-footer button:hover:not(:disabled) {
