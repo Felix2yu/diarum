@@ -1181,7 +1181,7 @@
 										title={level.label}
 										aria-label={`心情 ${level.label}`}
 									>
-										<span class="mood-slider-emoji">{level.emoji}</span>
+								<span class="mood-slider-emoji"><MoodIcon mood={level.value} size={20} /></span>
 									</button>
 								{/each}
 							</div>
@@ -1519,7 +1519,7 @@
 									title={level.label}
 									aria-label={`心情 ${level.label}`}
 								>
-									<span class="mood-slider-emoji">{level.emoji}</span>
+									<span class="mood-slider-emoji"><MoodIcon mood={level.value} size={20} /></span>
 								</button>
 							{/each}
 						</div>
