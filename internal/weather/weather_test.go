@@ -2234,3 +2234,18 @@ func TestSchedulerExecute_PastDateWeather(t *testing.T) {
 
 	_ = sc.execute("test-user5")
 }
+
+func TestSchedulerStart_WithUsers(t *testing.T) {
+	sc, cleanup := newTestScheduler(t)
+	defer cleanup()
+
+	// Create a user that will be picked up by Start
+	_, err := sc.store.DB.Exec(`INSERT INTO users (id, username, passwordHash, tokenKey, created, updated) VALUES (?, ?, ?, ?, ?, ?)`,
+		"weather-user", "weatheruser", "hash", "key", time.Now(), time.Now())
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	sc.Start()
+	// No panic = success; coverage comes from the Refresh loop body running
+}

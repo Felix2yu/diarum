@@ -3051,3 +3051,117 @@ func TestUpsertDiaryExplicitZeroClearsFields(t *testing.T) {
 }
 
 func floatPtr(v float64) *float64 { return &v }
+
+func TestStoreS3PublicHelpers(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	// UserS3Config with no S3 settings → nil
+	if cfg := s.UserS3Config(user.ID); cfg != nil {
+		t.Fatalf("UserS3Config empty settings = %#v, want nil", cfg)
+	}
+
+	// UserS3Config with empty userID → nil (userS3Config guard)
+	if cfg := s.UserS3Config(""); cfg != nil {
+		t.Fatalf("UserS3Config empty userID = %#v, want nil", cfg)
+	}
+
+	// Configure S3 settings for the user
+	for key, value := range map[string]any{
+		"image_upload.s3.bucket":     "diarum-bucket",
+		"image_upload.s3.region":     "us-east-1",
+		"image_upload.s3.endpoint":   "https://s3.example.com",
+		"image_upload.s3.access_key": "AKIA_TEST",
+		"image_upload.s3.secret":     "super-secret",
+	} {
+		if err := s.SetSetting(user.ID, key, value, false); err != nil {
+			t.Fatalf("SetSetting %s: %v", key, err)
+		}
+	}
+
+	cfg := s.UserS3Config(user.ID)
+	if cfg == nil {
+		t.Fatal("UserS3Config should return config after settings")
+	}
+	if cfg.Bucket != "diarum-bucket" || cfg.Region != "us-east-1" {
+		t.Fatalf("UserS3Config fields = %+v", cfg)
+	}
+
+	// DeleteObjectFromS3: empty key → no-op
+	if err := s.DeleteObjectFromS3(user.ID, ""); err != nil {
+		t.Fatalf("DeleteObjectFromS3 empty key: %v", err)
+	}
+
+	// DeleteObjectFromS3: user with no S3 config → no-op
+	user2 := newTestUser(t, s)
+	if err := s.DeleteObjectFromS3(user2.ID, "some/key"); err != nil {
+		t.Fatalf("DeleteObjectFromS3 no S3: %v", err)
+	}
+
+	// UploadToS3: no S3 config → error
+	err := s.UploadToS3(user2.ID, "some/key", []byte("data"))
+	if err == nil {
+		t.Fatal("UploadToS3 no S3 should error")
+	}
+
+	// UploadToS3 with valid S3 config but unreachable endpoint → network error
+	err = s.UploadToS3(user.ID, "some/key", []byte("data"))
+	if err == nil {
+		t.Fatal("UploadToS3 against fake endpoint should fail")
+	}
+
+	// DeleteObjectFromS3 with valid S3 config but unreachable endpoint → network error (not NoSuchKey)
+	err = s.DeleteObjectFromS3(user.ID, "some/key")
+	if err == nil {
+		t.Fatal("DeleteObjectFromS3 against fake endpoint should fail")
+	}
+}
+
+func TestStoreS3WithMockServer(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+
+	// Start a mock S3-compatible HTTP server
+	var sawPut, sawDelete bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodPut:
+			sawPut = true
+			w.WriteHeader(http.StatusOK)
+		case http.MethodDelete:
+			sawDelete = true
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			w.WriteHeader(http.StatusMethodNotAllowed)
+		}
+	}))
+	defer server.Close()
+
+	// Configure S3 settings pointing to the mock server
+	for key, value := range map[string]any{
+		"image_upload.s3.bucket":           "test-bucket",
+		"image_upload.s3.region":           "us-east-1",
+		"image_upload.s3.endpoint":         server.URL,
+		"image_upload.s3.access_key":       "AKIA_MOCK",
+		"image_upload.s3.secret":           "mock-secret",
+		"image_upload.s3.force_path_style": true,
+	} {
+		if err := s.SetSetting(user.ID, key, value, false); err != nil {
+			t.Fatalf("SetSetting %s: %v", key, err)
+		}
+	}
+
+	if err := s.UploadToS3(user.ID, "test/file.txt", []byte("hello")); err != nil {
+		t.Fatalf("UploadToS3: %v", err)
+	}
+	if !sawPut {
+		t.Fatal("expected PUT request to mock S3 server")
+	}
+
+	if err := s.DeleteObjectFromS3(user.ID, "test/file.txt"); err != nil {
+		t.Fatalf("DeleteObjectFromS3: %v", err)
+	}
+	if !sawDelete {
+		t.Fatal("expected DELETE request to mock S3 server")
+	}
+}

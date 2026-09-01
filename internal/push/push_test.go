@@ -497,3 +497,54 @@ func TestExecuteSendsWhenNotWritten(t *testing.T) {
 		t.Fatalf("push calls=%d want 1", calls)
 	}
 }
+
+func TestEnsureVAPIDKeys_PreExisting(t *testing.T) {
+	s, _, _, sender, _ := newHarness(t)
+
+	// Pre-populate both keys in the store
+	if err := s.SetVAPIDKey("public", "stored-public-key"); err != nil {
+		t.Fatalf("set public: %v", err)
+	}
+	if err := s.SetVAPIDKey("private", "stored-private-key"); err != nil {
+		t.Fatalf("set private: %v", err)
+	}
+
+	if err := sender.EnsureVAPIDKeys(); err != nil {
+		t.Fatalf("EnsureVAPIDKeys pre-existing: %v", err)
+	}
+	if sender.pubKey != "stored-public-key" || sender.privKey != "stored-private-key" {
+		t.Fatalf("keys not loaded: pub=%q priv=%q", sender.pubKey, sender.privKey)
+	}
+
+	// Second call should short-circuit via s.loaded
+	if err := sender.EnsureVAPIDKeys(); err != nil {
+		t.Fatalf("second EnsureVAPIDKeys: %v", err)
+	}
+}
+
+func TestEnsureVAPIDKeys_MissingPrivate(t *testing.T) {
+	s, _, _, sender, _ := newHarness(t)
+
+	if err := s.SetVAPIDKey("public", "orphan-public"); err != nil {
+		t.Fatalf("set public: %v", err)
+	}
+
+	err := sender.EnsureVAPIDKeys()
+	if err == nil || !strings.Contains(err.Error(), "private key is missing") {
+		t.Fatalf("expected missing private key error, got: %v", err)
+	}
+}
+
+func TestPushSchedulerStart_WithUsers(t *testing.T) {
+	s, u, cfg, _, sc := newHarness(t)
+	_ = cfg.Set(u.ID, "webpush.enabled", true)
+
+	// Start should ensure VAPID keys and register timers
+	sc.Start()
+
+	// VAPID keys should now exist
+	pub, err := s.GetVAPIDKey("public")
+	if err != nil || pub == "" {
+		t.Fatalf("VAPID public key should be set: pub=%q err=%v", pub, err)
+	}
+}
