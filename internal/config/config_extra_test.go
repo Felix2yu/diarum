@@ -73,3 +73,44 @@ func TestConfigValidateTokenAndGetUser(t *testing.T) {
 		t.Fatalf("ValidateTokenAndGetUser disabled err = %v, want ErrAPIDisabled", err)
 	}
 }
+
+func TestConfigGetInt_AdditionalCases(t *testing.T) {
+	s := newTestStore(t)
+	cfg := config.NewConfigService(s)
+	user, err := s.CreateUser("intuser2", "int2@example.com", "hash")
+	if err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+
+	// String value that parses to int -> string case (Atoi success)
+	if err := cfg.Set(user.ID, "backup.retention_days", "14"); err != nil {
+		t.Fatalf("Set string: %v", err)
+	}
+	if v, err := cfg.GetInt(user.ID, "backup.retention_days"); err != nil || v != 14 {
+		t.Fatalf("GetInt string = %d, %v", v, err)
+	}
+
+	// String value that cannot be parsed -> default
+	if err := cfg.Set(user.ID, "backup.retention_days", "not-a-number"); err != nil {
+		t.Fatalf("Set bad string: %v", err)
+	}
+	if v, err := cfg.GetInt(user.ID, "backup.retention_days"); err != nil || v != 0 {
+		t.Fatalf("GetInt bad string = %d, %v", v, err)
+	}
+
+	// Boolean value -> default (nil return)
+	if err := cfg.Set(user.ID, "backup.retention_days", true); err != nil {
+		t.Fatalf("Set bool: %v", err)
+	}
+	if v, err := cfg.GetInt(user.ID, "backup.retention_days"); err != nil || v != 0 {
+		t.Fatalf("GetInt bool = %d, %v", v, err)
+	}
+
+	// Overwrite back to int via float64
+	if err := cfg.Set(user.ID, "backup.retention_days", 30); err != nil {
+		t.Fatalf("Set float: %v", err)
+	}
+	if v, err := cfg.GetInt(user.ID, "backup.retention_days"); err != nil || v != 30 {
+		t.Fatalf("GetInt float = %d, %v", v, err)
+	}
+}

@@ -75,6 +75,22 @@ func TestAllLevelsExhaustive(t *testing.T) {
 
 // TestInitLogLevelFromEnv verifies the package init() reads LOG_LEVEL / DEBUG
 // environment variables through the exported LevelFromEnv helper.
+func TestStructuredLoggers(t *testing.T) {
+	original := GetLevel()
+	t.Cleanup(func() {
+		SetLevel(original)
+	})
+
+	// Infow / Errorw bypass the level gate — they always emit.
+	SetLevel(LevelError)
+	Infow("structured-info", "key1", "val1", "count", 42)
+	Errorw("structured-error", "error", "boom", "code", 500)
+
+	SetLevel(LevelDebug)
+	Infow("structured-info-debug", "enabled", true)
+	Errorw("structured-error-debug", "fatal", false)
+}
+
 func TestInitLogLevelFromEnv(t *testing.T) {
 	cases := []struct {
 		name     string
