@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
@@ -94,6 +95,10 @@ func (s *Server) registerDiaryTools() {
 
 		date := req.GetString("date", "")
 		content := req.GetString("content", "")
+
+		// 处理 AI 客户端可能对换行符进行的双重转义
+		// 将字面量 \n 替换为真正的换行符
+		content = strings.ReplaceAll(content, "\\n", "\n")
 
 		// Distinguish "field not provided" from "explicit zero value" by checking
 		// whether the key exists in the raw arguments map. A missing key is passed
