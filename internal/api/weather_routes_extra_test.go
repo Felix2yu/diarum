@@ -83,7 +83,7 @@ func setupBackfillUser(t *testing.T, s *store.Store, user *store.User) {
 // createDiaryOnDate inserts a diary with explicit date + weather for backfill.
 func createDiaryOnDate(t *testing.T, s *store.Store, user *store.User, date, weather, content string) {
 	t.Helper()
-	if _, err := s.InsertImportedDiary(user.ID, "", date, content, 0, nil, nil, weather, nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "", date, content, 0, nil, nil, weather, nil, "", 0, 0); err != nil {
 		t.Fatalf("InsertImportedDiary: %v", err)
 	}
 }

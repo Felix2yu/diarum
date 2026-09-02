@@ -94,11 +94,11 @@ func TestSearchPromptsAndHelpers(t *testing.T) {
 	user := newTestUser(t, s)
 	service := NewChatService(s, nil)
 
-	first, err := s.InsertImportedDiary(user.ID, "", "2024-01-01", "A very sunny day", 4, nil, nil, "sunny", nil)
+	first, err := s.InsertImportedDiary(user.ID, "", "2024-01-01", "A very sunny day", 4, nil, nil, "sunny", nil, "", 0, 0)
 	if err != nil {
 		t.Fatalf("InsertImportedDiary first: %v", err)
 	}
-	_, err = s.InsertImportedDiary(user.ID, "", "2024-01-02", "A rainy day", 2, nil, nil, "rainy", nil)
+	_, err = s.InsertImportedDiary(user.ID, "", "2024-01-02", "A rainy day", 2, nil, nil, "rainy", nil, "", 0, 0)
 	if err != nil {
 		t.Fatalf("InsertImportedDiary second: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestStreamChatWithToolCall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateConversation: %v", err)
 	}
-	diary, err := s.InsertImportedDiary(user.ID, "", "2024-01-01", "First diary", 4, nil, nil, "sunny", nil)
+	diary, err := s.InsertImportedDiary(user.ID, "", "2024-01-01", "First diary", 4, nil, nil, "sunny", nil, "", 0, 0)
 	if err != nil {
 		t.Fatalf("InsertImportedDiary: %v", err)
 	}
@@ -299,7 +299,7 @@ func TestSearchAndQueryRelevantDiariesEdges(t *testing.T) {
 	}
 
 	for i := 0; i < 12; i++ {
-		if _, err := s.InsertImportedDiary(user.ID, "", fmt.Sprintf("2024-02-%02d", i+1), "sunny topic", 0, nil, nil, "", nil); err != nil {
+		if _, err := s.InsertImportedDiary(user.ID, "", fmt.Sprintf("2024-02-%02d", i+1), "sunny topic", 0, nil, nil, "", nil, "", 0, 0); err != nil {
 			t.Fatalf("InsertImportedDiary %d: %v", i, err)
 		}
 	}

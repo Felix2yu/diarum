@@ -400,7 +400,7 @@ func TestDiaryMediaAndPublicRoutes(t *testing.T) {
 		t.Fatalf("changeCount after upsert = %d, want 1", changeCount)
 	}
 
-	if _, err := s.InsertImportedDiary(user.ID, "", "2024-03-02", "Search me later", 4, nil, nil, "cloudy", nil); err != nil {
+	if _, err := s.InsertImportedDiary(user.ID, "", "2024-03-02", "Search me later", 4, nil, nil, "cloudy", nil, "", 0, 0); err != nil {
 		t.Fatalf("InsertImportedDiary: %v", err)
 	}
 

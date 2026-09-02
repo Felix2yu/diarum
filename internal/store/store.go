@@ -2094,7 +2094,7 @@ func scanMessage(row interface{ Scan(dest ...any) error }) (*Message, error) {
 	return msg, nil
 }
 
-func (s *Store) InsertImportedDiary(owner, id, date, content string, mood int, moodStates []string, scenarios []string, weather string, tags []string) (*Diary, error) {
+func (s *Store) InsertImportedDiary(owner, id, date, content string, mood int, moodStates []string, scenarios []string, weather string, tags []string, city string, tempMin, tempMax float64) (*Diary, error) {
 	if id == "" {
 		var err error
 		id, err = GenerateID()
@@ -2103,7 +2103,7 @@ func (s *Store) InsertImportedDiary(owner, id, date, content string, mood int, m
 		}
 	}
 	now := nowString()
-	_, err := s.DB.Exec(`INSERT INTO diaries(content, content_updated, created, date, id, mood, mood_states, scenarios, owner, updated, weather, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, content, now, now, date+" 00:00:00.000Z", id, mood, encodeJSON(moodStates), encodeJSON(scenarios), owner, now, weather, encodeJSON(normalizeTags(tags)))
+	_, err := s.DB.Exec(`INSERT INTO diaries(content, content_updated, created, date, id, mood, mood_states, scenarios, owner, updated, weather, city, temp_min, temp_max, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, content, now, now, date+" 00:00:00.000Z", id, mood, encodeJSON(moodStates), encodeJSON(scenarios), owner, now, weather, city, tempMin, tempMax, encodeJSON(normalizeTags(tags)))
 	if err != nil {
 		return nil, err
 	}

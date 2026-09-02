@@ -63,6 +63,10 @@ type exportDiary struct {
 	MoodStates []string `json:"mood_states,omitempty"`
 	Scenarios  []string `json:"scenarios,omitempty"`
 	Weather    string   `json:"weather,omitempty"`
+	City       string   `json:"city,omitempty"`
+	TempMin    float64  `json:"temp_min,omitempty"`
+	TempMax    float64  `json:"temp_max,omitempty"`
+	Tags       []string `json:"tags,omitempty"`
 }
 
 type exportMedia struct {
@@ -196,7 +200,7 @@ func BuildExportZip(s *store.Store, userID string, req ExportRequest) (*bytes.Bu
 		for _, d := range allDiaries {
 			date := store.DateOnly(d.Date)
 			if isDateInRange(date, startDate, endDate) {
-				exportDiaries = append(exportDiaries, exportDiary{ID: d.ID, Date: date, Content: d.Content, Mood: d.Mood, MoodStates: d.MoodStates, Scenarios: d.Scenarios, Weather: d.Weather})
+				exportDiaries = append(exportDiaries, exportDiary{ID: d.ID, Date: date, Content: d.Content, Mood: d.Mood, MoodStates: d.MoodStates, Scenarios: d.Scenarios, Weather: d.Weather, City: d.City, TempMin: d.TempMin, TempMax: d.TempMax, Tags: d.Tags})
 			}
 		}
 	}
@@ -418,7 +422,7 @@ func handleImport(c *echo.Context, s *store.Store, embeddingService *embedding.E
 			diaryIDMap[d.ID] = ""
 			continue
 		}
-		diary, err := s.InsertImportedDiary(userID, "", d.Date, d.Content, d.Mood, d.MoodStates, d.Scenarios, d.Weather, nil)
+		diary, err := s.InsertImportedDiary(userID, "", d.Date, d.Content, d.Mood, d.MoodStates, d.Scenarios, d.Weather, d.Tags, d.City, d.TempMin, d.TempMax)
 		if err != nil {
 			stats.Diaries.Failed++
 			stats.DiaryDetails = append(stats.DiaryDetails, importDiaryDetail{Date: d.Date, Status: "failed", Reason: err.Error()})
@@ -524,7 +528,7 @@ func handleResolveConflict(c *echo.Context, s *store.Store, embeddingService *em
 			return badRequest("Failed to delete old diary", err)
 		}
 	}
-	diary, err := s.InsertImportedDiary(userID, "", req.Date, req.Content, req.Mood, nil, nil, req.Weather, nil)
+	diary, err := s.InsertImportedDiary(userID, "", req.Date, req.Content, req.Mood, nil, nil, req.Weather, nil, "", 0, 0)
 	if err != nil {
 		return badRequest("Failed to insert new diary", err)
 	}
@@ -613,8 +617,11 @@ func parseMarkdownFile(name string, content []byte) *exportDiary {
 	}
 	mood := 0
 	weather := ""
+	city := ""
+	var tempMin, tempMax float64
 	moodStates := make([]string, 0)
 	scenarios := make([]string, 0)
+	tags := make([]string, 0)
 	contentLines := make([]string, 0, len(lines))
 	for _, line := range lines {
 		trimmed := strings.TrimSpace(line)
@@ -679,10 +686,52 @@ func parseMarkdownFile(name string, content []byte) *exportDiary {
 			weather = val
 			continue
 		}
+		if strings.HasPrefix(trimmed, "**城市：**") || strings.HasPrefix(trimmed, "**城市:**") || strings.HasPrefix(trimmed, "**City:**") || strings.HasPrefix(trimmed, "**city:**") {
+			val := trimmed
+			for _, prefix := range []string{"**城市：**", "**城市:**", "**City:**", "**city:**"} {
+				if strings.HasPrefix(val, prefix) {
+					val = strings.TrimSpace(strings.TrimPrefix(val, prefix))
+					break
+				}
+			}
+			city = val
+			continue
+		}
+		if strings.HasPrefix(trimmed, "**温度：**") || strings.HasPrefix(trimmed, "**温度:**") || strings.HasPrefix(trimmed, "**Temp:**") || strings.HasPrefix(trimmed, "**temp:**") {
+			val := trimmed
+			for _, prefix := range []string{"**温度：**", "**温度:**", "**Temp:**", "**temp:**"} {
+				if strings.HasPrefix(val, prefix) {
+					val = strings.TrimSpace(strings.TrimPrefix(val, prefix))
+					break
+				}
+			}
+			if val != "" {
+				fmt.Sscanf(val, "%f-%f", &tempMin, &tempMax)
+			}
+			continue
+		}
+		if strings.HasPrefix(trimmed, "**标签：**") || strings.HasPrefix(trimmed, "**标签:**") || strings.HasPrefix(trimmed, "**Tags:**") || strings.HasPrefix(trimmed, "**tags:**") {
+			val := trimmed
+			for _, prefix := range []string{"**标签：**", "**标签:**", "**Tags:**", "**tags:**"} {
+				if strings.HasPrefix(val, prefix) {
+					val = strings.TrimSpace(strings.TrimPrefix(val, prefix))
+					break
+				}
+			}
+			if val != "" {
+				for _, s := range strings.Split(val, ",") {
+					s = strings.TrimSpace(s)
+					if s != "" {
+						tags = append(tags, s)
+					}
+				}
+			}
+			continue
+		}
 		contentLines = append(contentLines, line)
 	}
 	content = []byte(strings.TrimSpace(strings.Join(contentLines, "\n")))
-	return &exportDiary{Date: date, Content: string(content), Mood: mood, MoodStates: moodStates, Scenarios: scenarios, Weather: weather}
+	return &exportDiary{Date: date, Content: string(content), Mood: mood, MoodStates: moodStates, Scenarios: scenarios, Weather: weather, City: city, TempMin: tempMin, TempMax: tempMax, Tags: tags}
 }
 
 func generateMarkdown(d exportDiary) string {
@@ -700,7 +749,16 @@ func generateMarkdown(d exportDiary) string {
 	if d.Weather != "" {
 		sb.WriteString("**天气：** " + d.Weather + "\n")
 	}
-	if d.Mood != 0 || d.Weather != "" || len(d.MoodStates) > 0 || len(d.Scenarios) > 0 {
+	if d.City != "" {
+		sb.WriteString("**城市：** " + d.City + "\n")
+	}
+	if d.TempMin != 0 || d.TempMax != 0 {
+		sb.WriteString(fmt.Sprintf("**温度：** %.0f-%.0f\n", d.TempMin, d.TempMax))
+	}
+	if len(d.Tags) > 0 {
+		sb.WriteString("**标签：** " + strings.Join(d.Tags, ", ") + "\n")
+	}
+	if d.Mood != 0 || d.Weather != "" || len(d.MoodStates) > 0 || len(d.Scenarios) > 0 || len(d.Tags) > 0 {
 		sb.WriteString("\n")
 	}
 	sb.WriteString(d.Content)
