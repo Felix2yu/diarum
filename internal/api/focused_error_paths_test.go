@@ -1115,3 +1115,40 @@ func TestImageUploadSettingsRoutes(t *testing.T) {
 		t.Fatalf("PUT /image-upload/settings unknown provider status = %d", rec.Code)
 	}
 }
+
+func TestImportAnalysesStats(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	e := echo.New()
+	RegisterExportImportRoutes(e, s, authMiddlewareFor(user), nil)
+
+	input := exportData{
+		Version:    1,
+		ExportedAt: "2024-02-01T00:00:00Z",
+		Analyses: []exportAnalysis{
+			{ID: "a1", Period: "week", PeriodKey: "2024-W05", StartDate: "2024-01-29", EndDate: "2024-02-04", DiaryCount: 7, Summary: "week summary", Created: "now"},
+			{ID: "a2", Period: "month", PeriodKey: "2024-01", StartDate: "2024-01-01", EndDate: "2024-01-31", DiaryCount: 30, Summary: "month summary", Created: "now"},
+		},
+	}
+
+	body, contentType := multipartRequestBody(t, "file", "analysis.zip", buildImportZip(t, input, nil), nil)
+	rec := performRequest(t, e, http.MethodPost, "/api/v1/import", body, map[string]string{"Content-Type": contentType})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST import analyses status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSONBody(t, rec)
+	analyses := payload["analyses"].(map[string]any)
+	if analyses["imported"] != float64(2) || analyses["conflict"] != float64(0) {
+		t.Fatalf("analyses imported payload = %#v", analyses)
+	}
+
+	body, contentType = multipartRequestBody(t, "file", "analysis.zip", buildImportZip(t, input, nil), nil)
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/import", body, map[string]string{"Content-Type": contentType})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST import analyses repeat status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	analyses = decodeJSONBody(t, rec)["analyses"].(map[string]any)
+	if analyses["conflict"] != float64(2) {
+		t.Fatalf("analyses repeat conflict payload = %#v", analyses)
+	}
+}

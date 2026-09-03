@@ -4,7 +4,9 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -120,6 +122,7 @@ type importStats struct {
 	DiaryDetails  []importDiaryDetail `json:"diary_details,omitempty"`
 	Media         importCounters      `json:"media"`
 	Conversations importCounters      `json:"conversations"`
+	Analyses      importCounters      `json:"analyses"`
 }
 
 type importCounters struct {
@@ -417,7 +420,7 @@ func handleImport(c *echo.Context, s *store.Store, embeddingService *embedding.E
 			return badRequest("ZIP missing diarum_export.json or .md files", nil)
 		}
 	}
-	stats := importStats{Diaries: importCounters{Total: len(data.Diaries)}, Media: importCounters{Total: len(data.Media)}, Conversations: importCounters{Total: len(data.Conversations)}, DiaryDetails: make([]importDiaryDetail, 0)}
+	stats := importStats{Diaries: importCounters{Total: len(data.Diaries)}, Media: importCounters{Total: len(data.Media)}, Conversations: importCounters{Total: len(data.Conversations)}, Analyses: importCounters{Total: len(data.Analyses)}, DiaryDetails: make([]importDiaryDetail, 0)}
 	diaryIDMap := make(map[string]string)
 	for _, d := range data.Diaries {
 		if d.Date == "" {
@@ -505,12 +508,30 @@ func handleImport(c *echo.Context, s *store.Store, embeddingService *embedding.E
 		stats.Conversations.Imported++
 	}
 	for _, a := range data.Analyses {
-		_, _ = s.SavePeriodAnalysis(userID, a.Period, a.PeriodKey, a.StartDate, a.EndDate, a.DiaryCount, a.Summary, "", "", a.Keywords)
+		imported, err := importAnalysis(s, userID, a.Period, a.PeriodKey, a.StartDate, a.EndDate, a.DiaryCount, a.Summary, a.Keywords)
+		if err != nil {
+			stats.Analyses.Failed++
+			continue
+		}
+		if imported {
+			stats.Analyses.Imported++
+		} else {
+			stats.Analyses.Conflict++
+		}
 	}
 	for _, content := range analysisFiles {
 		a := parseAnalysisMarkdown(content)
 		if a != nil {
-			_, _ = s.SavePeriodAnalysis(userID, a.Period, a.PeriodKey, a.StartDate, a.EndDate, a.DiaryCount, a.Summary, "", "", a.Keywords)
+			imported, err := importAnalysis(s, userID, a.Period, a.PeriodKey, a.StartDate, a.EndDate, a.DiaryCount, a.Summary, a.Keywords)
+			if err != nil {
+				stats.Analyses.Failed++
+				continue
+			}
+			if imported {
+				stats.Analyses.Imported++
+			} else {
+				stats.Analyses.Conflict++
+			}
 		}
 	}
 	if embeddingService != nil {
@@ -622,6 +643,22 @@ func handleBatchResolveConflict(c *echo.Context, s *store.Store, embeddingServic
 
 func isValidZipPath(name string) bool {
 	return !strings.Contains(name, "..") && !strings.HasPrefix(name, "/") && !strings.HasPrefix(name, "\\")
+}
+
+// importAnalysis saves a period analysis, returning true if it was newly
+// created (no conflicting existing record) and false if it overwrote an
+// existing one (conflict). On error the caller counts it as failed.
+func importAnalysis(s *store.Store, userID string, period, periodKey, startDate, endDate string, diaryCount int, summary, keywords string) (bool, error) {
+	existing, err := s.GetPeriodAnalysis(userID, period, periodKey, startDate, endDate, keywords)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return false, err
+	}
+	overwrote := existing != nil
+	_, err = s.SavePeriodAnalysis(userID, period, periodKey, startDate, endDate, diaryCount, summary, "", "", keywords)
+	if err != nil {
+		return false, err
+	}
+	return !overwrote, nil
 }
 
 func parseAnalysisMarkdown(content []byte) *exportAnalysis {

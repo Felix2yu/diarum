@@ -3095,6 +3095,22 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '<your-t
 										{/if}
 										<span class="text-muted-foreground">（共 {importStats.conversations.total} 条）</span>
 									</div>
+									{#if importStats.analyses}
+										<div>
+											AI 总结：
+											<span class="text-green-600 font-medium">{importStats.analyses.imported} 已导入</span>
+											{#if importStats.analyses.skipped > 0}
+												, <span class="text-amber-600 font-medium">{importStats.analyses.skipped} 已跳过</span>
+											{/if}
+											{#if importStats.analyses.conflict > 0}
+												, <span class="text-orange-500 font-medium">{importStats.analyses.conflict} 已存在</span>
+											{/if}
+											{#if importStats.analyses.failed > 0}
+												, <span class="text-destructive font-medium">{importStats.analyses.failed} 失败</span>
+											{/if}
+											<span class="text-muted-foreground">（共 {importStats.analyses.total} 条）</span>
+										</div>
+									{/if}
 								</div>
 
 								{#if importStats.diary_details && importStats.diary_details.length > 0}

@@ -62,6 +62,7 @@ export interface ImportStats {
 	diary_details?: ImportDiaryDetail[];
 	media: ImportCounters;
 	conversations: ImportCounters;
+	analyses?: ImportCounters;
 }
 
 /**
