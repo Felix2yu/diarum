@@ -359,6 +359,13 @@
 		margin: 0 0 0.9rem;
 	}
 
+	/* 单个换行符（<br>）的高度，介于同一段落和新段落之间 */
+	.markdown-preview :global(br) {
+		display: block;
+		content: '';
+		margin-top: 0.45rem;
+	}
+
 	.markdown-preview :global(h1) {
 		font-size: 1.65rem;
 		font-weight: 600;
