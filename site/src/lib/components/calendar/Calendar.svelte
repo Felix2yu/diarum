@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { formatDate, getCalendarDays, getToday, getYearRange, formatISOWeekKey, formatMonthYear, parseDate } from '$lib/utils/date';
+	import { formatDate, getCalendarDays, getToday, getYearRange, formatISOWeekKey, getISOWeek, formatMonthYear, parseDate } from '$lib/utils/date';
 	import { getDatesWithDiaries, getDiariesOnThisDay, getRandomDiary, type CalendarDiaryMeta, type Diary } from '$lib/api/diaries';
 	import CalendarAnalysis from './CalendarAnalysis.svelte';
 	import CalendarYearPicker from './CalendarYearPicker.svelte';
@@ -205,6 +205,10 @@
 	];
 
 	const calendarDays = $derived(getCalendarDays(currentYear, currentMonth));
+	// 日历按周一起始补齐为整周，每 7 天一行恰好是一个 ISO 8601 周
+	const calendarWeeks = $derived(
+		Array.from({ length: calendarDays.length / 7 }, (_, w) => calendarDays.slice(w * 7, w * 7 + 7))
+	);
 	const todayStr = $derived(getToday());
 	const metaByDate = $derived(new Map(diaryMeta.map((item) => [item.date, item])));
 	const yearMetaByDate = $derived(new Map(yearDiaryMeta.map((item) => [item.date, item])));
@@ -493,38 +497,51 @@
 				{/each}
 			</div>
 
-			<!-- Calendar Days -->
+			<!-- Calendar Days：按 ISO 周分行，整行可点打开该周周报 -->
 			<div class="days-grid">
-				{#each calendarDays as date, i}
-					{@const meta = getDateMeta(date)}
-					<button
-						onclick={() => handleDateClick(date)}
-						class="day aspect-square rounded-lg transition-all duration-200 flex flex-col items-center justify-center relative
-							   {isCurrentMonth(date) ? 'text-foreground' : 'text-muted-foreground/40'}
-							   {isToday(date) ? 'bg-primary/10 ring-2 ring-primary font-semibold' : ''}
-							   {hasDiary(date) && !isToday(date) ? 'bg-amber-500/10 dark:bg-amber-500/20' : ''}
-							   {!isToday(date) && !hasDiary(date) ? 'hover:bg-muted/50' : ''}
-							   {hasDiary(date) && !isToday(date) ? 'hover:bg-amber-500/20 dark:hover:bg-amber-500/30' : ''}"
-						style="animation-delay: {i * 10}ms"
+				{#each calendarWeeks as weekDays, wi}
+					{@const weekStart = weekDays[0]}
+					{@const iso = getISOWeek(weekStart)}
+					<!-- svelte-ignore a11y-click-events-have-key-events, a11y_no_static_element_interactions -->
+					<div
+						class="week-row"
+						title="{iso.year}年第{iso.week}周（{formatDate(weekStart)} ~ {formatDate(weekDays[6])}）周分析"
+						onclick={() => openWeekAnalysisFor(iso.year, iso.week)}
 					>
-						<span class="text-sm">{date.getDate()}</span>
+						{#each weekDays as date, di}
+							{@const meta = getDateMeta(date)}
+							{@const dayIndex = wi * 7 + di}
+							<button
+								onclick={(e) => { e.stopPropagation(); handleDateClick(date); }}
+								class="day aspect-square rounded-lg transition-all duration-200 flex flex-col items-center justify-center relative
+									   {isCurrentMonth(date) ? 'text-foreground' : 'text-muted-foreground/40'}
+									   {isToday(date) ? 'bg-primary/10 ring-2 ring-primary font-semibold' : ''}
+									   {hasDiary(date) && !isToday(date) ? 'bg-amber-500/10 dark:bg-amber-500/20' : ''}
+									   {!isToday(date) && !hasDiary(date) ? 'hover:bg-muted/50' : ''}
+									   {hasDiary(date) && !isToday(date) ? 'hover:bg-amber-500/20 dark:hover:bg-amber-500/30' : ''}"
+								style="animation-delay: {dayIndex * 10}ms"
+							>
+								<span class="text-sm">{date.getDate()}</span>
 
-						{#if (meta?.weather && isWMOCode(meta.weather)) || meta?.mood}
-							<div class="absolute inset-x-0 top-1.5 flex items-center justify-center gap-1 text-[11px] leading-none">
-								{#if meta?.weather && isWMOCode(meta.weather)}
-									{@const weatherInfo = getWeatherInfo(parseInt(meta.weather))}
-									<span class="emoji-chip" title="天气：{weatherInfo.label}{meta?.temp_min != null && meta?.temp_max != null ? ` ${Math.round(meta.temp_min)}°~${Math.round(meta.temp_max)}°` : ''}">{weatherInfo.icon}</span>
+								{#if (meta?.weather && isWMOCode(meta.weather)) || meta?.mood}
+									<div class="absolute inset-x-0 top-1.5 flex items-center justify-center gap-1 text-[11px] leading-none">
+										{#if meta?.weather && isWMOCode(meta.weather)}
+											{@const weatherInfo = getWeatherInfo(parseInt(meta.weather))}
+											<span class="emoji-chip" title="天气：{weatherInfo.label}{meta?.temp_min != null && meta?.temp_max != null ? ` ${Math.round(meta.temp_min)}°~${Math.round(meta.temp_max)}°` : ''}">{weatherInfo.icon}</span>
+										{/if}
+										{#if meta?.mood}
+											<span class="emoji-chip" title="心情：{moodToLabel(meta.mood)}">
+												<MoodIcon mood={meta.mood} size={14} />
+											</span>
+										{/if}
+									</div>
+								{:else if hasDiary(date)}
+									<span class="absolute bottom-1 w-1 h-1 bg-amber-500 rounded-full"></span>
 								{/if}
-								{#if meta?.mood}
-									<span class="emoji-chip" title="心情：{moodToLabel(meta.mood)}">
-										<MoodIcon mood={meta.mood} size={14} />
-									</span>
-								{/if}
-							</div>
-						{:else if hasDiary(date)}
-							<span class="absolute bottom-1 w-1 h-1 bg-amber-500 rounded-full"></span>
-						{/if}
-					</button>
+							</button>
+						{/each}
+						<span class="week-row-hint" aria-hidden="true">分析该周</span>
+					</div>
 				{/each}
 			</div>
 		</div>
@@ -865,9 +882,52 @@
 	}
 
 	.days-grid {
+		display: flex;
+		flex-direction: column;
+		gap: 0.5rem;
+	}
+
+	/* 周（行）：ISO 8601 一周一行，整行可点打开该周周报 */
+	.week-row {
+		position: relative;
 		display: grid;
 		grid-template-columns: repeat(7, 1fr);
 		gap: 0.5rem;
+		border-radius: 0.5rem;
+		cursor: pointer;
+		transition: background-color 0.15s ease;
+	}
+
+	.week-row:hover {
+		background: hsl(var(--primary) / 0.05);
+	}
+
+	.week-row-hint {
+		position: absolute;
+		right: 0.35rem;
+		bottom: 0.3rem;
+		padding: 0.12rem 0.45rem;
+		font-size: 0.65rem;
+		line-height: 1.2;
+		border-radius: 9999px;
+		background: hsl(var(--primary) / 0.85);
+		color: hsl(var(--primary-foreground));
+		opacity: 0;
+		transition: opacity 0.15s ease;
+	}
+
+	.week-row:hover .week-row-hint {
+		opacity: 1;
+	}
+
+	@media (hover: none) {
+		/* 触屏设备无悬停：隐藏提示，周报仍可经年份选择器的「周报」页签进入 */
+		.week-row-hint {
+			display: none;
+		}
+		.week-row {
+			cursor: default;
+		}
 	}
 
 	/* Year button in month view header */
