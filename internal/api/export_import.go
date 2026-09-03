@@ -151,11 +151,24 @@ type resolveConflictRequest struct {
 	Weather string `json:"weather,omitempty"`
 }
 
+type batchResolveItem struct {
+	Date    string `json:"date"`
+	Content string `json:"content,omitempty"`
+	Mood    int    `json:"mood,omitempty"`
+	Weather string `json:"weather,omitempty"`
+}
+
+type batchResolveRequest struct {
+	Items  []batchResolveItem `json:"items"`
+	Action string             `json:"action"`
+}
+
 func RegisterExportImportRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.MiddlewareFunc, embeddingService *embedding.EmbeddingService) {
 	group := e.Group("/api/v1", authMiddleware)
 	group.POST("/export", func(c *echo.Context) error { return handleExport(c, s) })
 	group.POST("/import", func(c *echo.Context) error { return handleImport(c, s, embeddingService) })
 	group.POST("/import/resolve", func(c *echo.Context) error { return handleResolveConflict(c, s, embeddingService) })
+	group.POST("/import/resolve-batch", func(c *echo.Context) error { return handleBatchResolveConflict(c, s, embeddingService) })
 }
 
 func handleExport(c *echo.Context, s *store.Store) error {
@@ -548,6 +561,63 @@ func handleResolveConflict(c *echo.Context, s *store.Store, embeddingService *em
 		}
 	}
 	return c.JSON(http.StatusOK, map[string]string{"status": "replaced", "id": diary.ID})
+}
+
+func handleBatchResolveConflict(c *echo.Context, s *store.Store, embeddingService *embedding.EmbeddingService) error {
+	userID := auth.CurrentUser(c).ID
+	var req batchResolveRequest
+	if err := c.Bind(&req); err != nil {
+		return badRequest("Invalid request", err)
+	}
+	if req.Action != "keep_old" && req.Action != "replace" {
+		return badRequest("valid action (keep_old|replace) required", nil)
+	}
+	if len(req.Items) == 0 {
+		return badRequest("items list required", nil)
+	}
+
+	itemMap := make(map[string]batchResolveItem)
+	for _, item := range req.Items {
+		if item.Date != "" {
+			itemMap[item.Date] = item
+		}
+	}
+
+	resolved := 0
+	failed := 0
+	for date, item := range itemMap {
+		if req.Action == "keep_old" {
+			resolved++
+			continue
+		}
+		existing, _ := s.GetDiaryByDate(userID, date+" 00:00:00.000Z", date+" 23:59:59.999Z")
+		if existing != nil {
+			if err := s.DeleteDiary(existing.ID, userID); err != nil {
+				failed++
+				continue
+			}
+		}
+		_, err := s.InsertImportedDiary(userID, "", date, item.Content, item.Mood, nil, nil, item.Weather, nil, "", 0, 0)
+		if err != nil {
+			failed++
+			continue
+		}
+		resolved++
+	}
+
+	if embeddingService != nil && req.Action == "replace" && resolved > 0 {
+		configService := config.NewConfigService(s)
+		enabled, _ := configService.GetBool(userID, "ai.enabled")
+		if enabled {
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+				defer cancel()
+				_, _ = embeddingService.BuildIncrementalVectors(ctx, userID)
+			}()
+		}
+	}
+
+	return c.JSON(http.StatusOK, map[string]int{"resolved": resolved, "failed": failed})
 }
 
 func isValidZipPath(name string) bool {

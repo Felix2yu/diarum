@@ -935,6 +935,93 @@ func TestResolveConflictRoutes(t *testing.T) {
 	}
 }
 
+func TestBatchResolveConflictRoutes(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	e := echo.New()
+	RegisterExportImportRoutes(e, s, authMiddlewareFor(user), nil)
+
+	if _, err := s.InsertImportedDiary(user.ID, "old1", "2024-07-01", "old content 1", 2, nil, nil, "", nil, "", 0, 0); err != nil {
+		t.Fatalf("InsertImportedDiary: %v", err)
+	}
+	if _, err := s.InsertImportedDiary(user.ID, "old2", "2024-07-02", "old content 2", 3, nil, nil, "", nil, "", 0, 0); err != nil {
+		t.Fatalf("InsertImportedDiary: %v", err)
+	}
+
+	body, _ := json.Marshal(batchResolveRequest{Action: "keep_old", Items: nil})
+	rec := performRequest(t, e, http.MethodPost, "/api/v1/import/resolve-batch", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("empty items status = %d", rec.Code)
+	}
+
+	body, _ = json.Marshal(batchResolveRequest{Action: "invalid", Items: []batchResolveItem{{Date: "2024-07-01"}}})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/import/resolve-batch", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid action status = %d", rec.Code)
+	}
+
+	body, _ = json.Marshal(batchResolveRequest{
+		Action: "keep_old",
+		Items: []batchResolveItem{
+			{Date: "2024-07-01"},
+			{Date: "2024-07-02"},
+		},
+	})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/import/resolve-batch", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("batch keep_old status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSONBody(t, rec)
+	if payload["resolved"] != float64(2) {
+		t.Fatalf("batch keep_old resolved = %v", payload["resolved"])
+	}
+
+	body, _ = json.Marshal(batchResolveRequest{
+		Action: "replace",
+		Items: []batchResolveItem{
+			{Date: "2024-07-01", Content: "new content 1", Mood: 5, Weather: "rainy"},
+			{Date: "2024-07-02", Content: "new content 2", Mood: 1, Weather: "cloudy"},
+		},
+	})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/import/resolve-batch", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("batch replace status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	payload = decodeJSONBody(t, rec)
+	if payload["resolved"] != float64(2) {
+		t.Fatalf("batch replace resolved = %v", payload["resolved"])
+	}
+	existing1, _ := s.GetDiaryByDate(user.ID, "2024-07-01 00:00:00.000Z", "2024-07-01 23:59:59.999Z")
+	if existing1 == nil || existing1.Content != "new content 1" || existing1.Mood != 5 {
+		t.Fatalf("diary after batch replace 1 = %+v", existing1)
+	}
+	existing2, _ := s.GetDiaryByDate(user.ID, "2024-07-02 00:00:00.000Z", "2024-07-02 23:59:59.999Z")
+	if existing2 == nil || existing2.Content != "new content 2" || existing2.Mood != 1 {
+		t.Fatalf("diary after batch replace 2 = %+v", existing2)
+	}
+
+	body, _ = json.Marshal(batchResolveRequest{
+		Action: "replace",
+		Items: []batchResolveItem{
+			{Date: "2024-07-01", Content: "replace again", Mood: 3},
+		},
+	})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/import/resolve-batch", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("batch replace existing status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	existing1, _ = s.GetDiaryByDate(user.ID, "2024-07-01 00:00:00.000Z", "2024-07-01 23:59:59.999Z")
+	if existing1 == nil || existing1.Content != "replace again" {
+		t.Fatalf("diary after batch replace again = %+v", existing1)
+	}
+
+	body = []byte(`{}`)
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/import/resolve-batch", bytes.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("invalid bind status = %d", rec.Code)
+	}
+}
+
 func TestImportMdZipFallback(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)

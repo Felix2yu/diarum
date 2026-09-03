@@ -19,7 +19,7 @@
 		type GeneralSettings
 	} from '$lib/api/settings';
 	import { getAISettings, saveAISettings, fetchModels, buildVectors, buildVectorsIncremental, getVectorStats, DEFAULT_ANALYSIS_SYSTEM_PROMPT, type AISettings, type ModelInfo, type BuildVectorsResult, type VectorStats } from '$lib/api/ai';
-	import { exportDiaries, importDiaries, resolveConflict, type ExportStats, type ImportStats, type ImportDiaryDetail, type ExportOptions } from '$lib/api/exportImport';
+	import { exportDiaries, importDiaries, resolveConflict, resolveConflictBatch, type ExportStats, type ImportStats, type ImportDiaryDetail, type ExportOptions } from '$lib/api/exportImport';
 	import { defaultImageUploadSettings, getImageUploadSettings, saveImageUploadSettings, testCheveretoConnection, type ImageUploadProvider, type ImageUploadSettings } from '$lib/api/imageUpload';
 	import { loadImageUploadSettings } from '$lib/stores/imageUpload';
 	import { pb } from '$lib/api/client';
@@ -200,8 +200,10 @@
 	let importError = '';
 	let importFile: File | null = null;
 	let resolvingConflict = false;
+	let resolvingBatch = false;
 	let expandedConflictDate: string | null = null;
 	let conflictViewMode: 'diff' | 'side' = 'diff';
+	let selectedConflicts: Set<string> = new Set();
 	let isDragOver = false;
 
 	// Backup settings
@@ -1110,6 +1112,61 @@
 			importError = e instanceof Error ? e.message : '解决冲突失败';
 		}
 		resolvingConflict = false;
+	}
+
+	function toggleConflictSelection(date: string) {
+		const next = new Set(selectedConflicts);
+		if (next.has(date)) {
+			next.delete(date);
+		} else {
+			next.add(date);
+		}
+		selectedConflicts = next;
+	}
+
+	function toggleAllConflicts() {
+		const conflictDates = importStats?.diary_details
+			?.filter(d => d.status === 'conflict')
+			.map(d => d.date) || [];
+		if (selectedConflicts.size === conflictDates.length) {
+			selectedConflicts = new Set();
+		} else {
+			selectedConflicts = new Set(conflictDates);
+		}
+	}
+
+	async function handleBatchResolveConflict(action: 'keep_old' | 'replace') {
+		if (!importStats) return;
+		const conflicts = importStats.diary_details?.filter(d =>
+			d.status === 'conflict' && selectedConflicts.has(d.date)
+		) || [];
+		if (conflicts.length === 0) return;
+
+		resolvingBatch = true;
+		importError = '';
+		try {
+			const result = await resolveConflictBatch(conflicts, action);
+			const resolvedDates = new Set(conflicts.map(c => c.date));
+			const newStatus = action === 'replace' ? 'imported' : 'skipped';
+
+			if (action === 'replace') {
+				importStats.diaries.conflict -= result.resolved;
+				importStats.diaries.imported += result.resolved;
+			} else {
+				importStats.diaries.conflict -= result.resolved;
+				importStats.diaries.skipped += result.resolved;
+			}
+			importStats.diaries.failed += result.failed;
+
+			importStats.diary_details = importStats.diary_details?.map(d =>
+				resolvedDates.has(d.date) ? { ...d, status: newStatus } : d
+			);
+			importStats = { ...importStats };
+			selectedConflicts = new Set();
+		} catch (e) {
+			importError = e instanceof Error ? e.message : '批量解决冲突失败';
+		}
+		resolvingBatch = false;
 	}
 
 	onMount(() => {
@@ -3041,8 +3098,46 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '<your-t
 								</div>
 
 								{#if importStats.diary_details && importStats.diary_details.length > 0}
+									{@const conflictDetails = importStats.diary_details.filter(d => d.status === 'conflict')}
 									<div class="mt-3 border-t border-border pt-3">
 										<div class="font-medium text-foreground mb-2">详细结果</div>
+										{#if conflictDetails.length > 0}
+											<div class="flex items-center gap-3 mb-2 px-2 py-1.5 bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-lg text-xs">
+												<label class="flex items-center gap-1.5 cursor-pointer select-none">
+													<input
+														type="checkbox"
+														checked={selectedConflicts.size === conflictDetails.length}
+														onchange={() => toggleAllConflicts()}
+														class="w-3.5 h-3.5 rounded border-orange-300 text-orange-500 focus:ring-orange-400"
+													/>
+													<span class="text-orange-700 dark:text-orange-300">全选</span>
+												</label>
+												{#if selectedConflicts.size > 0}
+													<span class="text-orange-600 dark:text-orange-400">已选 {selectedConflicts.size} 条</span>
+												{/if}
+												<div class="flex-1"></div>
+												<button
+													onclick={() => handleBatchResolveConflict('keep_old')}
+													disabled={resolvingBatch || selectedConflicts.size === 0}
+													class="px-3 py-1 text-xs font-medium bg-background border border-orange-300 dark:border-orange-700 text-foreground hover:bg-orange-100 dark:hover:bg-orange-900/30 rounded transition-colors disabled:opacity-50"
+												>
+													全部保留
+												</button>
+												<button
+													onclick={() => handleBatchResolveConflict('replace')}
+													disabled={resolvingBatch || selectedConflicts.size === 0}
+													class="px-3 py-1 text-xs font-medium bg-orange-500 text-white hover:bg-orange-600 rounded transition-colors disabled:opacity-50 shadow-sm"
+												>
+													全部替换
+												</button>
+												{#if resolvingBatch}
+													<span class="text-muted-foreground flex items-center gap-1">
+														<svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+														处理中...
+													</span>
+												{/if}
+											</div>
+										{/if}
 										<div class="space-y-1">
 											{#each importStats.diary_details as detail}
 												{#if detail.status === 'imported'}
@@ -3059,10 +3154,19 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '<your-t
 													</div>
 												{:else if detail.status === 'conflict'}
 													<div class="border border-orange-300 rounded-lg bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800">
-														<button
-															class="w-full flex items-center justify-between text-left p-3"
-															onclick={() => expandedConflictDate = expandedConflictDate === detail.date ? null : detail.date}
-														>
+														<div class="flex items-center">
+															<div class="pl-3 shrink-0">
+																<input
+																	type="checkbox"
+																	checked={selectedConflicts.has(detail.date)}
+																	onchange={() => toggleConflictSelection(detail.date)}
+																	class="w-3.5 h-3.5 rounded border-orange-300 text-orange-500 focus:ring-orange-400"
+																/>
+															</div>
+															<button
+																class="w-full flex items-center justify-between text-left p-3"
+																onclick={() => expandedConflictDate = expandedConflictDate === detail.date ? null : detail.date}
+															>
 															<div class="flex items-center gap-2 text-orange-600">
 																<svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
 																<span class="font-medium">{detail.date}</span>
@@ -3079,6 +3183,7 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '<your-t
 															</div>
 															<svg class="w-4 h-4 text-muted-foreground transition-transform {expandedConflictDate === detail.date ? 'rotate-180' : ''}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
 														</button>
+														</div>
 														{#if expandedConflictDate === detail.date}
 															<div class="px-3 pb-3 space-y-3">
 																<div class="flex items-center gap-2 border-t border-orange-200 dark:border-orange-800 pt-2">
