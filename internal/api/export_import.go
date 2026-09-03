@@ -271,8 +271,11 @@ func BuildExportZip(s *store.Store, userID string, req ExportRequest) (*bytes.Bu
 		}
 	}
 	for _, a := range exportAnalyses {
+		// 周/月/年报告用周期键命名（如 2026-W36.md），自定义分析保持日期区间命名
 		filename := a.StartDate + "_" + a.EndDate + ".md"
-		if a.Keywords != "" {
+		if a.PeriodKey != "" {
+			filename = a.PeriodKey + ".md"
+		} else if a.Keywords != "" {
 			filename = a.StartDate + "_" + a.EndDate + "_" + a.Keywords + ".md"
 		}
 		if w, err := zipWriter.Create("analysis/" + filename); err == nil {
