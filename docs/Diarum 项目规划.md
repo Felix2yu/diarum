@@ -55,7 +55,7 @@
 
 | 模块 | 功能点 | 详细描述 | 状态 |
 | :--- | :--- | :--- | :--- |
-| **AI 助手** | 周期性报告 | 用户可配置自己的 LLM API Key，应用调用 API 生成周报、月报。 | ✅ 已实现（`/api/v1/ai/analysis`） |
+| **AI 助手** | 周期性报告 | 用户可配置自己的 LLM API Key，应用调用 API 生成周报、月报、年报（按 ISO 8601 周编号等周期键存储，如 `2026-W36`），支持手动填写报告；另保留自定义日期范围分析用于旅行等场景。 | ✅ 已实现（`/api/v1/ai/analysis`） |
 | | AI 对话 + RAG | 用户可以和 AI 对话，AI 根据向量库检索相关日记内容并附带引用。 | ✅ 已实现（`/api/v1/ai/chat` + chromem-go 向量库） |
 | | 向量库管理 | 支持手动/增量构建向量索引，查询构建状态。 | ✅ 已实现（`/api/v1/ai/vectors/*`） |
 | | 对话历史 | 存储用户与 AI 的全部对话，可在前端浏览与回顾。 | ✅ 已实现（`ai_conversations` / `ai_messages`） |
@@ -261,20 +261,23 @@ graph TD
 
 #### `period_analyses` 表
 
-存储 AI 周期分析报告（周报/月报等）。
+存储 AI 周期分析报告（周报/月报/年报等）。周/月/年报告以**周期键**（`period_key`）寻址——即"第一周、第一月……"的特殊日期字段，而非时间区间；`start_date` / `end_date` 仅是由周期键推导出的日期范围，用于取日记与展示。自定义分析（旅行等非整周/整月场景）不使用周期键，仍按起止日期 + 关键词寻址。
 
 | 字段名 | 类型 | 描述 |
 | :--- | :--- | :--- |
 | `id` | `TEXT PRIMARY KEY` | 分析报告 ID |
 | `owner` | `TEXT NOT NULL` | 所属用户 |
-| `period` | `TEXT NOT NULL` | 周期类型（`week` / `month` / `custom` 等） |
-| `start_date` / `end_date` | `TEXT NOT NULL` | 分析的起止日期 |
-| `keywords` | `TEXT DEFAULT ''` | 关键词过滤（支持根据关键词生成分析报告） |
+| `period` | `TEXT NOT NULL` | 周期类型（`week` / `month` / `year` / `custom`） |
+| `period_key` | `TEXT DEFAULT ''` | 周期键：周 `2026-W36`（ISO 8601，含第一个星期四的周为第 1 周）、月 `2026-09`、年 `2026`；自定义分析为空 |
+| `start_date` / `end_date` | `TEXT NOT NULL` | 由周期键推导的起止日期（周键 → 周一至周日；自定义分析为用户所选区间） |
+| `keywords` | `TEXT DEFAULT ''` | 关键词过滤（仅自定义分析使用） |
 | `diary_count` | `INTEGER DEFAULT 0` | 分析覆盖的日记数量 |
-| `summary` | `TEXT NOT NULL` | AI 生成的摘要内容 |
+| `summary` | `TEXT NOT NULL` | 报告内容（AI 生成或用户手动填写） |
 | `system_prompt` / `user_prefix` | `TEXT NOT NULL` | 使用的 Prompt 模板 |
 
-**索引**: `UNIQUE INDEX idx_period_analyses_owner_period ON period_analyses(owner, period, start_date, end_date, keywords)` - 同一周期+关键词只保留一份最新报告。
+**索引**: `UNIQUE INDEX idx_period_analyses_owner_period ON period_analyses(owner, period, period_key, start_date, end_date, keywords)` - 同一周期的报告（如 `2026-W36` 周报）只保留一份最新内容，AI 重新生成或手动填写都会覆盖。
+
+> ⚠️ **不兼容变更**：早期版本按"时间区间"存储报告。升级检测到旧表结构时会直接重建 `period_analyses` 表，**旧的周期总结数据不会被迁移**。
 
 #### `schema_migrations` / `migration_meta` 表
 

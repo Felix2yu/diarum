@@ -37,11 +37,14 @@ export interface VectorStats {
 	pending_count: number;
 }
 
-export type PeriodType = 'week' | 'month' | 'custom';
+// week/month/year analyses are addressed by a period key (2026-W36 / 2026-09 / 2026);
+// 'custom' keeps an explicit date range (start/end) with optional keywords.
+export type PeriodType = 'week' | 'month' | 'year' | 'custom';
 
 export interface PeriodAnalysisResult {
 	id?: string;
 	period: PeriodType;
+	key?: string;
 	start: string;
 	end: string;
 	keywords?: string;
@@ -58,16 +61,18 @@ export interface SavedPeriodAnalysisResult extends PeriodAnalysisResult {
 }
 
 /**
- * Retrieve a previously saved AI analysis for a period + optional keywords.
+ * Retrieve a previously saved analysis: week/month/year by period key, custom by
+ * date range (+ optional keywords).
  */
 export async function getSavedAnalysis(
 	period: PeriodType,
-	start: string,
-	end: string,
-	keywords?: string
+	opts: { key?: string; start?: string; end?: string; keywords?: string }
 ): Promise<SavedPeriodAnalysisResult | null> {
-	const params = new URLSearchParams({ period, start, end });
-	if (keywords !== undefined) params.set('keywords', keywords);
+	const params = new URLSearchParams({ period });
+	if (opts.key) params.set('key', opts.key);
+	if (opts.start) params.set('start', opts.start);
+	if (opts.end) params.set('end', opts.end);
+	if (opts.keywords !== undefined) params.set('keywords', opts.keywords);
 	const response = await fetch(`/api/v1/ai/analysis?${params.toString()}`, {
 		headers: {
 			'Authorization': `Bearer ${pb.authStore.token}`
@@ -124,21 +129,21 @@ export const DEFAULT_ANALYSIS_SYSTEM_PROMPT =
 	'你是一个贴心的日记分析助手，基于用户提供的日记内容进行深入分析。你需要：\n1) 归纳总结日记的主要内容；\n2) 分析用户的情绪变化、生活模式；\n3) 找出亮点和值得改进的地方；\n4) 给出具体、可操作的建议。\n请用温暖、鼓励且理性的语气，分段输出，便于阅读。使用中文回答。';
 
 /**
- * Request analysis for a given date range. Supports a custom period ('custom') as
- * well as optional keyword / keyword filtering so only diaries containing the
- * provided keywords are analyzed. Optional system_prompt and user_prefix override
+ * Request analysis for a calendar period (by key) or a custom date range with
+ * optional keyword filtering. Optional system_prompt and user_prefix override
  * saved settings.
  */
 export async function analyzePeriod(
 	period: PeriodType,
-	start: string,
-	end: string,
-	opts?: { system_prompt?: string; user_prefix?: string; keywords?: string }
+	opts: { key?: string; start?: string; end?: string; keywords?: string; system_prompt?: string; user_prefix?: string }
 ): Promise<PeriodAnalysisResult> {
-	const payload: Record<string, unknown> = { period, start, end };
-	if (opts?.system_prompt !== undefined) payload.system_prompt = opts.system_prompt;
-	if (opts?.user_prefix !== undefined) payload.user_prefix = opts.user_prefix;
-	if (opts?.keywords !== undefined) payload.keywords = opts.keywords;
+	const payload: Record<string, unknown> = { period };
+	if (opts.key) payload.key = opts.key;
+	if (opts.start) payload.start = opts.start;
+	if (opts.end) payload.end = opts.end;
+	if (opts.keywords !== undefined) payload.keywords = opts.keywords;
+	if (opts.system_prompt !== undefined) payload.system_prompt = opts.system_prompt;
+	if (opts.user_prefix !== undefined) payload.user_prefix = opts.user_prefix;
 
 	const response = await fetch('/api/v1/ai/analysis', {
 		method: 'POST',
@@ -156,6 +161,38 @@ export async function analyzePeriod(
 			if (data && data.message) {
 				message = data.message;
 			}
+		} catch {
+			// ignore
+		}
+		throw new Error(message);
+	}
+
+	return await response.json();
+}
+
+/**
+ * Manually save (fill in) a weekly / monthly / yearly report without invoking AI.
+ * Overwrites any existing analysis for the same period + key.
+ */
+export async function saveAnalysisSummary(
+	period: PeriodType,
+	key: string,
+	summary: string
+): Promise<PeriodAnalysisResult> {
+	const response = await fetch('/api/v1/ai/analysis', {
+		method: 'PUT',
+		headers: {
+			'Authorization': `Bearer ${pb.authStore.token}`,
+			'Content-Type': 'application/json'
+		},
+		body: JSON.stringify({ period, key, summary })
+	});
+
+	if (!response.ok) {
+		let message = '保存报告失败';
+		try {
+			const data = await response.json();
+			if (data?.message) message = data.message;
 		} catch {
 			// ignore
 		}

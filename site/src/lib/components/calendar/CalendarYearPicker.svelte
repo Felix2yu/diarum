@@ -1,15 +1,27 @@
 <script lang="ts">
+	import { getISOWeek, getISOWeeksInYear, isoWeekRange } from '$lib/utils/date';
+
 	let {
 		currentYear: currentYearBindable,
 		currentMonth: currentMonthBindable,
 		onClose,
-		onMonthChange = (() => {}) as () => void
+		onMonthChange = (() => {}) as () => void,
+		onSelectWeek,
+		onSelectMonthReport,
+		onSelectYearReport
 	}: {
 		currentYear: { set: (v: number) => void; value: number };
 		currentMonth: { set: (v: number) => void; value: number };
 		onClose: () => void;
 		onMonthChange?: () => void;
+		onSelectWeek?: (year: number, week: number) => void;
+		onSelectMonthReport?: (year: number, month: number) => void;
+		onSelectYearReport?: (year: number) => void;
 	} = $props();
+
+	// pickerMode: 月份 = 跳转日历；week / monthReport / yearReport = 选择对应周期的报告
+	type PickerMode = 'month' | 'week' | 'monthReport' | 'yearReport';
+	let pickerMode = $state<PickerMode>('month');
 
 	// 使用独立的本地变量：因为 $bindable 属性是可读写的
 	// 这里我们只关心传入值的 "当前" 只读版本
@@ -78,6 +90,33 @@
 		onClose();
 	}
 
+	function selectWeek(week: number) {
+		if (onSelectWeek) {
+			onSelectWeek(tempYear, week);
+		}
+		onClose();
+	}
+
+	function selectMonthReport(month: number) {
+		if (onSelectMonthReport) {
+			onSelectMonthReport(tempYear, month);
+		}
+		onClose();
+	}
+
+	function selectYearReport() {
+		if (onSelectYearReport) {
+			onSelectYearReport(tempYear);
+		}
+		onClose();
+	}
+
+	// 当前日期对应的 ISO 周号，用于周报网格中标记"本周"
+	function currentISOWeek(): number | null {
+		const { year, week } = getISOWeek(new Date());
+		return year === tempYear ? week : null;
+	}
+
 	function goToToday() {
 		const today = new Date();
 		currentYearBindable.set(today.getFullYear());
@@ -133,22 +172,79 @@
 			</button>
 		</div>
 
-		<!-- 月份网格 -->
+		<!-- 模式切换：月份 / 周报 / 月报 -->
+		<div class="year-picker-tabs">
+			<button
+				type="button"
+				class={pickerMode === 'month' ? 'year-picker-tab year-picker-tab--active' : 'year-picker-tab'}
+				onclick={() => (pickerMode = 'month')}
+			>月份</button>
+			<button
+				type="button"
+				class={pickerMode === 'week' ? 'year-picker-tab year-picker-tab--active' : 'year-picker-tab'}
+				onclick={() => (pickerMode = 'week')}
+			>周报</button>
+			<button
+				type="button"
+				class={pickerMode === 'monthReport' ? 'year-picker-tab year-picker-tab--active' : 'year-picker-tab'}
+				onclick={() => (pickerMode = 'monthReport')}
+			>月报</button>
+			<button
+				type="button"
+				class={pickerMode === 'yearReport' ? 'year-picker-tab year-picker-tab--active' : 'year-picker-tab'}
+				onclick={() => (pickerMode = 'yearReport')}
+			>年报</button>
+		</div>
+
+		<!-- 月份网格（跳转日历 / 选择月报） -->
 		<div class="year-picker-grid">
 			{#each monthShortNames as monthName, i}
 				{@const month = i + 1}
-				{@const isSelected = tempYear === currentYearBindable.value && month === currentMonthBindable.value}
+				{@const isSelected = pickerMode === 'month' && tempYear === currentYearBindable.value && month === currentMonthBindable.value}
 				<button
 					type="button"
-					onclick={() => selectMonth(month)}
+					onclick={() => (pickerMode === 'monthReport' ? selectMonthReport(month) : selectMonth(month))}
 					class="year-picker-month"
 					class:year-picker-month-selected={isSelected}
-					title={`${tempYear} 年 ${month} 月`}
+					title={pickerMode === 'monthReport' ? `${tempYear} 年 ${month} 月月报` : `${tempYear} 年 ${month} 月`}
 				>
 					{monthName}
 				</button>
 			{/each}
 		</div>
+
+		<!-- 年报（按年份选择） -->
+		{#if pickerMode === 'yearReport'}
+			<div class="year-picker-weeks">
+				<button
+					type="button"
+					class="year-picker-week year-picker-week-current"
+					onclick={selectYearReport}
+					title="{tempYear} 年报"
+				>
+					{tempYear} 年报
+				</button>
+			</div>
+		{/if}
+
+		<!-- 周报网格（ISO 8601 周编号） -->
+		{#if pickerMode === 'week'}
+			<div class="year-picker-weeks">
+				{#each Array(getISOWeeksInYear(tempYear)) as _, wi}
+					{@const week = wi + 1}
+					{@const range = isoWeekRange(tempYear, week)}
+					<button
+						type="button"
+						class="year-picker-week"
+						class:year-picker-week-current={currentISOWeek() === week}
+						onclick={() => selectWeek(week)}
+						title={`${tempYear} 年第 ${week} 周（${range.start} ~ ${range.end}）周报`}
+					>
+						第{week}周
+					</button>
+				{/each}
+			</div>
+		{/if}
 
 		<!-- 底部快捷 -->
 		<div class="year-picker-footer">
@@ -254,6 +350,68 @@
 	.year-picker-year-btn:hover {
 		background: hsl(var(--primary) / 0.08);
 		color: hsl(var(--primary));
+	}
+
+	/* 模式切换页签：月份 / 周报 / 月报 */
+	.year-picker-tabs {
+		display: flex;
+		gap: 0.35rem;
+		margin-bottom: 0.75rem;
+	}
+
+	.year-picker-tab {
+		flex: 1;
+		padding: 0.35rem 0.5rem;
+		border-radius: 8px;
+		font-size: 0.8rem;
+		color: hsl(var(--muted-foreground));
+		background: hsl(var(--muted) / 0.35);
+		border: 1px solid transparent;
+		transition: background-color, color, border-color 0.15s ease;
+	}
+
+	.year-picker-tab:hover {
+		background: hsl(var(--muted) / 0.7);
+		color: hsl(var(--foreground));
+	}
+
+	.year-picker-tab--active {
+		background: hsl(var(--primary) / 0.12);
+		color: hsl(var(--primary));
+		border-color: hsl(var(--primary) / 0.3);
+		font-weight: 500;
+	}
+
+	/* 周报网格 */
+	.year-picker-weeks {
+		display: grid;
+		grid-template-columns: repeat(4, 1fr);
+		gap: 0.4rem;
+		max-height: 40vh;
+		overflow-y: auto;
+		padding-right: 0.15rem;
+	}
+
+	.year-picker-week {
+		padding: 0.45rem 0.25rem;
+		border-radius: 8px;
+		font-size: 0.78rem;
+		color: hsl(var(--foreground) / 0.85);
+		background: hsl(var(--muted) / 0.3);
+		border: 1px solid transparent;
+		transition: background-color, color, border-color 0.15s ease;
+	}
+
+	.year-picker-week:hover {
+		background: hsl(var(--primary) / 0.1);
+		color: hsl(var(--primary));
+		border-color: hsl(var(--primary) / 0.25);
+	}
+
+	.year-picker-week-current {
+		border-color: hsl(var(--primary) / 0.5);
+		color: hsl(var(--primary));
+		font-weight: 600;
 	}
 
 	.year-picker-grid {

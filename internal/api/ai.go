@@ -35,6 +35,45 @@ type modelsResponse struct {
 	Data   []modelInfo `json:"data"`
 }
 
+// periodKeyRange derives the date range and Chinese label for a period key.
+// Week keys follow ISO 8601 ("2026-W36", Monday-based, week 1 contains the
+// first Thursday); month keys are "2026-09"; year keys are "2026".
+func periodKeyRange(period, key string) (startDate, endDate, label string, err error) {
+	switch period {
+	case "week":
+		var year, week int
+		if n, _ := fmt.Sscanf(key, "%d-W%d", &year, &week); n != 2 || year < 1 || week < 1 || week > 53 || len(key) != 8 || key[4] != '-' || key[5] != 'W' {
+			return "", "", "", fmt.Errorf("invalid week key, expected YYYY-Www (e.g. 2026-W36)")
+		}
+		// ISO week 1 starts on the Monday of the week containing Jan 4.
+		jan4 := time.Date(year, time.January, 4, 0, 0, 0, 0, time.Local)
+		offsetFromMonday := (int(jan4.Weekday()) + 6) % 7
+		start := jan4.AddDate(0, 0, -offsetFromMonday+(week-1)*7)
+		isoYear, isoWeek := start.ISOWeek()
+		if isoYear != year || isoWeek != week {
+			return "", "", "", fmt.Errorf("invalid week key %s for year %d", key, year)
+		}
+		end := start.AddDate(0, 0, 6)
+		return start.Format("2006-01-02"), end.Format("2006-01-02"), fmt.Sprintf("%d年第%d周", year, week), nil
+	case "month":
+		var year, month int
+		if n, _ := fmt.Sscanf(key, "%d-%d", &year, &month); n != 2 || year < 1 || month < 1 || month > 12 || len(key) != 7 {
+			return "", "", "", fmt.Errorf("invalid month key, expected YYYY-MM (e.g. 2026-09)")
+		}
+		start := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.Local)
+		last := time.Date(year, time.Month(month+1), 0, 0, 0, 0, 0, time.Local)
+		return start.Format("2006-01-02"), last.Format("2006-01-02"), fmt.Sprintf("%d年%d月", year, month), nil
+	case "year":
+		var year int
+		if n, _ := fmt.Sscanf(key, "%d", &year); n != 1 || year < 1 || len(key) != 4 {
+			return "", "", "", fmt.Errorf("invalid year key, expected YYYY (e.g. 2026)")
+		}
+		return fmt.Sprintf("%d-01-01", year), fmt.Sprintf("%d-12-31", year), fmt.Sprintf("%d年", year), nil
+	default:
+		return "", "", "", fmt.Errorf("period must be 'week', 'month' or 'year'")
+	}
+}
+
 func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.MiddlewareFunc, embeddingService *embedding.EmbeddingService) {
 	configService := config.NewConfigService(s)
 	chatService := chat.NewChatService(s, embeddingService)
@@ -55,36 +94,36 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		speechModel, _ := configService.GetString(userId, "ai.speech.model")
 		speechLanguage, _ := configService.GetString(userId, "ai.speech.language")
 		return c.JSON(http.StatusOK, map[string]any{
-			"api_key":                 maskSecret(apiKey),
-			"base_url":                baseUrl,
-			"chat_model":              chatModel,
-			"embedding_model":         embeddingModel,
-			"analysis_system_prompt":  analysisSystemPrompt,
-			"analysis_user_prefix":    analysisUserPrefix,
-			"enabled":                 enabled,
-			"speech_provider":         speechProvider,
-			"speech_base_url":         speechBaseUrl,
-			"speech_api_key":          maskSecret(speechAPIKey),
-			"speech_model":            speechModel,
-			"speech_language":         speechLanguage,
+			"api_key":                maskSecret(apiKey),
+			"base_url":               baseUrl,
+			"chat_model":             chatModel,
+			"embedding_model":        embeddingModel,
+			"analysis_system_prompt": analysisSystemPrompt,
+			"analysis_user_prefix":   analysisUserPrefix,
+			"enabled":                enabled,
+			"speech_provider":        speechProvider,
+			"speech_base_url":        speechBaseUrl,
+			"speech_api_key":         maskSecret(speechAPIKey),
+			"speech_model":           speechModel,
+			"speech_language":        speechLanguage,
 		})
 	})
 
 	group.PUT("/settings", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		var body struct {
-			APIKey                string `json:"api_key"`
-			BaseURL               string `json:"base_url"`
-			ChatModel             string `json:"chat_model"`
-			EmbeddingModel        string `json:"embedding_model"`
-			AnalysisSystemPrompt  string `json:"analysis_system_prompt"`
-			AnalysisUserPrefix    string `json:"analysis_user_prefix"`
-			Enabled               bool   `json:"enabled"`
-			SpeechProvider        string `json:"speech_provider"`
-			SpeechBaseURL         string `json:"speech_base_url"`
-			SpeechAPIKey          string `json:"speech_api_key"`
-			SpeechModel           string `json:"speech_model"`
-			SpeechLanguage        string `json:"speech_language"`
+			APIKey               string `json:"api_key"`
+			BaseURL              string `json:"base_url"`
+			ChatModel            string `json:"chat_model"`
+			EmbeddingModel       string `json:"embedding_model"`
+			AnalysisSystemPrompt string `json:"analysis_system_prompt"`
+			AnalysisUserPrefix   string `json:"analysis_user_prefix"`
+			Enabled              bool   `json:"enabled"`
+			SpeechProvider       string `json:"speech_provider"`
+			SpeechBaseURL        string `json:"speech_base_url"`
+			SpeechAPIKey         string `json:"speech_api_key"`
+			SpeechModel          string `json:"speech_model"`
+			SpeechLanguage       string `json:"speech_language"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
@@ -102,18 +141,18 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			return badRequest("All AI settings must be configured before enabling AI features", nil)
 		}
 		settings := map[string]any{
-			"ai.api_key":                 apiKey,
-			"ai.base_url":                body.BaseURL,
-			"ai.chat_model":              body.ChatModel,
-			"ai.embedding_model":         body.EmbeddingModel,
-			"ai.analysis_system_prompt":  body.AnalysisSystemPrompt,
-			"ai.analysis_user_prefix":    body.AnalysisUserPrefix,
-			"ai.enabled":                 body.Enabled,
-			"ai.speech.provider":         body.SpeechProvider,
-			"ai.speech.base_url":         body.SpeechBaseURL,
-			"ai.speech.api_key":          speechAPIKey,
-			"ai.speech.model":            body.SpeechModel,
-			"ai.speech.language":         body.SpeechLanguage,
+			"ai.api_key":                apiKey,
+			"ai.base_url":               body.BaseURL,
+			"ai.chat_model":             body.ChatModel,
+			"ai.embedding_model":        body.EmbeddingModel,
+			"ai.analysis_system_prompt": body.AnalysisSystemPrompt,
+			"ai.analysis_user_prefix":   body.AnalysisUserPrefix,
+			"ai.enabled":                body.Enabled,
+			"ai.speech.provider":        body.SpeechProvider,
+			"ai.speech.base_url":        body.SpeechBaseURL,
+			"ai.speech.api_key":         speechAPIKey,
+			"ai.speech.model":           body.SpeechModel,
+			"ai.speech.language":        body.SpeechLanguage,
 		}
 		if err := configService.SetBatch(userId, settings); err != nil {
 			return badRequest("Failed to save AI settings", err)
@@ -467,30 +506,52 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		return nil
 	})
 
-	// Analysis - retrieve saved result (week / month / custom)
+	// Analysis - retrieve saved result (week / month / year by period key, or custom by date range)
 	group.GET("/analysis", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		period := strings.ToLower(strings.TrimSpace(c.QueryParam("period")))
+		key := strings.TrimSpace(c.QueryParam("key"))
 		start := strings.TrimSpace(c.QueryParam("start"))
 		end := strings.TrimSpace(c.QueryParam("end"))
 		keywords := strings.TrimSpace(c.QueryParam("keywords"))
-		if period != "week" && period != "month" && period != "custom" {
-			return badRequest("period must be 'week', 'month' or 'custom'", nil)
-		}
-		if start == "" || end == "" {
-			return badRequest("start and end are required", nil)
-		}
-		a, err := s.GetPeriodAnalysis(userId, period, start, end, keywords)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return c.JSON(http.StatusOK, map[string]any{"found": false})
+		var a *store.PeriodAnalysis
+		switch period {
+		case "week", "month", "year":
+			if key == "" {
+				return badRequest("key is required for week/month/year analyses", nil)
 			}
-			return serverError("Failed to load period analysis", err)
+			startDate, endDate, _, err := periodKeyRange(period, key)
+			if err != nil {
+				return badRequest(err.Error(), nil)
+			}
+			saved, err := s.GetPeriodAnalysis(userId, period, key, startDate, endDate, "")
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return c.JSON(http.StatusOK, map[string]any{"found": false})
+				}
+				return serverError("Failed to load period analysis", err)
+			}
+			a = saved
+		case "custom":
+			if start == "" || end == "" {
+				return badRequest("start and end are required for custom analyses", nil)
+			}
+			saved, err := s.GetPeriodAnalysis(userId, period, "", start, end, keywords)
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					return c.JSON(http.StatusOK, map[string]any{"found": false})
+				}
+				return serverError("Failed to load period analysis", err)
+			}
+			a = saved
+		default:
+			return badRequest("period must be 'week', 'month', 'year' or 'custom'", nil)
 		}
 		return c.JSON(http.StatusOK, map[string]any{
 			"found":         true,
 			"id":            a.ID,
 			"period":        a.Period,
+			"key":           a.PeriodKey,
 			"start":         a.StartDate,
 			"end":           a.EndDate,
 			"count":         a.DiaryCount,
@@ -507,8 +568,8 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	group.GET("/analyses", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		period := strings.ToLower(strings.TrimSpace(c.QueryParam("period")))
-		if period != "" && period != "week" && period != "month" && period != "custom" && period != "all" {
-			return badRequest("period must be 'week', 'month', 'custom' or 'all'", nil)
+		if period != "" && period != "week" && period != "month" && period != "year" && period != "custom" && period != "all" {
+			return badRequest("period must be 'week', 'month', 'year', 'custom' or 'all'", nil)
 		}
 		filter := period
 		if period == "all" {
@@ -523,6 +584,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			out = append(out, map[string]any{
 				"id":            a.ID,
 				"period":        a.Period,
+				"key":           a.PeriodKey,
 				"start":         a.StartDate,
 				"end":           a.EndDate,
 				"count":         a.DiaryCount,
@@ -537,12 +599,15 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		return c.JSON(http.StatusOK, map[string]any{"items": out})
 	})
 
-	// Analysis endpoint - generate and save. Supports custom date ranges and
-	// keyword / content filtering so users can analyze only matching diary entries.
+	// Analysis endpoint - generate and save. Week/month/year reports are addressed
+	// by a period key (e.g. 2026-W36 / 2026-09 / 2026) and the date range is derived
+	// server-side; custom analyses keep explicit date ranges and keyword filtering
+	// so users can analyze only matching diary entries.
 	group.POST("/analysis", func(c *echo.Context) error {
 		userId := auth.CurrentUser(c).ID
 		var body struct {
 			Period       string `json:"period"`
+			Key          string `json:"key"`
 			Start        string `json:"start"`
 			End          string `json:"end"`
 			Keywords     string `json:"keywords"`
@@ -556,21 +621,35 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		if period == "" {
 			period = "custom"
 		}
-		if period != "week" && period != "month" && period != "custom" {
-			return badRequest("period must be 'week', 'month' or 'custom'", nil)
-		}
-		start := strings.TrimSpace(body.Start)
-		end := strings.TrimSpace(body.End)
-		if start == "" || end == "" {
-			return badRequest("start and end are required", nil)
-		}
-		if _, err := time.Parse("2006-01-02", start); err != nil {
-			return badRequest("start must be in YYYY-MM-DD format", err)
-		}
-		if _, err := time.Parse("2006-01-02", end); err != nil {
-			return badRequest("end must be in YYYY-MM-DD format", err)
-		}
+		key := strings.TrimSpace(body.Key)
 		keywords := strings.TrimSpace(body.Keywords)
+		var start, end, periodLabel string
+		switch period {
+		case "week", "month", "year":
+			if key == "" {
+				return badRequest("key is required for week/month/year analyses", nil)
+			}
+			startDate, endDate, label, err := periodKeyRange(period, key)
+			if err != nil {
+				return badRequest(err.Error(), nil)
+			}
+			start, end, periodLabel = startDate, endDate, label
+		case "custom":
+			start = strings.TrimSpace(body.Start)
+			end = strings.TrimSpace(body.End)
+			if start == "" || end == "" {
+				return badRequest("start and end are required for custom analyses", nil)
+			}
+			if _, err := time.Parse("2006-01-02", start); err != nil {
+				return badRequest("start must be in YYYY-MM-DD format", err)
+			}
+			if _, err := time.Parse("2006-01-02", end); err != nil {
+				return badRequest("end must be in YYYY-MM-DD format", err)
+			}
+			periodLabel = "所选时间段"
+		default:
+			return badRequest("period must be 'week', 'month', 'year' or 'custom'", nil)
+		}
 
 		// Fetch diaries in range
 		diaries, err := s.ListDiaries(userId, start+" 00:00:00.000Z", end+" 23:59:59.999Z", "-date", 0)
@@ -622,6 +701,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 				"start":    start,
 				"end":      end,
 				"period":   period,
+				"key":      key,
 				"keywords": keywords,
 				"count":    0,
 				"summary":  emptySummary,
@@ -642,15 +722,6 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		savedUserPrefix, _ := configService.GetString(userId, "ai.analysis_user_prefix")
 		defaultSystemPrompt := "你是一个贴心的日记分析助手，基于用户提供的日记内容进行深入分析。你需要：\n1) 归纳总结日记的主要内容；\n2) 留意每篇日记的日期，分析情绪变化、生活模式在时间线上的演变；\n3) 找出亮点和值得改进的地方；\n4) 给出具体、可操作的建议。\n请用温暖、鼓励且理性的语气，分段输出，便于阅读。使用中文回答。"
 
-		var periodLabel string
-		switch period {
-		case "month":
-			periodLabel = "本月"
-		case "week":
-			periodLabel = "本周"
-		default:
-			periodLabel = "所选时间段"
-		}
 		defaultUserPrefix := ""
 		if keywords != "" {
 			defaultUserPrefix = fmt.Sprintf("以下是%s（%s 至 %s）中包含关键词「%s」的日记记录，共 %d 篇。请根据这些内容进行重组、分析，并给出建议。\n\n", periodLabel, start, end, keywords, len(diaries))
@@ -759,12 +830,13 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		}
 
 		// Persist the analysis for later retrieval
-		saved, saveErr := s.SavePeriodAnalysis(userId, period, start, end, len(diaries), summary, systemPrompt, userPrefix, keywords)
+		saved, saveErr := s.SavePeriodAnalysis(userId, period, key, start, end, len(diaries), summary, systemPrompt, userPrefix, keywords)
 
 		response := map[string]any{
 			"start":         start,
 			"end":           end,
 			"period":        period,
+			"key":           key,
 			"keywords":      keywords,
 			"count":         len(diaries),
 			"summary":       summary,
@@ -779,6 +851,57 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			logger.Warn("[POST /api/v1/ai/analysis] failed to persist analysis: %v", saveErr)
 		}
 		return c.JSON(http.StatusOK, response)
+	})
+
+	// Analysis endpoint - manually save/edit a weekly / monthly / yearly report.
+	// Unlike the POST endpoint this skips AI generation entirely: the user fills in
+	// the report content ("周日记分析 / 月日记分析 / 年日记分析") and it is persisted
+	// for later retrieval under the same period key.
+	group.PUT("/analysis", func(c *echo.Context) error {
+		userId := auth.CurrentUser(c).ID
+		var body struct {
+			Period  string `json:"period"`
+			Key     string `json:"key"`
+			Summary string `json:"summary"`
+		}
+		if err := c.Bind(&body); err != nil {
+			return badRequest("Invalid request body", err)
+		}
+		period := strings.ToLower(strings.TrimSpace(body.Period))
+		key := strings.TrimSpace(body.Key)
+		if period != "week" && period != "month" && period != "year" {
+			return badRequest("period must be 'week', 'month' or 'year'", nil)
+		}
+		if key == "" {
+			return badRequest("key is required", nil)
+		}
+		start, end, _, err := periodKeyRange(period, key)
+		if err != nil {
+			return badRequest(err.Error(), nil)
+		}
+		summary := strings.TrimSpace(body.Summary)
+		if summary == "" {
+			return badRequest("summary is required", nil)
+		}
+		diaries, err := s.ListDiaries(userId, start+" 00:00:00.000Z", end+" 23:59:59.999Z", "-date", 0)
+		if err != nil {
+			return serverError("Failed to fetch diaries for analysis", err)
+		}
+		saved, err := s.SavePeriodAnalysis(userId, period, key, start, end, len(diaries), summary, "", "", "")
+		if err != nil {
+			return serverError("Failed to save period analysis", err)
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"period":  period,
+			"key":     key,
+			"start":   start,
+			"end":     end,
+			"count":   len(diaries),
+			"summary": summary,
+			"id":      saved.ID,
+			"created": saved.Created,
+			"updated": saved.Updated,
+		})
 	})
 
 	// Text polishing endpoint - three built-in modes plus custom prompt

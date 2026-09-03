@@ -135,7 +135,7 @@ func TestAIRoutesHappyPath(t *testing.T) {
 		t.Fatalf("POST /ai/chat empty status = %d", rec.Code)
 	}
 
-	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"2024-01-01","end":"2024-01-31"}`), map[string]string{"Content-Type": "application/json"})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","key":"2024-01"}`), map[string]string{"Content-Type": "application/json"})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("POST /ai/analysis empty status = %d body=%s", rec.Code, rec.Body.String())
 	}
@@ -143,7 +143,7 @@ func TestAIRoutesHappyPath(t *testing.T) {
 	if _, err := s.InsertImportedDiary(user.ID, "", "2024-01-15", "some content", 4, nil, nil, "", nil, "", 0, 0); err != nil {
 		t.Fatalf("InsertImportedDiary: %v", err)
 	}
-	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"2024-01-01","end":"2024-01-31"}`), map[string]string{"Content-Type": "application/json"})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","key":"2024-01"}`), map[string]string{"Content-Type": "application/json"})
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("POST /ai/analysis disabled with diaries status = %d body=%s", rec.Code, rec.Body.String())
 	}
@@ -153,12 +153,12 @@ func TestAIRoutesHappyPath(t *testing.T) {
 		t.Fatalf("GET /ai/analyses status = %d", rec.Code)
 	}
 
-	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analysis?period=month&start=2024-01-01&end=2024-01-31", nil, nil)
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analysis?period=month&key=2024-01", nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET /ai/analysis status = %d body=%s", rec.Code, rec.Body.String())
 	}
 
-	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"month","start":"2024-01-01","end":"2024-01-31","keywords":"travel,food"}`), map[string]string{"Content-Type": "application/json"})
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"custom","start":"2024-01-01","end":"2024-01-31","keywords":"travel,food"}`), map[string]string{"Content-Type": "application/json"})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("POST /ai/analysis with keywords status = %d", rec.Code)
 	}

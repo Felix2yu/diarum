@@ -158,13 +158,13 @@ func TestAIRoutesAnalysisGetAndList(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("analysis GET bad period status = %d, want 400", rec.Code)
 	}
-	// Missing start/end
+	// Missing key
 	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analysis?period=week", nil, nil)
 	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("analysis GET missing range status = %d, want 400", rec.Code)
+		t.Fatalf("analysis GET missing key status = %d, want 400", rec.Code)
 	}
 	// No saved analysis -> found:false (sql.ErrNoRows branch)
-	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analysis?period=week&start=2024-01-01&end=2024-01-31", nil, nil)
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analysis?period=week&key=2024-W01", nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("analysis GET found:false status = %d body=%s", rec.Code, rec.Body.String())
 	}
@@ -235,9 +235,9 @@ func TestAIRoutesPolish(t *testing.T) {
 
 	// Configure AI and mock chat completions -> success.
 	for key, value := range map[string]any{
-		"ai.enabled":   true,
-		"ai.api_key":   "k",
-		"ai.base_url":  "https://mock.local",
+		"ai.enabled":    true,
+		"ai.api_key":    "k",
+		"ai.base_url":   "https://mock.local",
 		"ai.chat_model": "m",
 	} {
 		if err := cfg.Set(user.ID, key, value); err != nil {
@@ -330,10 +330,10 @@ func TestAIRoutesAnalysisPost(t *testing.T) {
 		t.Fatalf("UpsertDiary: %v", err)
 	}
 	for key, value := range map[string]any{
-		"ai.enabled":     true,
-		"ai.api_key":     "k",
-		"ai.base_url":    "https://mock.local",
-		"ai.chat_model":  "m",
+		"ai.enabled":    true,
+		"ai.api_key":    "k",
+		"ai.base_url":   "https://mock.local",
+		"ai.chat_model": "m",
 	} {
 		if err := cfg.Set(user.ID, key, value); err != nil {
 			t.Fatalf("set %s: %v", key, err)
@@ -350,5 +350,135 @@ func TestAIRoutesAnalysisPost(t *testing.T) {
 	}
 	if payload["count"] == nil || int(payload["count"].(float64)) < 1 {
 		t.Fatalf("analysis POST count = %#v", payload["count"])
+	}
+}
+
+func TestAIRoutesAnalysisManualSave(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	e := echo.New()
+	RegisterAIRoutes(e, s, authMiddlewareFor(user), nil)
+
+	// Validation: bad period / missing key / bad key / empty summary
+	for _, tc := range []struct {
+		name string
+		body string
+	}{
+		{"bad period", `{"period":"bad","key":"2026-W02","summary":"x"}`},
+		{"missing key", `{"period":"week","summary":"x"}`},
+		{"bad key format", `{"period":"week","key":"2026-W2","summary":"x"}`},
+		{"out-of-range week", `{"period":"week","key":"2027-W53","summary":"x"}`},
+		{"bad month key", `{"period":"month","key":"2026-13","summary":"x"}`},
+		{"empty summary", `{"period":"week","key":"2026-W02","summary":"   "}`},
+	} {
+		rec := performRequest(t, e, http.MethodPut, "/api/v1/ai/analysis", strings.NewReader(tc.body), map[string]string{"Content-Type": "application/json"})
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("analysis PUT %s status = %d, want 400 (body=%s)", tc.name, rec.Code, rec.Body.String())
+		}
+	}
+
+	if _, _, err := s.UpsertDiary(user.ID, "2026-01-07", "周中的一次长跑记录", nil, nil, nil, nil, nil, nil, nil, nil); err != nil {
+		t.Fatalf("UpsertDiary: %v", err)
+	}
+
+	// 2026-W02: 2026-01-05 ~ 2026-01-11 (ISO 8601). Manual save without AI config.
+	body := `{"period":"week","key":"2026-W02","summary":"本周运动三次，睡眠改善。"}`
+	rec := performRequest(t, e, http.MethodPut, "/api/v1/ai/analysis", strings.NewReader(body), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("analysis PUT status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSONBody(t, rec)
+	if payload["summary"] != "本周运动三次，睡眠改善。" {
+		t.Fatalf("analysis PUT summary = %#v", payload["summary"])
+	}
+	if payload["start"] != "2026-01-05" || payload["end"] != "2026-01-11" {
+		t.Fatalf("analysis PUT derived range = %v ~ %v, want 2026-01-05 ~ 2026-01-11", payload["start"], payload["end"])
+	}
+	if count, ok := payload["count"].(float64); !ok || int(count) != 1 {
+		t.Fatalf("analysis PUT count = %#v, want 1", payload["count"])
+	}
+
+	// Saved manual report must be retrievable via the GET endpoint by key.
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analysis?period=week&key=2026-W02", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("analysis GET status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	payload = decodeJSONBody(t, rec)
+	if payload["found"] != true {
+		t.Fatalf("analysis GET found = %#v, want true", payload["found"])
+	}
+	if payload["summary"] != "本周运动三次，睡眠改善。" {
+		t.Fatalf("analysis GET summary = %#v", payload["summary"])
+	}
+	if payload["key"] != "2026-W02" {
+		t.Fatalf("analysis GET key = %#v, want 2026-W02", payload["key"])
+	}
+
+	// The saved report should appear in the history list for period=week.
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analyses?period=week", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("analyses GET status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	payload = decodeJSONBody(t, rec)
+	items, _ := payload["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("analyses GET items = %#v, want 1 item", payload["items"])
+	}
+}
+
+func TestAIRoutesAnalysisPostByKey(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	cfg := config.NewConfigService(s)
+	e := echo.New()
+	RegisterAIRoutes(e, s, authMiddlewareFor(user), nil)
+
+	// Validation: keyed POST without key / with bad key
+	rec := performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"year"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("analysis POST missing key status = %d, want 400", rec.Code)
+	}
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"week","key":"2026-W99"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("analysis POST bad key status = %d, want 400", rec.Code)
+	}
+
+	// Configure AI + mock transport, then generate a yearly report by key.
+	if _, _, err := s.UpsertDiary(user.ID, "2026-03-15", "年度里的一个普通日子", nil, nil, nil, nil, nil, nil, nil, nil); err != nil {
+		t.Fatalf("UpsertDiary: %v", err)
+	}
+	for key, value := range map[string]any{
+		"ai.enabled":    true,
+		"ai.api_key":    "k",
+		"ai.base_url":   "https://mock.local",
+		"ai.chat_model": "m",
+	} {
+		if err := cfg.Set(user.ID, key, value); err != nil {
+			t.Fatalf("set %s: %v", key, err)
+		}
+	}
+	mockAITransport(t)
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/ai/analysis", strings.NewReader(`{"period":"year","key":"2026"}`), map[string]string{"Content-Type": "application/json"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("analysis POST status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSONBody(t, rec)
+	if payload["summary"] != "MOCK_RESULT" {
+		t.Fatalf("analysis POST summary = %#v", payload["summary"])
+	}
+	if payload["key"] != "2026" || payload["start"] != "2026-01-01" || payload["end"] != "2026-12-31" {
+		t.Fatalf("analysis POST key/range = %v %v %v", payload["key"], payload["start"], payload["end"])
+	}
+	if count, ok := payload["count"].(float64); !ok || int(count) != 1 {
+		t.Fatalf("analysis POST count = %#v, want 1", payload["count"])
+	}
+
+	// Retrieved again by key from GET.
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/ai/analysis?period=year&key=2026", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("analysis GET status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	if payload = decodeJSONBody(t, rec); payload["found"] != true || payload["summary"] != "MOCK_RESULT" {
+		t.Fatalf("analysis GET payload = %#v", payload)
 	}
 }

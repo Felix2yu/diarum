@@ -47,6 +47,7 @@ type exportData struct {
 type exportAnalysis struct {
 	ID         string `json:"id"`
 	Period     string `json:"period"`
+	PeriodKey  string `json:"period_key,omitempty"`
 	StartDate  string `json:"start_date"`
 	EndDate    string `json:"end_date"`
 	DiaryCount int    `json:"diary_count"`
@@ -115,10 +116,10 @@ type exportFailedItem struct {
 }
 
 type importStats struct {
-	Diaries       importCounters `json:"diaries"`
+	Diaries       importCounters      `json:"diaries"`
 	DiaryDetails  []importDiaryDetail `json:"diary_details,omitempty"`
-	Media         importCounters `json:"media"`
-	Conversations importCounters `json:"conversations"`
+	Media         importCounters      `json:"media"`
+	Conversations importCounters      `json:"conversations"`
 }
 
 type importCounters struct {
@@ -245,7 +246,7 @@ func BuildExportZip(s *store.Store, userID string, req ExportRequest) (*bytes.Bu
 		for _, a := range analyses {
 			if isDateInRange(a.StartDate, startDate, endDate) || isDateInRange(a.EndDate, startDate, endDate) {
 				exportAnalyses = append(exportAnalyses, exportAnalysis{
-					ID: a.ID, Period: a.Period, StartDate: a.StartDate, EndDate: a.EndDate,
+					ID: a.ID, Period: a.Period, PeriodKey: a.PeriodKey, StartDate: a.StartDate, EndDate: a.EndDate,
 					DiaryCount: a.DiaryCount, Summary: a.Summary, Keywords: a.Keywords, Created: a.Created,
 				})
 			}
@@ -313,16 +314,16 @@ func handleImport(c *echo.Context, s *store.Store, embeddingService *embedding.E
 	if fh.Size > maxImportSize {
 		return badRequest("File too large (max 200MB)", nil)
 	}
-	
+
 	// 检查文件扩展名
- filename := strings.ToLower(fh.Filename)
- isJSONFile := strings.HasSuffix(filename, ".json")
- isZIPFile := strings.HasSuffix(filename, ".zip")
-	
+	filename := strings.ToLower(fh.Filename)
+	isJSONFile := strings.HasSuffix(filename, ".json")
+	isZIPFile := strings.HasSuffix(filename, ".zip")
+
 	if !isJSONFile && !isZIPFile {
 		return badRequest("Only .json and .zip files are supported", nil)
 	}
-	
+
 	f, err := fh.Open()
 	if err != nil {
 		return badRequest("Failed to open upload", err)
@@ -332,12 +333,12 @@ func handleImport(c *echo.Context, s *store.Store, embeddingService *embedding.E
 	if err != nil || int64(len(fileBytes)) > maxImportSize {
 		return badRequest("Failed to read upload", err)
 	}
-	
+
 	var data exportData
 	mediaFiles := make(map[string][]byte)
 	mdFiles := make(map[string][]byte)
 	analysisFiles := make(map[string][]byte)
-	
+
 	if isJSONFile {
 		// 直接解析JSON文件
 		if err := json.Unmarshal(fileBytes, &data); err != nil {
@@ -488,12 +489,12 @@ func handleImport(c *echo.Context, s *store.Store, embeddingService *embedding.E
 		stats.Conversations.Imported++
 	}
 	for _, a := range data.Analyses {
-		_, _ = s.SavePeriodAnalysis(userID, a.Period, a.StartDate, a.EndDate, a.DiaryCount, a.Summary, "", "", a.Keywords)
+		_, _ = s.SavePeriodAnalysis(userID, a.Period, a.PeriodKey, a.StartDate, a.EndDate, a.DiaryCount, a.Summary, "", "", a.Keywords)
 	}
 	for _, content := range analysisFiles {
 		a := parseAnalysisMarkdown(content)
 		if a != nil {
-			_, _ = s.SavePeriodAnalysis(userID, a.Period, a.StartDate, a.EndDate, a.DiaryCount, a.Summary, "", "", a.Keywords)
+			_, _ = s.SavePeriodAnalysis(userID, a.Period, a.PeriodKey, a.StartDate, a.EndDate, a.DiaryCount, a.Summary, "", "", a.Keywords)
 		}
 	}
 	if embeddingService != nil {
@@ -559,6 +560,8 @@ func parseAnalysisMarkdown(content []byte) *exportAnalysis {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "**Period:**") {
 			a.Period = strings.TrimSpace(strings.TrimPrefix(trimmed, "**Period:**"))
+		} else if strings.HasPrefix(trimmed, "**Period Key:**") {
+			a.PeriodKey = strings.TrimSpace(strings.TrimPrefix(trimmed, "**Period Key:**"))
 		} else if strings.HasPrefix(trimmed, "**Diary Count:**") {
 			fmt.Sscanf(strings.TrimSpace(strings.TrimPrefix(trimmed, "**Diary Count:**")), "%d", &a.DiaryCount)
 		} else if strings.HasPrefix(trimmed, "**Keywords:**") {
@@ -769,6 +772,9 @@ func generateAnalysisMarkdown(a exportAnalysis) string {
 	var sb strings.Builder
 	sb.WriteString("# Analysis: " + a.StartDate + " ~ " + a.EndDate + "\n\n")
 	sb.WriteString("**Period:** " + a.Period + "\n")
+	if a.PeriodKey != "" {
+		sb.WriteString("**Period Key:** " + a.PeriodKey + "\n")
+	}
 	sb.WriteString("**Diary Count:** " + fmt.Sprintf("%d", a.DiaryCount) + "\n")
 	if a.Keywords != "" {
 		sb.WriteString("**Keywords:** " + a.Keywords + "\n")

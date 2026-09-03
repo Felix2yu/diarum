@@ -3,11 +3,13 @@
 		analyzePeriod,
 		getSavedAnalysis,
 		getSavedAnalyses,
+		saveAnalysisSummary,
 		DEFAULT_ANALYSIS_SYSTEM_PROMPT,
 		type PeriodAnalysisResult,
 		type SavedPeriodAnalysisResult,
 		type PeriodType
 	} from '$lib/api/ai';
+	import { formatSpecialDateLabel, periodKeyRange, formatDate, type CalendarPeriod } from '$lib/utils/date';
 	import { marked } from 'marked';
 
 	// 把 markdown 文本渲染为安全的 HTML
@@ -28,21 +30,39 @@
 	let {
 		mode = 'single',
 		period,
-		start,
-		end,
+		key = '',
+		start = '',
+		end = '',
 		onClose
 	}: {
 		mode?: 'single' | 'history';
 		period: PeriodType;
-		start: string;
-		end: string;
+		/** 周期键（周/月/年分析，ISO 8601 周 / 月 / 年）：2026-W36 / 2026-09 / 2026 */
+		key?: string;
+		/** 自定义分析的初始日期范围 */
+		start?: string;
+		end?: string;
 		onClose: () => void;
 	} = $props();
+
+	// 周/月/年分析按周期键寻址（第一周、第一月……），日期范围由键推导；
+	// 仅自定义分析使用显式的起止日期。
+	function isKeyedPeriod(p: PeriodType): p is CalendarPeriod {
+		return p === 'week' || p === 'month' || p === 'year';
+	}
+
+	function keyRangeOf(p: PeriodType, k: string) {
+		return isKeyedPeriod(p) && k ? periodKeyRange(p, k) : null;
+	}
 
 	// ------- 通用状态 -------
 	type Stage = 'checking' | 'idle' | 'loading' | 'ready' | 'error' | 'list-loading' | 'list-ready' | 'list-error';
 	let stage: Stage = $state('checking');
 	let errorMsg: string | null = $state(null);
+
+	// 视图状态：历史分析弹窗内可发起弱化入口的自定义分析
+	let view = $state<'single' | 'history'>(mode);
+	let fromHistory = $state(false);
 
 	// ------- 单条分析视图 -------
 	let result: PeriodAnalysisResult | null = $state(null);
@@ -52,14 +72,20 @@
 	let userPrefix = $state('');
 	let keywords = $state('');
 
-	// 自定义时间区间（只在自定义模式下编辑；默认填充传入的 start/end）
+	// 手动填写周报/月报/年报（跳过 AI，直接填写内容保存）
+	let showManualEditor = $state(false);
+	let manualSummary = $state('');
+	let savingManual = $state(false);
+
+	// 当前编辑的分析（周期键或自定义区间）
 	let customPeriod = $state<PeriodType>(period);
-	let customStart = $state(start);
-	let customEnd = $state(end);
+	let customKey = $state(key);
+	let customStart = $state('');
+	let customEnd = $state('');
 	let showFilters = $state(false);
 
 	// ------- 历史列表视图 -------
-	type Filter = 'all' | 'week' | 'month' | 'custom';
+	type Filter = 'all' | 'week' | 'month' | 'year' | 'custom';
 	let filter: Filter = $state('all');
 	let savedList: SavedPeriodAnalysisResult[] = $state([]);
 	let selected: SavedPeriodAnalysisResult | null = $state(null);
@@ -95,19 +121,25 @@
 		keywords = '';
 		showPromptEditor = false;
 		showFilters = false;
+		showManualEditor = false;
+		manualSummary = '';
 	}
 
 	// 打开时：根据 mode 决定加载什么内容
-	async function tryLoadSingle(per: PeriodType, s: string, e: string, kw: string | undefined) {
+	async function tryLoadSingle(per: PeriodType, k: string, s: string, e: string, kw?: string) {
 		resetSingleState();
 		customPeriod = per;
-		customStart = s;
-		customEnd = e;
+		customKey = k;
+		const range = keyRangeOf(per, k);
+		customStart = range?.start ?? s;
+		customEnd = range?.end ?? e;
 		if (kw !== undefined) keywords = kw;
 		stage = 'checking';
 		errorMsg = null;
 		try {
-			const saved = await getSavedAnalysis(per, s, e, kw ?? '');
+			const saved = isKeyedPeriod(per)
+				? await getSavedAnalysis(per, { key: k })
+				: await getSavedAnalysis(per, { start: customStart, end: customEnd, keywords: kw ?? '' });
 			if (saved) {
 				result = saved;
 				if (saved.system_prompt) systemPrompt = saved.system_prompt;
@@ -139,13 +171,13 @@
 		}
 	}
 
-	// 根据 mode 初始化加载（组件挂载/切换 mode 时执行一次；避免监听 stage 以免循环）
+	// 根据 mode 初始化加载（组件挂载时执行一次；避免监听 stage 以免循环）
 	$effect(() => {
 		if (mode === 'history') {
 			// 只在初次挂载且尚未加载过时调用，避免 effect 依赖追踪导致循环
 			loadList(filter);
 		} else {
-			tryLoadSingle(period, start, end);
+			tryLoadSingle(period, key, start, end);
 		}
 	});
 
@@ -171,22 +203,32 @@
 
 	// ------- 单条分析逻辑 -------
 	async function runAnalysis() {
-		const dateErr = validateDates();
-		if (dateErr) {
-			errorMsg = dateErr;
-			stage = 'error';
-			return;
+		if (!isKeyedPeriod(customPeriod)) {
+			const dateErr = validateDates();
+			if (dateErr) {
+				errorMsg = dateErr;
+				stage = 'error';
+				return;
+			}
 		}
 		stage = 'loading';
 		errorMsg = null;
 		result = null;
 		savedLabel = null;
 		try {
-			const r = await analyzePeriod(customPeriod, customStart, customEnd, {
-				system_prompt: systemPrompt,
-				user_prefix: userPrefix,
-				keywords: keywords
-			});
+			const r = isKeyedPeriod(customPeriod)
+				? await analyzePeriod(customPeriod, {
+						key: customKey,
+						system_prompt: systemPrompt,
+						user_prefix: userPrefix
+					})
+				: await analyzePeriod(customPeriod, {
+						start: customStart,
+						end: customEnd,
+						keywords,
+						system_prompt: systemPrompt,
+						user_prefix: userPrefix
+					});
 			result = r;
 			if (r?.id) {
 				savedLabel = r.updated
@@ -206,14 +248,18 @@
 		if (item.system_prompt) systemPrompt = item.system_prompt;
 		if (item.user_prefix) userPrefix = item.user_prefix;
 		customPeriod = item.period;
+		customKey = item.key ?? '';
 		customStart = item.start;
 		customEnd = item.end;
 		keywords = item.keywords ?? '';
-		showFilters = item.period === 'custom' || (item.keywords ?? '').trim() !== '';
+		showFilters = item.period === 'custom';
+		showManualEditor = false;
+		manualSummary = item.summary ?? '';
 		savedLabel = item.updated
 			? `已保存 · ${item.updated.replace('T', ' ').slice(0, 19)}`
 			: '已保存';
 		selected = item;
+		view = 'single';
 		stage = 'ready';
 	}
 
@@ -221,8 +267,27 @@
 		result = null;
 		savedLabel = null;
 		selected = null;
+		showManualEditor = false;
+		manualSummary = '';
+		view = 'history';
+		fromHistory = false;
 		// 恢复列表状态，不重新请求网络，savedList 已在内存
 		stage = 'list-ready';
+	}
+
+	// 弱化入口：从历史分析内发起自定义（非整周/整月，如旅行）分析
+	function startCustomFromHistory() {
+		fromHistory = true;
+		selected = null;
+		view = 'single';
+		resetSingleState();
+		customPeriod = 'custom';
+		customKey = '';
+		const today = new Date();
+		const startDay = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000);
+		customStart = formatDate(startDay);
+		customEnd = formatDate(today);
+		stage = 'idle';
 	}
 
 	function useDefaultPrompt() {
@@ -233,17 +298,50 @@
 	function periodTitle(per: string): string {
 		if (per === 'week') return '周分析';
 		if (per === 'month') return '月分析';
+		if (per === 'year') return '年分析';
 		return '自定义分析';
 	}
 
-	const mainLabel =
-		mode === 'history'
-			? '历史分析'
-			: period === 'week'
-				? '本周分析'
-				: period === 'month'
-					? '本月分析'
-					: '自定义分析';
+	// 周/月/年条目的中文周期标签（如 2026年第36周），自定义分析无
+	function itemLabel(per: string, k: string | undefined): string {
+		return per === 'week' || per === 'month' || per === 'year' ? formatSpecialDateLabel(k ?? '') : '';
+	}
+
+	function openManualEditor() {
+		manualSummary = result?.summary ?? '';
+		showManualEditor = true;
+	}
+
+	async function saveManual() {
+		const trimmed = manualSummary.trim();
+		if (!trimmed) {
+			errorMsg = '报告内容不能为空';
+			return;
+		}
+		savingManual = true;
+		errorMsg = null;
+		try {
+			const r = await saveAnalysisSummary(customPeriod, customKey, trimmed);
+			result = r;
+			manualSummary = r.summary;
+			showManualEditor = false;
+			savedLabel = r.updated
+				? `已保存 · ${r.updated.replace('T', ' ').slice(0, 19)}`
+				: '已保存';
+		} catch (e: unknown) {
+			errorMsg = e instanceof Error ? e.message : '保存报告失败';
+		} finally {
+			savingManual = false;
+		}
+	}
+
+	const mainLabel = $derived(
+		view === 'history'
+			? selected
+				? periodTitle(selected.period)
+				: '历史分析'
+			: periodTitle(customPeriod)
+	);
 
 	// 绑定到根元素引用
 	function setRef(node: HTMLDivElement | null) {
@@ -263,9 +361,12 @@
 		<div class="analysis-header">
 			<div class="analysis-header-main">
 				<h3>{mainLabel}</h3>
-				{#if mode === 'history'}
+				{#if view === 'history'}
 					{#if selected}
 						<p class="analysis-header-sub">
+							{#if itemLabel(selected.period, selected.key)}
+								<span class="analysis-list-tag">{itemLabel(selected.period, selected.key)}</span>
+							{/if}
 							{selected.start} ~ {selected.end}
 							{#if selected.updated}
 								<span class="analysis-saved-badge" title="该分析已保存">
@@ -278,7 +379,10 @@
 					{/if}
 				{:else}
 					<p class="analysis-header-sub">
-						{start} ~ {end}
+						{#if isKeyedPeriod(customPeriod) && customKey}
+							<span class="analysis-list-tag">{formatSpecialDateLabel(customKey)}</span>
+						{/if}
+						{customStart} ~ {customEnd}
 						{#if savedLabel}
 							<span class="analysis-saved-badge" title="该分析已保存">{savedLabel}</span>
 						{/if}
@@ -289,7 +393,7 @@
 		</div>
 
 		<!-- ---- 历史列表模式 ---- -->
-		{#if mode === 'history'}
+		{#if view === 'history'}
 			{#if !selected}
 				<div class="analysis-toolbar">
 					<button
@@ -305,10 +409,22 @@
 						onclick={() => loadList('month')}
 					>月分析</button>
 					<button
+						class={filter === 'year' ? 'analysis-toggle analysis-toggle--active' : 'analysis-toggle'}
+						onclick={() => loadList('year')}
+					>年分析</button>
+					<button
 						class={filter === 'custom' ? 'analysis-toggle analysis-toggle--active' : 'analysis-toggle'}
 						onclick={() => loadList('custom')}
 					>自定义</button>
-					<button onclick={() => loadList(filter)} class="analysis-toggle ml-auto" title="刷新">
+					<!-- 弱化入口：自定义分析仅供旅行等非整周/整月时间段使用 -->
+					<button
+						onclick={startCustomFromHistory}
+						class="analysis-toggle ml-auto"
+						title="为旅行等非整周/整月的时间段创建 AI 分析"
+					>
+						+ 自定义分析
+					</button>
+					<button onclick={() => loadList(filter)} class="analysis-toggle" title="刷新">
 						刷新
 					</button>
 				</div>
@@ -328,7 +444,7 @@
 						<div class="analysis-idle">
 							<p class="analysis-idle-title">暂无已保存的分析</p>
 							<p class="analysis-idle-sub">
-								返回日历界面点击"周分析"或"月分析"，生成分析后将自动保存到此处。
+								返回日历界面点击"周分析""月分析"或"年分析"（或在日历选择器中选择周报/月报/年报），生成或填写分析后将自动保存到此处。
 							</p>
 						</div>
 					{:else}
@@ -339,7 +455,15 @@
 										<span class="analysis-list-tag" data-period={item.period}>
 											{periodTitle(item.period)}
 										</span>
-										<span class="analysis-list-range">{item.start} ~ {item.end}</span>
+										<span class="analysis-list-range">
+											{#if itemLabel(item.period, item.key)}
+												<span class="analysis-list-key" title={item.key}>
+													{itemLabel(item.period, item.key)}
+												</span>
+												·
+											{/if}
+											{item.start} ~ {item.end}
+										</span>
 										<span class="analysis-list-count">{item.count} 篇日记</span>
 										{#if item.keywords}
 											<span class="analysis-list-keywords" title="关键词">🏷 {item.keywords}</span>
@@ -358,12 +482,19 @@
 				<!-- 选中某条历史：显示详细内容 + 可重新生成 -->
 				<div class="analysis-toolbar">
 					<button onclick={backToList} class="analysis-toggle">← 返回列表</button>
-					{#if customPeriod !== 'week' && customPeriod !== 'month'}
+					{#if customPeriod === 'custom'}
 						<button
 							class={showFilters ? 'analysis-toggle analysis-toggle--active' : 'analysis-toggle'}
 							onclick={() => (showFilters = !showFilters)}
 						>
 							{showFilters ? '收起筛选' : '自定义筛选'}
+						</button>
+					{:else}
+						<button
+							class={showManualEditor ? 'analysis-toggle analysis-toggle--active' : 'analysis-toggle'}
+							onclick={() => (showManualEditor ? (showManualEditor = false) : openManualEditor())}
+						>
+							{showManualEditor ? '收起填写' : '编辑报告'}
 						</button>
 					{/if}
 					<button onclick={() => (showPromptEditor = !showPromptEditor)} class="analysis-toggle">
@@ -379,7 +510,7 @@
 					</button>
 				</div>
 
-				{#if customPeriod !== 'week' && customPeriod !== 'month' && showFilters}
+				{#if customPeriod === 'custom' && showFilters}
 					<div class="analysis-filters">
 					<div class="analysis-filter-row">
 						<label class="analysis-filter-label" for="cas-history-start">开始日期</label>
@@ -434,6 +565,29 @@
 					</div>
 				{/if}
 
+				{#if isKeyedPeriod(customPeriod) && showManualEditor}
+					<div class="analysis-prompt">
+						<label for="cas-history-manual-summary" class="analysis-prompt-label">
+							{formatSpecialDateLabel(customKey)}（{customStart} ~ {customEnd}）报告内容
+						</label>
+						<textarea
+							id="cas-history-manual-summary"
+							rows={8}
+							bind:value={manualSummary}
+							placeholder="直接填写本周/本月/今年的日记分析，保存后可在历史分析中随时查看。"
+							class="analysis-prompt-textarea"
+						/>
+						<div class="analysis-manual-actions">
+							<button class="analysis-retry" onclick={saveManual} disabled={savingManual}>
+								{savingManual ? '保存中…' : '保存报告'}
+							</button>
+						</div>
+						{#if errorMsg}
+							<p class="analysis-manual-error">{errorMsg}</p>
+						{/if}
+					</div>
+				{/if}
+
 				<div class="analysis-body">
 					{#if stage === 'loading'}
 						<div class="analysis-loading">
@@ -457,13 +611,22 @@
 				</div>
 			{/if}
 
-		<!-- ---- 单条分析模式（原有逻辑） ---- -->
+		<!-- ---- 单条分析模式 ---- -->
 		{:else}
 			<div class="analysis-toolbar">
-				{#if period === 'week' || period === 'month'}
-					<!-- 周/月分析：只保留提示词相关按钮，不提供自定义筛选 -->
+				{#if fromHistory && customPeriod === 'custom'}
+					<button onclick={backToList} class="analysis-toggle">← 历史分析</button>
+				{/if}
+				{#if isKeyedPeriod(customPeriod)}
+					<button
+						class={showManualEditor ? 'analysis-toggle analysis-toggle--active' : 'analysis-toggle'}
+						onclick={() => (showManualEditor ? (showManualEditor = false) : openManualEditor())}
+					>
+						{showManualEditor ? '收起填写' : result ? '编辑报告' : '填写报告'}
+					</button>
+					<!-- 周/月/年分析：支持手动填写报告与提示词编辑，不提供自定义筛选 -->
 				{:else}
-					<!-- 自定义分析：只保留筛选/提示词按钮，不提供"回到默认区间" -->
+					<!-- 自定义分析：只保留筛选/提示词按钮 -->
 					<button
 						class={showFilters ? 'analysis-toggle analysis-toggle--active' : 'analysis-toggle'}
 						onclick={() => (showFilters = !showFilters)}
@@ -484,7 +647,7 @@
 				</button>
 			</div>
 
-			{#if period !== 'week' && period !== 'month' && showFilters}
+			{#if customPeriod === 'custom' && showFilters}
 				<div class="analysis-filters">
 					<div class="analysis-filter-row">
 						<label class="analysis-filter-label" for="cas-custom-start">开始日期</label>
@@ -542,6 +705,29 @@
 				</div>
 			{/if}
 
+			{#if isKeyedPeriod(customPeriod) && showManualEditor}
+				<div class="analysis-prompt">
+					<label for="cas-manual-summary" class="analysis-prompt-label">
+						{formatSpecialDateLabel(customKey)}（{customStart} ~ {customEnd}）报告内容
+					</label>
+					<textarea
+						id="cas-manual-summary"
+						rows={8}
+						bind:value={manualSummary}
+						placeholder="直接填写本周/本月/今年的日记分析，保存后可在历史分析中随时查看；后续也可以用 AI 重新生成。"
+						class="analysis-prompt-textarea"
+					/>
+					<div class="analysis-manual-actions">
+						<button class="analysis-retry" onclick={saveManual} disabled={savingManual}>
+							{savingManual ? '保存中…' : '保存报告'}
+						</button>
+					</div>
+					{#if errorMsg}
+						<p class="analysis-manual-error">{errorMsg}</p>
+					{/if}
+				</div>
+			{/if}
+
 			<div class="analysis-body">
 				{#if stage === 'checking'}
 					<div class="analysis-loading">
@@ -559,8 +745,8 @@
 							<div class="analysis-idle">
 								<p class="analysis-idle-title">准备开始 AI 分析</p>
 								<p class="analysis-idle-sub">
-									{#if period === 'week' || period === 'month'}
-										系统将基于所选时间段的日记内容生成一份结构化的总结与建议。可在"编辑提示词"中自定义分析风格，然后点击"开始分析"。分析结果会自动保存，下次打开时可直接查看。
+									{#if isKeyedPeriod(customPeriod)}
+										系统将基于该周/该月/该年的日记内容生成一份结构化的总结与建议。可在"编辑提示词"中自定义分析风格，也可直接"填写报告"手动记录，然后点击"开始分析"或"保存报告"。分析结果会自动保存，下次打开时可直接查看。
 									{:else}
 										系统将基于所选时间段的日记内容生成一份结构化的总结与建议。可点击"自定义筛选"按日期范围或关键词进行更精细的分析，也可在"编辑提示词"中自定义分析风格，然后点击"开始分析"。分析结果会自动保存，下次打开时可直接查看。
 									{/if}
@@ -826,6 +1012,23 @@
 		font-size: 0.72rem;
 		color: hsl(var(--muted-foreground));
 		margin: 0.6rem 0 0;
+	}
+
+	.analysis-manual-actions {
+		display: flex;
+		justify-content: flex-end;
+		margin-top: 0.6rem;
+	}
+
+	.analysis-manual-error {
+		font-size: 0.75rem;
+		color: hsl(var(--destructive) / 0.9);
+		margin: 0.5rem 0 0;
+	}
+
+	.analysis-list-key {
+		color: hsl(var(--primary));
+		font-weight: 500;
 	}
 
 	.analysis-body {

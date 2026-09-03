@@ -612,7 +612,10 @@ func TestStoreClosedDatabaseErrorBranches(t *testing.T) {
 		{"GetUserByID", func() error { _, err := s.GetUserByID(user.ID); return err }},
 		{"GetUserByIdentity", func() error { _, err := s.GetUserByIdentity(user.Email); return err }},
 		{"CreateUser", func() error { _, err := s.CreateUser("closed", "closed@example.com", "hash"); return err }},
-		{"UpsertDiary", func() error { _, _, err := s.UpsertDiary(user.ID, "2024-01-02", "x", nil, nil, nil, nil, nil, nil, nil, nil); return err }},
+		{"UpsertDiary", func() error {
+			_, _, err := s.UpsertDiary(user.ID, "2024-01-02", "x", nil, nil, nil, nil, nil, nil, nil, nil)
+			return err
+		}},
 		{"GetDiaryByDate", func() error {
 			_, err := s.GetDiaryByDate(user.ID, "2024-01-01 00:00:00.000Z", "2024-01-01 23:59:59.999Z")
 			return err
@@ -642,7 +645,10 @@ func TestStoreClosedDatabaseErrorBranches(t *testing.T) {
 		{"CountMessages", func() error { _, err := s.CountMessages(conv.ID); return err }},
 		{"CreateMessage", func() error { _, err := s.CreateMessage(user.ID, conv.ID, "user", "x", nil); return err }},
 		{"InsertImportedMessage", func() error { _, err := s.InsertImportedMessage(user.ID, "x", conv.ID, "user", "x", nil); return err }},
-		{"InsertImportedDiary", func() error { _, err := s.InsertImportedDiary(user.ID, "x", "2024-01-03", "x", 0, nil, nil, "", nil, "", 0, 0); return err }},
+		{"InsertImportedDiary", func() error {
+			_, err := s.InsertImportedDiary(user.ID, "x", "2024-01-03", "x", 0, nil, nil, "", nil, "", 0, 0)
+			return err
+		}},
 	}
 	for _, check := range checks {
 		t.Run(check.name, func(t *testing.T) {
@@ -2107,7 +2113,10 @@ func TestStoreWriteAndQueryErrorsAfterClose(t *testing.T) {
 	}{
 		{"transaction", func() error { return s.Transaction(context.Background(), func(*sql.Tx) error { return nil }) }},
 		{"create user", func() error { _, err := s.CreateUser("user", "email@example.com", "hash"); return err }},
-		{"upsert diary", func() error { _, _, err := s.UpsertDiary("owner", "2024-01-01", "body", nil, nil, nil, nil, nil, nil, nil, nil); return err }},
+		{"upsert diary", func() error {
+			_, _, err := s.UpsertDiary("owner", "2024-01-01", "body", nil, nil, nil, nil, nil, nil, nil, nil)
+			return err
+		}},
 		{"delete diary", func() error { return s.DeleteDiary("id", "owner") }},
 		{"list diaries", func() error { _, err := s.ListDiaries("owner", "", "", "-date", 1); return err }},
 		{"search diaries", func() error { _, err := s.SearchDiaries("owner", "body", "", 1); return err }},
@@ -2128,7 +2137,10 @@ func TestStoreWriteAndQueryErrorsAfterClose(t *testing.T) {
 			_, err := s.InsertImportedMessage("owner", "id", "conversation", "user", "body", nil)
 			return err
 		}},
-		{"insert diary", func() error { _, err := s.InsertImportedDiary("owner", "id", "2024-01-01", "body", 0, nil, nil, "", nil, "", 0, 0); return err }},
+		{"insert diary", func() error {
+			_, err := s.InsertImportedDiary("owner", "id", "2024-01-01", "body", 0, nil, nil, "", nil, "", 0, 0)
+			return err
+		}},
 	}
 	for _, check := range checks {
 		t.Run(check.name, func(t *testing.T) {
@@ -2293,7 +2305,7 @@ func TestPeriodAnalysisCRUD(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
 
-	a, err := s.SavePeriodAnalysis(user.ID, "month", "2024-01-01", "2024-01-31", 10, "summary", "prompt", "prefix", "work")
+	a, err := s.SavePeriodAnalysis(user.ID, "month", "2024-01", "2024-01-01", "2024-01-31", 10, "summary", "prompt", "prefix", "")
 	if err != nil {
 		t.Fatalf("SavePeriodAnalysis: %v", err)
 	}
@@ -2301,12 +2313,12 @@ func TestPeriodAnalysisCRUD(t *testing.T) {
 		t.Fatalf("SavePeriodAnalysis = %+v", a)
 	}
 
-	got, err := s.GetPeriodAnalysis(user.ID, "month", "2024-01-01", "2024-01-31", "work")
+	got, err := s.GetPeriodAnalysis(user.ID, "month", "2024-01", "2024-01-01", "2024-01-31", "")
 	if err != nil || got.ID != a.ID {
 		t.Fatalf("GetPeriodAnalysis = %+v, %v", got, err)
 	}
 
-	a2, err := s.SavePeriodAnalysis(user.ID, "month", "2024-01-01", "2024-01-31", 20, "updated", "prompt", "prefix", "work")
+	a2, err := s.SavePeriodAnalysis(user.ID, "month", "2024-01", "2024-01-01", "2024-01-31", 20, "updated", "prompt", "prefix", "")
 	if err != nil {
 		t.Fatalf("SavePeriodAnalysis update: %v", err)
 	}
@@ -2427,7 +2439,7 @@ func TestSavePeriodAnalysisUpdate(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
 
-	a1, err := s.SavePeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", 5, "summary1", "sp1", "up1", "")
+	a1, err := s.SavePeriodAnalysis(user.ID, "week", "2024-W01", "2024-01-01", "2024-01-07", 5, "summary1", "sp1", "up1", "")
 	if err != nil {
 		t.Fatalf("SavePeriodAnalysis first: %v", err)
 	}
@@ -2435,7 +2447,7 @@ func TestSavePeriodAnalysisUpdate(t *testing.T) {
 		t.Fatalf("first save = %#v", a1)
 	}
 
-	a2, err := s.SavePeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", 5, "summary2", "sp2", "up2", "")
+	a2, err := s.SavePeriodAnalysis(user.ID, "week", "2024-W01", "2024-01-01", "2024-01-07", 5, "summary2", "sp2", "up2", "")
 	if err != nil {
 		t.Fatalf("SavePeriodAnalysis update: %v", err)
 	}
@@ -2451,11 +2463,11 @@ func TestSavePeriodAnalysisWithKeywords(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
 
-	_, err := s.SavePeriodAnalysis(user.ID, "month", "2024-01-01", "2024-01-31", 3, "kw summary", "", "", "travel,work")
+	_, err := s.SavePeriodAnalysis(user.ID, "custom", "", "2024-01-01", "2024-01-31", 3, "kw summary", "", "", "travel,work")
 	if err != nil {
 		t.Fatalf("SavePeriodAnalysis with keywords: %v", err)
 	}
-	a, err := s.GetPeriodAnalysis(user.ID, "month", "2024-01-01", "2024-01-31", "travel,work")
+	a, err := s.GetPeriodAnalysis(user.ID, "custom", "", "2024-01-01", "2024-01-31", "travel,work")
 	if err != nil {
 		t.Fatalf("GetPeriodAnalysis: %v", err)
 	}
@@ -2468,8 +2480,8 @@ func TestListSavedAnalysesFilters(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
 
-	_, _ = s.SavePeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", 1, "w1", "", "", "")
-	_, _ = s.SavePeriodAnalysis(user.ID, "month", "2024-01-01", "2024-01-31", 2, "m1", "", "", "")
+	_, _ = s.SavePeriodAnalysis(user.ID, "week", "2024-W01", "2024-01-01", "2024-01-07", 1, "w1", "", "", "")
+	_, _ = s.SavePeriodAnalysis(user.ID, "month", "2024-01", "2024-01-01", "2024-01-31", 2, "m1", "", "", "")
 
 	all, err := s.ListSavedAnalyses(user.ID, "", 100)
 	if err != nil {
@@ -2508,7 +2520,7 @@ func TestGetPeriodAnalysisNotFound(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
 
-	_, err := s.GetPeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", "")
+	_, err := s.GetPeriodAnalysis(user.ID, "week", "2024-W01", "2024-01-01", "2024-01-07", "")
 	if err == nil {
 		t.Fatal("GetPeriodAnalysis should fail for missing record")
 	}
@@ -2800,10 +2812,10 @@ func TestGetPeriodAnalysisMultipleKeywords(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
 
-	_, _ = s.SavePeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", 3, "s1", "", "", "travel")
-	_, _ = s.SavePeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", 5, "s2", "", "", "work")
+	_, _ = s.SavePeriodAnalysis(user.ID, "custom", "", "2024-01-01", "2024-01-07", 3, "s1", "", "", "travel")
+	_, _ = s.SavePeriodAnalysis(user.ID, "custom", "", "2024-01-01", "2024-01-07", 5, "s2", "", "", "work")
 
-	a1, err := s.GetPeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", "travel")
+	a1, err := s.GetPeriodAnalysis(user.ID, "custom", "", "2024-01-01", "2024-01-07", "travel")
 	if err != nil {
 		t.Fatalf("GetPeriodAnalysis travel: %v", err)
 	}
@@ -2811,7 +2823,7 @@ func TestGetPeriodAnalysisMultipleKeywords(t *testing.T) {
 		t.Fatalf("GetPeriodAnalysis travel count = %d, want 3", a1.DiaryCount)
 	}
 
-	a2, err := s.GetPeriodAnalysis(user.ID, "week", "2024-01-01", "2024-01-07", "work")
+	a2, err := s.GetPeriodAnalysis(user.ID, "custom", "", "2024-01-01", "2024-01-07", "work")
 	if err != nil {
 		t.Fatalf("GetPeriodAnalysis work: %v", err)
 	}

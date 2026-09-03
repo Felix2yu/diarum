@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { formatDate, getCalendarDays, getToday, getYearRange, getMonthRange, getWeekRange, formatMonthYear, parseDate } from '$lib/utils/date';
+	import { formatDate, getCalendarDays, getToday, getYearRange, formatISOWeekKey, formatMonthYear, parseDate } from '$lib/utils/date';
 	import { getDatesWithDiaries, getDiariesOnThisDay, getRandomDiary, type CalendarDiaryMeta, type Diary } from '$lib/api/diaries';
 	import CalendarAnalysis from './CalendarAnalysis.svelte';
 	import CalendarYearPicker from './CalendarYearPicker.svelte';
@@ -31,7 +31,8 @@
 	type AnalysisState = {
 		active: boolean;
 		mode?: 'single' | 'history';
-		period: 'week' | 'month' | 'custom';
+		period: 'week' | 'month' | 'year' | 'custom';
+		key: string;
 		start: string;
 		end: string;
 	} | null;
@@ -166,25 +167,31 @@
 		return text.slice(0, maxLength) + '…';
 	}
 
+	// 周/月/年分析以周期键寻址（ISO 8601 周：2026-W36；月：2026-09；年：2026），
+	// 日期范围由后端/组件从键推导。自定义分析的入口收敛在"历史分析"弹窗内。
 	function openWeekAnalysis() {
-		const { start, end } = getWeekRange(new Date());
-		analysis = { active: true, mode: 'single', period: 'week', start, end };
+		analysis = { active: true, mode: 'single', period: 'week', key: formatISOWeekKey(new Date()), start: '', end: '' };
+	}
+	// 打开指定 ISO 8601 周的周报（供年份选择器的"周报"页签调用）
+	function openWeekAnalysisFor(year: number, week: number) {
+		analysis = { active: true, mode: 'single', period: 'week', key: `${year}-W${String(week).padStart(2, '0')}`, start: '', end: '' };
 	}
 	function openMonthAnalysis() {
-		const { start, end } = getMonthRange(currentYear, currentMonth);
-		analysis = { active: true, mode: 'single', period: 'month', start, end };
+		analysis = { active: true, mode: 'single', period: 'month', key: `${currentYear}-${String(currentMonth).padStart(2, '0')}`, start: '', end: '' };
+	}
+	// 打开指定月份的月报（供年份选择器的"月报"页签调用）
+	function openMonthAnalysisFor(year: number, month: number) {
+		analysis = { active: true, mode: 'single', period: 'month', key: `${year}-${String(month).padStart(2, '0')}`, start: '', end: '' };
+	}
+	function openYearAnalysis() {
+		openYearAnalysisFor(currentYear);
+	}
+	// 打开指定年份的年报（供年份选择器的"年报"页签调用）
+	function openYearAnalysisFor(year: number) {
+		analysis = { active: true, mode: 'single', period: 'year', key: String(year), start: '', end: '' };
 	}
 	function openHistoryAnalysis() {
-		const { start, end } = getMonthRange(currentYear, currentMonth);
-		analysis = { active: true, mode: 'history', period: 'month', start, end };
-	}
-	function openCustomAnalysis() {
-		// 默认取最近 30 天作为自定义分析的初始范围；用户可在弹窗中进一步调整
-		const today = new Date();
-		const start = new Date(today.getTime() - 29 * 24 * 60 * 60 * 1000);
-		const fmt = (d: Date) =>
-			`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-		analysis = { active: true, mode: 'single', period: 'custom', start: fmt(start), end: fmt(today) };
+		analysis = { active: true, mode: 'history', period: 'week', key: '', start: '', end: '' };
 	}
 	function closeAnalysis() {
 		analysis = null;
@@ -421,19 +428,20 @@
 							月分析
 						</span>
 					</button>
-					<!-- 自定义分析：移到历史分析前面，用普通灰色样式 -->
+					<!-- 年分析：主入口之一 -->
 					<button
-						onclick={openCustomAnalysis}
+						onclick={openYearAnalysis}
 						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200 whitespace-nowrap shrink-0"
-						title="自定义日期范围和关键词分析"
+						title="{currentYear} 年 AI 分析"
 					>
 						<span class="inline-flex items-center gap-1">
 							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6h18M7 12h10M10 18h4" />
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 							</svg>
-							自定义分析
+							年分析
 						</span>
 					</button>
+					<!-- 自定义分析的弱化入口收敛在"历史分析"弹窗内，用于旅行等非整周/整月时间段 -->
 					<!-- 历史分析：移到末尾并使用突出样式 -->
 					<button
 						onclick={openHistoryAnalysis}
@@ -558,8 +566,20 @@
 				</button>
 			</div>
 
-			<!-- 年视图专属行：往昔今朝 / 时空穿越 -->
+			<!-- 年视图专属行：年分析 / 往昔今朝 / 时空穿越 -->
 			<div class="flex items-center justify-center gap-1.5 mb-5 px-2">
+				<button
+					onclick={openYearAnalysis}
+					class="px-2.5 py-1 text-xs rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 hover:border-primary/60 transition-all duration-200"
+					title="{currentYear} 年 AI 分析"
+				>
+					<span class="inline-flex items-center gap-1">
+						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+						</svg>
+						年分析
+					</span>
+				</button>
 				<button
 					onclick={openOnThisDay}
 					class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
@@ -641,6 +661,7 @@
 		<CalendarAnalysis
 			mode={analysis.mode}
 			period={analysis.period}
+			key={analysis.key}
 			start={analysis.start}
 			end={analysis.end}
 			onClose={closeAnalysis}
@@ -659,6 +680,9 @@
 			}}
 			onClose={closeYearPicker}
 			onMonthChange={onmonthchange}
+			onSelectWeek={openWeekAnalysisFor}
+			onSelectMonthReport={openMonthAnalysisFor}
+			onSelectYearReport={openYearAnalysisFor}
 		/>
 	{/if}
 
