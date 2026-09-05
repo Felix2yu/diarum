@@ -100,12 +100,12 @@
 
 	<!-- Calendar -->
 	<main id="main-content" tabindex="-1" class="container-responsive py-4 lg:py-6 flex-1 flex flex-col min-h-0">
-		<div class="flex flex-col xl:flex-row gap-4 xl:gap-6 min-h-0">
+		<div class="flex flex-col xl:flex-row gap-4 xl:gap-6 flex-1 min-h-0">
 			<!-- Left: Calendar -->
 			<div class="xl:flex-1 xl:min-w-0 w-full flex flex-col min-h-0">
 				<!-- 页面标题 - 视觉隐藏，用于屏幕阅读器的文档结构 -->
 				<h1 class="sr-only">日历 — 查看与浏览我的日记记录</h1>
-				<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4 lg:p-5 relative xl:flex-1 xl:flex xl:flex-col xl:min-h-0">
+				<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4 lg:p-5 relative xl:flex xl:flex-col xl:min-h-0 xl:h-full">
 					{#if loading}
 						<div class="absolute inset-0 flex flex-col items-center justify-center gap-3">
 							<svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
@@ -123,7 +123,7 @@
 			</div>
 
 			<!-- Right: Stats and Recent Entries -->
-			<div class="xl:w-[340px] 2xl:w-[380px] flex flex-col gap-4 flex-shrink-0 w-full xl:min-h-0 xl:max-h-none">
+			<div class="xl:w-[340px] 2xl:w-[380px] flex flex-col gap-4 flex-shrink-0 w-full xl:min-h-0 xl:h-full">
 				<!-- Stats -->
 				<div class="grid grid-cols-3 gap-4">
 					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4 hover:shadow-md transition-shadow">
