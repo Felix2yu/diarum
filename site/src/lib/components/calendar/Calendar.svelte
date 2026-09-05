@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import { formatDate, getCalendarDays, getToday, getYearRange, formatISOWeekKey, getISOWeek, formatMonthYear, parseDate } from '$lib/utils/date';
 	import { getDatesWithDiaries, getDiariesOnThisDay, getRandomDiary, type CalendarDiaryMeta, type Diary } from '$lib/api/diaries';
+	import { getSavedAnalyses } from '$lib/api/ai';
 	import CalendarAnalysis from './CalendarAnalysis.svelte';
 	import CalendarYearPicker from './CalendarYearPicker.svelte';
 	import { moodToLabel } from '$lib/utils/diaryEmoji';
@@ -37,6 +38,47 @@
 		end: string;
 	} | null;
 	let analysis = $state<AnalysisState>(null);
+
+	// 已保存分析的周期键集合：用于在日历上标记某周/某月/某年是否已有分析
+	let savedWeekKeys = $state<Set<string>>(new Set());
+	let savedMonthKeys = $state<Set<string>>(new Set());
+	let savedYearKeys = $state<Set<string>>(new Set());
+
+	async function loadSavedAnalyses() {
+		try {
+			const [weeks, months, years] = await Promise.all([
+				getSavedAnalyses('week'),
+				getSavedAnalyses('month'),
+				getSavedAnalyses('year')
+			]);
+			savedWeekKeys = new Set(weeks.map((i) => i.key ?? ''));
+			savedMonthKeys = new Set(months.map((i) => i.key ?? ''));
+			savedYearKeys = new Set(years.map((i) => i.key ?? ''));
+		} catch {
+			// 获取失败时按“无已保存分析”处理，不影响日历展示
+		}
+	}
+
+	function hasWeekKey(key: string): boolean {
+		return savedWeekKeys.has(key);
+	}
+	function hasMonthKey(key: string): boolean {
+		return savedMonthKeys.has(key);
+	}
+	function hasYearKey(key: string): boolean {
+		return savedYearKeys.has(key);
+	}
+
+	function weekKeyOf(isoYear: number, week: number): string {
+		return `${isoYear}-W${String(week).padStart(2, '0')}`;
+	}
+
+	const monthKey = $derived(`${currentYear}-${String(currentMonth).padStart(2, '0')}`);
+
+	// 挂载时加载已保存分析，用于按钮“查看/分析”状态标记
+	$effect(() => {
+		loadSavedAnalyses();
+	});
 
 	// 往昔今朝 / 时空穿越
 	type OnThisDayState = {
@@ -169,10 +211,7 @@
 
 	// 周/月/年分析以周期键寻址（ISO 8601 周：2026-W36；月：2026-09；年：2026），
 	// 日期范围由后端/组件从键推导。自定义分析的入口收敛在"历史分析"弹窗内。
-	function openWeekAnalysis() {
-		analysis = { active: true, mode: 'single', period: 'week', key: formatISOWeekKey(new Date()), start: '', end: '' };
-	}
-	// 打开指定 ISO 8601 周的周报（供年份选择器的"周报"页签调用）
+	// 打开指定 ISO 8601 周的周报（供周报按钮列与年份选择器的"周报"页签调用）
 	function openWeekAnalysisFor(year: number, week: number) {
 		analysis = { active: true, mode: 'single', period: 'week', key: `${year}-W${String(week).padStart(2, '0')}`, start: '', end: '' };
 	}
@@ -195,6 +234,8 @@
 	}
 	function closeAnalysis() {
 		analysis = null;
+		// 关闭弹窗后刷新已保存分析集合，更新“查看/分析该周”等按钮状态
+		loadSavedAnalyses();
 	}
 
 	const weekDays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
@@ -406,50 +447,13 @@
 					</button>
 				</div>
 
-					<!-- 第二行：紧凑 AI 分析按钮 -->
-				<div class="flex items-center justify-center gap-1.5 overflow-x-auto scrollbar-none pb-0.5">
-					<button
-						onclick={openWeekAnalysis}
-						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200 whitespace-nowrap shrink-0"
-						title="本周 AI 分析"
-					>
-						<span class="inline-flex items-center gap-1">
-							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-							</svg>
-							周分析
-						</span>
-					</button>
-					<button
-						onclick={openMonthAnalysis}
-						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200 whitespace-nowrap shrink-0"
-						title="本月 AI 分析"
-					>
-						<span class="inline-flex items-center gap-1">
-							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5a1.99 1.99 0 011.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.99 1.99 0 013 12V7a4 4 0 014-4z" />
-							</svg>
-							月分析
-						</span>
-					</button>
-					<!-- 年分析：主入口之一 -->
-					<button
-						onclick={openYearAnalysis}
-						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200 whitespace-nowrap shrink-0"
-						title="{currentYear} 年 AI 分析"
-					>
-						<span class="inline-flex items-center gap-1">
-							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-							</svg>
-							年分析
-						</span>
-					</button>
+				<!-- 第二行：历史分析 / 往昔今朝 / 时空穿越。
+				     周/月/年分析入口已移入日历本体：周报在每行右侧列，月报/年报在日历下方的独立行。 -->
+				<div class="flex items-center justify-center gap-1.5 mt-0.5 overflow-x-auto scrollbar-none pb-0.5">
 					<!-- 自定义分析的弱化入口收敛在"历史分析"弹窗内，用于旅行等非整周/整月时间段 -->
-					<!-- 历史分析：移到末尾并使用突出样式 -->
 					<button
 						onclick={openHistoryAnalysis}
-						class="ml-0.5 px-3 py-1 text-xs font-medium rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 hover:border-primary/60 transition-all duration-200 whitespace-nowrap shrink-0"
+						class="px-3 py-1 text-xs font-medium rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 hover:border-primary/60 transition-all duration-200 whitespace-nowrap shrink-0"
 						title="查看历史分析"
 					>
 						<span class="inline-flex items-center gap-1">
@@ -459,10 +463,6 @@
 							历史分析
 						</span>
 					</button>
-				</div>
-
-				<!-- 第三行：往昔今朝 / 时空穿越 -->
-				<div class="flex items-center justify-center gap-1.5 mt-0.5">
 					<button
 						onclick={openOnThisDay}
 						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
@@ -495,6 +495,7 @@
 				{#each weekDays as day}
 					<div class="text-center font-medium text-muted-foreground text-sm py-2">{day}</div>
 				{/each}
+				<div class="week-header-action">周报</div>
 			</div>
 
 			<!-- Calendar Days：按 ISO 周分行，整行可点打开该周周报 -->
@@ -502,6 +503,7 @@
 				{#each calendarWeeks as weekDays, wi}
 					{@const weekStart = weekDays[0]}
 					{@const iso = getISOWeek(weekStart)}
+					{@const weekKey = weekKeyOf(iso.year, iso.week)}
 					<!-- svelte-ignore a11y-click-events-have-key-events, a11y_no_static_element_interactions -->
 					<div
 						class="week-row"
@@ -540,9 +542,48 @@
 								{/if}
 							</button>
 						{/each}
-						<span class="week-row-hint" aria-hidden="true">分析该周</span>
+						<button
+							class="week-action"
+							class:week-action--view={hasWeekKey(weekKey)}
+							onclick={(e) => { e.stopPropagation(); openWeekAnalysisFor(iso.year, iso.week); }}
+							title={hasWeekKey(weekKey)
+								? `查看 ${iso.year}年第${iso.week}周已保存的分析`
+								: `分析 ${iso.year}年第${iso.week}周（${formatDate(weekStart)} ~ ${formatDate(weekDays[6])}）`}
+						>
+							{hasWeekKey(weekKey) ? '查看' : '分析'}
+						</button>
 					</div>
 				{/each}
+			</div>
+
+			<!-- 月报 / 年报：单行两张紧凑卡片，右侧状态胶囊直观显示是否已有已保存的分析 -->
+			<div class="period-grid">
+				<button
+					class="period-card"
+					onclick={openMonthAnalysis}
+					title={hasMonthKey(monthKey) ? `查看 ${formatMonthYear(currentYear, currentMonth)}已保存的分析` : `生成 ${formatMonthYear(currentYear, currentMonth)}的 AI 分析`}
+				>
+					<span class="period-card-info">
+						<span class="period-card-name">月报</span>
+						<span class="period-card-desc">{formatMonthYear(currentYear, currentMonth)}</span>
+					</span>
+					<span class="period-card-state" class:period-card-state--saved={hasMonthKey(monthKey)}>
+						{hasMonthKey(monthKey) ? '查看' : '分析'}
+					</span>
+				</button>
+				<button
+					class="period-card"
+					onclick={openYearAnalysis}
+					title={hasYearKey(String(currentYear)) ? `查看 ${currentYear} 年已保存的分析` : `生成 ${currentYear} 年的 AI 分析`}
+				>
+					<span class="period-card-info">
+						<span class="period-card-name">年报</span>
+						<span class="period-card-desc">{currentYear}年</span>
+					</span>
+					<span class="period-card-state" class:period-card-state--saved={hasYearKey(String(currentYear))}>
+						{hasYearKey(String(currentYear)) ? '查看' : '分析'}
+					</span>
+				</button>
 			</div>
 		</div>
 	{:else}
@@ -587,14 +628,16 @@
 			<div class="flex items-center justify-center gap-1.5 mb-5 px-2">
 				<button
 					onclick={openYearAnalysis}
-					class="px-2.5 py-1 text-xs rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 hover:border-primary/60 transition-all duration-200"
-					title="{currentYear} 年 AI 分析"
+					class="px-2.5 py-1 text-xs rounded-md border transition-all duration-200 {hasYearKey(String(currentYear))
+						? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 hover:border-primary/60'
+						: 'border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60'}"
+					title={hasYearKey(String(currentYear)) ? `查看 ${currentYear} 年已保存的分析` : `${currentYear} 年 AI 分析`}
 				>
 					<span class="inline-flex items-center gap-1">
 						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 						</svg>
-						年分析
+						{hasYearKey(String(currentYear)) ? '查看' : '分析'}
 					</span>
 				</button>
 				<button
@@ -643,6 +686,9 @@
 							>
 								<div class="mini-month-name" class:text-primary={isCurrentMonthMini(monthIdx)}>
 									{monthNamesShort[monthIdx]}
+									{#if hasMonthKey(`${currentYear}-${String(monthIdx + 1).padStart(2, '0')}`)}
+										<span class="mini-month-dot" title="该月已有已保存的分析"></span>
+									{/if}
 								</div>
 								<div class="mini-cal-grid">
 									{#each weekDaysShort as wd}
@@ -836,6 +882,14 @@
 <style>
 	.calendar {
 		width: 100%;
+		/* 周报按钮列宽度：与周行末尾的独立按钮列对齐 */
+		--week-action-w: 4rem;
+	}
+
+	@media (max-width: 480px) {
+		.calendar {
+			--week-action-w: 3.4rem;
+		}
 	}
 
 	.view-container {
@@ -876,9 +930,17 @@
 	   while still using 100% on normal/laptop sizes. */
 	.weekdays-grid {
 		display: grid;
-		grid-template-columns: repeat(7, 1fr);
+		grid-template-columns: repeat(7, 1fr) var(--week-action-w);
 		gap: 0.5rem;
 		margin-bottom: 0.5rem;
+	}
+
+	.week-header-action {
+		text-align: center;
+		font-size: 0.75rem;
+		font-weight: 500;
+		color: hsl(var(--muted-foreground) / 0.7);
+		padding: 0.5rem 0;
 	}
 
 	.days-grid {
@@ -887,11 +949,11 @@
 		gap: 0.5rem;
 	}
 
-	/* 周（行）：ISO 8601 一周一行，整行可点打开该周周报 */
+	/* 周（行）：ISO 8601 一周一行，7 天 + 末尾独立的周报按钮列 */
 	.week-row {
 		position: relative;
 		display: grid;
-		grid-template-columns: repeat(7, 1fr);
+		grid-template-columns: repeat(7, 1fr) var(--week-action-w);
 		gap: 0.5rem;
 		border-radius: 0.5rem;
 		cursor: pointer;
@@ -902,32 +964,105 @@
 		background: hsl(var(--primary) / 0.05);
 	}
 
-	.week-row-hint {
-		position: absolute;
-		right: 0.35rem;
-		bottom: 0.3rem;
-		padding: 0.12rem 0.45rem;
+	/* 周报按钮：日历右侧独立列，不占用日期格子。
+	   无已保存分析 → “分析该周”（弱化样式）；已有 → “查看”（主色填充）。 */
+	.week-action {
+		align-self: center;
+		width: 100%;
+		padding: 0.3rem 0.2rem;
 		font-size: 0.65rem;
 		line-height: 1.2;
-		border-radius: 9999px;
+		text-align: center;
+		border-radius: 0.5rem;
+		border: 1px solid hsl(var(--border) / 0.7);
+		background: hsl(var(--muted) / 0.3);
+		color: hsl(var(--muted-foreground));
+		cursor: pointer;
+		white-space: nowrap;
+		transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+	}
+
+	.week-action:hover {
+		background: hsl(var(--primary) / 0.1);
+		border-color: hsl(var(--primary) / 0.4);
+		color: hsl(var(--primary));
+	}
+
+	.week-action--view {
 		background: hsl(var(--primary) / 0.85);
+		border-color: hsl(var(--primary));
 		color: hsl(var(--primary-foreground));
-		opacity: 0;
-		transition: opacity 0.15s ease;
+		font-weight: 500;
 	}
 
-	.week-row:hover .week-row-hint {
-		opacity: 1;
+	.week-action--view:hover {
+		background: hsl(var(--primary));
+		color: hsl(var(--primary-foreground));
 	}
 
-	@media (hover: none) {
-		/* 触屏设备无悬停：隐藏提示，周报仍可经年份选择器的「周报」页签进入 */
-		.week-row-hint {
-			display: none;
-		}
-		.week-row {
-			cursor: default;
-		}
+	/* 月报 / 年报：单行两张紧凑卡片 */
+	.period-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 0.5rem;
+		margin-top: 0.75rem;
+	}
+
+	.period-card {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.5rem;
+		padding: 0.5rem 0.7rem;
+		border: 1px solid hsl(var(--border) / 0.6);
+		border-radius: 0.625rem;
+		background: hsl(var(--muted) / 0.2);
+		cursor: pointer;
+		text-align: left;
+		transition: background-color 0.15s ease, border-color 0.15s ease;
+	}
+
+	.period-card:hover {
+		border-color: hsl(var(--primary) / 0.4);
+		background: hsl(var(--primary) / 0.05);
+	}
+
+	.period-card-info {
+		display: flex;
+		flex-direction: column;
+		gap: 0.1rem;
+		min-width: 0;
+	}
+
+	.period-card-name {
+		font-size: 0.8rem;
+		font-weight: 600;
+		color: hsl(var(--foreground));
+	}
+
+	.period-card-desc {
+		font-size: 0.72rem;
+		color: hsl(var(--muted-foreground));
+	}
+
+	/* 状态胶囊：未生成 → 灰色“分析”；已保存 → 主题色“查看” */
+	.period-card-state {
+		flex-shrink: 0;
+		font-size: 0.7rem;
+		line-height: 1.2;
+		padding: 0.22rem 0.6rem;
+		border-radius: 9999px;
+		border: 1px solid hsl(var(--border) / 0.7);
+		background: hsl(var(--muted) / 0.3);
+		color: hsl(var(--muted-foreground));
+		white-space: nowrap;
+	}
+
+	.period-card-state--saved {
+		background: hsl(var(--primary) / 0.85);
+		border-color: hsl(var(--primary));
+		color: hsl(var(--primary-foreground));
+		font-weight: 500;
 	}
 
 	/* Year button in month view header */
@@ -1028,11 +1163,23 @@
 
 	/* Mini month name */
 	.mini-month-name {
+		display: flex;
+		align-items: center;
+		gap: 0.3rem;
 		font-size: 0.8125rem;
 		font-weight: 600;
 		margin-bottom: 0.25rem;
 		padding-left: 0.125rem;
 		color: hsl(var(--foreground));
+	}
+
+	/* 月报标记点：该月已有已保存的分析 */
+	.mini-month-dot {
+		width: 6px;
+		height: 6px;
+		border-radius: 9999px;
+		background: hsl(var(--primary));
+		flex-shrink: 0;
 	}
 
 	/* Mini calendar grid */
