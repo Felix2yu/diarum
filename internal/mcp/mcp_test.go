@@ -25,7 +25,7 @@ func newTestServer(t *testing.T) (*Server, *store.Store, string, func()) {
 	if err != nil {
 		t.Fatalf("create user: %v", err)
 	}
-	svr := New(s, nil, nil)
+	svr := New(s, nil, nil, nil, nil, nil)
 	return svr, s, user.ID, func() { _ = s.Close() }
 }
 
@@ -55,11 +55,18 @@ func TestNewRegistersTools(t *testing.T) {
 
 	expected := []string{
 		"create_diary", "get_diary", "delete_diary", "list_recent_diaries",
+		"on_this_day", "random_diary", "get_diaries_by_ids",
 		"search_diaries", "get_tags", "get_stats", "get_weather",
 		"update_diary", "batch_update_diaries", "batch_delete_diaries", "list_diaries",
 		"polish_diary", "transcribe_audio", "correct_voice_diary",
 		"batch_create_diaries",
-		"get_period_analysis", "list_period_analyses", "save_period_analysis",
+		"get_period_analysis", "list_period_analyses", "save_period_analysis", "generate_period_analysis",
+		"build_vectors", "vector_stats",
+		"has_diary_content", "list_diaries_by_tag", "upsert_diary_weather", "weather_backfill",
+		"list_conversations", "get_conversation", "create_conversation", "update_conversation",
+		"delete_conversation", "list_conversation_messages", "chat",
+		"get_settings", "get_setting", "set_setting", "delete_setting",
+		"list_backups", "get_backup", "trigger_backup", "delete_backup",
 	}
 	for _, name := range expected {
 		if svr.mcpServer.GetTool(name) == nil {
@@ -820,5 +827,88 @@ func TestPeriodAnalysisAuthRequired(t *testing.T) {
 	})
 	if !res.IsError {
 		t.Fatal("expected auth error result")
+	}
+}
+
+func TestOnThisDay(t *testing.T) {
+	svr, s, uid, cleanup := newTestServer(t)
+	defer cleanup()
+
+	// Create a diary on a specific date in a previous year
+	if _, _, err := s.UpsertDiary(uid, "2024-09-05", "last year today", intPtr(3), nil, nil, nil, nil, nil, nil, nil); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	// Today's date should be excluded by GetDiariesByMonthDay
+	res := callTool(t, svr, uid, "on_this_day", map[string]any{"date": "2026-09-05"})
+	if res.IsError {
+		t.Fatalf("unexpected error: %s", res.Content)
+	}
+	var out struct {
+		Date    string         `json:"date"`
+		Diaries []*store.Diary `json:"diaries"`
+		Count   int            `json:"count"`
+	}
+	if err := json.Unmarshal([]byte(res.Content[0].(mcp.TextContent).Text), &out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if out.Count != 1 {
+		t.Fatalf("count = %d, want 1 (last year's entry)", out.Count)
+	}
+
+	// Invalid date format
+	if !callTool(t, svr, uid, "on_this_day", map[string]any{"date": "2026/09/05"}).IsError {
+		t.Fatal("expected invalid date error")
+	}
+}
+
+func TestRandomDiary(t *testing.T) {
+	svr, s, uid, cleanup := newTestServer(t)
+	defer cleanup()
+
+	if _, _, err := s.UpsertDiary(uid, "2026-03-01", "hello", intPtr(4), nil, nil, nil, nil, nil, nil, nil); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	res := callTool(t, svr, uid, "random_diary", nil)
+	if res.IsError {
+		t.Fatalf("unexpected error: %s", res.Content)
+	}
+}
+
+func TestGetDiariesByIDs(t *testing.T) {
+	svr, s, uid, cleanup := newTestServer(t)
+	defer cleanup()
+
+	d1, _, _ := s.UpsertDiary(uid, "2026-05-01", "a", intPtr(1), nil, nil, nil, nil, nil, nil, nil)
+	d2, _, _ := s.UpsertDiary(uid, "2026-05-02", "b", intPtr(1), nil, nil, nil, nil, nil, nil, nil)
+	res := callTool(t, svr, uid, "get_diaries_by_ids", map[string]any{
+		"ids": []any{d1.ID, d2.ID, "nonexistent"},
+	})
+	if res.IsError {
+		t.Fatalf("unexpected error: %s", res.Content)
+	}
+	var out struct {
+		Diaries []*store.Diary `json:"diaries"`
+		Count   int            `json:"count"`
+	}
+	if err := json.Unmarshal([]byte(res.Content[0].(mcp.TextContent).Text), &out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if out.Count != 2 {
+		t.Fatalf("count = %d, want 2 (nonexistent filtered out)", out.Count)
+	}
+}
+
+func TestVectorToolsRequireEmbeddingService(t *testing.T) {
+	svr, _, uid, cleanup := newTestServer(t)
+	defer cleanup()
+
+	// embeddingService is nil in test server
+	res := callTool(t, svr, uid, "vector_stats", nil)
+	if !res.IsError {
+		t.Fatal("expected error: embedding service not initialized")
+	}
+	res = callTool(t, svr, uid, "build_vectors", map[string]any{"mode": "incremental"})
+	if !res.IsError {
+		t.Fatal("expected error: embedding service not initialized")
 	}
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/songtianlun/diarum/internal/api"
 	"github.com/songtianlun/diarum/internal/auth"
 	"github.com/songtianlun/diarum/internal/backup"
+	"github.com/songtianlun/diarum/internal/chat"
 	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/embedding"
 	"github.com/songtianlun/diarum/internal/logger"
@@ -244,6 +245,7 @@ func run(args []string, stdout io.Writer) error {
 	weatherScheduler := weather.NewScheduler(appStore, configService, weatherSvc)
 	api.RegisterSettingsRoutes(e, appStore, authMiddleware, weatherScheduler)
 	api.RegisterMemosRoutes(e, appStore, authMiddleware, onDiaryChanged)
+	chatService := chat.NewChatService(appStore, embeddingService)
 	api.RegisterAIRoutes(e, appStore, authMiddleware, embeddingService)
 	api.RegisterExportImportRoutes(e, appStore, authMiddleware, embeddingService)
 	api.RegisterCheveretoRoutes(e, appStore, authMiddleware)
@@ -258,8 +260,15 @@ func run(args []string, stdout io.Writer) error {
 		api.RegisterOpenAPIRoutes(e, Version, Name)
 	}
 
+	// Initialize backup scheduler (needed by MCP backup tools)
+	backupScheduler := backup.NewScheduler(appStore, configService, *dataDir, func(userID string) (*bytes.Buffer, error) {
+		req := api.ExportRequest{DateRange: "all", IncludeDiaries: true, IncludeMedia: true, IncludeConversations: true, IncludeAnalysis: true}
+		buf, _, err := api.BuildExportZip(appStore, userID, req)
+		return buf, err
+	})
+
 	// Initialize MCP server
-	mcpSrv := mcpserver.New(appStore, configService, onDiaryChanged)
+	mcpSrv := mcpserver.New(appStore, configService, onDiaryChanged, embeddingService, chatService, backupScheduler)
 	mcpHandler := mcpSrv.GetStreamableHTTPServer()
 
 	// MCP auth middleware — inject user_id into request context via Echo middleware chain
@@ -268,12 +277,7 @@ func run(args []string, stdout io.Writer) error {
 	e.Any("/mcp", echo.WrapHandler(mcpHandler), mcpAuth)
 	logger.Info("[MCP] Streamable HTTP server enabled at /mcp")
 
-	// Initialize backup scheduler
-	backupScheduler := backup.NewScheduler(appStore, configService, *dataDir, func(userID string) (*bytes.Buffer, error) {
-		req := api.ExportRequest{DateRange: "all", IncludeDiaries: true, IncludeMedia: true, IncludeConversations: true, IncludeAnalysis: true}
-		buf, _, err := api.BuildExportZip(appStore, userID, req)
-		return buf, err
-	})
+	// Register backup API routes and start scheduler
 	api.RegisterBackupRoutes(e, appStore, authMiddleware, backupScheduler, configService)
 	backupScheduler.Start()
 	defer backupScheduler.Stop()
