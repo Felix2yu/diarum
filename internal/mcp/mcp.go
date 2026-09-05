@@ -2,26 +2,38 @@ package mcp
 
 import (
 	"context"
+	"database/sql"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
+	"github.com/songtianlun/diarum/internal/aicore"
+	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/store"
 	"github.com/songtianlun/diarum/internal/weather"
 )
 
 // Server wraps the MCP server with Diarum integration
 type Server struct {
-	mcpServer *server.MCPServer
-	store     *store.Store
+	mcpServer      *server.MCPServer
+	store          *store.Store
+	configService  *config.ConfigService
+	onDiaryChanged func(string)
 }
 
-// New creates a new MCP server integrated with Diarum
-func New(appStore *store.Store) *Server {
+// New creates a new MCP server integrated with Diarum.
+// configService and onDiaryChanged are optional (nil-safe); they are only
+// required for the correction tools (polish/transcribe/correct_voice).
+func New(appStore *store.Store, configService *config.ConfigService, onDiaryChanged func(string)) *Server {
 	s := &Server{
-		store: appStore,
+		store:          appStore,
+		configService:  configService,
+		onDiaryChanged: onDiaryChanged,
 	}
 
 	// Create MCP server
@@ -35,11 +47,56 @@ func New(appStore *store.Store) *Server {
 
 	// Register all tools
 	s.registerDiaryTools()
+	s.registerDiaryEditTools()
 	s.registerSearchTools()
 	s.registerStatsTools()
 	s.registerWeatherTools()
+	s.registerCorrectionTools()
+	s.registerPeriodTools()
 
 	return s
+}
+
+// notifyChanged triggers the embedding rebuild hook (if configured) after a write.
+func (s *Server) notifyChanged(userID string) {
+	if s.onDiaryChanged != nil {
+		s.onDiaryChanged(userID)
+	}
+}
+
+// aiChatConfig resolves the chat-completion provider config for a user.
+func (s *Server) aiChatConfig(userID string) (aicore.AIConfig, bool) {
+	if s.configService == nil {
+		return aicore.AIConfig{}, false
+	}
+	enabled, _ := s.configService.GetBool(userID, "ai.enabled")
+	apiKey, _ := s.configService.GetString(userID, "ai.api_key")
+	baseURL, _ := s.configService.GetString(userID, "ai.base_url")
+	model, _ := s.configService.GetString(userID, "ai.chat_model")
+	return aicore.AIConfig{Enabled: enabled, APIKey: apiKey, BaseURL: baseURL, Model: model}, true
+}
+
+// speechConfig resolves the speech-to-text provider config for a user, falling
+// back to the shared AI credentials when the dedicated speech values are empty.
+func (s *Server) speechConfig(userID string) (aicore.AIConfig, bool) {
+	if s.configService == nil {
+		return aicore.AIConfig{}, false
+	}
+	provider, _ := s.configService.GetString(userID, "ai.speech.provider")
+	if provider == "" || provider == "none" {
+		return aicore.AIConfig{}, false
+	}
+	baseURL, _ := s.configService.GetString(userID, "ai.speech.base_url")
+	apiKey, _ := s.configService.GetString(userID, "ai.speech.api_key")
+	model, _ := s.configService.GetString(userID, "ai.speech.model")
+	if baseURL == "" || apiKey == "" {
+		fbBase, _ := s.configService.GetString(userID, "ai.base_url")
+		fbKey, _ := s.configService.GetString(userID, "ai.api_key")
+		if fbBase != "" && fbKey != "" {
+			baseURL, apiKey = fbBase, fbKey
+		}
+	}
+	return aicore.AIConfig{Enabled: true, APIKey: apiKey, BaseURL: baseURL, Model: model}, true
 }
 
 // GetStreamableHTTPServer returns a Streamable HTTP server
@@ -94,18 +151,17 @@ func (s *Server) registerDiaryTools() {
 		}
 
 		date := req.GetString("date", "")
-		content := req.GetString("content", "")
 
-		// 处理 AI 客户端可能对换行符进行的双重转义
-		// 将字面量 \n 替换为真正的换行符
-		content = strings.ReplaceAll(content, "\\n", "\n")
-
-		// Distinguish "field not provided" from "explicit zero value" by checking
-		// whether the key exists in the raw arguments map. A missing key is passed
-		// as nil (leave unchanged); a present key (even 0/""/[]) is passed by
-		// pointer so the store can overwrite or clear the field deliberately.
+		// content 为可选字段：未提供时保留该日期已有日记的正文，
+		// 避免仅编辑心情/标签等元数据时误清空正文。
+		var content string
 		args := req.GetArguments()
 		has := func(k string) bool { _, ok := args[k]; return ok }
+		if has("content") {
+			content = strings.ReplaceAll(req.GetString("content", ""), "\\n", "\n")
+		} else if existing, err := s.store.GetDiaryByDate(userID, date+" 00:00:00.000Z", date+" 23:59:59.999Z"); err == nil && existing != nil {
+			content = existing.Content
+		}
 
 		var mood *int
 		if has("mood") {
@@ -373,5 +429,827 @@ func (s *Server) registerWeatherTools() {
 
 		weatherResult, _ := json.Marshal(result)
 		return mcp.NewToolResultText(string(weatherResult)), nil
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Diary editing tools: id-based partial update, batch update/delete, filtered list
+// ---------------------------------------------------------------------------
+
+// diaryPatchArgs is the shared set of editable diary fields. Pointer fields stay
+// nil when absent, which the store interprets as "leave unchanged".
+type diaryPatchArgs struct {
+	Content       *string   `json:"content"`
+	Mood          *int      `json:"mood"`
+	MoodStates    *[]string `json:"mood_states"`
+	Scenarios     *[]string `json:"scenarios"`
+	Weather       *string   `json:"weather"`
+	City          *string   `json:"city"`
+	TempMin       *float64  `json:"temp_min"`
+	TempMax       *float64  `json:"temp_max"`
+	Tags          *[]string `json:"tags"`
+	TagsOp        string    `json:"tags_op"`
+	ContentFormat string    `json:"content_format"`
+}
+
+type updateDiaryArgs struct {
+	ID string `json:"id"`
+	diaryPatchArgs
+}
+
+type diaryTargetsArgs struct {
+	IDs       []string `json:"ids"`
+	DateStart string   `json:"date_start"`
+	DateEnd   string   `json:"date_end"`
+	Tag       string   `json:"tag"`
+	Scenario  string   `json:"scenario"`
+	Query     string   `json:"query"`
+}
+
+type batchOptsArgs struct {
+	DryRun          bool   `json:"dry_run"`
+	ContinueOnError bool   `json:"continue_on_error"`
+	TagsOp          string `json:"tags_op"`
+	ContentFormat   string `json:"content_format"`
+}
+
+type batchUpdateArgs struct {
+	Targets diaryTargetsArgs `json:"targets"`
+	Patch   diaryPatchArgs   `json:"patch"`
+	Opts    batchOptsArgs    `json:"opts"`
+}
+
+type createItemArgs struct {
+	Date          string    `json:"date"`
+	Content       *string   `json:"content"`
+	Mood          *int      `json:"mood"`
+	MoodStates    *[]string `json:"mood_states"`
+	Scenarios     *[]string `json:"scenarios"`
+	Weather       *string   `json:"weather"`
+	City          *string   `json:"city"`
+	TempMin       *float64  `json:"temp_min"`
+	TempMax       *float64  `json:"temp_max"`
+	Tags          *[]string `json:"tags"`
+	TagsOp        string    `json:"tags_op"`
+	ContentFormat string    `json:"content_format"`
+}
+
+type batchCreateArgs struct {
+	Items []createItemArgs `json:"items"`
+	Opts  batchOptsArgs    `json:"opts"`
+}
+
+func stringProp(desc string) map[string]any {
+	return map[string]any{"type": "string", "description": desc}
+}
+
+func arrayStringProp(desc string) map[string]any {
+	return map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": desc}
+}
+
+func targetsSchema() map[string]any {
+	return map[string]any{
+		"ids":        arrayStringProp("按 ID 列表定位（优先级最高）"),
+		"date_start": stringProp("开始日期 YYYY-MM-DD（含）"),
+		"date_end":   stringProp("结束日期 YYYY-MM-DD（含）"),
+		"tag":        stringProp("按标签定位"),
+		"scenario":   stringProp("按情景定位"),
+		"query":      stringProp("按关键词搜索定位"),
+	}
+}
+
+func patchSchema() map[string]any {
+	return map[string]any{
+		"content":        stringProp("日记正文（纯文本或 HTML）"),
+		"mood":           map[string]any{"type": "integer", "description": "心情评分 1-5"},
+		"mood_states":    arrayStringProp("心情状态"),
+		"scenarios":      arrayStringProp("情景"),
+		"weather":        stringProp("天气"),
+		"city":           stringProp("城市"),
+		"temp_min":       map[string]any{"type": "number"},
+		"temp_max":       map[string]any{"type": "number"},
+		"tags":           arrayStringProp("标签"),
+		"tags_op":        stringProp("replace（默认，覆盖）| merge（合并）| remove（移除）"),
+		"content_format": stringProp("text（默认，原样）| html（纯文本转 HTML 段落）"),
+	}
+}
+
+func optsSchema() map[string]any {
+	return map[string]any{
+		"dry_run":           map[string]any{"type": "boolean", "description": "仅预览不落库"},
+		"continue_on_error": map[string]any{"type": "boolean", "description": "单条失败继续"},
+		"tags_op":           stringProp("默认标签操作"),
+		"content_format":    stringProp("默认内容格式"),
+	}
+}
+
+func createItemSchema() map[string]any {
+	return map[string]any{
+		"date":           stringProp("日记日期 YYYY-MM-DD（必填）"),
+		"content":        stringProp("日记正文（纯文本或 HTML）"),
+		"mood":           map[string]any{"type": "integer", "description": "心情评分 1-5"},
+		"mood_states":    arrayStringProp("心情状态"),
+		"scenarios":      arrayStringProp("情景"),
+		"weather":        stringProp("天气"),
+		"city":           stringProp("城市"),
+		"temp_min":       map[string]any{"type": "number"},
+		"temp_max":       map[string]any{"type": "number"},
+		"tags":           arrayStringProp("标签"),
+		"tags_op":        stringProp("replace（默认，覆盖）| merge（合并）| remove（移除）"),
+		"content_format": stringProp("content 解释方式：text（默认，原样）| html（纯文本转 HTML 段落）"),
+	}
+}
+
+func validatePatch(a diaryPatchArgs) error {
+	if a.Mood != nil && (*a.Mood < 1 || *a.Mood > 5) {
+		return errors.New("mood must be between 1 and 5")
+	}
+	if a.ContentFormat != "" && a.ContentFormat != "text" && a.ContentFormat != "html" {
+		return errors.New("content_format must be 'text' or 'html'")
+	}
+	if a.TagsOp != "" && a.TagsOp != "replace" && a.TagsOp != "merge" && a.TagsOp != "remove" {
+		return errors.New("tags_op must be 'replace', 'merge' or 'remove'")
+	}
+	return nil
+}
+
+func patchFromArgs(a diaryPatchArgs) store.DiaryPatch {
+	p := store.DiaryPatch{
+		Content:       a.Content,
+		Mood:          a.Mood,
+		MoodStates:    a.MoodStates,
+		Scenarios:     a.Scenarios,
+		Weather:       a.Weather,
+		City:          a.City,
+		TempMin:       a.TempMin,
+		TempMax:       a.TempMax,
+		Tags:          a.Tags,
+		TagsOp:        a.TagsOp,
+		ContentFormat: a.ContentFormat,
+	}
+	if p.Content != nil {
+		// 处理 AI 客户端可能对换行符进行的双重转义
+		v := strings.ReplaceAll(*p.Content, "\\n", "\n")
+		p.Content = &v
+	}
+	return p
+}
+
+func (s *Server) buildBatchTargets(a diaryTargetsArgs) store.BatchTargets {
+	t := store.BatchTargets{
+		Tag:      strings.TrimSpace(a.Tag),
+		Scenario: strings.TrimSpace(a.Scenario),
+		Query:    strings.TrimSpace(a.Query),
+	}
+	if len(a.IDs) > 0 {
+		t.IDs = a.IDs
+	}
+	if strings.TrimSpace(a.DateStart) != "" && strings.TrimSpace(a.DateEnd) != "" {
+		t.DateRange = &store.DateRange{Start: strings.TrimSpace(a.DateStart), End: strings.TrimSpace(a.DateEnd)}
+	}
+	return t
+}
+
+func (s *Server) registerDiaryEditTools() {
+	// update_diary: partial update by ID
+	updateDiary := mcp.NewTool("update_diary",
+		mcp.WithDescription("按 ID 局部更新一篇日记（内容/心情/情景/标签等字段可选）。未传字段保持不变，不会清空。"),
+		mcp.WithString("id", mcp.Required(), mcp.Description("Diary ID")),
+		mcp.WithString("content", mcp.Description("日记正文（纯文本或 HTML）")),
+		mcp.WithNumber("mood", mcp.Description("心情评分 1-5")),
+		mcp.WithArray("mood_states", mcp.WithStringItems(), mcp.Description("心情状态列表")),
+		mcp.WithArray("scenarios", mcp.WithStringItems(), mcp.Description("情景列表")),
+		mcp.WithString("weather", mcp.Description("天气描述")),
+		mcp.WithString("city", mcp.Description("城市")),
+		mcp.WithNumber("temp_min", mcp.Description("最低温")),
+		mcp.WithNumber("temp_max", mcp.Description("最高温")),
+		mcp.WithArray("tags", mcp.WithStringItems(), mcp.Description("标签列表")),
+		mcp.WithString("tags_op", mcp.Description("标签操作：replace（默认，覆盖）| merge（合并）| remove（移除）")),
+		mcp.WithString("content_format", mcp.Description("content 解释方式：text（默认，原样）| html（纯文本转 HTML 段落）")),
+	)
+	s.mcpServer.AddTool(updateDiary, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			return mcp.NewToolResultError("Authentication required"), nil
+		}
+		var a updateDiaryArgs
+		if err := req.BindArguments(&a); err != nil {
+			return mcp.NewToolResultError("Invalid arguments: " + err.Error()), nil
+		}
+		if strings.TrimSpace(a.ID) == "" {
+			return mcp.NewToolResultError("'id' is required"), nil
+		}
+		if err := validatePatch(a.diaryPatchArgs); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		patch := patchFromArgs(a.diaryPatchArgs)
+		diary, err := s.store.UpdateDiaryByID(a.ID, userID, patch)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return mcp.NewToolResultError("Diary not found or not owned by user"), nil
+			}
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to update diary: %v", err)), nil
+		}
+		s.notifyChanged(userID)
+		result, _ := json.Marshal(diary)
+		return mcp.NewToolResultText(string(result)), nil
+	})
+
+	// batch_update_diaries
+	batchUpdate := mcp.NewTool("batch_update_diaries",
+		mcp.WithDescription("批量局部更新日记。通过 targets 选择器（ids/日期范围/标签/情景/关键词）定位目标，patch 为要应用的字段，opts 控制预览与容错。"),
+		mcp.WithObject("targets", mcp.Description("目标选择器"), mcp.Properties(targetsSchema())),
+		mcp.WithObject("patch", mcp.Description("要应用的字段（同 update_diary）"), mcp.Properties(patchSchema())),
+		mcp.WithObject("opts", mcp.Description("选项"), mcp.Properties(optsSchema())),
+	)
+	s.mcpServer.AddTool(batchUpdate, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			return mcp.NewToolResultError("Authentication required"), nil
+		}
+		var a batchUpdateArgs
+		if err := req.BindArguments(&a); err != nil {
+			return mcp.NewToolResultError("Invalid arguments: " + err.Error()), nil
+		}
+		if err := validatePatch(a.Patch); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		targets := s.buildBatchTargets(a.Targets)
+		patch := patchFromArgs(a.Patch)
+		opts := store.BatchOpts{
+			DryRun:          a.Opts.DryRun,
+			ContinueOnError: a.Opts.ContinueOnError,
+			TagsOp:          a.Opts.TagsOp,
+			ContentFormat:   a.Opts.ContentFormat,
+		}
+		results, err := s.store.BatchUpdateDiaries(userID, targets, patch, opts)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Batch update failed: %v", err)), nil
+		}
+		if !opts.DryRun {
+			s.notifyChanged(userID)
+		}
+		ok, failed := 0, 0
+		for _, r := range results {
+			if r.Status == "ok" {
+				ok++
+			} else if r.Status == "error" {
+				failed++
+			}
+		}
+		out, _ := json.Marshal(map[string]any{
+			"results": results,
+			"applied": ok,
+			"failed":  failed,
+			"total":   len(results),
+			"dry_run": opts.DryRun,
+		})
+		return mcp.NewToolResultText(string(out)), nil
+	})
+
+	// batch_create_diaries: bulk create in a single transaction (import-style).
+	// Create semantics: existing entries for the same date are NOT overwritten.
+	batchCreate := mcp.NewTool("batch_create_diaries",
+		mcp.WithDescription("批量新增日记（单事务多创建，适合导入）。items 每项 date 必填（YYYY-MM-DD），其余字段可选。同一天已有日记的项会被跳过（skipped，不覆盖；如需修改已有日记请用 batch_update_diaries）。opts.dry_run 可预览（含冲突检测）不落库，opts.continue_on_error 单条失败继续。"),
+		mcp.WithArray("items", mcp.Required(), mcp.Description("要新增的日记列表"),
+			mcp.Items(map[string]any{
+				"type":       "object",
+				"properties": createItemSchema(),
+				"required":   []string{"date"},
+			}),
+		),
+		mcp.WithObject("opts", mcp.Description("选项"), mcp.Properties(optsSchema())),
+	)
+	s.mcpServer.AddTool(batchCreate, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			return mcp.NewToolResultError("Authentication required"), nil
+		}
+		var a batchCreateArgs
+		if err := req.BindArguments(&a); err != nil {
+			return mcp.NewToolResultError("Invalid arguments: " + err.Error()), nil
+		}
+		if len(a.Items) == 0 {
+			return mcp.NewToolResultError("'items' is required and must be non-empty"), nil
+		}
+		items := make([]store.DiaryCreateInput, 0, len(a.Items))
+		for i, it := range a.Items {
+			if strings.TrimSpace(it.Date) == "" {
+				return mcp.NewToolResultError(fmt.Sprintf("items[%d].date is required", i)), nil
+			}
+			if _, err := time.Parse("2006-01-02", strings.TrimSpace(it.Date)); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("items[%d].date must be YYYY-MM-DD", i)), nil
+			}
+			if it.Mood != nil && (*it.Mood < 1 || *it.Mood > 5) {
+				return mcp.NewToolResultError(fmt.Sprintf("items[%d].mood must be between 1 and 5", i)), nil
+			}
+			if it.TagsOp != "" && it.TagsOp != "replace" && it.TagsOp != "merge" && it.TagsOp != "remove" {
+				return mcp.NewToolResultError(fmt.Sprintf("items[%d].tags_op must be 'replace', 'merge' or 'remove'", i)), nil
+			}
+			if it.ContentFormat != "" && it.ContentFormat != "text" && it.ContentFormat != "html" {
+				return mcp.NewToolResultError(fmt.Sprintf("items[%d].content_format must be 'text' or 'html'", i)), nil
+			}
+			if it.Content != nil {
+				// 处理 AI 客户端可能对换行符进行的双重转义
+				v := strings.ReplaceAll(*it.Content, "\\n", "\n")
+				it.Content = &v
+			}
+			items = append(items, store.DiaryCreateInput{
+				Date:          it.Date,
+				Content:       it.Content,
+				Mood:          it.Mood,
+				MoodStates:    it.MoodStates,
+				Scenarios:     it.Scenarios,
+				Weather:       it.Weather,
+				City:          it.City,
+				TempMin:       it.TempMin,
+				TempMax:       it.TempMax,
+				Tags:          it.Tags,
+				TagsOp:        it.TagsOp,
+				ContentFormat: it.ContentFormat,
+			})
+		}
+		opts := store.BatchOpts{
+			DryRun:          a.Opts.DryRun,
+			ContinueOnError: a.Opts.ContinueOnError,
+		}
+		results, err := s.store.BatchCreateDiaries(userID, items, opts)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Batch create failed: %v", err)), nil
+		}
+		if !opts.DryRun {
+			s.notifyChanged(userID)
+		}
+		created, failed := 0, 0
+		for _, r := range results {
+			switch r.Status {
+			case "ok":
+				created++
+			case "error":
+				failed++
+			}
+		}
+		out, _ := json.Marshal(map[string]any{
+			"results": results,
+			"created": created,
+			"failed":  failed,
+			"total":   len(results),
+			"dry_run": opts.DryRun,
+		})
+		return mcp.NewToolResultText(string(out)), nil
+	})
+
+	// batch_delete_diaries
+	batchDelete := mcp.NewTool("batch_delete_diaries",
+		mcp.WithDescription("批量删除日记（按 ID 列表）"),
+		mcp.WithArray("ids", mcp.Required(), mcp.WithStringItems(), mcp.Description("要删除的日记 ID 列表")),
+	)
+	s.mcpServer.AddTool(batchDelete, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			return mcp.NewToolResultError("Authentication required"), nil
+		}
+		ids := req.GetStringSlice("ids", nil)
+		if len(ids) == 0 {
+			return mcp.NewToolResultError("'ids' is required and must be non-empty"), nil
+		}
+		results, err := s.store.BatchDeleteDiaries(userID, ids)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Batch delete failed: %v", err)), nil
+		}
+		s.notifyChanged(userID)
+		out, _ := json.Marshal(map[string]any{"results": results, "total": len(results)})
+		return mcp.NewToolResultText(string(out)), nil
+	})
+
+	// list_diaries: filterable + paginated replacement for list_recent_diaries
+	listDiaries := mcp.NewTool("list_diaries",
+		mcp.WithDescription("筛选并分页列出日记（支持日期范围/标签/情景/关键词/心情）。"),
+		mcp.WithString("date_start", mcp.Description("开始日期 YYYY-MM-DD")),
+		mcp.WithString("date_end", mcp.Description("结束日期 YYYY-MM-DD")),
+		mcp.WithString("tag", mcp.Description("按标签筛选")),
+		mcp.WithString("scenario", mcp.Description("按情景筛选")),
+		mcp.WithString("query", mcp.Description("关键词（匹配正文或标签）")),
+		mcp.WithNumber("mood", mcp.Description("按心情筛选 1-5")),
+		mcp.WithNumber("limit", mcp.Description("返回条数（默认 50，最大 500）")),
+		mcp.WithNumber("offset", mcp.Description("偏移量（分页）")),
+		mcp.WithString("order", mcp.Description("排序：-date（默认，倒序）| date（正序）")),
+	)
+	s.mcpServer.AddTool(listDiaries, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			return mcp.NewToolResultError("Authentication required"), nil
+		}
+		f := store.DiaryFilter{
+			Tag:      strings.TrimSpace(req.GetString("tag", "")),
+			Scenario: strings.TrimSpace(req.GetString("scenario", "")),
+			Query:    strings.TrimSpace(req.GetString("query", "")),
+			Limit:    req.GetInt("limit", 50),
+			Offset:   req.GetInt("offset", 0),
+			Order:    req.GetString("order", "-date"),
+		}
+		if ds := strings.TrimSpace(req.GetString("date_start", "")); ds != "" {
+			if _, err := time.Parse("2006-01-02", ds); err != nil {
+				return mcp.NewToolResultError("date_start must be YYYY-MM-DD"), nil
+			}
+			f.DateStart = ds
+		}
+		if de := strings.TrimSpace(req.GetString("date_end", "")); de != "" {
+			if _, err := time.Parse("2006-01-02", de); err != nil {
+				return mcp.NewToolResultError("date_end must be YYYY-MM-DD"), nil
+			}
+			f.DateEnd = de
+		}
+		if m := req.GetInt("mood", 0); m > 0 {
+			f.Mood = m
+		}
+		diaries, err := s.store.ListDiariesFiltered(userID, f)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to list diaries: %v", err)), nil
+		}
+		out, _ := json.Marshal(map[string]any{"diaries": diaries, "count": len(diaries)})
+		return mcp.NewToolResultText(string(out)), nil
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Correction tools: polish / transcribe / correct_voice
+// ---------------------------------------------------------------------------
+
+func (s *Server) registerCorrectionTools() {
+	// polish_diary
+	polish := mcp.NewTool("polish_diary",
+		mcp.WithDescription("纠正/整理日记文本。mode: medium（去口语词/纠错/分段）| strong（深度改写）| voice（语音整理专用）| custom（自定义 prompt）。apply=true 时写回 target_diary_id。"),
+		mcp.WithString("content", mcp.Required(), mcp.Description("待纠正的文本")),
+		mcp.WithString("mode", mcp.Description("medium | strong | voice | custom（默认 medium）")),
+		mcp.WithString("prompt", mcp.Description("custom 模式下的自定义指令")),
+		mcp.WithBoolean("apply", mcp.Description("是否将结果写回日记（需 target_diary_id）")),
+		mcp.WithString("target_diary_id", mcp.Description("apply=true 时写回的目标日记 ID")),
+	)
+	s.mcpServer.AddTool(polish, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			return mcp.NewToolResultError("Authentication required"), nil
+		}
+		content := strings.TrimSpace(req.GetString("content", ""))
+		if content == "" {
+			return mcp.NewToolResultError("'content' is required"), nil
+		}
+		mode := strings.ToLower(strings.TrimSpace(req.GetString("mode", "medium")))
+		apply := req.GetBool("apply", false)
+		targetID := strings.TrimSpace(req.GetString("target_diary_id", ""))
+		if apply && targetID == "" {
+			return mcp.NewToolResultError("apply=true requires 'target_diary_id'"), nil
+		}
+		cfg, ok := s.aiChatConfig(userID)
+		if !ok {
+			return mcp.NewToolResultError("AI service is not configured"), nil
+		}
+		systemPrompt, err := aicore.PolishSystemPrompt(mode, req.GetString("prompt", ""))
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		corrected, err := aicore.ChatComplete(ctx, cfg, []aicore.ChatMessage{
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: content},
+		}, false)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("AI request failed: %v", err)), nil
+		}
+		out := map[string]any{"original": content, "corrected": corrected, "mode": mode, "applied": false}
+		if apply {
+			patch := store.DiaryPatch{Content: &corrected}
+			if _, err := s.store.UpdateDiaryByID(targetID, userID, patch); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Failed to apply: %v", err)), nil
+			}
+			s.notifyChanged(userID)
+			out["applied"] = true
+			out["target_diary_id"] = targetID
+		}
+		b, _ := json.Marshal(out)
+		return mcp.NewToolResultText(string(b)), nil
+	})
+
+	// transcribe_audio
+	transcribe := mcp.NewTool("transcribe_audio",
+		mcp.WithDescription("将音频转写为文本（依赖配置的语音识别服务）。"),
+		mcp.WithString("audio_base64", mcp.Required(), mcp.Description("音频文件 base64 编码")),
+		mcp.WithString("filename", mcp.Description("文件名（含扩展名，如 audio.webm）")),
+		mcp.WithString("language", mcp.Description("语言代码，如 zh")),
+		mcp.WithString("model", mcp.Description("模型名（默认 whisper-1）")),
+		mcp.WithString("prompt", mcp.Description("转写提示词")),
+	)
+	s.mcpServer.AddTool(transcribe, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			return mcp.NewToolResultError("Authentication required"), nil
+		}
+		b64 := strings.TrimSpace(req.GetString("audio_base64", ""))
+		if b64 == "" {
+			return mcp.NewToolResultError("'audio_base64' is required"), nil
+		}
+		audio, err := base64.StdEncoding.DecodeString(b64)
+		if err != nil {
+			return mcp.NewToolResultError("invalid base64 audio: " + err.Error()), nil
+		}
+		cfg, ok := s.speechConfig(userID)
+		if !ok {
+			return mcp.NewToolResultError("Speech recognition is not configured"), nil
+		}
+		text, err := aicore.Transcribe(ctx, cfg, audio, req.GetString("filename", ""), "", req.GetString("language", ""), req.GetString("model", ""), req.GetString("prompt", ""))
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Transcription failed: %v", err)), nil
+		}
+		b, _ := json.Marshal(map[string]any{"text": text})
+		return mcp.NewToolResultText(string(b)), nil
+	})
+
+	// correct_voice_diary: transcribe (or raw_text) -> voice preset polish -> optional apply
+	correctVoice := mcp.NewTool("correct_voice_diary",
+		mcp.WithDescription("语音日记修正流水线：音频转写（或直接给 raw_text）→ 语音整理预设纠正 → 可选格式化并写回 target_diary_id。apply=false 时仅返回预览。"),
+		mcp.WithString("target_diary_id", mcp.Description("写回目标日记 ID（apply=true 时必填）")),
+		mcp.WithString("audio_base64", mcp.Description("音频 base64（与 raw_text 二选一）")),
+		mcp.WithString("raw_text", mcp.Description("已转写的原始文本（与 audio_base64 二选一）")),
+		mcp.WithString("filename", mcp.Description("音频文件名")),
+		mcp.WithString("language", mcp.Description("转写语言代码")),
+		mcp.WithBoolean("apply", mcp.Description("是否写回日记")),
+		mcp.WithString("content_format", mcp.Description("写回格式：html（默认，纯文本转 HTML 段落）| text")),
+	)
+	s.mcpServer.AddTool(correctVoice, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			return mcp.NewToolResultError("Authentication required"), nil
+		}
+		audioB64 := strings.TrimSpace(req.GetString("audio_base64", ""))
+		rawText := strings.TrimSpace(req.GetString("raw_text", ""))
+		var original string
+		if audioB64 != "" {
+			audio, err := base64.StdEncoding.DecodeString(audioB64)
+			if err != nil {
+				return mcp.NewToolResultError("invalid base64 audio: " + err.Error()), nil
+			}
+			cfg, ok := s.speechConfig(userID)
+			if !ok {
+				return mcp.NewToolResultError("Speech recognition is not configured"), nil
+			}
+			t, err := aicore.Transcribe(ctx, cfg, audio, req.GetString("filename", ""), "", req.GetString("language", ""), "", "")
+			if err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Transcription failed: %v", err)), nil
+			}
+			original = t
+		} else if rawText != "" {
+			original = rawText
+		} else {
+			return mcp.NewToolResultError("provide either 'audio_base64' or 'raw_text'"), nil
+		}
+
+		cfg, ok := s.aiChatConfig(userID)
+		if !ok {
+			return mcp.NewToolResultError("AI service is not configured"), nil
+		}
+		systemPrompt, err := aicore.PolishSystemPrompt(aicore.ModeVoice, "")
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		corrected, err := aicore.ChatComplete(ctx, cfg, []aicore.ChatMessage{
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: original},
+		}, false)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("AI request failed: %v", err)), nil
+		}
+
+		apply := req.GetBool("apply", false)
+		targetID := strings.TrimSpace(req.GetString("target_diary_id", ""))
+		if apply && targetID == "" {
+			return mcp.NewToolResultError("apply=true requires 'target_diary_id'"), nil
+		}
+		out := map[string]any{
+			"original": original,
+			"corrected": corrected,
+			"applied":  false,
+			"note":     "语音转写 → 语音整理预设纠正 → 格式化",
+		}
+		if apply {
+			cf := strings.ToLower(strings.TrimSpace(req.GetString("content_format", "html")))
+			if cf == "" {
+				cf = "html"
+			}
+			patch := store.DiaryPatch{Content: &corrected, ContentFormat: cf}
+			if _, err := s.store.UpdateDiaryByID(targetID, userID, patch); err != nil {
+				return mcp.NewToolResultError(fmt.Sprintf("Failed to apply: %v", err)), nil
+			}
+			s.notifyChanged(userID)
+			out["applied"] = true
+			out["target_diary_id"] = targetID
+		}
+		b, _ := json.Marshal(out)
+		return mcp.NewToolResultText(string(b)), nil
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Period analysis tools: read/save/list week-month-year analyses backed by
+// the store's period_analyses subsystem (period_key like 2026-W36 / 2026-09 / 2026).
+// ---------------------------------------------------------------------------
+
+func validPeriod(p string) bool {
+	switch p {
+	case "week", "month", "year", "custom":
+		return true
+	}
+	return false
+}
+
+// periodKeyExample returns the current period key for a calendar period, used
+// in error messages to teach clients the expected format.
+func periodKeyExample(period string) string {
+	now := time.Now().UTC()
+	switch period {
+	case "week":
+		y, w := now.ISOWeek()
+		return fmt.Sprintf("%d-W%d", y, w)
+	case "month":
+		return now.Format("2006-01")
+	case "year":
+		return now.Format("2006")
+	default:
+		return ""
+	}
+}
+
+// isoWeekStart returns the Monday of the given ISO week.
+func isoWeekStart(year, week int) time.Time {
+	jan4 := time.Date(year, 1, 4, 0, 0, 0, 0, time.UTC)
+	wd := int(jan4.Weekday())
+	if wd == 0 {
+		wd = 7
+	}
+	return jan4.AddDate(0, 0, -(wd-1)).AddDate(0, 0, (week-1)*7)
+}
+
+// derivePeriodRange returns the canonical YYYY-MM-DD range for a calendar
+// period key: week "2026-W36" -> Monday..Sunday, month "2026-09" -> 1st..last
+// day, year "2026" -> Jan 1..Dec 31. Custom periods have no canonical range.
+func derivePeriodRange(period, periodKey string) (string, string, error) {
+	switch period {
+	case "week":
+		var year, week int
+		if _, err := fmt.Sscanf(periodKey, "%d-W%d", &year, &week); err != nil || week < 1 || week > 53 {
+			return "", "", fmt.Errorf("invalid week period_key %q, want e.g. 2026-W36", periodKey)
+		}
+		start := isoWeekStart(year, week)
+		end := start.AddDate(0, 0, 6)
+		return start.Format("2006-01-02"), end.Format("2006-01-02"), nil
+	case "month":
+		var year, month int
+		if _, err := fmt.Sscanf(periodKey, "%d-%d", &year, &month); err != nil || month < 1 || month > 12 {
+			return "", "", fmt.Errorf("invalid month period_key %q, want e.g. 2026-09", periodKey)
+		}
+		start := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
+		end := start.AddDate(0, 1, -1)
+		return start.Format("2006-01-02"), end.Format("2006-01-02"), nil
+	case "year":
+		var year int
+		if _, err := fmt.Sscanf(periodKey, "%d", &year); err != nil {
+			return "", "", fmt.Errorf("invalid year period_key %q, want e.g. 2026", periodKey)
+		}
+		return fmt.Sprintf("%d-01-01", year), fmt.Sprintf("%d-12-31", year), nil
+	default:
+		return "", "", errors.New("custom period requires explicit date_start/date_end")
+	}
+}
+
+// resolvePeriodRange validates period arguments and fills in the canonical
+// date range for calendar periods from period_key when start/end are omitted.
+// Custom periods must carry an explicit start/end pair.
+func resolvePeriodRange(period, periodKey, start, end string) (string, string, error) {
+	if !validPeriod(period) {
+		return "", "", errors.New("period must be one of: week, month, year, custom")
+	}
+	if period == "custom" {
+		if start == "" || end == "" {
+			return "", "", errors.New("custom period requires date_start and date_end")
+		}
+		if _, err := time.Parse("2006-01-02", start); err != nil {
+			return "", "", errors.New("date_start must be YYYY-MM-DD")
+		}
+		if _, err := time.Parse("2006-01-02", end); err != nil {
+			return "", "", errors.New("date_end must be YYYY-MM-DD")
+		}
+		return start, end, nil
+	}
+	if periodKey == "" {
+		return "", "", fmt.Errorf("period_key is required for %s (e.g. %s)", period, periodKeyExample(period))
+	}
+	ds, de, err := derivePeriodRange(period, periodKey)
+	if err != nil {
+		return "", "", err
+	}
+	if start == "" {
+		start = ds
+	}
+	if end == "" {
+		end = de
+	}
+	return start, end, nil
+}
+
+func (s *Server) registerPeriodTools() {
+	// get_period_analysis
+	getAnalysis := mcp.NewTool("get_period_analysis",
+		mcp.WithDescription("读取已保存的周/月/年分析报告。week/month/year 用 period_key 定位（如 2026-W36 / 2026-09 / 2026）；custom 用 date_start+date_end（可选 keywords）定位。"),
+		mcp.WithString("period", mcp.Required(), mcp.Description("week | month | year | custom")),
+		mcp.WithString("period_key", mcp.Description("周期键，week/month/year 必填（如 2026-W36、2026-09、2026）")),
+		mcp.WithString("date_start", mcp.Description("开始日期 YYYY-MM-DD（custom 必填；week/month/year 可省略，自动由 period_key 推导）")),
+		mcp.WithString("date_end", mcp.Description("结束日期 YYYY-MM-DD（同上）")),
+		mcp.WithString("keywords", mcp.Description("自定义分析的关键词（custom 可选）")),
+	)
+	s.mcpServer.AddTool(getAnalysis, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			return mcp.NewToolResultError("Authentication required"), nil
+		}
+		period := strings.TrimSpace(req.GetString("period", ""))
+		periodKey := strings.TrimSpace(req.GetString("period_key", ""))
+		start := strings.TrimSpace(req.GetString("date_start", ""))
+		end := strings.TrimSpace(req.GetString("date_end", ""))
+		keywords := strings.TrimSpace(req.GetString("keywords", ""))
+		start, end, err := resolvePeriodRange(period, periodKey, start, end)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		a, err := s.store.GetPeriodAnalysis(userID, period, periodKey, start, end, keywords)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return mcp.NewToolResultError("Analysis not found"), nil
+			}
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to get analysis: %v", err)), nil
+		}
+		out, _ := json.Marshal(a)
+		return mcp.NewToolResultText(string(out)), nil
+	})
+
+	// list_period_analyses
+	listAnalyses := mcp.NewTool("list_period_analyses",
+		mcp.WithDescription("列出已保存的周期分析报告，可按 period 过滤（week | month | year | custom | all，默认 all）。"),
+		mcp.WithString("period", mcp.Description("week | month | year | custom | all（默认 all）")),
+		mcp.WithNumber("limit", mcp.Description("返回条数（默认 200）")),
+	)
+	s.mcpServer.AddTool(listAnalyses, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			return mcp.NewToolResultError("Authentication required"), nil
+		}
+		period := strings.TrimSpace(req.GetString("period", ""))
+		if period != "" && period != "all" && !validPeriod(period) {
+			return mcp.NewToolResultError("period must be one of: week, month, year, custom, all"), nil
+		}
+		limit := req.GetInt("limit", 200)
+		analyses, err := s.store.ListSavedAnalyses(userID, period, limit)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to list analyses: %v", err)), nil
+		}
+		out, _ := json.Marshal(map[string]any{"analyses": analyses, "count": len(analyses)})
+		return mcp.NewToolResultText(string(out)), nil
+	})
+
+	// save_period_analysis
+	saveAnalysis := mcp.NewTool("save_period_analysis",
+		mcp.WithDescription("保存或更新一份周期分析报告（周/月/年/自定义区间）。同一定位（period+period_key 或 custom 日期区间）重复保存会覆盖更新。"),
+		mcp.WithString("period", mcp.Required(), mcp.Description("week | month | year | custom")),
+		mcp.WithString("period_key", mcp.Description("周期键，week/month/year 必填（如 2026-W36、2026-09、2026）")),
+		mcp.WithString("date_start", mcp.Description("周期开始日期 YYYY-MM-DD（week/month/year 可省略，自动由 period_key 推导；custom 必填）")),
+		mcp.WithString("date_end", mcp.Description("周期结束日期 YYYY-MM-DD（同上）")),
+		mcp.WithNumber("diary_count", mcp.Description("该周期日记篇数（默认 0）")),
+		mcp.WithString("summary", mcp.Required(), mcp.Description("分析摘要正文")),
+		mcp.WithString("system_prompt", mcp.Description("生成该分析所用的 system prompt（可选，便于复现）")),
+		mcp.WithString("user_prefix", mcp.Description("生成该分析所用的用户前缀指令（可选）")),
+		mcp.WithString("keywords", mcp.Description("自定义分析关键词（可选）")),
+	)
+	s.mcpServer.AddTool(saveAnalysis, func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		userID := getUserID(ctx)
+		if userID == "" {
+			return mcp.NewToolResultError("Authentication required"), nil
+		}
+		period := strings.TrimSpace(req.GetString("period", ""))
+		periodKey := strings.TrimSpace(req.GetString("period_key", ""))
+		start := strings.TrimSpace(req.GetString("date_start", ""))
+		end := strings.TrimSpace(req.GetString("date_end", ""))
+		keywords := strings.TrimSpace(req.GetString("keywords", ""))
+		summary := req.GetString("summary", "")
+		start, end, err := resolvePeriodRange(period, periodKey, start, end)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
+		if strings.TrimSpace(summary) == "" {
+			return mcp.NewToolResultError("'summary' is required"), nil
+		}
+		a, err := s.store.SavePeriodAnalysis(userID, period, periodKey, start, end, req.GetInt("diary_count", 0), summary, req.GetString("system_prompt", ""), req.GetString("user_prefix", ""), keywords)
+		if err != nil {
+			return mcp.NewToolResultError(fmt.Sprintf("Failed to save analysis: %v", err)), nil
+		}
+		out, _ := json.Marshal(a)
+		return mcp.NewToolResultText(string(out)), nil
 	})
 }

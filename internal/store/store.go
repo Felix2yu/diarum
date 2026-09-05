@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"os"
 	"path/filepath"
@@ -89,6 +90,84 @@ type Diary struct {
 	Tags           []string `json:"tags"`
 	Created        string   `json:"created"`
 	Updated        string   `json:"updated"`
+}
+
+// DiaryPatch describes a partial update to a diary. Nil fields mean "do not change".
+type DiaryPatch struct {
+	Content       *string   `json:"content,omitempty"`
+	Mood          *int      `json:"mood,omitempty"`
+	MoodStates    *[]string `json:"mood_states,omitempty"`
+	Scenarios     *[]string `json:"scenarios,omitempty"`
+	Weather       *string   `json:"weather,omitempty"`
+	City          *string   `json:"city,omitempty"`
+	TempMin       *float64  `json:"temp_min,omitempty"`
+	TempMax       *float64  `json:"temp_max,omitempty"`
+	Tags          *[]string `json:"tags,omitempty"`
+	TagsOp        string    `json:"tags_op,omitempty"`        // replace | merge | remove (used when Tags != nil)
+	ContentFormat string    `json:"content_format,omitempty"` // text | html (how to interpret Content); default text
+}
+
+// DiaryFilter selects diaries for listing with combined filters and pagination.
+type DiaryFilter struct {
+	DateStart string // YYYY-MM-DD inclusive
+	DateEnd   string // YYYY-MM-DD inclusive
+	Tag       string
+	Scenario  string
+	Query     string
+	Mood      int // 0 = any
+	Limit     int
+	Offset    int
+	Order     string // "date" ascending, "-date" (default) descending
+}
+
+// BatchTargets locates diaries for a batch operation. Resolution order:
+// IDs > DateRange > Tag > Scenario > Query. Empty targets => no-op.
+type BatchTargets struct {
+	IDs       []string   `json:"ids,omitempty"`
+	DateRange *DateRange `json:"date_range,omitempty"`
+	Tag       string     `json:"tag,omitempty"`
+	Scenario  string     `json:"scenario,omitempty"`
+	Query     string     `json:"query,omitempty"`
+}
+
+// DateRange is an inclusive YYYY-MM-DD range.
+type DateRange struct {
+	Start string `json:"start"`
+	End   string `json:"end"`
+}
+
+// BatchOpts controls batch operation behaviour.
+type BatchOpts struct {
+	DryRun          bool   `json:"dry_run,omitempty"`
+	ContinueOnError bool   `json:"continue_on_error,omitempty"`
+	TagsOp          string `json:"tags_op,omitempty"`
+	ContentFormat   string `json:"content_format,omitempty"`
+}
+
+// BatchResult reports the outcome of a single item in a batch operation.
+type BatchResult struct {
+	ID     string `json:"id"`
+	Status string `json:"status"` // ok | skipped | error
+	Error  string `json:"error,omitempty"`
+}
+
+// DiaryCreateInput is one item for BatchCreateDiaries. Date is required
+// (YYYY-MM-DD); all other fields are optional and default to zero values.
+// Field semantics mirror DiaryPatch (TagsOp/ContentFormat included), so the
+// same patch model drives both batch updates and batch creates.
+type DiaryCreateInput struct {
+	Date          string    `json:"date"`
+	Content       *string   `json:"content,omitempty"`
+	Mood          *int      `json:"mood,omitempty"`
+	MoodStates    *[]string `json:"mood_states,omitempty"`
+	Scenarios     *[]string `json:"scenarios,omitempty"`
+	Weather       *string   `json:"weather,omitempty"`
+	City          *string   `json:"city,omitempty"`
+	TempMin       *float64  `json:"temp_min,omitempty"`
+	TempMax       *float64  `json:"temp_max,omitempty"`
+	Tags          *[]string `json:"tags,omitempty"`
+	TagsOp        string    `json:"tags_op,omitempty"`        // replace | merge | remove
+	ContentFormat string    `json:"content_format,omitempty"` // text | html
 }
 
 // MoodToEmoji converts a numeric mood value (1-5) to its display emoji.
@@ -1315,6 +1394,426 @@ func (s *Store) DeleteDiary(id, owner string) error {
 		return sql.ErrNoRows
 	}
 	return nil
+}
+
+// applyDiaryPatch returns a copy of existing with the provided fields overwritten.
+// Nil pointer fields are left unchanged. tags_op controls how Tags are merged.
+func applyDiaryPatch(existing *Diary, p DiaryPatch) *Diary {
+	d := *existing
+	if p.Content != nil {
+		content := *p.Content
+		if p.ContentFormat == "html" {
+			content = plainToHTML(content)
+		}
+		if content != existing.Content {
+			d.ContentUpdated = nowString()
+		}
+		d.Content = content
+	}
+	if p.Mood != nil {
+		d.Mood = *p.Mood
+	}
+	if p.MoodStates != nil {
+		d.MoodStates = *p.MoodStates
+	}
+	if p.Scenarios != nil {
+		d.Scenarios = *p.Scenarios
+	}
+	if p.Weather != nil {
+		d.Weather = *p.Weather
+	}
+	if p.City != nil {
+		d.City = *p.City
+	}
+	if p.TempMin != nil {
+		d.TempMin = *p.TempMin
+	}
+	if p.TempMax != nil {
+		d.TempMax = *p.TempMax
+	}
+	if p.Tags != nil {
+		op := p.TagsOp
+		if op == "" {
+			op = "replace"
+		}
+		switch op {
+		case "merge":
+			merged := append([]string{}, existing.Tags...)
+			merged = append(merged, *p.Tags...)
+			d.Tags = normalizeTags(merged)
+		case "remove":
+			removeSet := make(map[string]struct{}, len(*p.Tags))
+			for _, t := range *p.Tags {
+				removeSet[strings.TrimSpace(t)] = struct{}{}
+			}
+			kept := make([]string, 0, len(existing.Tags))
+			for _, t := range existing.Tags {
+				if _, drop := removeSet[t]; !drop {
+					kept = append(kept, t)
+				}
+			}
+			d.Tags = normalizeTags(kept)
+		default: // replace
+			d.Tags = normalizeTags(*p.Tags)
+		}
+	}
+	return &d
+}
+
+// plainToHTML converts plain text into simple HTML: blank-line separated blocks
+// become <p>, single newlines become <br>.
+func plainToHTML(s string) string {
+	s = strings.Trim(s, "\n")
+	if s == "" {
+		return ""
+	}
+	blocks := strings.Split(s, "\n\n")
+	var b strings.Builder
+	for _, blk := range blocks {
+		blk = strings.TrimSpace(blk)
+		if blk == "" {
+			continue
+		}
+		escaped := html.EscapeString(blk)
+		escaped = strings.ReplaceAll(escaped, "\n", "<br>\n")
+		b.WriteString("<p>")
+		b.WriteString(escaped)
+		b.WriteString("</p>\n")
+	}
+	return b.String()
+}
+
+// UpdateDiaryByID applies a partial patch to a single diary owned by owner.
+func (s *Store) UpdateDiaryByID(id, owner string, p DiaryPatch) (*Diary, error) {
+	existing, err := s.GetDiaryByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if existing.Owner != owner {
+		return nil, sql.ErrNoRows
+	}
+	updated := applyDiaryPatch(existing, p)
+	now := nowString()
+	if _, err := s.DB.Exec(`UPDATE diaries SET content = ?, content_updated = ?, mood = ?, mood_states = ?, scenarios = ?, weather = ?, city = ?, temp_min = ?, temp_max = ?, tags = ?, updated = ? WHERE id = ? AND owner = ?`,
+		updated.Content, updated.ContentUpdated, updated.Mood, encodeJSON(updated.MoodStates), encodeJSON(updated.Scenarios), updated.Weather, updated.City, updated.TempMin, updated.TempMax, encodeJSON(normalizeTags(updated.Tags)), now, id, owner); err != nil {
+		return nil, err
+	}
+	return s.GetDiaryByID(id)
+}
+
+// resolveBatchTargets expands a BatchTargets selector into a de-duplicated,
+// owner-scoped list of diary IDs.
+func (s *Store) resolveBatchTargets(owner string, t BatchTargets) ([]string, error) {
+	seen := make(map[string]struct{})
+	ids := make([]string, 0)
+	add := func(ds []*Diary) {
+		for _, d := range ds {
+			if _, ok := seen[d.ID]; !ok {
+				seen[d.ID] = struct{}{}
+				ids = append(ids, d.ID)
+			}
+		}
+	}
+	if len(t.IDs) > 0 {
+		for _, id := range t.IDs {
+			id = strings.TrimSpace(id)
+			if id != "" {
+				if _, ok := seen[id]; !ok {
+					seen[id] = struct{}{}
+					ids = append(ids, id)
+				}
+			}
+		}
+		return ids, nil
+	}
+	if t.DateRange != nil {
+		start := strings.TrimSpace(t.DateRange.Start) + " 00:00:00.000Z"
+		end := strings.TrimSpace(t.DateRange.End) + " 23:59:59.999Z"
+		ds, err := s.ListDiaries(owner, start, end, "date", 10000)
+		if err != nil {
+			return nil, err
+		}
+		add(ds)
+		return ids, nil
+	}
+	if t.Tag != "" {
+		ds, err := s.ListDiariesByTag(owner, t.Tag)
+		if err != nil {
+			return nil, err
+		}
+		add(ds)
+		return ids, nil
+	}
+	if t.Scenario != "" {
+		ds, err := s.SearchDiaries(owner, "", t.Scenario, 10000)
+		if err != nil {
+			return nil, err
+		}
+		add(ds)
+		return ids, nil
+	}
+	if t.Query != "" {
+		ds, err := s.SearchDiaries(owner, t.Query, "", 10000)
+		if err != nil {
+			return nil, err
+		}
+		add(ds)
+		return ids, nil
+	}
+	return ids, nil
+}
+
+// BatchUpdateDiaries applies one patch to many diaries in a single transaction.
+// DryRun resolves the targets and returns ok/skipped without writing.
+// ContinueOnError records a per-item error and proceeds instead of aborting.
+func (s *Store) BatchUpdateDiaries(owner string, t BatchTargets, p DiaryPatch, o BatchOpts) ([]BatchResult, error) {
+	if o.TagsOp != "" {
+		p.TagsOp = o.TagsOp
+	}
+	if o.ContentFormat != "" {
+		p.ContentFormat = o.ContentFormat
+	}
+	ids, err := s.resolveBatchTargets(owner, t)
+	if err != nil {
+		return nil, err
+	}
+	if len(ids) == 0 {
+		return []BatchResult{}, nil
+	}
+	if o.DryRun {
+		results := make([]BatchResult, 0, len(ids))
+		for _, id := range ids {
+			results = append(results, BatchResult{ID: id, Status: "ok"})
+		}
+		return results, nil
+	}
+
+	results := make([]BatchResult, 0, len(ids))
+	tx, err := s.DB.BeginTx(context.Background(), nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+
+	var firstErr error
+	for _, id := range ids {
+		row := tx.QueryRow(`SELECT content, content_updated, created, date, id, mood, mood_states, scenarios, owner, updated, weather, city, temp_min, temp_max, tags FROM diaries WHERE id = ? AND owner = ?`, id, owner)
+		existing, err := scanDiary(row)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				results = append(results, BatchResult{ID: id, Status: "skipped"})
+				continue
+			}
+			if !o.ContinueOnError {
+				firstErr = err
+				break
+			}
+			results = append(results, BatchResult{ID: id, Status: "error", Error: err.Error()})
+			continue
+		}
+		updated := applyDiaryPatch(existing, p)
+		if _, err := tx.Exec(`UPDATE diaries SET content = ?, content_updated = ?, mood = ?, mood_states = ?, scenarios = ?, weather = ?, city = ?, temp_min = ?, temp_max = ?, tags = ?, updated = ? WHERE id = ? AND owner = ?`,
+			updated.Content, updated.ContentUpdated, updated.Mood, encodeJSON(updated.MoodStates), encodeJSON(updated.Scenarios), updated.Weather, updated.City, updated.TempMin, updated.TempMax, encodeJSON(normalizeTags(updated.Tags)), nowString(), id, owner); err != nil {
+			if !o.ContinueOnError {
+				firstErr = err
+				break
+			}
+			results = append(results, BatchResult{ID: id, Status: "error", Error: err.Error()})
+			continue
+		}
+		results = append(results, BatchResult{ID: id, Status: "ok"})
+	}
+
+	if firstErr != nil {
+		_ = tx.Rollback()
+		return nil, firstErr
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+// BatchDeleteDiaries deletes many diaries in a single transaction, scoped to owner.
+func (s *Store) BatchDeleteDiaries(owner string, ids []string) ([]BatchResult, error) {
+	results := make([]BatchResult, 0, len(ids))
+	tx, err := s.DB.BeginTx(context.Background(), nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	var firstErr error
+	for _, id := range ids {
+		res, err := tx.Exec(`DELETE FROM diaries WHERE id = ? AND owner = ?`, id, owner)
+		if err != nil {
+			firstErr = err
+			break
+		}
+		affected, _ := res.RowsAffected()
+		if affected == 0 {
+			results = append(results, BatchResult{ID: id, Status: "skipped"})
+		} else {
+			results = append(results, BatchResult{ID: id, Status: "ok"})
+		}
+	}
+	if firstErr != nil {
+		_ = tx.Rollback()
+		return nil, firstErr
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+// BatchCreateDiaries inserts many diaries in a single transaction. The
+// diaries table enforces UNIQUE(date, owner), so this is create-with-skip:
+// an item whose date already has an entry is reported as "skipped" and left
+// untouched — use BatchUpdateDiaries to modify existing entries. Each item
+// must carry a YYYY-MM-DD date. Use opts.DryRun to validate and preview
+// conflicts without writing; opts.ContinueOnError records a per-item error
+// and proceeds instead of aborting the whole transaction.
+func (s *Store) BatchCreateDiaries(owner string, items []DiaryCreateInput, opts BatchOpts) ([]BatchResult, error) {
+	if len(items) == 0 {
+		return []BatchResult{}, nil
+	}
+	for i := range items {
+		date := strings.TrimSpace(items[i].Date)
+		if _, err := time.Parse("2006-01-02", date); err != nil {
+			return nil, fmt.Errorf("item %d: date must be YYYY-MM-DD, got %q", i, items[i].Date)
+		}
+		if items[i].Mood != nil && (*items[i].Mood < 0 || *items[i].Mood > 5) {
+			return nil, fmt.Errorf("item %d: mood must be between 0 and 5", i)
+		}
+		if items[i].ContentFormat != "" && items[i].ContentFormat != "text" && items[i].ContentFormat != "html" {
+			return nil, fmt.Errorf("item %d: content_format must be 'text' or 'html'", i)
+		}
+		if items[i].TagsOp != "" && items[i].TagsOp != "replace" && items[i].TagsOp != "merge" && items[i].TagsOp != "remove" {
+			return nil, fmt.Errorf("item %d: tags_op must be 'replace', 'merge' or 'remove'", i)
+		}
+	}
+	existingID := func(tx *sql.Tx, date string) string {
+		var id string
+		var err error
+		if tx != nil {
+			err = tx.QueryRow(`SELECT id FROM diaries WHERE date = ? AND owner = ?`, date+" 00:00:00.000Z", owner).Scan(&id)
+		} else {
+			err = s.DB.QueryRow(`SELECT id FROM diaries WHERE date = ? AND owner = ?`, date+" 00:00:00.000Z", owner).Scan(&id)
+		}
+		if err != nil {
+			return ""
+		}
+		return id
+	}
+	if opts.DryRun {
+		results := make([]BatchResult, 0, len(items))
+		for _, it := range items {
+			date := strings.TrimSpace(it.Date)
+			if id := existingID(nil, date); id != "" {
+				results = append(results, BatchResult{ID: id, Status: "skipped"})
+			} else {
+				results = append(results, BatchResult{ID: date, Status: "ok"})
+			}
+		}
+		return results, nil
+	}
+
+	results := make([]BatchResult, 0, len(items))
+	err := s.Transaction(context.Background(), func(tx *sql.Tx) error {
+		for i, it := range items {
+			date := strings.TrimSpace(it.Date)
+			if id := existingID(tx, date); id != "" {
+				results = append(results, BatchResult{ID: id, Status: "skipped"})
+				continue
+			}
+			base := &Diary{Date: date + " 00:00:00.000Z", Owner: owner}
+			d := applyDiaryPatch(base, DiaryPatch{
+				Content:       it.Content,
+				Mood:          it.Mood,
+				MoodStates:    it.MoodStates,
+				Scenarios:     it.Scenarios,
+				Weather:       it.Weather,
+				City:          it.City,
+				TempMin:       it.TempMin,
+				TempMax:       it.TempMax,
+				Tags:          it.Tags,
+				TagsOp:        it.TagsOp,
+				ContentFormat: it.ContentFormat,
+			})
+			id, err := GenerateID()
+			if err != nil {
+				return err
+			}
+			now := nowString()
+			if _, err := tx.Exec(`INSERT INTO diaries(content, content_updated, created, date, id, mood, mood_states, scenarios, owner, updated, weather, city, temp_min, temp_max, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+				d.Content, now, now, d.Date, id, d.Mood, encodeJSON(d.MoodStates), encodeJSON(d.Scenarios), owner, now, d.Weather, d.City, d.TempMin, d.TempMax, encodeJSON(normalizeTags(d.Tags))); err != nil {
+				if !opts.ContinueOnError {
+					return fmt.Errorf("item %d (%s): %w", i, date, err)
+				}
+				results = append(results, BatchResult{ID: date, Status: "error", Error: err.Error()})
+				continue
+			}
+			results = append(results, BatchResult{ID: id, Status: "ok"})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+func (s *Store) ListDiariesFiltered(owner string, f DiaryFilter) ([]*Diary, error) {
+	where := "WHERE owner = ?"
+	args := []any{owner}
+	if f.DateStart != "" {
+		where += " AND date >= ?"
+		args = append(args, f.DateStart+" 00:00:00.000Z")
+	}
+	if f.DateEnd != "" {
+		where += " AND date <= ?"
+		args = append(args, f.DateEnd+" 23:59:59.999Z")
+	}
+	if f.Tag != "" {
+		where += " AND tags LIKE ?"
+		args = append(args, "%\""+f.Tag+"\"%")
+	}
+	if f.Scenario != "" {
+		where += " AND scenarios LIKE ?"
+		args = append(args, "%\""+f.Scenario+"\"%")
+	}
+	if f.Query != "" {
+		where += " AND (content LIKE ? OR tags LIKE ?)"
+		args = append(args, "%"+f.Query+"%", "%"+f.Query+"%")
+	}
+	if f.Mood > 0 {
+		where += " AND mood = ?"
+		args = append(args, f.Mood)
+	}
+	order := "date DESC"
+	switch f.Order {
+	case "date":
+		order = "date ASC"
+	case "-date", "":
+		order = "date DESC"
+	}
+	limit := f.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	if limit > 500 {
+		limit = 500
+	}
+	args = append(args, limit, f.Offset)
+	rows, err := s.DB.Query(
+		`SELECT content, content_updated, created, date, id, mood, mood_states, scenarios, owner, updated, weather, city, temp_min, temp_max, tags
+		 FROM diaries `+where+` ORDER BY `+order+` LIMIT ? OFFSET ?`,
+		args...,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	return scanDiaries(rows)
 }
 
 func (s *Store) ListDiaries(owner, start, end, order string, limit int) ([]*Diary, error) {

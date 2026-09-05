@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime/multipart"
 	"net/http"
 	"strings"
 	"time"
@@ -20,6 +19,7 @@ import (
 	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/embedding"
 	"github.com/songtianlun/diarum/internal/logger"
+	"github.com/songtianlun/diarum/internal/aicore"
 	"github.com/songtianlun/diarum/internal/store"
 )
 
@@ -249,87 +249,21 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		}
 		prompt := strings.TrimSpace(c.FormValue("prompt"))
 
-		// Build multipart request body for the upstream provider
-		var requestBody bytes.Buffer
-		boundary := "diarum-boundary-" + fmt.Sprintf("%d", time.Now().UnixNano())
-		writer := multipart.NewWriter(&requestBody)
+		ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Minute)
+		defer cancel()
 
-		if err := writer.SetBoundary(boundary); err != nil {
-			return serverError("Failed to build request", err)
-		}
-
-		if err := writer.WriteField("model", model); err != nil {
-			return serverError("Failed to build request", err)
-		}
-		if language != "" {
-			if err := writer.WriteField("language", language); err != nil {
-				return serverError("Failed to build request", err)
-			}
-		}
-		if prompt != "" {
-			if err := writer.WriteField("prompt", prompt); err != nil {
-				return serverError("Failed to build request", err)
-			}
-		}
-		// Always request JSON text output
-		if err := writer.WriteField("response_format", "json"); err != nil {
-			return serverError("Failed to build request", err)
-		}
-		if err := writer.WriteField("temperature", "0"); err != nil {
-			return serverError("Failed to build request", err)
-		}
-
-		// Derive a reasonable filename / content type for the upstream provider
+		cfg := aicore.AIConfig{Enabled: true, APIKey: apiKey, BaseURL: baseURL, Model: model}
 		origName := file.Filename
 		if origName == "" {
 			origName = "audio.webm"
 		}
-		part, err := writer.CreateFormFile("file", origName)
+		text, err := aicore.Transcribe(ctx, cfg, audioBytes, origName, file.Header.Get("Content-Type"), language, model, prompt)
 		if err != nil {
-			return serverError("Failed to build request", err)
-		}
-		if _, err := part.Write(audioBytes); err != nil {
-			return serverError("Failed to build request", err)
-		}
-		if err := writer.Close(); err != nil {
-			return serverError("Failed to build request", err)
-		}
-
-		// Build upstream URL
-		baseURL = strings.TrimSuffix(baseURL, "/")
-		transcribeURL := baseURL + "/v1/audio/transcriptions"
-
-		ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Minute)
-		defer cancel()
-
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, transcribeURL, &requestBody)
-		if err != nil {
-			return serverError("Failed to create speech request", err)
-		}
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-		req.Header.Set("Content-Type", writer.FormDataContentType())
-
-		client := &http.Client{Timeout: 5 * time.Minute}
-		resp, err := client.Do(req)
-		if err != nil {
-			return serverError("Speech recognition request failed: "+err.Error(), nil)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			bodyText, _ := io.ReadAll(resp.Body)
-			return serverError(fmt.Sprintf("Speech provider returned status %d: %s", resp.StatusCode, string(bodyText)), nil)
-		}
-
-		var transcript struct {
-			Text string `json:"text"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&transcript); err != nil {
-			return serverError("Failed to decode speech response", err)
+			return serverError("Speech recognition failed: "+err.Error(), nil)
 		}
 
 		return c.JSON(http.StatusOK, map[string]any{
-			"text": transcript.Text,
+			"text": text,
 		})
 	})
 
@@ -936,72 +870,21 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			return serviceUnavailable("AI service is not configured", nil)
 		}
 
-		var systemPrompt string
-		switch mode {
-		case "medium":
-			systemPrompt = "你是一个日记文本整理助手。请对用户提供的日记文本进行以下处理：\n1) 去除口语化的语气词（如「哈哈」、「呃」、「嗯」、「嘛」、「吧」的冗余使用）、多余的标点和感叹；\n2) 纠正明显的错别字、语法错误和语病；\n3) 根据内容含义自动分段，使段落结构清晰、阅读流畅；\n4) 保留原文的核心事实、情感表达和个人口吻，不要增加新的事件或情节；\n5) 输出只返回整理后的文本本身，不要包含解释、说明或额外文字。"
-		case "strong":
-			systemPrompt = "你是一个日记文本改写助手。请对用户提供的日记文本进行深度重组和精简：\n1) 主动重组句子结构，使其更通顺、逻辑更清晰；\n2) 去除一切冗余、重复、流水账式的描述，保留最有意义的内容；\n3) 让表达更书面、更精炼，但仍保持自然和个人的语气；\n4) 适当补充过渡语句，使段落之间衔接自然；\n5) 不要虚构新的事件或情节；\n6) 输出只返回改写后的文本本身，不要包含解释、说明或额外文字。"
-		case "custom":
-			systemPrompt = strings.TrimSpace(body.Prompt)
-			if systemPrompt == "" {
-				return badRequest("prompt is required for custom mode", nil)
-			}
+		systemPrompt, err := aicore.PolishSystemPrompt(mode, body.Prompt)
+		if err != nil {
+			return badRequest(err.Error(), nil)
 		}
 
 		ctx, cancel := context.WithTimeout(c.Request().Context(), 5*time.Minute)
 		defer cancel()
 
-		baseURL = strings.TrimSuffix(baseURL, "/")
-		url := baseURL + "/v1/chat/completions"
-
-		reqBody := map[string]any{
-			"model": model,
-			"messages": []map[string]string{
-				{"role": "system", "content": systemPrompt},
-				{"role": "user", "content": content},
-			},
-			"stream": false,
-		}
-
-		jsonBytes, err := json.Marshal(reqBody)
-		if err != nil {
-			return serverError("Failed to build AI request", err)
-		}
-
-		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonBytes))
-		if err != nil {
-			return serverError("Failed to create AI request", err)
-		}
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-		req.Header.Set("Content-Type", "application/json")
-
-		client := &http.Client{Timeout: 5 * time.Minute}
-		resp, err := client.Do(req)
+		cfg := aicore.AIConfig{Enabled: enabled, APIKey: apiKey, BaseURL: baseURL, Model: model}
+		polished, err := aicore.ChatComplete(ctx, cfg, []aicore.ChatMessage{
+			{Role: "system", Content: systemPrompt},
+			{Role: "user", Content: content},
+		}, false)
 		if err != nil {
 			return serverError("AI request failed: "+err.Error(), nil)
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			bodyText, _ := io.ReadAll(resp.Body)
-			return serverError(fmt.Sprintf("AI returned status %d: %s", resp.StatusCode, string(bodyText)), nil)
-		}
-
-		var aiResp struct {
-			Choices []struct {
-				Message struct {
-					Content string `json:"content"`
-				} `json:"message"`
-			} `json:"choices"`
-		}
-		if err := json.NewDecoder(resp.Body).Decode(&aiResp); err != nil {
-			return serverError("Failed to decode AI response", err)
-		}
-
-		polished := ""
-		if len(aiResp.Choices) > 0 {
-			polished = strings.TrimSpace(aiResp.Choices[0].Message.Content)
 		}
 
 		return c.JSON(http.StatusOK, map[string]any{

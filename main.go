@@ -259,7 +259,7 @@ func run(args []string, stdout io.Writer) error {
 	}
 
 	// Initialize MCP server
-	mcpSrv := mcpserver.New(appStore)
+	mcpSrv := mcpserver.New(appStore, configService, onDiaryChanged)
 	mcpHandler := mcpSrv.GetStreamableHTTPServer()
 
 	// MCP auth middleware — inject user_id into request context via Echo middleware chain
