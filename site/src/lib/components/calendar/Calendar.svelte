@@ -393,12 +393,12 @@
 		<!-- Month View -->
 		<div class="view-container animate-fade-in-only">
 			<!-- Calendar Header -->
-			<div class="flex flex-col gap-3 mb-5 px-2">
+			<div class="flex flex-col gap-2 sm:gap-3 mb-4 sm:mb-5 px-2">
 				<!-- 第一行：月份导航 -->
 				<div class="flex items-center justify-between">
 					<button
 						onclick={goToPreviousMonth}
-						class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
+						class="p-1.5 sm:p-2 rounded-lg hover:bg-muted/50 transition-all duration-200 shrink-0"
 						title="上一月"
 					>
 						<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -406,15 +406,15 @@
 						</svg>
 					</button>
 
-					<div class="flex items-center gap-2">
-						<h2 class="text-lg font-semibold text-foreground flex items-center gap-1.5">
+					<div class="flex items-center gap-1 sm:gap-2 min-w-0 flex-1 justify-center">
+						<h2 class="text-base sm:text-lg font-semibold text-foreground flex items-center gap-1 sm:gap-1.5 min-w-0">
 							<button
 								onclick={openYearPicker}
-								class="hover:bg-muted/50 transition-all duration-200 rounded-md px-2 py-1 flex items-center gap-1"
+								class="hover:bg-muted/50 transition-all duration-200 rounded-md px-1.5 sm:px-2 py-1 flex items-center gap-0.5 sm:gap-1 whitespace-nowrap shrink-0"
 								title="点击选择年月"
 							>
 								<span>{formatMonthYear(currentYear, currentMonth)}</span>
-								<svg class="w-3.5 h-3.5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+								<svg class="w-3.5 h-3.5 text-muted-foreground shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
 								</svg>
 							</button>
@@ -423,13 +423,13 @@
 								class="year-button"
 								title="切换到年视图"
 							>
-								查看全年
+								全年
 							</button>
 						</h2>
-						<div class="flex items-center gap-1.5">
+						<div class="flex items-center gap-1 sm:gap-1.5 shrink-0">
 							<button
 								onclick={goToToday}
-								class="px-3 py-1 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-all duration-200"
+								class="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-all duration-200 whitespace-nowrap"
 							>
 								今天
 							</button>
@@ -438,7 +438,7 @@
 
 					<button
 						onclick={goToNextMonth}
-						class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
+						class="p-1.5 sm:p-2 rounded-lg hover:bg-muted/50 transition-all duration-200 shrink-0"
 						title="下一月"
 					>
 						<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -590,10 +590,10 @@
 		<!-- Year View -->
 		<div class="view-container year-mode animate-fade-in-only">
 			<!-- Year Header -->
-			<div class="flex items-center justify-between mb-5 px-2">
+			<div class="flex items-center justify-between mb-4 sm:mb-5 px-2">
 				<button
 					onclick={goToPreviousYear}
-					class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
+					class="p-1.5 sm:p-2 rounded-lg hover:bg-muted/50 transition-all duration-200 shrink-0"
 					title="上一年"
 				>
 					<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -601,12 +601,12 @@
 					</svg>
 				</button>
 
-				<div class="flex items-center gap-3">
-					<h2 class="text-lg font-semibold text-foreground">{currentYear}</h2>
-					<div class="flex items-center gap-1.5">
+				<div class="flex items-center gap-1.5 sm:gap-3 min-w-0 flex-1 justify-center">
+					<h2 class="text-base sm:text-lg font-semibold text-foreground whitespace-nowrap">{currentYear}</h2>
+					<div class="flex items-center gap-1 sm:gap-1.5 shrink-0">
 						<button
 							onclick={goToCurrentYear}
-							class="px-3 py-1 text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-all duration-200"
+							class="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-all duration-200 whitespace-nowrap"
 						>
 							本年
 						</button>
@@ -615,7 +615,7 @@
 
 				<button
 					onclick={goToNextYear}
-					class="p-2 rounded-lg hover:bg-muted/50 transition-all duration-200"
+					class="p-1.5 sm:p-2 rounded-lg hover:bg-muted/50 transition-all duration-200 shrink-0"
 					title="下一年"
 				>
 					<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -886,6 +886,17 @@
 		--week-action-w: 4rem;
 	}
 
+	/* Two-column layout (xl+): let calendar fill the left column height. */
+	@media (min-width: 1280px) {
+		.calendar {
+			height: 100%;
+			display: flex;
+			flex-direction: column;
+			min-height: 0;
+			flex: 1;
+		}
+	}
+
 	@media (max-width: 480px) {
 		.calendar {
 			--week-action-w: 3.4rem;
@@ -894,9 +905,27 @@
 
 	.view-container {
 		width: 100%;
-		max-width: 600px;
+		max-width: none;
 		margin-left: auto;
 		margin-right: auto;
+		display: flex;
+		flex-direction: column;
+		flex: 1;
+		min-height: 0;
+	}
+
+	/* Two-column layout (xl+): cap calendar width to keep cells reasonable. */
+	@media (min-width: 1280px) {
+		.view-container:not(.year-mode) {
+			max-width: 900px;
+		}
+	}
+
+	/* On truly wide screens (~1440px+), let the calendar spread out further. */
+	@media (min-width: 1440px) {
+		.view-container:not(.year-mode) {
+			max-width: 1000px;
+		}
 	}
 
 	/* Year view: use a slightly wider container on larger screens so the
@@ -949,6 +978,14 @@
 		gap: 0.5rem;
 	}
 
+	/* Two-column layout (xl+): let the day grid stretch to fill height. */
+	@media (min-width: 1280px) {
+		.days-grid {
+			flex: 1;
+			min-height: 0;
+		}
+	}
+
 	/* 周（行）：ISO 8601 一周一行，7 天 + 末尾独立的周报按钮列 */
 	.week-row {
 		position: relative;
@@ -958,6 +995,28 @@
 		border-radius: 0.5rem;
 		cursor: pointer;
 		transition: background-color 0.15s ease;
+	}
+
+	/* Two-column layout (xl+): distribute extra height across rows. */
+	@media (min-width: 1280px) {
+		.week-row {
+			flex: 1;
+			min-height: 0;
+		}
+	}
+
+	/* Calendar day cell — on desktop (two-column) fill the row height instead
+	   of staying square. On tablets/phones keep aspect-square so cells look
+	   balanced and don't turn into tall thin rectangles. */
+	.day {
+		aspect-ratio: 1;
+	}
+	@media (min-width: 1280px) {
+		.day {
+			aspect-ratio: auto;
+			height: 100%;
+			min-height: 48px;
+		}
 	}
 
 	.week-row:hover {
@@ -1006,6 +1065,7 @@
 		grid-template-columns: 1fr 1fr;
 		gap: 0.5rem;
 		margin-top: 0.75rem;
+		flex-shrink: 0;
 	}
 
 	.period-card {
@@ -1069,10 +1129,19 @@
 	.year-button {
 		display: inline-flex;
 		align-items: center;
-		padding: 0.125rem 0.5rem;
+		padding: 0.0625rem 0.375rem;
 		border-radius: 0.375rem;
 		transition: background-color, color, transform, opacity 0.2s ease;
 		position: relative;
+		white-space: nowrap;
+		flex-shrink: 0;
+		font-size: 0.75rem;
+	}
+	@media (min-width: 640px) {
+		.year-button {
+			padding: 0.125rem 0.5rem;
+			font-size: 0.875rem;
+		}
 	}
 
 	.year-button::after {
