@@ -105,7 +105,7 @@
 			<div class="xl:flex-1 xl:min-w-0 w-full flex flex-col min-h-0">
 				<!-- 页面标题 - 视觉隐藏，用于屏幕阅读器的文档结构 -->
 				<h1 class="sr-only">日历 — 查看与浏览我的日记记录</h1>
-				<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4 lg:p-5 relative xl:flex xl:flex-col xl:min-h-0">
+				<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4 lg:p-5 relative xl:flex xl:flex-col xl:min-h-0 hover:shadow-md transition-shadow duration-300">
 					{#if loading}
 						<div class="absolute inset-0 flex flex-col items-center justify-center gap-3">
 							<svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
@@ -125,8 +125,8 @@
 			<!-- Right: Stats and Recent Entries -->
 			<div class="xl:w-[340px] 2xl:w-[380px] flex flex-col gap-4 flex-shrink-0 w-full xl:min-h-0 xl:self-stretch">
 				<!-- Stats -->
-				<div class="grid grid-cols-3 gap-4">
-					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4 hover:shadow-md transition-shadow">
+				<div class="grid grid-cols-3 gap-3">
+					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4 hover:shadow-md transition-all duration-200 hover:border-border/70">
 						<div class="text-xs text-muted-foreground">{yearViewActive ? '今年' : '本月'}</div>
 						<div class="text-xl font-bold text-foreground mt-1 h-7 flex items-center">
 							{#if yearViewActive}
@@ -139,7 +139,7 @@
 						</div>
 					</div>
 
-					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4 hover:shadow-md transition-shadow">
+					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4 hover:shadow-md transition-all duration-200 hover:border-border/70">
 						<div class="text-xs text-muted-foreground">连续天数</div>
 						<div class="text-xl font-bold text-foreground mt-1 h-7 flex items-center">
 							{#if statsLoading}
@@ -150,7 +150,7 @@
 						</div>
 					</div>
 
-					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4 hover:shadow-md transition-shadow">
+					<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4 hover:shadow-md transition-all duration-200 hover:border-border/70">
 						<div class="text-xs text-muted-foreground">总计</div>
 						<div class="text-xl font-bold text-foreground mt-1 h-7 flex items-center">
 							{#if statsLoading}
@@ -164,7 +164,7 @@
 
 				<!-- Recent Entries -->
 				<div class="bg-card rounded-xl shadow-sm border border-border/50 p-4 flex-1 min-h-0 flex flex-col overflow-hidden">
-					<h3 class="text-sm font-medium text-foreground mb-3">最近条目</h3>
+					<h3 class="text-sm font-semibold text-foreground mb-3">最近条目</h3>
 					{#if recentLoading}
 						<div class="flex-1 flex flex-col items-center justify-center gap-3">
 							<svg class="w-6 h-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
@@ -178,9 +178,9 @@
 							{#each recentDiaries as diary}
 								<a
 									href="/diary/{diary.date}"
-									class="block p-3 rounded-lg hover:bg-muted/50 transition-all duration-200 border border-border/30 hover:border-border/60 hover:shadow-sm"
+									class="block p-3 rounded-lg hover:bg-muted/60 transition-all duration-200 border border-border/30 hover:border-border/60 hover:shadow-sm group"
 								>
-									<div class="text-xs text-muted-foreground mb-1">
+									<div class="text-xs text-muted-foreground mb-1 group-hover:text-foreground/70 transition-colors">
 										{formatDisplayDate(diary.date)}
 									</div>
 									<div class="text-sm text-foreground line-clamp-2">

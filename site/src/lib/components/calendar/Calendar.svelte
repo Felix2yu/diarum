@@ -398,7 +398,7 @@
 				<div class="flex items-center justify-between">
 					<button
 						onclick={goToPreviousMonth}
-						class="p-1.5 sm:p-2 rounded-lg hover:bg-muted/50 transition-all duration-200 shrink-0"
+						class="p-2 sm:p-2.5 rounded-lg hover:bg-muted/60 hover:shadow-sm transition-all duration-200 shrink-0"
 						title="上一月"
 					>
 						<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -426,10 +426,10 @@
 								全年
 							</button>
 						</h2>
-						<div class="flex items-center gap-1 sm:gap-1.5 shrink-0">
+						<div class="flex items-center gap-1.5 sm:gap-1.5 shrink-0">
 							<button
 								onclick={goToToday}
-								class="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-all duration-200 whitespace-nowrap"
+								class="px-2.5 sm:px-3.5 py-1 text-xs sm:text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all duration-200 whitespace-nowrap shadow-sm hover:shadow-md"
 							>
 								今天
 							</button>
@@ -438,7 +438,7 @@
 
 					<button
 						onclick={goToNextMonth}
-						class="p-1.5 sm:p-2 rounded-lg hover:bg-muted/50 transition-all duration-200 shrink-0"
+						class="p-2 sm:p-2.5 rounded-lg hover:bg-muted/60 hover:shadow-sm transition-all duration-200 shrink-0"
 						title="下一月"
 					>
 						<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -449,15 +449,15 @@
 
 				<!-- 第二行：历史分析 / 往昔今朝 / 时空穿越。
 				     周/月/年分析入口已移入日历本体：周报在每行右侧列，月报/年报在日历下方的独立行。 -->
-				<div class="flex items-center justify-center gap-1.5 mt-0.5 overflow-x-auto scrollbar-none pb-0.5">
+				<div class="flex items-center justify-center gap-2 mt-0.5 overflow-x-auto scrollbar-none pb-0.5">
 					<!-- 自定义分析的弱化入口收敛在"历史分析"弹窗内，用于旅行等非整周/整月时间段 -->
 					<button
 						onclick={openHistoryAnalysis}
-						class="px-3 py-1 text-xs font-medium rounded-md border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 hover:border-primary/60 transition-all duration-200 whitespace-nowrap shrink-0"
+						class="px-3 py-1.5 text-xs font-medium rounded-lg border border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 hover:border-primary/60 transition-all duration-200 whitespace-nowrap shrink-0"
 						title="查看历史分析"
 					>
-						<span class="inline-flex items-center gap-1">
-							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<span class="inline-flex items-center gap-1.5">
+							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 							</svg>
 							历史分析
@@ -465,11 +465,11 @@
 					</button>
 					<button
 						onclick={openOnThisDay}
-						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+						class="px-3 py-1.5 text-xs rounded-lg border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
 						title="查看往年同一日的日记"
 					>
-						<span class="inline-flex items-center gap-1">
-							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<span class="inline-flex items-center gap-1.5">
+							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 							</svg>
 							往昔今朝
@@ -477,11 +477,11 @@
 					</button>
 					<button
 						onclick={openRandom}
-						class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+						class="px-3 py-1.5 text-xs rounded-lg border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
 						title="随机翻阅一条过去的日记"
 					>
-						<span class="inline-flex items-center gap-1">
-							<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+						<span class="inline-flex items-center gap-1.5">
+							<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
 							</svg>
 							时空穿越
@@ -515,18 +515,18 @@
 							{@const dayIndex = wi * 7 + di}
 							<button
 								onclick={(e) => { e.stopPropagation(); handleDateClick(date); }}
-								class="day aspect-square rounded-lg transition-all duration-200 flex flex-col items-center justify-center relative
+								class="day transition-all duration-200 flex flex-col items-center justify-center relative
 									   {isCurrentMonth(date) ? 'text-foreground' : 'text-muted-foreground/40'}
-									   {isToday(date) ? 'bg-primary/10 ring-2 ring-primary font-semibold' : ''}
-									   {hasDiary(date) && !isToday(date) ? 'bg-amber-500/10 dark:bg-amber-500/20' : ''}
-									   {!isToday(date) && !hasDiary(date) ? 'hover:bg-muted/50' : ''}
-									   {hasDiary(date) && !isToday(date) ? 'hover:bg-amber-500/20 dark:hover:bg-amber-500/30' : ''}"
+									   {isToday(date) ? 'bg-primary/10 ring-2 ring-primary font-semibold shadow-sm' : ''}
+									   {hasDiary(date) && !isToday(date) ? 'bg-amber-500/8 dark:bg-amber-500/15' : ''}
+									   {!isToday(date) && !hasDiary(date) ? 'hover:bg-muted/60 hover:shadow-sm' : ''}
+									   {hasDiary(date) && !isToday(date) ? 'hover:bg-amber-500/15 dark:hover:bg-amber-500/25 hover:shadow-sm' : ''}"
 								style="animation-delay: {dayIndex * 10}ms"
 							>
 								<span class="text-sm">{date.getDate()}</span>
 
 								{#if (meta?.weather && isWMOCode(meta.weather)) || meta?.mood}
-									<div class="absolute inset-x-0 top-1.5 flex items-center justify-center gap-1 text-[11px] leading-none">
+									<div class="absolute inset-x-0 top-1 flex items-center justify-center gap-0.5 text-[11px] leading-none">
 										{#if meta?.weather && isWMOCode(meta.weather)}
 											{@const weatherInfo = getWeatherInfo(parseInt(meta.weather))}
 											<span class="emoji-chip" title="天气：{weatherInfo.label}{meta?.temp_min != null && meta?.temp_max != null ? ` ${Math.round(meta.temp_min)}°~${Math.round(meta.temp_max)}°` : ''}">{weatherInfo.icon}</span>
@@ -538,7 +538,7 @@
 										{/if}
 									</div>
 								{:else if hasDiary(date)}
-									<span class="absolute bottom-1 w-1 h-1 bg-amber-500 rounded-full"></span>
+									<span class="absolute bottom-1.5 w-1 h-1 bg-amber-500 rounded-full opacity-70"></span>
 								{/if}
 							</button>
 						{/each}
@@ -593,7 +593,7 @@
 			<div class="flex items-center justify-between mb-4 sm:mb-5 px-2">
 				<button
 					onclick={goToPreviousYear}
-					class="p-1.5 sm:p-2 rounded-lg hover:bg-muted/50 transition-all duration-200 shrink-0"
+					class="p-2 sm:p-2.5 rounded-lg hover:bg-muted/60 hover:shadow-sm transition-all duration-200 shrink-0"
 					title="上一年"
 				>
 					<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -606,7 +606,7 @@
 					<div class="flex items-center gap-1 sm:gap-1.5 shrink-0">
 						<button
 							onclick={goToCurrentYear}
-							class="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-primary text-primary-foreground rounded-md hover:opacity-90 transition-all duration-200 whitespace-nowrap"
+							class="px-2.5 sm:px-3.5 py-1 text-xs sm:text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-all duration-200 whitespace-nowrap shadow-sm hover:shadow-md"
 						>
 							本年
 						</button>
@@ -615,7 +615,7 @@
 
 				<button
 					onclick={goToNextYear}
-					class="p-1.5 sm:p-2 rounded-lg hover:bg-muted/50 transition-all duration-200 shrink-0"
+					class="p-2 sm:p-2.5 rounded-lg hover:bg-muted/60 hover:shadow-sm transition-all duration-200 shrink-0"
 					title="下一年"
 				>
 					<svg class="w-5 h-5 text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -625,16 +625,16 @@
 			</div>
 
 			<!-- 年视图专属行：年分析 / 往昔今朝 / 时空穿越 -->
-			<div class="flex items-center justify-center gap-1.5 mb-5 px-2">
+			<div class="flex items-center justify-center gap-2 mb-5 px-2">
 				<button
 					onclick={openYearAnalysis}
-					class="px-2.5 py-1 text-xs rounded-md border transition-all duration-200 {hasYearKey(String(currentYear))
+					class="px-3 py-1.5 text-xs rounded-lg border transition-all duration-200 {hasYearKey(String(currentYear))
 						? 'border-primary/40 bg-primary/10 text-primary hover:bg-primary/15 hover:border-primary/60'
 						: 'border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60'}"
 					title={hasYearKey(String(currentYear)) ? `查看 ${currentYear} 年已保存的分析` : `${currentYear} 年 AI 分析`}
 				>
-					<span class="inline-flex items-center gap-1">
-						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<span class="inline-flex items-center gap-1.5">
+						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
 						</svg>
 						{hasYearKey(String(currentYear)) ? '查看' : '分析'}
@@ -642,11 +642,11 @@
 				</button>
 				<button
 					onclick={openOnThisDay}
-					class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+					class="px-3 py-1.5 text-xs rounded-lg border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
 					title="查看往年同一日的日记"
 				>
-					<span class="inline-flex items-center gap-1">
-						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<span class="inline-flex items-center gap-1.5">
+						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 						</svg>
 						往昔今朝
@@ -654,11 +654,11 @@
 				</button>
 				<button
 					onclick={openRandom}
-					class="px-2.5 py-1 text-xs rounded-md border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
+					class="px-3 py-1.5 text-xs rounded-lg border border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all duration-200"
 					title="随机翻阅一条过去的日记"
 				>
-					<span class="inline-flex items-center gap-1">
-						<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+					<span class="inline-flex items-center gap-1.5">
+						<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9H4m16 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H20" />
 						</svg>
 						时空穿越
@@ -884,6 +884,8 @@
 		width: 100%;
 		/* 周报按钮列宽度：与周行末尾的独立按钮列对齐 */
 		--week-action-w: 4rem;
+		--day-gap: 0.5rem;
+		--cell-radius: 0.625rem;
 	}
 
 	/* Two-column layout (xl+): let calendar fill the left column height. */
@@ -960,22 +962,23 @@
 	.weekdays-grid {
 		display: grid;
 		grid-template-columns: repeat(7, 1fr) var(--week-action-w);
-		gap: 0.5rem;
+		gap: var(--day-gap);
 		margin-bottom: 0.5rem;
 	}
 
 	.week-header-action {
 		text-align: center;
 		font-size: 0.75rem;
-		font-weight: 500;
-		color: hsl(var(--muted-foreground) / 0.7);
+		font-weight: 600;
+		color: hsl(var(--muted-foreground) / 0.6);
 		padding: 0.5rem 0;
+		letter-spacing: 0.02em;
 	}
 
 	.days-grid {
 		display: flex;
 		flex-direction: column;
-		gap: 0.5rem;
+		gap: 0.375rem;
 	}
 
 	/* Two-column layout (xl+): let the day grid stretch to fill height. */
@@ -991,10 +994,17 @@
 		position: relative;
 		display: grid;
 		grid-template-columns: repeat(7, 1fr) var(--week-action-w);
-		gap: 0.5rem;
-		border-radius: 0.5rem;
+		gap: var(--day-gap);
+		border-radius: var(--cell-radius);
 		cursor: pointer;
-		transition: background-color 0.15s ease;
+		transition: background-color 0.2s ease, box-shadow 0.2s ease;
+		padding: 0.125rem;
+	}
+
+	@media (min-width: 768px) {
+		.week-row {
+			padding: 0.25rem;
+		}
 	}
 
 	/* Two-column layout (xl+): distribute extra height across rows. */
@@ -1010,6 +1020,12 @@
 	   balanced and don't turn into tall thin rectangles. */
 	.day {
 		aspect-ratio: 1;
+		border-radius: var(--cell-radius);
+	}
+	@media (min-width: 768px) {
+		.day {
+			border-radius: var(--cell-radius);
+		}
 	}
 	@media (min-width: 1280px) {
 		.day {
@@ -1020,11 +1036,12 @@
 	}
 
 	.week-row:hover {
-		background: hsl(var(--primary) / 0.05);
+		background: hsl(var(--primary) / 0.04);
+		box-shadow: 0 1px 4px hsl(var(--primary) / 0.06);
 	}
 
 	/* 周报按钮：日历右侧独立列，不占用日期格子。
-	   无已保存分析 → “分析该周”（弱化样式）；已有 → “查看”（主色填充）。 */
+	   无已保存分析 → "分析该周"（弱化样式）；已有 → "查看"（主色填充）。 */
 	.week-action {
 		align-self: center;
 		width: 100%;
@@ -1032,13 +1049,21 @@
 		font-size: 0.65rem;
 		line-height: 1.2;
 		text-align: center;
-		border-radius: 0.5rem;
+		border-radius: 9999px;
 		border: 1px solid hsl(var(--border) / 0.7);
 		background: hsl(var(--muted) / 0.3);
 		color: hsl(var(--muted-foreground));
 		cursor: pointer;
 		white-space: nowrap;
-		transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+		transition: all 0.2s ease;
+		font-weight: 500;
+	}
+
+	@media (min-width: 768px) {
+		.week-action {
+			padding: 0.35rem 0.3rem;
+			font-size: 0.7rem;
+		}
 	}
 
 	.week-action:hover {
@@ -1073,18 +1098,25 @@
 		align-items: center;
 		justify-content: space-between;
 		gap: 0.5rem;
-		padding: 0.5rem 0.7rem;
+		padding: 0.6rem 0.85rem;
 		border: 1px solid hsl(var(--border) / 0.6);
-		border-radius: 0.625rem;
-		background: hsl(var(--muted) / 0.2);
+		border-radius: 0.75rem;
+		background: hsl(var(--muted) / 0.15);
 		cursor: pointer;
 		text-align: left;
-		transition: background-color 0.15s ease, border-color 0.15s ease;
+		transition: all 0.2s ease;
+	}
+
+	@media (min-width: 768px) {
+		.period-card {
+			padding: 0.7rem 1rem;
+		}
 	}
 
 	.period-card:hover {
 		border-color: hsl(var(--primary) / 0.4);
 		background: hsl(var(--primary) / 0.05);
+		box-shadow: 0 2px 8px hsl(var(--primary) / 0.08);
 	}
 
 	.period-card-info {
@@ -1119,10 +1151,11 @@
 	}
 
 	.period-card-state--saved {
-		background: hsl(var(--primary) / 0.85);
+		background: hsl(var(--primary) / 0.9);
 		border-color: hsl(var(--primary));
 		color: hsl(var(--primary-foreground));
-		font-weight: 500;
+		font-weight: 600;
+		box-shadow: 0 1px 3px hsl(var(--primary) / 0.2);
 	}
 
 	/* Year button in month view header */
@@ -1198,25 +1231,32 @@
 		display: flex;
 		flex-direction: column;
 		padding: 0.5rem;
-		border-radius: 0.625rem;
+		border-radius: 0.75rem;
 		border: 1px solid hsl(var(--border) / 0.5);
 		background: hsl(var(--card));
-		transition: background-color, border-color, color, transform, opacity 0.2s ease;
+		transition: all 0.2s ease;
 		cursor: pointer;
 		text-align: left;
 		animation: mini-month-in 0.3s ease-out both;
 	}
 
+	@media (min-width: 768px) {
+		.mini-month {
+			padding: 0.625rem;
+		}
+	}
+
 	.mini-month:hover {
 		border-color: hsl(var(--primary) / 0.4);
 		background: hsl(var(--primary) / 0.04);
-		box-shadow: 0 2px 8px hsl(var(--primary) / 0.08);
-		transform: translateY(-1px);
+		box-shadow: 0 4px 12px hsl(var(--primary) / 0.1);
+		transform: translateY(-2px);
 	}
 
 	.mini-month-current {
-		border-color: hsl(var(--primary) / 0.3);
-		background: hsl(var(--primary) / 0.04);
+		border-color: hsl(var(--primary) / 0.35);
+		background: hsl(var(--primary) / 0.06);
+		box-shadow: 0 0 0 1px hsl(var(--primary) / 0.15);
 	}
 
 	@keyframes mini-month-in {
