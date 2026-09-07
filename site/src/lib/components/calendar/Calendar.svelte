@@ -1030,8 +1030,7 @@
 	@media (min-width: 1280px) {
 		.day {
 			aspect-ratio: auto;
-			height: 100%;
-			min-height: 48px;
+			min-height: 72px;
 		}
 	}
 
