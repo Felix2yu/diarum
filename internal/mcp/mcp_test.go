@@ -3,16 +3,20 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 
+	"github.com/songtianlun/diarum/internal/chat"
+	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/store"
 )
 
-func intPtr(v int) *int       { return &v }
-func strPtr(v string) *string { return &v }
+func intPtr(v int) *int           { return &v }
+func strPtr(v string) *string     { return &v }
 func floatPtr(v float64) *float64 { return &v }
 
 func newTestServer(t *testing.T) (*Server, *store.Store, string, func()) {
@@ -785,20 +789,20 @@ func TestPeriodAnalysisRoundtrip(t *testing.T) {
 
 	// Custom period roundtrip with keywords.
 	res = callTool(t, svr, uid, "save_period_analysis", map[string]any{
-		"period":    "custom",
+		"period":     "custom",
 		"date_start": "2026-02-01",
 		"date_end":   "2026-02-15",
-		"keywords":  "旅行",
-		"summary":   "旅行半月记",
+		"keywords":   "旅行",
+		"summary":    "旅行半月记",
 	})
 	if res.IsError {
 		t.Fatalf("save custom: %s", res.Content)
 	}
 	res = callTool(t, svr, uid, "get_period_analysis", map[string]any{
-		"period":    "custom",
+		"period":     "custom",
 		"date_start": "2026-02-01",
 		"date_end":   "2026-02-15",
-		"keywords":  "旅行",
+		"keywords":   "旅行",
 	})
 	if res.IsError {
 		t.Fatalf("get custom: %s", res.Content)
@@ -911,4 +915,941 @@ func TestVectorToolsRequireEmbeddingService(t *testing.T) {
 	if !res.IsError {
 		t.Fatal("expected error: embedding service not initialized")
 	}
+}
+
+func TestValidatePatch(t *testing.T) {
+	tests := []struct {
+		name    string
+		patch   diaryPatchArgs
+		wantErr string
+	}{
+		{name: "empty patch ok", patch: diaryPatchArgs{}},
+		{name: "valid mood", patch: diaryPatchArgs{Mood: intPtr(3)}},
+		{name: "mood too low", patch: diaryPatchArgs{Mood: intPtr(0)}, wantErr: "mood must be between 1 and 5"},
+		{name: "mood too high", patch: diaryPatchArgs{Mood: intPtr(6)}, wantErr: "mood must be between 1 and 5"},
+		{name: "valid content_format text", patch: diaryPatchArgs{ContentFormat: "text"}},
+		{name: "valid content_format html", patch: diaryPatchArgs{ContentFormat: "html"}},
+		{name: "bad content_format", patch: diaryPatchArgs{ContentFormat: "markdown"}, wantErr: "content_format must be 'text' or 'html'"},
+		{name: "valid tags_op merge", patch: diaryPatchArgs{TagsOp: "merge"}},
+		{name: "valid tags_op remove", patch: diaryPatchArgs{TagsOp: "remove"}},
+		{name: "bad tags_op", patch: diaryPatchArgs{TagsOp: "append"}, wantErr: "tags_op must be 'replace', 'merge' or 'remove'"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validatePatch(tt.patch)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("validatePatch() = %v, want nil", err)
+				}
+				return
+			}
+			if err == nil || err.Error() != tt.wantErr {
+				t.Fatalf("validatePatch() = %v, want %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestPatchFromArgsUnescapesContent(t *testing.T) {
+	content := "第一行\\n第二行"
+	patch := patchFromArgs(diaryPatchArgs{Content: &content})
+	if patch.Content == nil || *patch.Content != "第一行\n第二行" {
+		t.Fatalf("Content = %v, want unescaped newline", patch.Content)
+	}
+	if patch.TagsOp != "" || patch.ContentFormat != "" {
+		t.Fatalf("TagsOp/ContentFormat = %q/%q, want passthrough", patch.TagsOp, patch.ContentFormat)
+	}
+}
+
+func TestBuildBatchTargets(t *testing.T) {
+	svr, _, _, cleanup := newTestServer(t)
+	defer cleanup()
+
+	tests := []struct {
+		name  string
+		args  diaryTargetsArgs
+		check func(t *testing.T, got store.BatchTargets)
+	}{
+		{
+			name: "empty",
+			args: diaryTargetsArgs{},
+			check: func(t *testing.T, got store.BatchTargets) {
+				if got.IDs != nil || got.DateRange != nil || got.Tag != "" || got.Scenario != "" || got.Query != "" {
+					t.Fatalf("got %#v, want zero value", got)
+				}
+			},
+		},
+		{
+			name: "ids win",
+			args: diaryTargetsArgs{IDs: []string{"a", "b"}},
+			check: func(t *testing.T, got store.BatchTargets) {
+				if len(got.IDs) != 2 || got.IDs[0] != "a" {
+					t.Fatalf("IDs = %v", got.IDs)
+				}
+			},
+		},
+		{
+			name: "date range",
+			args: diaryTargetsArgs{DateStart: " 2026-01-01 ", DateEnd: " 2026-01-31 "},
+			check: func(t *testing.T, got store.BatchTargets) {
+				if got.DateRange == nil || got.DateRange.Start != "2026-01-01" || got.DateRange.End != "2026-01-31" {
+					t.Fatalf("DateRange = %+v", got.DateRange)
+				}
+			},
+		},
+		{
+			name: "date range missing end ignored",
+			args: diaryTargetsArgs{DateStart: "2026-01-01"},
+			check: func(t *testing.T, got store.BatchTargets) {
+				if got.DateRange != nil {
+					t.Fatalf("DateRange = %+v, want nil", got.DateRange)
+				}
+			},
+		},
+		{
+			name: "trim tag/scenario/query",
+			args: diaryTargetsArgs{Tag: " 工作 ", Scenario: " 通勤 ", Query: " 会议 "},
+			check: func(t *testing.T, got store.BatchTargets) {
+				if got.Tag != "工作" || got.Scenario != "通勤" || got.Query != "会议" {
+					t.Fatalf("got %q/%q/%q", got.Tag, got.Scenario, got.Query)
+				}
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.check(t, svr.buildBatchTargets(tt.args))
+		})
+	}
+}
+
+func TestPeriodKeyExample(t *testing.T) {
+	now := time.Now().UTC()
+	y, w := now.ISOWeek()
+	tests := []struct {
+		period string
+		want   string
+	}{
+		{"week", fmt.Sprintf("%d-W%d", y, w)},
+		{"month", now.Format("2006-01")},
+		{"year", now.Format("2006")},
+		{"custom", ""},
+		{"other", ""},
+	}
+	for _, tt := range tests {
+		if got := periodKeyExample(tt.period); got != tt.want {
+			t.Errorf("periodKeyExample(%q) = %q, want %q", tt.period, got, tt.want)
+		}
+	}
+}
+
+func TestPeriodKeyLabel(t *testing.T) {
+	tests := []struct {
+		period, key, want string
+	}{
+		{"week", "2026-W36", "2026年第36周"},
+		{"week", "bad", "bad"},
+		{"month", "2026-09", "2026年9月"},
+		{"month", "bad", "bad"},
+		{"year", "2026", "2026年"},
+		{"year", "bad", "bad"},
+		{"custom", "anything", "anything"},
+	}
+	for _, tt := range tests {
+		if got := periodKeyLabel(tt.period, tt.key); got != tt.want {
+			t.Errorf("periodKeyLabel(%q, %q) = %q, want %q", tt.period, tt.key, got, tt.want)
+		}
+	}
+}
+
+func TestIsoWeekStart(t *testing.T) {
+	tests := []struct {
+		year, week int
+		want       string
+	}{
+		{2026, 1, "2025-12-29"},
+		{2026, 36, "2026-08-31"},
+		{2024, 1, "2024-01-01"},
+	}
+	for _, tt := range tests {
+		got := isoWeekStart(tt.year, tt.week).Format("2006-01-02")
+		if got != tt.want {
+			t.Errorf("isoWeekStart(%d, %d) = %s, want %s", tt.year, tt.week, got, tt.want)
+		}
+	}
+}
+
+func TestDerivePeriodRange(t *testing.T) {
+	tests := []struct {
+		name       string
+		period     string
+		key        string
+		start, end string
+		wantErr    string
+	}{
+		{name: "week", period: "week", key: "2026-W36", start: "2026-08-31", end: "2026-09-06"},
+		{name: "week 1", period: "week", key: "2024-W1", start: "2024-01-01", end: "2024-01-07"},
+		{name: "bad week", period: "week", key: "2026-W54", wantErr: "invalid week period_key"},
+		{name: "week parse error", period: "week", key: "nope", wantErr: "invalid week period_key"},
+		{name: "month", period: "month", key: "2026-09", start: "2026-09-01", end: "2026-09-30"},
+		{name: "leap february", period: "month", key: "2024-02", start: "2024-02-01", end: "2024-02-29"},
+		{name: "bad month", period: "month", key: "2026-13", wantErr: "invalid month period_key"},
+		{name: "month parse error", period: "month", key: "x", wantErr: "invalid month period_key"},
+		{name: "year", period: "year", key: "2026", start: "2026-01-01", end: "2026-12-31"},
+		{name: "bad year", period: "year", key: "abc", wantErr: "invalid year period_key"},
+		{name: "custom unsupported", period: "custom", key: "", wantErr: "custom period requires explicit date_start/date_end"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			start, end, err := derivePeriodRange(tt.period, tt.key)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("err = %v, want contains %q", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("derivePeriodRange: %v", err)
+			}
+			if start != tt.start || end != tt.end {
+				t.Fatalf("got %s..%s, want %s..%s", start, end, tt.start, tt.end)
+			}
+		})
+	}
+}
+
+func TestResolvePeriodRange(t *testing.T) {
+	tests := []struct {
+		name                        string
+		period, key, start, end     string
+		wantStart, wantEnd, wantErr string
+	}{
+		{name: "invalid period", period: "decade", wantErr: "period must be one of"},
+		{name: "custom missing dates", period: "custom", wantErr: "custom period requires date_start and date_end"},
+		{name: "custom bad start", period: "custom", start: "2026/01/01", end: "2026-01-31", wantErr: "date_start must be YYYY-MM-DD"},
+		{name: "custom bad end", period: "custom", start: "2026-01-01", end: "2026/01/31", wantErr: "date_end must be YYYY-MM-DD"},
+		{name: "custom explicit dates", period: "custom", start: "2026-01-01", end: "2026-01-31", wantStart: "2026-01-01", wantEnd: "2026-01-31"},
+		{name: "month from key", period: "month", key: "2026-09", wantStart: "2026-09-01", wantEnd: "2026-09-30"},
+		{name: "month missing key", period: "month", wantErr: "period_key is required"},
+		{name: "month override dates", period: "month", key: "2026-09", start: "2026-09-05", end: "2026-09-10", wantStart: "2026-09-05", wantEnd: "2026-09-10"},
+		{name: "bad key propagates", period: "week", key: "xx", wantErr: "invalid week period_key"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			start, end, err := resolvePeriodRange(tt.period, tt.key, tt.start, tt.end)
+			if tt.wantErr != "" {
+				if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("err = %v, want contains %q", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("resolvePeriodRange: %v", err)
+			}
+			if start != tt.wantStart || end != tt.wantEnd {
+				t.Fatalf("got %s..%s, want %s..%s", start, end, tt.wantStart, tt.wantEnd)
+			}
+		})
+	}
+}
+
+func TestBufferWriter(t *testing.T) {
+	var w bufferWriter
+	n, err := w.Write([]byte("你好"))
+	if err != nil {
+		t.Fatalf("Write: %v", err)
+	}
+	if n != len("你好") {
+		t.Fatalf("n = %d", n)
+	}
+	w.Write([]byte("world"))
+	w.Flush()
+	if err := w.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+	if w.buf.String() != "你好world" {
+		t.Fatalf("buf = %q", w.buf.String())
+	}
+}
+
+func TestAIChatConfig(t *testing.T) {
+	t.Run("nil config service", func(t *testing.T) {
+		svr, _, _, cleanup := newTestServer(t)
+		defer cleanup()
+		if _, ok := svr.aiChatConfig("user1"); ok {
+			t.Fatal("ok = true, want false for nil configService")
+		}
+	})
+
+	t.Run("resolved values", func(t *testing.T) {
+		s, err := store.Open(t.TempDir())
+		if err != nil {
+			t.Fatalf("open store: %v", err)
+		}
+		defer func() { _ = s.Close() }()
+		user, err := s.CreateUser("cfguser", "cfg@example.com", "hash")
+		if err != nil {
+			t.Fatalf("create user: %v", err)
+		}
+		for key, value := range map[string]any{
+			"ai.enabled":    true,
+			"ai.api_key":    "sk-mcp",
+			"ai.base_url":   "https://ai.example.com",
+			"ai.chat_model": "chat-x",
+		} {
+			if err := s.SetSetting(user.ID, key, value, false); err != nil {
+				t.Fatalf("SetSetting %s: %v", key, err)
+			}
+		}
+		svr := New(s, config.NewConfigService(s), nil, nil, nil, nil)
+		cfg, ok := svr.aiChatConfig(user.ID)
+		if !ok {
+			t.Fatal("ok = false, want true")
+		}
+		if !cfg.Enabled || cfg.APIKey != "sk-mcp" || cfg.BaseURL != "https://ai.example.com" || cfg.Model != "chat-x" {
+			t.Fatalf("cfg = %#v", cfg)
+		}
+	})
+}
+
+func TestSpeechConfig(t *testing.T) {
+	t.Run("nil config service", func(t *testing.T) {
+		svr, _, _, cleanup := newTestServer(t)
+		defer cleanup()
+		if _, ok := svr.speechConfig("user1"); ok {
+			t.Fatal("ok = true, want false for nil configService")
+		}
+	})
+
+	newServerWithUser := func(t *testing.T) (*Server, *store.Store, string) {
+		t.Helper()
+		s, err := store.Open(t.TempDir())
+		if err != nil {
+			t.Fatalf("open store: %v", err)
+		}
+		t.Cleanup(func() { _ = s.Close() })
+		user, err := s.CreateUser("speechuser", "speech@example.com", "hash")
+		if err != nil {
+			t.Fatalf("create user: %v", err)
+		}
+		return New(s, config.NewConfigService(s), nil, nil, nil, nil), s, user.ID
+	}
+
+	set := func(t *testing.T, s *store.Store, userID string, values map[string]any) {
+		t.Helper()
+		for key, value := range values {
+			if err := s.SetSetting(userID, key, value, false); err != nil {
+				t.Fatalf("SetSetting %s: %v", key, err)
+			}
+		}
+	}
+
+	t.Run("provider none", func(t *testing.T) {
+		svr, s, userID := newServerWithUser(t)
+		set(t, s, userID, map[string]any{"ai.speech.provider": "none"})
+		if _, ok := svr.speechConfig(userID); ok {
+			t.Fatal("ok = true, want false when provider is none")
+		}
+	})
+
+	t.Run("provider missing", func(t *testing.T) {
+		svr, _, userID := newServerWithUser(t)
+		if _, ok := svr.speechConfig(userID); ok {
+			t.Fatal("ok = true, want false when provider unset")
+		}
+	})
+
+	t.Run("dedicated credentials", func(t *testing.T) {
+		svr, s, userID := newServerWithUser(t)
+		set(t, s, userID, map[string]any{
+			"ai.speech.provider": "openai",
+			"ai.speech.base_url": "https://speech.example.com",
+			"ai.speech.api_key":  "sk-speech",
+			"ai.speech.model":    "whisper-2",
+		})
+		cfg, ok := svr.speechConfig(userID)
+		if !ok {
+			t.Fatal("ok = false, want true")
+		}
+		if !cfg.Enabled || cfg.BaseURL != "https://speech.example.com" || cfg.APIKey != "sk-speech" || cfg.Model != "whisper-2" {
+			t.Fatalf("cfg = %#v", cfg)
+		}
+	})
+
+	t.Run("fallback to shared ai credentials", func(t *testing.T) {
+		svr, s, userID := newServerWithUser(t)
+		set(t, s, userID, map[string]any{
+			"ai.speech.provider": "openai",
+			"ai.base_url":        "https://shared.example.com",
+			"ai.api_key":         "sk-shared",
+		})
+		cfg, ok := svr.speechConfig(userID)
+		if !ok {
+			t.Fatal("ok = false, want true")
+		}
+		if cfg.BaseURL != "https://shared.example.com" || cfg.APIKey != "sk-shared" {
+			t.Fatalf("cfg = %#v", cfg)
+		}
+	})
+}
+
+func callPrompt(t *testing.T, svr *Server, name string, args map[string]string) *mcp.GetPromptResult {
+	t.Helper()
+	sp := svr.mcpServer.ListPrompts()[name]
+	if sp == nil {
+		t.Fatalf("prompt %q not registered", name)
+	}
+	req := mcp.GetPromptRequest{}
+	req.Params.Name = name
+	req.Params.Arguments = args
+	res, err := sp.Handler(context.Background(), req)
+	if err != nil {
+		t.Fatalf("prompt %q handler error: %v", name, err)
+	}
+	return res
+}
+
+func promptText(t *testing.T, res *mcp.GetPromptResult) string {
+	t.Helper()
+	if len(res.Messages) == 0 {
+		t.Fatal("prompt has no messages")
+	}
+	content, ok := res.Messages[0].Content.(mcp.TextContent)
+	if !ok {
+		t.Fatalf("message content type = %T", res.Messages[0].Content)
+	}
+	return content.Text
+}
+
+func TestRegisterPrompts(t *testing.T) {
+	svr, _, _, cleanup := newTestServer(t)
+	defer cleanup()
+
+	t.Run("write_diary with topic and city", func(t *testing.T) {
+		res := callPrompt(t, svr, "write_diary", map[string]string{
+			"topic": "测试主题", "date": "2026-09-17", "city": "北京",
+		})
+		text := promptText(t, res)
+		for _, want := range []string{"2026-09-17", "测试主题", "city=北京", "create_diary"} {
+			if !strings.Contains(text, want) {
+				t.Errorf("prompt text missing %q: %s", want, text)
+			}
+		}
+	})
+
+	t.Run("write_diary defaults date and no topic", func(t *testing.T) {
+		res := callPrompt(t, svr, "write_diary", nil)
+		text := promptText(t, res)
+		wantDate := time.Now().Format("2006-01-02")
+		if !strings.Contains(text, wantDate) {
+			t.Errorf("prompt text missing default date %q", wantDate)
+		}
+		if !strings.Contains(text, "自行构思") {
+			t.Errorf("prompt text missing no-topic guidance")
+		}
+	})
+
+	t.Run("analyze_period", func(t *testing.T) {
+		res := callPrompt(t, svr, "analyze_period", map[string]string{
+			"period": "month", "period_key": "2026-09", "keywords": "工作,运动",
+		})
+		text := promptText(t, res)
+		for _, want := range []string{"month", "period_key=2026-09", "工作,运动", "generate_period_analysis"} {
+			if !strings.Contains(text, want) {
+				t.Errorf("prompt text missing %q", want)
+			}
+		}
+	})
+
+	t.Run("chat_about_diary new and existing conversation", func(t *testing.T) {
+		res := callPrompt(t, svr, "chat_about_diary", map[string]string{"question": "最近心情如何"})
+		if !strings.Contains(promptText(t, res), "最近心情如何") {
+			t.Error("missing question")
+		}
+		if !strings.Contains(promptText(t, res), "开启一个新对话") {
+			t.Error("missing new-conversation hint")
+		}
+		res = callPrompt(t, svr, "chat_about_diary", map[string]string{"question": "q", "conversation_id": "conv123"})
+		if !strings.Contains(promptText(t, res), "conversation_id=conv123") {
+			t.Error("missing conversation_id")
+		}
+	})
+
+	t.Run("mood_review default days", func(t *testing.T) {
+		res := callPrompt(t, svr, "mood_review", nil)
+		if !strings.Contains(promptText(t, res), "30 天") {
+			t.Error("missing default 30 days")
+		}
+		res = callPrompt(t, svr, "mood_review", map[string]string{"days": "7"})
+		if !strings.Contains(promptText(t, res), "7 天") {
+			t.Error("missing custom 7 days")
+		}
+	})
+
+	t.Run("today_summary default date", func(t *testing.T) {
+		res := callPrompt(t, svr, "today_summary", nil)
+		if !strings.Contains(promptText(t, res), time.Now().Format("2006-01-02")) {
+			t.Error("missing default today date")
+		}
+		res = callPrompt(t, svr, "today_summary", map[string]string{"date": "2026-01-01"})
+		if !strings.Contains(promptText(t, res), "2026-01-01") {
+			t.Error("missing custom date")
+		}
+	})
+}
+
+func TestSettingsTools(t *testing.T) {
+	newServerWithUser := func(t *testing.T) (*Server, *store.Store, string) {
+		t.Helper()
+		s, err := store.Open(t.TempDir())
+		if err != nil {
+			t.Fatalf("open store: %v", err)
+		}
+		t.Cleanup(func() { _ = s.Close() })
+		user, err := s.CreateUser("setuser", "set@example.com", "hash")
+		if err != nil {
+			t.Fatalf("create user: %v", err)
+		}
+		return New(s, config.NewConfigService(s), nil, nil, nil, nil), s, user.ID
+	}
+
+	t.Run("config service not initialized", func(t *testing.T) {
+		svr, _, _, cleanup := newTestServer(t)
+		defer cleanup()
+		for _, name := range []string{"get_settings", "get_setting", "set_setting", "delete_setting"} {
+			res := callTool(t, svr, "user1", name, map[string]any{"key": "k", "value": "v"})
+			if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Config service not initialized") {
+				t.Errorf("%s: res = %v, want config error", name, res)
+			}
+		}
+	})
+
+	t.Run("auth required", func(t *testing.T) {
+		svr, _, _, cleanup := newTestServer(t)
+		defer cleanup()
+		for _, name := range []string{"get_settings", "get_setting", "set_setting", "delete_setting"} {
+			res := callTool(t, svr, "", name, nil)
+			if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Authentication required") {
+				t.Errorf("%s: res = %v, want auth error", name, res)
+			}
+		}
+	})
+
+	t.Run("get_settings prefix filter", func(t *testing.T) {
+		svr, s, userID := newServerWithUser(t)
+		for _, kv := range [][2]string{{"ai.api_key", "sk-1"}, {"weather.default_city", "北京"}, {"backup.enabled", "true"}} {
+			if err := s.SetSetting(userID, kv[0], kv[1], false); err != nil {
+				t.Fatalf("SetSetting: %v", err)
+			}
+		}
+		res := callTool(t, svr, userID, "get_settings", map[string]any{"prefix": "weather"})
+		if res.IsError {
+			t.Fatalf("get_settings error: %v", res.Content[0].(mcp.TextContent).Text)
+		}
+		var out struct {
+			Settings map[string]string `json:"settings"`
+			Count    int               `json:"count"`
+		}
+		if err := json.Unmarshal([]byte(res.Content[0].(mcp.TextContent).Text), &out); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if out.Count != 1 || out.Settings["weather.default_city"] != "北京" {
+			t.Fatalf("out = %#v", out)
+		}
+	})
+
+	t.Run("get_setting missing key error", func(t *testing.T) {
+		svr, _, userID := newServerWithUser(t)
+		res := callTool(t, svr, userID, "get_setting", nil)
+		if !res.IsError {
+			t.Fatal("want error for empty key")
+		}
+	})
+
+	t.Run("set and get roundtrip", func(t *testing.T) {
+		svr, _, userID := newServerWithUser(t)
+		res := callTool(t, svr, userID, "set_setting", map[string]any{"key": "ai.chat_model", "value": "gpt-x"})
+		if res.IsError {
+			t.Fatalf("set_setting error: %v", res.Content[0].(mcp.TextContent).Text)
+		}
+		res = callTool(t, svr, userID, "get_setting", map[string]any{"key": "ai.chat_model"})
+		var out struct {
+			Key   string `json:"key"`
+			Value string `json:"value"`
+		}
+		if err := json.Unmarshal([]byte(res.Content[0].(mcp.TextContent).Text), &out); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if out.Key != "ai.chat_model" || out.Value != "gpt-x" {
+			t.Fatalf("out = %#v", out)
+		}
+	})
+
+	t.Run("set_setting empty key", func(t *testing.T) {
+		svr, _, userID := newServerWithUser(t)
+		res := callTool(t, svr, userID, "set_setting", map[string]any{"key": " ", "value": "v"})
+		if !res.IsError {
+			t.Fatal("want error for blank key")
+		}
+	})
+
+	t.Run("delete_setting roundtrip", func(t *testing.T) {
+		svr, s, userID := newServerWithUser(t)
+		if err := s.SetSetting(userID, "tmp.key", "v", false); err != nil {
+			t.Fatalf("SetSetting: %v", err)
+		}
+		res := callTool(t, svr, userID, "delete_setting", map[string]any{"key": "tmp.key"})
+		if res.IsError {
+			t.Fatalf("delete_setting error: %v", res.Content[0].(mcp.TextContent).Text)
+		}
+		res = callTool(t, svr, userID, "delete_setting", map[string]any{"key": "no-such-key"})
+		if res.IsError {
+			t.Fatal("delete of missing key should succeed silently")
+		}
+	})
+}
+
+func TestChatToolsWithoutServiceAndAuth(t *testing.T) {
+	svr, _, _, cleanup := newTestServer(t)
+	defer cleanup()
+
+	for _, name := range []string{"list_conversations", "get_conversation", "create_conversation", "update_conversation", "delete_conversation"} {
+		res := callTool(t, svr, "", name, nil)
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Authentication required") {
+			t.Errorf("%s: want auth error, got %v", name, res)
+		}
+	}
+}
+
+func TestChatConversationToolsRoundtrip(t *testing.T) {
+	svr, _, userID, cleanup := newTestServer(t)
+	defer cleanup()
+	svr.chatService = chat.NewChatService(svr.store, nil)
+
+	convID := ""
+	t.Run("create", func(t *testing.T) {
+		res := callTool(t, svr, userID, "create_conversation", map[string]any{"title": "测试会话"})
+		if res.IsError {
+			t.Fatalf("create_conversation error: %v", res.Content[0].(mcp.TextContent).Text)
+		}
+		var c store.Conversation
+		if err := json.Unmarshal([]byte(res.Content[0].(mcp.TextContent).Text), &c); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if c.ID == "" {
+			t.Fatal("empty conversation id")
+		}
+		convID = c.ID
+	})
+
+	t.Run("list", func(t *testing.T) {
+		res := callTool(t, svr, userID, "list_conversations", map[string]any{"limit": 5})
+		if res.IsError {
+			t.Fatalf("list_conversations error: %v", res.Content[0].(mcp.TextContent).Text)
+		}
+		if !strings.Contains(res.Content[0].(mcp.TextContent).Text, "测试会话") {
+			t.Fatal("created conversation not listed")
+		}
+	})
+
+	t.Run("get", func(t *testing.T) {
+		res := callTool(t, svr, userID, "get_conversation", map[string]any{"id": convID})
+		if res.IsError {
+			t.Fatalf("get_conversation error: %v", res.Content[0].(mcp.TextContent).Text)
+		}
+	})
+
+	t.Run("get missing", func(t *testing.T) {
+		res := callTool(t, svr, userID, "get_conversation", map[string]any{"id": "no-such"})
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Conversation not found") {
+			t.Fatalf("want not-found error, got %v", res)
+		}
+	})
+
+	t.Run("rename", func(t *testing.T) {
+		res := callTool(t, svr, userID, "update_conversation", map[string]any{"id": convID, "title": "改名"})
+		if res.IsError {
+			t.Fatalf("update_conversation error: %v", res.Content[0].(mcp.TextContent).Text)
+		}
+	})
+
+	t.Run("rename empty title", func(t *testing.T) {
+		res := callTool(t, svr, userID, "update_conversation", map[string]any{"id": convID, "title": " "})
+		if !res.IsError {
+			t.Fatal("want error for empty title")
+		}
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		res := callTool(t, svr, userID, "delete_conversation", map[string]any{"id": convID})
+		if res.IsError {
+			t.Fatalf("delete_conversation error: %v", res.Content[0].(mcp.TextContent).Text)
+		}
+	})
+}
+
+func TestBackupToolsAuthAndNotFound(t *testing.T) {
+	svr, _, _, cleanup := newTestServer(t)
+	defer cleanup()
+
+	for _, name := range []string{"list_backups", "get_backup", "trigger_backup", "delete_backup"} {
+		res := callTool(t, svr, "", name, nil)
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Authentication required") {
+			t.Errorf("%s: want auth error, got %v", name, res)
+		}
+	}
+
+	res := callTool(t, svr, "user1", "trigger_backup", nil)
+	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Backup scheduler not initialized") {
+		t.Fatalf("trigger_backup: want scheduler error, got %v", res)
+	}
+
+	res = callTool(t, svr, "user1", "get_backup", map[string]any{"id": "no-such"})
+	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Backup not found") {
+		t.Fatalf("get_backup: want not-found error, got %v", res)
+	}
+
+	res = callTool(t, svr, "user1", "delete_backup", map[string]any{"id": "no-such"})
+	if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Backup not found") {
+		t.Fatalf("delete_backup: want not-found error, got %v", res)
+	}
+}
+
+func TestBackupListAndDelete(t *testing.T) {
+	svr, _, userID, cleanup := newTestServer(t)
+	defer cleanup()
+
+	if _, err := svr.store.CreateBackup(userID, "bak.zip", "", 100, ""); err != nil {
+		t.Fatalf("CreateBackup: %v", err)
+	}
+
+	res := callTool(t, svr, userID, "list_backups", map[string]any{"limit": 10})
+	if res.IsError {
+		t.Fatalf("list_backups error: %v", res.Content[0].(mcp.TextContent).Text)
+	}
+	var out struct {
+		Backups []map[string]any `json:"backups"`
+		Total   int              `json:"total"`
+	}
+	if err := json.Unmarshal([]byte(res.Content[0].(mcp.TextContent).Text), &out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if out.Total != 1 || len(out.Backups) != 1 {
+		t.Fatalf("out = %#v", out)
+	}
+	id, _ := out.Backups[0]["id"].(string)
+
+	res = callTool(t, svr, userID, "get_backup", map[string]any{"id": id})
+	if res.IsError {
+		t.Fatalf("get_backup error: %v", res.Content[0].(mcp.TextContent).Text)
+	}
+
+	res = callTool(t, svr, userID, "delete_backup", map[string]any{"id": id})
+	if res.IsError {
+		t.Fatalf("delete_backup error: %v", res.Content[0].(mcp.TextContent).Text)
+	}
+
+	res = callTool(t, svr, userID, "list_backups", nil)
+	if !strings.Contains(res.Content[0].(mcp.TextContent).Text, `"count":0`) {
+		t.Fatalf("backups not deleted: %s", res.Content[0].(mcp.TextContent).Text)
+	}
+}
+
+func TestUpsertDiaryWeatherTool(t *testing.T) {
+	svr, _, userID, cleanup := newTestServer(t)
+	defer cleanup()
+
+	t.Run("auth required", func(t *testing.T) {
+		res := callTool(t, svr, "", "upsert_diary_weather", nil)
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Authentication required") {
+			t.Fatalf("want auth error, got %v", res)
+		}
+	})
+
+	t.Run("missing args", func(t *testing.T) {
+		res := callTool(t, svr, userID, "upsert_diary_weather", map[string]any{"date": "2026-09-17"})
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "'date' and 'city' are required") {
+			t.Fatalf("want missing-args error, got %v", res)
+		}
+	})
+
+	t.Run("bad date", func(t *testing.T) {
+		res := callTool(t, svr, userID, "upsert_diary_weather", map[string]any{"date": "20260917", "city": "北京"})
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "'date' must be YYYY-MM-DD") {
+			t.Fatalf("want date error, got %v", res)
+		}
+	})
+
+	t.Run("upsert ok and changed hook", func(t *testing.T) {
+		changed := make(chan string, 1)
+		s, err := store.Open(t.TempDir())
+		if err != nil {
+			t.Fatalf("open store: %v", err)
+		}
+		defer func() { _ = s.Close() }()
+		user, err := s.CreateUser("wxuser", "wx@example.com", "hash")
+		if err != nil {
+			t.Fatalf("create user: %v", err)
+		}
+		svr2 := New(s, nil, func(uid string) { changed <- uid }, nil, nil, nil)
+		res := callTool(t, svr2, user.ID, "upsert_diary_weather", map[string]any{
+			"date": "2026-09-17", "city": "北京", "weather": "晴", "temp_min": 15.0, "temp_max": 28.0,
+		})
+		if res.IsError {
+			t.Fatalf("upsert_diary_weather error: %v", res.Content[0].(mcp.TextContent).Text)
+		}
+		if !strings.Contains(res.Content[0].(mcp.TextContent).Text, `"status":"ok"`) {
+			t.Fatalf("unexpected output: %s", res.Content[0].(mcp.TextContent).Text)
+		}
+		select {
+		case uid := <-changed:
+			if uid != user.ID {
+				t.Fatalf("changed uid = %q", uid)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("onDiaryChanged not called")
+		}
+	})
+}
+
+func TestPolishDiaryTool(t *testing.T) {
+	t.Run("auth required", func(t *testing.T) {
+		svr, _, _, cleanup := newTestServer(t)
+		defer cleanup()
+		res := callTool(t, svr, "", "polish_diary", nil)
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Authentication required") {
+			t.Fatalf("want auth error, got %v", res)
+		}
+	})
+
+	t.Run("missing content", func(t *testing.T) {
+		svr, _, userID, cleanup := newTestServer(t)
+		defer cleanup()
+		res := callTool(t, svr, userID, "polish_diary", map[string]any{"content": "  "})
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "'content' is required") {
+			t.Fatalf("want content error, got %v", res)
+		}
+	})
+
+	t.Run("apply without target", func(t *testing.T) {
+		svr, _, userID, cleanup := newTestServer(t)
+		defer cleanup()
+		res := callTool(t, svr, userID, "polish_diary", map[string]any{"content": "文本", "apply": true})
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "target_diary_id") {
+			t.Fatalf("want target error, got %v", res)
+		}
+	})
+
+	t.Run("ai not configured", func(t *testing.T) {
+		svr, _, userID, cleanup := newTestServer(t)
+		defer cleanup()
+		res := callTool(t, svr, userID, "polish_diary", map[string]any{"content": "文本"})
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "AI service is not configured") {
+			t.Fatalf("want ai config error, got %v", res)
+		}
+	})
+
+	t.Run("bad mode", func(t *testing.T) {
+		s, err := store.Open(t.TempDir())
+		if err != nil {
+			t.Fatalf("open store: %v", err)
+		}
+		defer func() { _ = s.Close() }()
+		user, err := s.CreateUser("poluser", "pol@example.com", "hash")
+		if err != nil {
+			t.Fatalf("create user: %v", err)
+		}
+		set := map[string]any{"ai.enabled": true, "ai.api_key": "sk", "ai.base_url": "http://127.0.0.1:1", "ai.chat_model": "m"}
+		for k, v := range set {
+			if err := s.SetSetting(user.ID, k, v, false); err != nil {
+				t.Fatalf("SetSetting: %v", err)
+			}
+		}
+		svr := New(s, config.NewConfigService(s), nil, nil, nil, nil)
+		res := callTool(t, svr, user.ID, "polish_diary", map[string]any{"content": "文本", "mode": "extreme"})
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "unsupported polish mode") {
+			t.Fatalf("want mode error, got %v", res)
+		}
+	})
+}
+
+func TestTranscribeAudioTool(t *testing.T) {
+	svr, _, userID, cleanup := newTestServer(t)
+	defer cleanup()
+
+	t.Run("auth required", func(t *testing.T) {
+		res := callTool(t, svr, "", "transcribe_audio", nil)
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Authentication required") {
+			t.Fatalf("want auth error, got %v", res)
+		}
+	})
+
+	t.Run("missing audio", func(t *testing.T) {
+		res := callTool(t, svr, userID, "transcribe_audio", map[string]any{"audio_base64": " "})
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "'audio_base64' is required") {
+			t.Fatalf("want audio error, got %v", res)
+		}
+	})
+
+	t.Run("invalid base64", func(t *testing.T) {
+		res := callTool(t, svr, userID, "transcribe_audio", map[string]any{"audio_base64": "!!!"})
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "invalid base64") {
+			t.Fatalf("want base64 error, got %v", res)
+		}
+	})
+
+	t.Run("speech not configured", func(t *testing.T) {
+		res := callTool(t, svr, userID, "transcribe_audio", map[string]any{"audio_base64": "aGk="})
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Speech recognition is not configured") {
+			t.Fatalf("want speech config error, got %v", res)
+		}
+	})
+}
+
+func TestCorrectVoiceDiaryTool(t *testing.T) {
+	svr, _, userID, cleanup := newTestServer(t)
+	defer cleanup()
+
+	t.Run("auth required", func(t *testing.T) {
+		res := callTool(t, svr, "", "correct_voice_diary", nil)
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "Authentication required") {
+			t.Fatalf("want auth error, got %v", res)
+		}
+	})
+
+	t.Run("no input", func(t *testing.T) {
+		res := callTool(t, svr, userID, "correct_voice_diary", nil)
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "provide either 'audio_base64' or 'raw_text'") {
+			t.Fatalf("want input error, got %v", res)
+		}
+	})
+
+	t.Run("ai not configured", func(t *testing.T) {
+		res := callTool(t, svr, userID, "correct_voice_diary", map[string]any{"raw_text": "呃 今天嗯测试"})
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "AI service is not configured") {
+			t.Fatalf("want ai config error, got %v", res)
+		}
+	})
+
+	t.Run("apply unreachable ai fails before target check", func(t *testing.T) {
+		s, err := store.Open(t.TempDir())
+		if err != nil {
+			t.Fatalf("open store: %v", err)
+		}
+		defer func() { _ = s.Close() }()
+		user, err := s.CreateUser("cvuser", "cv@example.com", "hash")
+		if err != nil {
+			t.Fatalf("create user: %v", err)
+		}
+		for k, v := range map[string]any{"ai.enabled": true, "ai.api_key": "sk", "ai.base_url": "http://127.0.0.1:1", "ai.chat_model": "m"} {
+			if err := s.SetSetting(user.ID, k, v, false); err != nil {
+				t.Fatalf("SetSetting: %v", err)
+			}
+		}
+		svr2 := New(s, config.NewConfigService(s), nil, nil, nil, nil)
+		res := callTool(t, svr2, user.ID, "correct_voice_diary", map[string]any{"raw_text": "文本", "apply": true})
+		if !res.IsError || !strings.Contains(res.Content[0].(mcp.TextContent).Text, "AI request failed") {
+			t.Fatalf("want target error, got %v", res)
+		}
+	})
 }
