@@ -1,0 +1,18 @@
+# pnpm 的设置集中在本文件；package.json 顶层的 "overrides" 是 npm 的字段，pnpm 不读它
+# （那三条安全锁原先写在 package.json 里，pnpm 会整体无视，因此迁到这里）。
+packages:
+  - "."
+
+# 安全策略锁：这三条在 npm 时代就存在，是 package-lock.json 里的 resolved 版本，
+# 挪到这里让 pnpm 的 --frozen-lockfile 能对上同一份解析结果。
+overrides:
+  cookie: ^0.7.0
+  fast-uri: ^3.1.7
+  brace-expansion: ^5.0.9
+
+# typescript 已经跑到 7，而 @sveltejs/kit 与 svelte-check 的 peer 范围停在 ^5 || ^6。
+# npm 时代靠 --legacy-peer-deps 无差别压掉，这里只放行已知的一条，
+# 新的 peer 冲突仍会在安装日志里显形。
+peerDependencyRules:
+  allowedVersions:
+    typescript: "^5 || ^6 || ^7"

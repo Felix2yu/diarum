@@ -42,8 +42,11 @@ Thumbs.db
 site/node_modules/
 site/build/
 site/.svelte-kit/
-site/pnpm-lock.yaml
+# 统一 pnpm：pnpm-lock.yaml 必须入库（以前它被忽略，于是 CI 只能从剩下的锁里猜）。
+# 其他包管理器的锁一律不入库。
+site/package-lock.json
 site/yarn.lock
+site/bun.lock
 site/bun.lockb
 
 # Logs
