@@ -634,6 +634,39 @@ func createSchema(db *sql.DB) error {
 		}
 	}
 
+	// ---- Migration v7: diary_versions table ----
+	// 日记版本管理：编辑会话首次保存前的旧内容快照，按保留期过期清理
+	{
+		var currentVersion int
+		_ = db.QueryRow(`SELECT COALESCE(MAX(version), 0) FROM schema_migrations`).Scan(&currentVersion)
+		if currentVersion < 7 {
+			_, _ = db.Exec(`CREATE TABLE IF NOT EXISTS diary_versions (
+				id TEXT PRIMARY KEY NOT NULL,
+				owner TEXT NOT NULL,
+				diary_id TEXT NOT NULL,
+				date TEXT DEFAULT '' NOT NULL,
+				edit_session_id TEXT NOT NULL,
+				content TEXT DEFAULT '' NOT NULL,
+				mood INTEGER DEFAULT 0 NOT NULL,
+				mood_states JSON DEFAULT '[]' NOT NULL,
+				scenarios JSON DEFAULT '[]' NOT NULL,
+				weather TEXT DEFAULT '' NOT NULL,
+				city TEXT DEFAULT '' NOT NULL,
+				temp_min REAL DEFAULT 0 NOT NULL,
+				temp_max REAL DEFAULT 0 NOT NULL,
+				tags JSON DEFAULT '[]' NOT NULL,
+				created TEXT NOT NULL,
+				FOREIGN KEY(owner) REFERENCES users(id) ON DELETE CASCADE,
+				FOREIGN KEY(diary_id) REFERENCES diaries(id) ON DELETE CASCADE
+			)`)
+			_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_diary_versions_lookup ON diary_versions(owner, diary_id, created)`)
+			// 同一编辑会话只记一个版本
+			_, _ = db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_diary_versions_session ON diary_versions(diary_id, edit_session_id)`)
+			_, _ = db.Exec(`INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(7, datetime('now'))`)
+			logger.Info("[Store] migration v7 completed: added diary_versions table")
+		}
+	}
+
 	// ---- 字段补齐（旧数据库升级）----
 	// period_analyses：v2 起改为按周期键（period_key，如 2026-W36 / 2026-09 / 2026）存储，
 	// 与旧的"时间区间"存储不兼容，检测到旧表时直接重建（旧周期总结数据不迁移）。
@@ -1198,6 +1231,13 @@ func scanUser(row interface{ Scan(dest ...any) error }) (*User, error) {
 }
 
 func (s *Store) UpsertDiary(owner, date, content string, mood *int, moodStates *[]string, scenarios *[]string, tags *[]string, weather *string, city *string, tempMin, tempMax *float64) (*Diary, bool, error) {
+	return s.UpsertDiaryWithSession(owner, date, content, mood, moodStates, scenarios, tags, weather, city, tempMin, tempMax, "")
+}
+
+// UpsertDiaryWithSession 与 UpsertDiary 相同，但 editSessionID 非空且正文发生变化时，
+// 会在覆盖前把旧内容快照为一个版本（同一编辑会话只记一次）。
+// 仅编辑页保存应传入会话 ID；memos/MCP/导入等其他写入口传空，不产生版本。
+func (s *Store) UpsertDiaryWithSession(owner, date, content string, mood *int, moodStates *[]string, scenarios *[]string, tags *[]string, weather *string, city *string, tempMin, tempMax *float64, editSessionID string) (*Diary, bool, error) {
 	start, end := dayRange(date)
 	existing, err := s.GetDiaryByDate(owner, start, end)
 	if err == nil && existing != nil {
@@ -1237,6 +1277,12 @@ func (s *Store) UpsertDiary(owner, date, content string, mood *int, moodStates *
 		contentUpdated := existing.ContentUpdated
 		if content != existing.Content {
 			contentUpdated = now
+			// 编辑会话首次修改正文前快照旧内容（同会话由唯一索引去重）；失败不阻断保存
+			if editSessionID != "" {
+				if verr := s.recordDiaryVersion(existing, editSessionID); verr != nil {
+					logger.Warn("[Store] failed to record diary version: %v", verr)
+				}
+			}
 		}
 		_, err := s.DB.Exec(`UPDATE diaries SET content = ?, content_updated = ?, mood = ?, mood_states = ?, scenarios = ?, weather = ?, city = ?, temp_min = ?, temp_max = ?, tags = ?, updated = ? WHERE id = ? AND owner = ?`, content, contentUpdated, m, encodeJSON(ms), encodeJSON(sc), w, c, tmin, tmax, encodeJSON(normalizeTags(tg)), now, existing.ID, owner)
 		if err != nil {

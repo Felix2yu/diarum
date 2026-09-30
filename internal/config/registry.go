@@ -70,6 +70,9 @@ var ConfigRegistry = map[string]ConfigMeta{
 	"backup.retention_days":   {Type: "int", Default: 90, Encrypted: false},
 	"backup.upload_s3":        {Type: "bool", Default: false, Encrypted: false},
 
+	// 日记版本管理
+	"diary.version_retention_days": {Type: "int", Default: 30, Encrypted: false},
+
 	// Web push reminder notifications
 	"webpush.enabled": {Type: "bool", Default: false, Encrypted: false},
 	"webpush.time":    {Type: "string", Default: "21:00", Encrypted: false},
