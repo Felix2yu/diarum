@@ -23,6 +23,8 @@ export interface Diary {
     owner: string;
     created?: string;
     updated?: string;
+    /** 编辑会话标识（仅 upsert 请求携带）：同一会话只产生一个版本快照 */
+    edit_session_id?: string;
 }
 
 export interface Media {

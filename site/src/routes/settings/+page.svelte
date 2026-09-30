@@ -114,6 +114,8 @@
 	// General settings
 	let defaultView: 'diary' | 'calendar' = 'diary';
 	let originalDefaultView: 'diary' | 'calendar' = 'diary';
+	let versionRetentionDays = 30;
+	let originalVersionRetentionDays = 30;
 	let fontSize: 'small' | 'medium' | 'large' = 'medium';
 	let originalFontSize: 'small' | 'medium' | 'large' = 'medium';
 	let currentTheme: Theme = 'system';
@@ -121,7 +123,7 @@
 	let savingGeneral = false;
 	let generalError = '';
 	let generalSuccess = '';
-	$: generalSettingsChanged = defaultView !== originalDefaultView || fontSize !== originalFontSize || currentTheme !== originalTheme;
+	$: generalSettingsChanged = defaultView !== originalDefaultView || fontSize !== originalFontSize || currentTheme !== originalTheme || versionRetentionDays !== originalVersionRetentionDays;
 
 	// Memos sync settings
 	let memosSettings: MemosSettings = { enabled: false, base_url: '', webhook_url: '', token_exists: false };
@@ -257,6 +259,8 @@
 			const settings = await getGeneralSettings();
 			defaultView = settings.default_view;
 			originalDefaultView = settings.default_view;
+			versionRetentionDays = settings.version_retention_days;
+			originalVersionRetentionDays = settings.version_retention_days;
 		} catch (error) {
 			console.error('Failed to load general settings:', error);
 		}
@@ -293,8 +297,11 @@
 		generalSuccess = '';
 		savingGeneral = true;
 		try {
-			await saveGeneralSettings({ default_view: defaultView });
+			const retention = Math.min(3650, Math.max(1, Math.round(Number(versionRetentionDays) || 30)));
+			versionRetentionDays = retention;
+			await saveGeneralSettings({ default_view: defaultView, version_retention_days: retention });
 			originalDefaultView = defaultView;
+			originalVersionRetentionDays = retention;
 			// Save client-side settings
 			localStorage.setItem('editor_font_size', fontSize);
 			originalFontSize = fontSize;
@@ -1741,6 +1748,25 @@ curl -X POST "{getBaseUrl()}/api/v1/diaries?token={tokenStatus.token || '<your-t
 								>
 									日历视图
 								</button>
+							</div>
+						</div>
+
+						<!-- Diary version retention -->
+						<div>
+							<label class="text-sm font-medium text-foreground mb-2 block" for="version-retention-days">日记版本保留天数</label>
+							<p class="text-xs text-muted-foreground mb-3">
+								每次进入编辑框保存时自动记录编辑前的内容，超过保留天数的版本会被自动删除
+							</p>
+							<div class="flex items-center gap-2">
+								<input
+									id="version-retention-days"
+									type="number"
+									min="1"
+									max="3650"
+									bind:value={versionRetentionDays}
+									class="w-28 px-3 py-2 rounded-lg border border-border/60 bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40"
+								/>
+								<span class="text-xs text-muted-foreground">天（默认 30）</span>
 							</div>
 						</div>
 

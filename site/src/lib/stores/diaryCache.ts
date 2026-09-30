@@ -23,6 +23,8 @@ export interface CacheEntry {
 	localUpdatedAt: number;
 	serverUpdatedAt: string | null;
 	isDirty: boolean;
+	/** 编辑会话标识：进入编辑框时生成，同步完成后清除；同一会话只产生一个版本 */
+	editSessionId?: string;
 }
 
 interface DiaryCache {
@@ -76,6 +78,9 @@ const MAX_RETRIES = 20; // 超过此次数后停止自动重试，改为手动
 
 // Pending persistence queue
 let pendingPersist: Map<string, PersistedEntry> = new Map();
+
+// 尚未创建缓存条目的日期的编辑会话 ID（首次写入缓存时附带）
+const pendingEditSessions: Record<string, string> = {};
 
 // Storage key for cross-tab detection
 const STORAGE_KEY = 'diarum_diary_cache';
@@ -225,6 +230,28 @@ export function getCachedContent(date: string): CacheEntry | null {
 }
 
 /**
+ * 进入编辑框时调用：为该日期开启一个新的编辑会话。
+ *
+ * 同一会话内的多次自动保存只产生一个版本；若上一会话尚未同步完成
+ * （快速 blur→focus），沿用旧会话 ID，避免把同一次连续编辑拆成
+ * 带中间态快照的多个版本。
+ */
+export function beginDiaryEditSession(date: string): void {
+	diaryCache.update((cache) => {
+		const entry = cache[date];
+		if (entry) {
+			if (entry.isDirty && entry.editSessionId) {
+				return cache;
+			}
+			return { ...cache, [date]: { ...entry, editSessionId: crypto.randomUUID() } };
+		}
+		// 条目尚不存在（新日记）：暂存会话 ID，首次写入缓存时附带
+		pendingEditSessions[date] = crypto.randomUUID();
+		return cache;
+	});
+}
+
+/**
  * Update local cache with edited content
  */
 export function updateLocalCache(
@@ -238,6 +265,11 @@ export function updateLocalCache(
 	const weather = updates.weather || existing?.weather || '';
 	const hasWeather = !!weather;
 
+	const editSessionId = existing?.editSessionId ?? pendingEditSessions[date];
+	if (pendingEditSessions[date]) {
+		delete pendingEditSessions[date];
+	}
+
 	const entry: CacheEntry = {
 		content: updates.content,
 		mood: updates.mood ?? existing?.mood ?? 0,
@@ -250,7 +282,8 @@ export function updateLocalCache(
 		tags: Array.isArray(updates.tags) ? updates.tags : existing?.tags ?? [],
 		localUpdatedAt: Date.now(),
 		serverUpdatedAt: existing?.serverUpdatedAt || null,
-		isDirty: true
+		isDirty: true,
+		...(editSessionId ? { editSessionId } : {})
 	};
 
 	diaryCache.update(cache => ({
@@ -315,7 +348,9 @@ export function updateFromServer(date: string, diary: Diary | null): void {
 		tags: diary.tags || [],
 		localUpdatedAt: Date.now(),
 		serverUpdatedAt: diary.updated || null,
-		isDirty: false
+		isDirty: false,
+		// 保留已开启但尚未使用的编辑会话
+		...(existing?.editSessionId ? { editSessionId: existing.editSessionId } : {})
 	};
 
 	diaryCache.update(c => ({
@@ -348,6 +383,7 @@ export function getDirtyEntries(): {
 	temp_min: number;
 	temp_max: number;
 	tags: string[];
+	editSessionId?: string;
 }[] {
 	const cache = get(diaryCache);
 	return Object.entries(cache)
@@ -362,7 +398,8 @@ export function getDirtyEntries(): {
 			city: entry.city || '',
 			temp_min: entry.temp_min || 0,
 			temp_max: entry.temp_max || 0,
-			tags: entry.tags || []
+			tags: entry.tags || [],
+			editSessionId: entry.editSessionId
 		}));
 }
 
@@ -526,7 +563,8 @@ async function syncDirtyEntries(): Promise<void> {
 				city: entry.city,
 				temp_min: entry.temp_min,
 				temp_max: entry.temp_max,
-				tags: entry.tags
+				tags: entry.tags,
+				edit_session_id: entry.editSessionId
 			});
 
 			if (success) {
@@ -676,7 +714,8 @@ export async function forceSyncNow(): Promise<boolean> {
 				city: entry.city,
 				temp_min: entry.temp_min,
 				temp_max: entry.temp_max,
-				tags: entry.tags
+				tags: entry.tags,
+				edit_session_id: entry.editSessionId
 			});
 
 			if (success) {

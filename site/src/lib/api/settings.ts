@@ -23,11 +23,20 @@ export interface MemosSettings {
 
 export interface GeneralSettings {
 	default_view: 'diary' | 'calendar';
+	/** 日记版本保留天数 */
+	version_retention_days: number;
 }
 
 export async function getGeneralSettings(): Promise<GeneralSettings> {
-	const value = await getSettingValue('app.default_view');
-	return { default_view: value === 'calendar' ? 'calendar' : 'diary' };
+	const [view, retention] = await Promise.all([
+		getSettingValue('app.default_view'),
+		getSettingValue('diary.version_retention_days').catch(() => null)
+	]);
+	const days = Number(retention);
+	return {
+		default_view: view === 'calendar' ? 'calendar' : 'diary',
+		version_retention_days: Number.isInteger(days) && days > 0 ? days : 30
+	};
 }
 
 export async function saveGeneralSettings(settings: GeneralSettings): Promise<void> {
@@ -39,7 +48,8 @@ export async function saveGeneralSettings(settings: GeneralSettings): Promise<vo
 		},
 		body: JSON.stringify({
 			settings: {
-				'app.default_view': settings.default_view
+				'app.default_view': settings.default_view,
+				'diary.version_retention_days': settings.version_retention_days
 			}
 		})
 	});

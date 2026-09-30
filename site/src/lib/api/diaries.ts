@@ -247,7 +247,8 @@ export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
 				city: effectiveCity,
 				temp_min: effectiveTempMin,
 				temp_max: effectiveTempMax,
-				tags: effectiveTags
+				tags: effectiveTags,
+				...(diary.edit_session_id ? { edit_session_id: diary.edit_session_id } : {})
 			})
 		});
 
@@ -259,6 +260,96 @@ export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
 	} catch (error) {
 		console.error('Error saving diary:', error);
 		return false;
+	}
+}
+
+/** 日记版本摘要（列表接口不含完整正文） */
+export interface DiaryVersionSummary {
+	id: string;
+	diary_id: string;
+	date: string;
+	preview: string;
+	content_length: number;
+	created: string;
+}
+
+/** 日记版本完整内容（详情接口） */
+export interface DiaryVersionDetail extends DiaryVersionSummary {
+	content: string;
+	mood?: number;
+	mood_states?: string[];
+	scenarios?: string[];
+	weather?: string;
+	city?: string;
+	temp_min?: number;
+	temp_max?: number;
+	tags?: string[];
+}
+
+function authHeaders(): Record<string, string> {
+	return { Authorization: `Bearer ${pb.authStore.token}` };
+}
+
+/**
+ * 列出日记的历史版本（摘要，按时间倒序）
+ */
+export async function listDiaryVersions(diaryId: string): Promise<DiaryVersionSummary[] | null> {
+	try {
+		const response = await fetch(`/api/v1/diaries/${encodeURIComponent(diaryId)}/versions`, {
+			headers: authHeaders()
+		});
+		if (!response.ok) {
+			return null;
+		}
+		const data = await response.json();
+		return (data.versions ?? []) as DiaryVersionSummary[];
+	} catch (error) {
+		console.error('Error listing diary versions:', error);
+		return null;
+	}
+}
+
+/**
+ * 获取单个版本的完整内容
+ */
+export async function getDiaryVersion(
+	diaryId: string,
+	versionId: string
+): Promise<DiaryVersionDetail | null> {
+	try {
+		const response = await fetch(
+			`/api/v1/diaries/${encodeURIComponent(diaryId)}/versions/${encodeURIComponent(versionId)}`,
+			{ headers: authHeaders() }
+		);
+		if (!response.ok) {
+			return null;
+		}
+		return (await response.json()) as DiaryVersionDetail;
+	} catch (error) {
+		console.error('Error fetching diary version:', error);
+		return null;
+	}
+}
+
+/**
+ * 恢复到指定版本（服务端会先把当前内容另存为版本，恢复可撤销）
+ */
+export async function restoreDiaryVersion(
+	diaryId: string,
+	versionId: string
+): Promise<Diary | null> {
+	try {
+		const response = await fetch(
+			`/api/v1/diaries/${encodeURIComponent(diaryId)}/versions/${encodeURIComponent(versionId)}/restore`,
+			{ method: 'POST', headers: authHeaders() }
+		);
+		if (!response.ok) {
+			return null;
+		}
+		return (await response.json()) as Diary;
+	} catch (error) {
+		console.error('Error restoring diary version:', error);
+		return null;
 	}
 }
 

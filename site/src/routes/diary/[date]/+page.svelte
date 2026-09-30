@@ -10,8 +10,9 @@
 	import { getAISettings, transcribeAudio, isSpeechConfigured, type AISettings } from '$lib/api/ai';
 	import PageHeader from '$lib/components/ui/PageHeader.svelte';
 	import DiaryShareModal from '$lib/components/share/DiaryShareModal.svelte';
+	import DiaryVersionHistoryModal from '$lib/components/DiaryVersionHistoryModal.svelte';
 	import { getDiaryByDate, getTagCloud } from '$lib/api/diaries';
-	import { isAuthenticated } from '$lib/api/client';
+	import { isAuthenticated, type Diary } from '$lib/api/client';
 	import { getDiaryEmojiSettings } from '$lib/api/settings';
 	import { fetchWeather, fetchWeatherByCoords, type WeatherResult } from '$lib/api/weather';
 	import type { CityInfo } from '$lib/types/city';
@@ -34,7 +35,9 @@
 		forceSyncNow,
 		hasDirtyCache,
 		initDiaryCache,
-		cleanupDiaryCache
+		cleanupDiaryCache,
+		beginDiaryEditSession,
+		clearCache
 	} from '$lib/stores/diaryCache';
 	import { onlineState } from '$lib/stores/onlineStatus';
 	import { MOOD_SCALE, getMoodStatesForLevel, SCENARIO_OPTIONS } from '$lib/utils/diaryEmoji';
@@ -49,6 +52,8 @@
 	let showDesktopToc = true;
 	let showShareModal = false;
 	let showPolisher = false;
+	let showVersionHistory = false;
+	let currentDiaryId = '';
 	let polishSourceText = '';
 	let selectedContent = '';
 	let selectedMood: number = 0;
@@ -260,6 +265,7 @@
 		// Keep unsynced local draft and skip server fetch.
 		if (cached?.isDirty) {
 			content = cached.content;
+			currentDiaryId = '';
 			selectedMood = cached.mood || 0;
 			selectedMoodStates = cached.mood_states || [];
 			selectedScenarios = cached.scenarios || [];
@@ -282,6 +288,7 @@
 		}
 
 		content = '';
+		currentDiaryId = '';
 		selectedMood = 0;
 		selectedMoodStates = [];
 		selectedScenarios = [];
@@ -296,6 +303,7 @@
 			if (currentRequestId !== loadRequestId) return;
 			updateFromServer(targetDate, diary);
 			if (currentRequestId !== loadRequestId) return;
+			currentDiaryId = diary?.id || '';
 			content = diary?.content || '';
 			selectedMood = diary?.mood || 0;
 			selectedMoodStates = diary?.mood_states || [];
@@ -658,6 +666,44 @@
 		showPolisher = true;
 	}
 
+	async function handleOpenVersionHistory() {
+		if (!currentDiaryId) {
+			// 本地草稿分支未记录 id，打开时按日期补查（日记不存在则显示空态）
+			try {
+				const diary = await getDiaryByDate(date);
+				currentDiaryId = diary?.id || '';
+			} catch {
+				currentDiaryId = '';
+			}
+		}
+		showVersionHistory = true;
+	}
+
+	function handleVersionRestored(diary: Diary) {
+		// 恢复结果以服务端为准：丢弃本地草稿，避免未同步内容把恢复结果再次覆盖
+		clearCache(date);
+		currentDiaryId = diary.id || currentDiaryId;
+		content = diary.content || '';
+		selectedMood = diary.mood || 0;
+		selectedMoodStates = diary.mood_states || [];
+		selectedScenarios = diary.scenarios || [];
+		selectedWeather = diary.weather || '';
+		selectedCity = diary.city || '';
+		tags = diary.tags || [];
+		if (diary.weather) {
+			weatherData = {
+				city: selectedCity || '未知',
+				wmo_code: parseInt(diary.weather) || 0,
+				temp_min: diary.temp_min ?? 0,
+				temp_max: diary.temp_max ?? 0,
+				date
+			};
+		} else {
+			weatherData = null;
+		}
+		updateFromServer(date, diary);
+	}
+
 	function handleApplyPolished(text: string) {
 		const toReplace = selectedContent && selectedContent.trim() !== '' ? selectedContent : content;
 		if (selectedContent && selectedContent.trim() !== '' && selectedContent !== content) {
@@ -845,7 +891,13 @@
 							placeholder="今天有什么想说的？"
 							emptyStatePrompt="✨ 回顾今天... 这一天你会记住什么？"
 							diaryDate={date}
-							onFocusChange={(focused) => { editorFocused = focused; }}
+							onFocusChange={(focused) => {
+							editorFocused = focused;
+							if (focused) {
+								// 每次进入编辑框开启新的编辑会话，会话内只产生一个版本
+								beginDiaryEditSession(date);
+							}
+						}}
 						/>
 					{#if speechEnabled || isRecording || isTranscribing}
 						<div class="absolute bottom-3 right-3 flex items-center gap-2 z-10">
@@ -914,6 +966,23 @@
 							<div>
 								<div class="text-xs font-semibold text-foreground">AI 整理文本</div>
 								<div class="text-[11px] text-muted-foreground">去语气词 · 纠错 · 自动分段</div>
+							</div>
+						</button>
+
+						<!-- 历史版本入口 -->
+						<button
+							type="button"
+							onclick={handleOpenVersionHistory}
+							class="w-full flex items-center gap-2 bg-card hover:bg-card/80 rounded-xl border border-border/50 p-3 shadow-sm text-left group transition-all"
+						>
+							<div class="p-1.5 rounded-md bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+								</svg>
+							</div>
+							<div>
+								<div class="text-xs font-semibold text-foreground">历史版本</div>
+								<div class="text-[11px] text-muted-foreground">查看并恢复编辑前的内容</div>
 							</div>
 						</button>
 
@@ -1157,6 +1226,22 @@
 							<div class="min-w-0">
 								<div class="text-xs font-semibold text-foreground">AI 整理文本</div>
 								<div class="text-[11px] text-muted-foreground truncate">去语气词 · 纠错 · 重组</div>
+							</div>
+						</button>
+
+						<button
+							type="button"
+							onclick={handleOpenVersionHistory}
+							class="w-full flex items-center gap-2 bg-card/50 hover:bg-card rounded-xl border border-border/50 hover:border-primary/30 p-3 shadow-sm transition-all text-left group"
+						>
+							<div class="p-1.5 rounded-md bg-primary/10 text-primary group-hover:bg-primary/20 transition-colors">
+								<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+								</svg>
+							</div>
+							<div class="min-w-0">
+								<div class="text-xs font-semibold text-foreground">历史版本</div>
+								<div class="text-[11px] text-muted-foreground truncate">查看并恢复编辑前的内容</div>
 							</div>
 						</button>
 
@@ -1608,6 +1693,14 @@
 	{content}
 	selectedContent={shareSelectedContent}
 	onClose={() => showShareModal = false}
+/>
+
+<!-- History Version Modal -->
+<DiaryVersionHistoryModal
+	bind:open={showVersionHistory}
+	diaryId={currentDiaryId}
+	{date}
+	onRestored={handleVersionRestored}
 />
 
 <!-- AI Text Polisher Modal -->
