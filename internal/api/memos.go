@@ -26,8 +26,10 @@ const (
 
 var (
 	unixTimestampRe = regexp.MustCompile(`^\d{10,19}$`)
-	hrEndRe         = regexp.MustCompile(`(?i)<hr\s*/?>$`)
-	beginBlockRe    = regexp.MustCompile(`(?i)^\s*<!-- DIARUM:MEMOS:BEGIN([^>]*)-->\s*<hr\s*/?>\s*`)
+	// trailingHorizontalRuleRegexp matches an <hr> at the end of content, allowing
+	// trailing HTML comments (e.g. a previous memos END marker) and empty paragraphs.
+	trailingHorizontalRuleRegexp = regexp.MustCompile(`(?is)<hr\s*/?>(?:\s|<!--.*?-->|<p>\s*(?:<br\s*/?>)?\s*</p>)*$`)
+	beginBlockRe                 = regexp.MustCompile(`(?i)^\s*<!-- DIARUM:MEMOS:BEGIN([^>]*)-->\s*<hr\s*/?>\s*`)
 )
 
 type memosSettings struct {
@@ -536,8 +538,7 @@ func appendMemosBlock(content, block string) string {
 }
 
 func endsWithHorizontalRule(content string) bool {
-	content = strings.TrimSpace(content)
-	return hrEndRe.MatchString(content)
+	return trailingHorizontalRuleRegexp.MatchString(content)
 }
 
 func trimLeadingMemosHorizontalRule(block string) string {
@@ -545,15 +546,31 @@ func trimLeadingMemosHorizontalRule(block string) string {
 }
 
 func replaceMemosBlock(content, memoID, block string) (string, bool) {
-	pattern := memosBlockRegexp(memoID)
-	if pattern.MatchString(content) {
-		return pattern.ReplaceAllString(content, block), true
-	}
-	pattern = memosHTMLBlockRegexp(memoID)
-	if pattern.MatchString(content) {
-		return pattern.ReplaceAllString(content, block), true
+	for _, pattern := range []*regexp.Regexp{memosBlockRegexp(memoID), memosHTMLBlockRegexp(memoID)} {
+		loc := pattern.FindStringIndex(content)
+		if loc == nil {
+			continue
+		}
+		before, after := strings.TrimSpace(content[:loc[0]]), strings.TrimSpace(content[loc[1]:])
+		if before == "" {
+			return joinMemosContent(block, after), true
+		}
+		if endsWithHorizontalRule(before) {
+			block = trimLeadingMemosHorizontalRule(block)
+		}
+		return joinMemosContent(before, block, after), true
 	}
 	return content, false
+}
+
+func joinMemosContent(parts ...string) string {
+	nonEmpty := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part != "" {
+			nonEmpty = append(nonEmpty, part)
+		}
+	}
+	return strings.Join(nonEmpty, "\n\n")
 }
 
 func removeMemosBlockFromContent(content, memoID string) (string, bool) {
