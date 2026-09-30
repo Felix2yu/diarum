@@ -89,12 +89,13 @@ site/
 1. **构建生产版本**
    ```bash
    cd site
-   npm run build
+   pnpm install --frozen-lockfile
+   pnpm run build
    ```
 
 2. **启动预览服务器**
    ```bash
-   npm run preview
+   pnpm run preview
    ```
 
 3. **使用 Chrome DevTools 测试**

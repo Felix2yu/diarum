@@ -33,7 +33,7 @@ build: frontend backend
 # Build frontend
 frontend:
 	@echo "Building frontend..."
-	cd site && npm ci --legacy-peer-deps && npm run build
+	cd site && pnpm install --frozen-lockfile && pnpm run build
 
 # Build backend
 backend: frontend
@@ -50,9 +50,9 @@ dev:
 
 dev-frontend:
 	@echo "Installing frontend dependencies..."
-	@cd site && npm ci --legacy-peer-deps
+	@cd site && pnpm install --frozen-lockfile
 	@echo "Starting frontend dev server..."
-	cd site && npm run dev
+	cd site && pnpm run dev
 
 dev-backend:
 	@echo "Installing backend dependencies..."
@@ -110,4 +110,4 @@ docker:
 # Install dependencies
 deps:
 	go mod download
-	cd site && npm ci --legacy-peer-deps
+	cd site && pnpm install --frozen-lockfile
