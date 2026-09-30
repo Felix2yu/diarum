@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo/v5"
 
 	"github.com/songtianlun/diarum/internal/auth"
+	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/store"
 )
 
@@ -32,6 +33,8 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 			TempMin    *float64 `json:"temp_min"`
 			TempMax    *float64 `json:"temp_max"`
 			Tags       []string `json:"tags"`
+			// 编辑会话标识：非空时，会话首次修改正文前会把旧内容快照为一个版本
+			EditSessionID string `json:"edit_session_id"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
@@ -57,7 +60,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 			tags = &v
 		}
 
-		diary, _, err := s.UpsertDiary(user.ID, body.Date, body.Content, body.Mood, moodStates, scenarios, tags, body.Weather, body.City, body.TempMin, body.TempMax)
+		diary, _, err := s.UpsertDiaryWithSession(user.ID, body.Date, body.Content, body.Mood, moodStates, scenarios, tags, body.Weather, body.City, body.TempMin, body.TempMax, strings.TrimSpace(body.EditSessionID))
 		if err != nil {
 			return badRequest("Failed to save diary", err)
 		}
@@ -317,6 +320,58 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		return c.JSON(http.StatusOK, map[string]any{"success": true})
 	})
 
+	// 版本元数据列表（返回摘要，不含完整正文）
+	group.GET("/:id/versions", func(c *echo.Context) error {
+		user := auth.CurrentUser(c)
+		versions, err := s.ListDiaryVersions(user.ID, c.Param("id"), diaryVersionRetentionDays(s, user.ID))
+		if err != nil {
+			return serverError("Failed to fetch versions", err)
+		}
+		return c.JSON(http.StatusOK, map[string]any{"versions": versions, "total": len(versions)})
+	})
+
+	// 单个版本完整内容
+	group.GET("/:id/versions/:vid", func(c *echo.Context) error {
+		user := auth.CurrentUser(c)
+		version, err := s.GetDiaryVersion(user.ID, c.Param("vid"))
+		if err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				return serverError("Failed to fetch version", err)
+			}
+			return notFound("Version not found")
+		}
+		if version.DiaryID != c.Param("id") {
+			return notFound("Version not found")
+		}
+		return c.JSON(http.StatusOK, version)
+	})
+
+	// 恢复到指定版本（恢复前会把当前内容另存为版本，操作可撤销）
+	group.POST("/:id/versions/:vid/restore", func(c *echo.Context) error {
+		user := auth.CurrentUser(c)
+		version, err := s.GetDiaryVersion(user.ID, c.Param("vid"))
+		if err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				return serverError("Failed to fetch version", err)
+			}
+			return notFound("Version not found")
+		}
+		if version.DiaryID != c.Param("id") {
+			return notFound("Version not found")
+		}
+		diary, err := s.RestoreDiaryVersion(user.ID, c.Param("vid"))
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return notFound("Version not found")
+			}
+			return serverError("Failed to restore version", err)
+		}
+		if onDiaryChanged != nil {
+			onDiaryChanged(user.ID)
+		}
+		return c.JSON(http.StatusOK, diaryResponse(diary, store.DateOnly(diary.Date), true))
+	})
+
 	group.GET("/tags", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		tags, err := s.ListTagCounts(user.ID)
@@ -339,6 +394,15 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		}
 		return c.JSON(http.StatusOK, map[string]any{"tag": tag, "diaries": result, "total": len(result)})
 	})
+}
+
+// diaryVersionRetentionDays 返回日记版本保留天数；未配置或非法时回退默认 30 天。
+func diaryVersionRetentionDays(s *store.Store, userID string) int {
+	days, err := config.NewConfigService(s).GetInt(userID, "diary.version_retention_days")
+	if err != nil || days <= 0 {
+		return 30
+	}
+	return days
 }
 
 // diaryHasContent 判断一条日记记录是否包含实际内容。

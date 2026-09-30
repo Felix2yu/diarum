@@ -179,6 +179,42 @@ func newMCPAuth(appStore *store.Store) echo.MiddlewareFunc {
 	}
 }
 
+// startDiaryVersionPurge 启动日记版本过期清理：启动时执行一次，之后每 24 小时执行一次。
+// 返回停止函数供 defer 调用。
+func startDiaryVersionPurge(appStore *store.Store, cfg *config.ConfigService) func() {
+	purge := func() {
+		users, err := appStore.ListUsers()
+		if err != nil {
+			logger.Warn("[DiaryVersions] failed to list users for purge: %v", err)
+			return
+		}
+		for _, u := range users {
+			days, err := cfg.GetInt(u.ID, "diary.version_retention_days")
+			if err != nil || days <= 0 {
+				days = 30
+			}
+			if err := appStore.PurgeExpiredDiaryVersions(u.ID, days); err != nil {
+				logger.Warn("[DiaryVersions] purge failed for user %s: %v", u.ID, err)
+			}
+		}
+	}
+	purge()
+	stop := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				purge()
+			case <-stop:
+				return
+			}
+		}
+	}()
+	return func() { close(stop) }
+}
+
 func main() {
 	if err := run(os.Args[1:], os.Stdout); err != nil {
 		log.Fatal(err)
@@ -281,6 +317,10 @@ func run(args []string, stdout io.Writer) error {
 	api.RegisterBackupRoutes(e, appStore, authMiddleware, backupScheduler, configService)
 	backupScheduler.Start()
 	defer backupScheduler.Stop()
+
+	// 日记版本过期清理（启动时一次 + 每日一次；列表查询另有惰性清理）
+	stopDiaryVersionPurge := startDiaryVersionPurge(appStore, configService)
+	defer stopDiaryVersionPurge()
 
 	// Start weather auto-fetch scheduler
 	weatherScheduler.Start()
