@@ -28,10 +28,11 @@ jobs:
       go-dir: .
       test-packages: ./...
       web-dir: site
-      # site/ 下同时有 bun.lock 与 package-lock.json；CI 走 npm，
-      # 不指定会让自动识别选中 bun，而 setup-node 不支持 bun 缓存
-      package-manager: npm
-      web-install-flags: --legacy-peer-deps
+      # build 脚本用系统 zstd 给产物打 .zst 预压缩，找不到 zstd 时它静默跳过 ——
+      # 于是镜像里没有压缩资源也不会报错。这里先断言它在（ubuntu-24.04 预装）。
+      web-build-command: |
+        command -v zstd >/dev/null || { echo '::error::缺系统 zstd，无法生成 .zst 预压缩'; exit 1; }
+        pnpm run build
       # 前端产物经 go:embed 打进二进制（internal/static/build）
       frontend-stage-command: |
         mkdir -p internal/static/build
@@ -48,10 +49,11 @@ jobs:
       binary-name: diarum
       image-name: ghcr.io/felix2yu/diarum
       web-dir: site
-      # site/ 下同时有 bun.lock 与 package-lock.json；CI 走 npm，
-      # 不指定会让自动识别选中 bun，而 setup-node 不支持 bun 缓存
-      package-manager: npm
-      web-install-flags: --legacy-peer-deps
+      # build 脚本用系统 zstd 给产物打 .zst 预压缩，找不到 zstd 时它静默跳过 ——
+      # 于是镜像里没有压缩资源也不会报错。这里先断言它在（ubuntu-24.04 预装）。
+      web-build-command: |
+        command -v zstd >/dev/null || { echo '::error::缺系统 zstd，无法生成 .zst 预压缩'; exit 1; }
+        pnpm run build
       frontend-stage-command: |
         mkdir -p internal/static/build
         cp -r site/build/. internal/static/build/
@@ -65,10 +67,11 @@ jobs:
       go-dir: .
       binary-name: diarum
       web-dir: site
-      # site/ 下同时有 bun.lock 与 package-lock.json；CI 走 npm，
-      # 不指定会让自动识别选中 bun，而 setup-node 不支持 bun 缓存
-      package-manager: npm
-      web-install-flags: --legacy-peer-deps
+      # build 脚本用系统 zstd 给产物打 .zst 预压缩，找不到 zstd 时它静默跳过 ——
+      # 于是镜像里没有压缩资源也不会报错。这里先断言它在（ubuntu-24.04 预装）。
+      web-build-command: |
+        command -v zstd >/dev/null || { echo '::error::缺系统 zstd，无法生成 .zst 预压缩'; exit 1; }
+        pnpm run build
       # 本仓库的版本变量是导出的 Version，不是默认的 version
       version-var: main.Version
       frontend-stage-command: |
