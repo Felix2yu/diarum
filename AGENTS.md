@@ -1,5 +1,16 @@
 # Diarum 项目指令
 
+## 包管理器（强制）
+
+本项目前端统一使用 **pnpm 11.22.0**，不使用 npm / yarn：
+
+- `site/package.json` 已声明 `"packageManager": "pnpm@11.22.0"`，锁文件为 `site/pnpm-lock.yaml`
+- 安装依赖：`pnpm install`
+- 添加 / 移除依赖：`pnpm add <pkg>` / `pnpm remove <pkg>`
+- 运行脚本：`pnpm run <script>`
+- **禁止使用 `npm install` / `npm ci` / `npm run` / `npx` 安装依赖或运行脚本**——锁文件是 pnpm 格式，
+  npm 会生成 `package-lock.json` 并破坏 pnpm 的依赖树结构，还会让 CI 与本地构建结果不一致。
+
 ## 项目概述
 
 Diarum（吾身）是一个自托管的 AI 日记应用，核心理念是"一天一篇，打开即写，刚刚好"。名称源自《论语》"吾日三省吾身"。
