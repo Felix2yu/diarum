@@ -29,7 +29,7 @@ jobs:
       test-packages: ./...
       web-dir: site
       # build 脚本用系统 zstd 给产物打 .zst 预压缩，找不到 zstd 时它静默跳过 ——
-      # 于是镜像里没有压缩资源也不会报错。这里先断言它在（ubuntu-24.04 预装）。
+      # 于是镜像里没有压缩资源也不会报错。这里先断言它在（ubuntu-26.04 预装）。
       web-build-command: |
         command -v zstd >/dev/null || { echo '::error::缺系统 zstd，无法生成 .zst 预压缩'; exit 1; }
         pnpm run build
@@ -50,7 +50,7 @@ jobs:
       image-name: ghcr.io/felix2yu/diarum
       web-dir: site
       # build 脚本用系统 zstd 给产物打 .zst 预压缩，找不到 zstd 时它静默跳过 ——
-      # 于是镜像里没有压缩资源也不会报错。这里先断言它在（ubuntu-24.04 预装）。
+      # 于是镜像里没有压缩资源也不会报错。这里先断言它在（ubuntu-26.04 预装）。
       web-build-command: |
         command -v zstd >/dev/null || { echo '::error::缺系统 zstd，无法生成 .zst 预压缩'; exit 1; }
         pnpm run build
@@ -68,7 +68,7 @@ jobs:
       binary-name: diarum
       web-dir: site
       # build 脚本用系统 zstd 给产物打 .zst 预压缩，找不到 zstd 时它静默跳过 ——
-      # 于是镜像里没有压缩资源也不会报错。这里先断言它在（ubuntu-24.04 预装）。
+      # 于是镜像里没有压缩资源也不会报错。这里先断言它在（ubuntu-26.04 预装）。
       web-build-command: |
         command -v zstd >/dev/null || { echo '::error::缺系统 zstd，无法生成 .zst 预压缩'; exit 1; }
         pnpm run build
