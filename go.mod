@@ -13,7 +13,7 @@ require (
 	github.com/mark3labs/mcp-go v1.1.1
 	github.com/philippgille/chromem-go v0.7.0
 	golang.org/x/crypto v0.57.0
-	modernc.org/sqlite v1.60.0
+	modernc.org/sqlite v1.60.1
 )
 
 require (
