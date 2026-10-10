@@ -29,103 +29,12 @@ export default defineConfig({
 			scope: '/',
 			base: '/',
 			selfDestroying: false,
-			manifest: {
-				name: 'Diarum - Personal Diary',
-				short_name: 'Diarum',
-				description: 'A simple, elegant, and self-hosted diary application with AI-powered insights.',
-				lang: 'zh-CN',
-				dir: 'ltr',
-				theme_color: '#F7F3E8',
-				background_color: '#F7F3E8',
-				display: 'standalone',
-				orientation: 'portrait-primary',
-				scope: '/',
-				start_url: '/',
-				categories: ['productivity', 'lifestyle'],
-				icons: [
-					{
-						src: '/favicon.svg',
-						sizes: 'any',
-						type: 'image/svg+xml',
-						purpose: 'any'
-					},
-					{
-						src: '/favicon.svg',
-						sizes: 'any',
-						type: 'image/svg+xml',
-						purpose: 'maskable'
-					},
-					{
-						src: '/android-chrome-192x192.png',
-						sizes: '192x192',
-						type: 'image/png',
-						purpose: 'any'
-					},
-					{
-						src: '/android-chrome-192x192.png',
-						sizes: '192x192',
-						type: 'image/png',
-						purpose: 'maskable'
-					},
-					{
-						src: '/android-chrome-384x384.png',
-						sizes: '384x384',
-						type: 'image/png',
-						purpose: 'any'
-					},
-					{
-						src: '/android-chrome-512x512.png',
-						sizes: '512x512',
-						type: 'image/png',
-						purpose: 'any'
-					},
-					{
-						src: '/android-chrome-512x512.png',
-						sizes: '512x512',
-						type: 'image/png',
-						purpose: 'maskable'
-					}
-				],
-				shortcuts: [
-					{
-						name: '新建今日日记',
-						short_name: '今日',
-						description: '快速打开今天的日记编辑页',
-						url: '/',
-						icons: [{ src: '/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' }]
-					}
-				],
-				screenshots: [
-					{
-						src: '/screenshots/mobile-light.png',
-						sizes: '930x1734',
-						type: 'image/png',
-						form_factor: 'narrow',
-						label: 'Mobile view - Light theme'
-					},
-					{
-						src: '/screenshots/mobile-dark.png',
-						sizes: '924x1734',
-						type: 'image/png',
-						form_factor: 'narrow',
-						label: 'Mobile view - Dark theme'
-					},
-					{
-						src: '/screenshots/desktop-light.png',
-						sizes: '2522x2012',
-						type: 'image/png',
-						form_factor: 'wide',
-						label: 'Desktop view - Light theme'
-					},
-					{
-						src: '/screenshots/desktop-dark.png',
-						sizes: '2544x2018',
-						type: 'image/png',
-						form_factor: 'wide',
-						label: 'Desktop view - Dark theme'
-					}
-				]
-			},
+			// manifest 不由插件生成：手写的 static/manifest.webmanifest 才是真源
+			//（含 screenshots/shortcuts/dark_theme_color，且中文文案与站点一致）。
+			// 此前插件按默认配置另生成过一份 manifest.webmanifest，内容是英文占位，
+			// 与手写版并存且互不一致 —— 现关掉，页面链接的是 static/ 下那份。
+			manifest: false,
+
 			injectManifest: {
 				globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}']
 			},
