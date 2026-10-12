@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { formatDate, getCalendarDays, getToday, getYearRange, formatISOWeekKey, getISOWeek, formatMonthYear, parseDate } from '$lib/utils/date';
-	import { getDatesWithDiaries, getDiariesOnThisDay, getRandomDiary, type CalendarDiaryMeta, type Diary } from '$lib/api/diaries';
-	import { getSavedAnalyses } from '$lib/api/ai';
+	import { formatDate, getCalendarDays, getToday, getYearRange, formatISOWeekKey, getISOWeek, formatMonthYear, parseDate } from '#lib/utils/date.js';
+	import { getDatesWithDiaries, getDiariesOnThisDay, getRandomDiary, type CalendarDiaryMeta, type Diary } from '#lib/api/diaries.js';
+	import { getSavedAnalyses } from '#lib/api/ai.js';
 	import CalendarAnalysis from './CalendarAnalysis.svelte';
 	import CalendarYearPicker from './CalendarYearPicker.svelte';
-	import { moodToLabel } from '$lib/utils/diaryEmoji';
-	import MoodIcon from '$lib/components/ui/MoodIcon.svelte';
-	import { isWMOCode, getWeatherInfo } from '$lib/utils/weatherCodes';
+	import { moodToLabel } from '#lib/utils/diaryEmoji.js';
+	import MoodIcon from '#lib/components/ui/MoodIcon.svelte';
+	import { isWMOCode, getWeatherInfo } from '#lib/utils/weatherCodes.js';
 
 	let {
 		currentYear = $bindable(new Date().getFullYear()),

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { ShareOptions, ThemeId } from '$lib/utils/imageExport';
+	import type { ShareOptions, ThemeId } from '#lib/utils/imageExport.js';
 	import ThemeSelector from './ThemeSelector.svelte';
 
 	export let options: ShareOptions;

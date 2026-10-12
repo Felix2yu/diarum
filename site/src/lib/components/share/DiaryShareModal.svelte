@@ -10,7 +10,7 @@
 		shareImage,
 		canShare,
 		type ShareOptions
-	} from '$lib/utils/imageExport';
+	} from '#lib/utils/imageExport.js';
 
 	export let isOpen = false;
 	export let date: string;

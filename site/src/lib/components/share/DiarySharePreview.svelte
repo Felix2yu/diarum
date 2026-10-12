@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { themes, type ShareOptions } from '$lib/utils/imageExport';
-	import { formatDisplayDate, getDayOfWeek } from '$lib/utils/date';
+	import { themes, type ShareOptions } from '#lib/utils/imageExport.js';
+	import { formatDisplayDate, getDayOfWeek } from '#lib/utils/date.js';
 	import { marked } from 'marked';
-	import MoodIcon from '$lib/components/ui/MoodIcon.svelte';
+	import MoodIcon from '#lib/components/ui/MoodIcon.svelte';
 
 	export let date: string;
 	export let content: string;

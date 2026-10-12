@@ -1,6 +1,6 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { get } from 'svelte/store';
-import { reminderSettings } from '$lib/stores/notifications';
+import { reminderSettings } from '#lib/stores/notifications.js';
 import {
 	getVapidPublicKey,
 	savePushSubscription,
@@ -8,7 +8,7 @@ import {
 	syncReminderSchedule,
 	sendTestNotification,
 	type ReminderSettings
-} from '$lib/api/notifications';
+} from '#lib/api/notifications.js';
 
 const SW_PATH = '/sw/notify.js';
 const SW_SCOPE = '/sw/';

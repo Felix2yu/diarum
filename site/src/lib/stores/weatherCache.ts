@@ -1,5 +1,5 @@
-import { browser } from '$app/environment';
-import type { WeatherResult } from '$lib/api/weather';
+import { browser } from '$app/env';
+import type { WeatherResult } from '#lib/api/weather.js';
 
 const CACHE_KEY = 'diarum_weather_cache';
 const CACHE_DURATION = 30 * 60 * 1000; // 30 minutes

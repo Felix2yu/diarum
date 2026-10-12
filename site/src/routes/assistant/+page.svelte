@@ -1,17 +1,17 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { isAuthenticated } from '$lib/api/client';
-	import { getAISettings } from '$lib/api/ai';
+	import { isAuthenticated } from '#lib/api/client.js';
+	import { getAISettings } from '#lib/api/ai.js';
 	import {
 		getConversations,
 		createConversation,
 		deleteConversation,
 		type Conversation
-	} from '$lib/api/chat';
-	import ChatInput from '$lib/components/chat/ChatInput.svelte';
-	import ConversationList from '$lib/components/chat/ConversationList.svelte';
-	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	} from '#lib/api/chat.js';
+	import ChatInput from '#lib/components/chat/ChatInput.svelte';
+	import ConversationList from '#lib/components/chat/ConversationList.svelte';
+	import PageHeader from '#lib/components/ui/PageHeader.svelte';
 
 	let conversations: Conversation[] = [];
 	let isCreating = false;

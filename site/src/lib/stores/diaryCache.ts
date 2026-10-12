@@ -1,6 +1,6 @@
 import { writable, get } from 'svelte/store';
-import { browser } from '$app/environment';
-import type { Diary } from '$lib/api/client';
+import { browser } from '$app/env';
+import type { Diary } from '#lib/api/client.js';
 import {
 	loadPersistedData,
 	persistEntries,
@@ -539,7 +539,7 @@ async function syncDirtyEntries(): Promise<void> {
 		message: '正在保存...'
 	});
 
-	const { saveDiary, getDiaryByDateResult } = await import('$lib/api/diaries');
+	const { saveDiary, getDiaryByDateResult } = await import('#lib/api/diaries.js');
 
 	// 记录同步开始时的本地修改时间快照，用于检测同步期间的并发编辑
 	const snapshotTimes = new Map(dirtyEntries.map(e => [e.date, getCachedContent(e.date)?.localUpdatedAt ?? null]));
@@ -694,7 +694,7 @@ export async function forceSyncNow(): Promise<boolean> {
 		message: '正在保存...'
 	});
 
-	const { saveDiary, getDiaryByDateResult } = await import('$lib/api/diaries');
+	const { saveDiary, getDiaryByDateResult } = await import('#lib/api/diaries.js');
 
 	// 记录同步开始时的本地修改时间快照，用于检测同步期间的并发编辑
 	const snapshotTimes = new Map(dirtyEntries.map(e => [e.date, getCachedContent(e.date)?.localUpdatedAt ?? null]));

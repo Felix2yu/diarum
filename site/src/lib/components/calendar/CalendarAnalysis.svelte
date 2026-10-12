@@ -8,8 +8,8 @@
 		type PeriodAnalysisResult,
 		type SavedPeriodAnalysisResult,
 		type PeriodType
-	} from '$lib/api/ai';
-	import { formatSpecialDateLabel, periodKeyRange, formatDate, type CalendarPeriod } from '$lib/utils/date';
+	} from '#lib/api/ai.js';
+	import { formatSpecialDateLabel, periodKeyRange, formatDate, type CalendarPeriod } from '#lib/utils/date.js';
 	import { marked } from 'marked';
 
 	// 把 markdown 文本渲染为安全的 HTML

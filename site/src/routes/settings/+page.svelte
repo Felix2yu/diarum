@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { isAuthenticated } from '$lib/api/client';
-	import { theme, setTheme, type Theme } from '$lib/stores/theme';
+	import { isAuthenticated } from '#lib/api/client.js';
+	import { theme, setTheme, type Theme } from '#lib/stores/theme.js';
 	import {
 		getApiToken,
 		toggleApiToken,
@@ -17,29 +17,29 @@
 		type MemosSettings,
 		type ApiTokenStatus,
 		type GeneralSettings
-	} from '$lib/api/settings';
-	import { getAISettings, saveAISettings, fetchModels, buildVectors, buildVectorsIncremental, getVectorStats, DEFAULT_ANALYSIS_SYSTEM_PROMPT, type AISettings, type ModelInfo, type BuildVectorsResult, type VectorStats } from '$lib/api/ai';
-	import { exportDiaries, importDiaries, resolveConflict, resolveConflictBatch, type ExportStats, type ImportStats, type ImportDiaryDetail, type ExportOptions } from '$lib/api/exportImport';
-	import { defaultImageUploadSettings, getImageUploadSettings, saveImageUploadSettings, testCheveretoConnection, type ImageUploadProvider, type ImageUploadSettings } from '$lib/api/imageUpload';
-	import { loadImageUploadSettings } from '$lib/stores/imageUpload';
-	import { pb } from '$lib/api/client';
-	import { reminderSettings } from '$lib/stores/notifications';
+	} from '#lib/api/settings.js';
+	import { getAISettings, saveAISettings, fetchModels, buildVectors, buildVectorsIncremental, getVectorStats, DEFAULT_ANALYSIS_SYSTEM_PROMPT, type AISettings, type ModelInfo, type BuildVectorsResult, type VectorStats } from '#lib/api/ai.js';
+	import { exportDiaries, importDiaries, resolveConflict, resolveConflictBatch, type ExportStats, type ImportStats, type ImportDiaryDetail, type ExportOptions } from '#lib/api/exportImport.js';
+	import { defaultImageUploadSettings, getImageUploadSettings, saveImageUploadSettings, testCheveretoConnection, type ImageUploadProvider, type ImageUploadSettings } from '#lib/api/imageUpload.js';
+	import { loadImageUploadSettings } from '#lib/stores/imageUpload.js';
+	import { pb } from '#lib/api/client.js';
+	import { reminderSettings } from '#lib/stores/notifications.js';
 	import {
 		enableNotifications,
 		disableNotifications,
 		saveReminderSettings,
 		sendTest,
 		notificationPermission
-	} from '$lib/utils/notifications';
-	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	} from '#lib/utils/notifications.js';
+	import PageHeader from '#lib/components/ui/PageHeader.svelte';
 	import {
 		DEFAULT_WEATHER_OPTIONS,
 		MAX_DIARY_EMOJI_OPTION_COUNT,
 		MAX_DIARY_EMOJI_OPTION_LENGTH,
 		countDisplayChars,
 		sanitizeWeatherOptions
-	} from '$lib/utils/diaryEmoji';
-	import MoodIcon from '$lib/components/ui/MoodIcon.svelte';
+	} from '#lib/utils/diaryEmoji.js';
+	import MoodIcon from '#lib/components/ui/MoodIcon.svelte';
 
 	type SettingsTab =
 		| 'general'
@@ -841,7 +841,7 @@
 	async function loadNotificationState() {
 		notificationPermissionState = notificationPermission.current();
 		try {
-			const { hasActiveSubscription } = await import('$lib/utils/notifications');
+			const { hasActiveSubscription } = await import('#lib/utils/notifications.js');
 			hasPushSubscription = await hasActiveSubscription();
 		} catch (e) {
 			hasPushSubscription = false;
@@ -855,10 +855,10 @@
 		try {
 			const ok = await enableNotifications();
 			notificationPermissionState = notificationPermission.current();
-			const { hasActiveSubscription } = await import('$lib/utils/notifications');
+			const { hasActiveSubscription } = await import('#lib/utils/notifications.js');
 			hasPushSubscription = await hasActiveSubscription();
 			if (ok && hasPushSubscription) {
-				const { updateReminderSettings, getReminderSettings } = await import('$lib/stores/notifications');
+				const { updateReminderSettings, getReminderSettings } = await import('#lib/stores/notifications.js');
 				updateReminderSettings({ enabled: true });
 				// Sync schedule so the backend knows reminders are on.
 				await saveReminderSettings(getReminderSettings());
@@ -880,7 +880,7 @@
 		try {
 			await disableNotifications();
 			hasPushSubscription = false;
-			const { updateReminderSettings, getReminderSettings } = await import('$lib/stores/notifications');
+			const { updateReminderSettings, getReminderSettings } = await import('#lib/stores/notifications.js');
 			updateReminderSettings({ enabled: false });
 			await saveReminderSettings({ ...getReminderSettings(), enabled: false });
 			notificationSuccess = '通知已关闭';
@@ -896,7 +896,7 @@
 		notificationSuccess = '';
 		notificationBusy = true;
 		try {
-			const { getReminderSettings } = await import('$lib/stores/notifications');
+			const { getReminderSettings } = await import('#lib/stores/notifications.js');
 			await saveReminderSettings(getReminderSettings());
 			notificationSuccess = '提醒设置已保存';
 		} catch (e) {
@@ -940,7 +940,7 @@
 		deleteBackupById,
 		downloadBackupById,
 		type Backup
-	} from '$lib/stores/backup';
+	} from '#lib/stores/backup.js';
 
 	function syncBackupRecordsFromStore() {
 		backupRecords = get(backupsStore);

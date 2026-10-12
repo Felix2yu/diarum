@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { createEventDispatcher } from 'svelte';
-	import type { Conversation } from '$lib/api/chat';
-	import { formatDisplayDate } from '$lib/utils/date';
+	import type { Conversation } from '#lib/api/chat.js';
+	import { formatDisplayDate } from '#lib/utils/date.js';
 
 	export let conversations: Conversation[] = [];
 	export let selectedId: string | null = null;

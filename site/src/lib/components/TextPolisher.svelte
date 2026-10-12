@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { polishText, type PolishResult } from '$lib/api/ai';
+	import { polishText, type PolishResult } from '#lib/api/ai.js';
 
 	let {
 		open = $bindable(false),

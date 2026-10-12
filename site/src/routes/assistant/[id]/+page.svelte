@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { page } from '$app/stores';
-	import { isAuthenticated } from '$lib/api/client';
-	import { getAISettings } from '$lib/api/ai';
+	import { page } from '$app/state';
+	import { isAuthenticated } from '#lib/api/client.js';
+	import { getAISettings } from '#lib/api/ai.js';
 	import {
 		getConversations,
 		createConversation,
@@ -12,11 +12,11 @@
 		streamChat,
 		type Conversation,
 		type Message
-	} from '$lib/api/chat';
-	import ChatMessage from '$lib/components/chat/ChatMessage.svelte';
-	import ChatInput from '$lib/components/chat/ChatInput.svelte';
-	import ConversationList from '$lib/components/chat/ConversationList.svelte';
-	import PageHeader from '$lib/components/ui/PageHeader.svelte';
+	} from '#lib/api/chat.js';
+	import ChatMessage from '#lib/components/chat/ChatMessage.svelte';
+	import ChatInput from '#lib/components/chat/ChatInput.svelte';
+	import ConversationList from '#lib/components/chat/ConversationList.svelte';
+	import PageHeader from '#lib/components/ui/PageHeader.svelte';
 
 	let conversations: Conversation[] = [];
 	let selectedConversationId: string | null = null;
@@ -146,9 +146,9 @@
 	}
 
 	// Reactive statement to handle URL changes
-	$: if ($page.params.id && $page.params.id !== selectedConversationId && !loading && aiEnabled) {
-		selectedConversationId = $page.params.id;
-		loadMessages($page.params.id);
+	$: if (page.params.id && page.params.id !== selectedConversationId && !loading && aiEnabled) {
+		selectedConversationId = page.params.id;
+		loadMessages(page.params.id);
 	}
 
 	onMount(async () => {
@@ -168,7 +168,7 @@
 		await loadConversations();
 
 		// Get conversation ID from URL
-		const convId = $page.params.id;
+		const convId = page.params.id;
 		if (convId) {
 			selectedConversationId = convId;
 			await loadMessages(convId);
@@ -177,7 +177,7 @@
 		loading = false;
 
 		// Check for message query parameter (from new chat redirect)
-		const messageParam = $page.url.searchParams.get('message');
+		const messageParam = page.url.searchParams.get('message');
 		if (messageParam && convId) {
 			// Clear the URL parameter without triggering navigation
 			window.history.replaceState({}, '', `/assistant/${convId}`);

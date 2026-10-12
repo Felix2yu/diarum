@@ -1,6 +1,6 @@
 import { writable, get } from 'svelte/store';
-import { browser } from '$app/environment';
-import type { ReminderSettings } from '$lib/api/notifications';
+import { browser } from '$app/env';
+import type { ReminderSettings } from '#lib/api/notifications.js';
 
 const STORAGE_KEY = 'diarum_reminder_settings';
 

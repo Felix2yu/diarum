@@ -1,5 +1,5 @@
 import { pb } from './client';
-import { getCachedWeather, setCachedWeather } from '$lib/stores/weatherCache';
+import { getCachedWeather, setCachedWeather } from '#lib/stores/weatherCache.js';
 
 export interface WeatherResult {
 	city: string;

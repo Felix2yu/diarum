@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getWeatherInfo, formatWeatherDisplay } from '$lib/utils/weatherCodes';
+	import { getWeatherInfo, formatWeatherDisplay } from '#lib/utils/weatherCodes.js';
 
 	interface Props {
 		wmoCode: number;

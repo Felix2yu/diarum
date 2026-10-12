@@ -1,10 +1,10 @@
 <script lang="ts">
-	import type { Message } from '$lib/api/chat';
-	import type { Diary } from '$lib/api/client';
-	import { getDiariesByIds } from '$lib/api/diaries';
+	import type { Message } from '#lib/api/chat.js';
+	import type { Diary } from '#lib/api/client.js';
+	import { getDiariesByIds } from '#lib/api/diaries.js';
 	import { goto } from '$app/navigation';
 	import { marked } from 'marked';
-	import { formatDisplayDate, formatTime } from '$lib/utils/date';
+	import { formatDisplayDate, formatTime } from '#lib/utils/date.js';
 
 	export let message: Message;
 	export let isStreaming = false;

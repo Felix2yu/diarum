@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { theme, type Theme } from '$lib/stores/theme';
+	import { theme, type Theme } from '#lib/stores/theme.js';
 
 	const themes: { value: Theme; label: string; icon: string }[] = [
 		{ value: 'light', label: '浅色', icon: 'sun' },

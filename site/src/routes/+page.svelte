@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { getToday } from '$lib/utils/date';
-	import { isAuthenticated } from '$lib/api/client';
-	import { getGeneralSettings } from '$lib/api/settings';
+	import { getToday } from '#lib/utils/date.js';
+	import { isAuthenticated } from '#lib/api/client.js';
+	import { getGeneralSettings } from '#lib/api/settings.js';
 
 	let ready = $state(false);
 	let visibleSections = $state<Set<number>>(new Set());

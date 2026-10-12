@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getISOWeek, getISOWeeksInYear, isoWeekRange } from '$lib/utils/date';
+	import { getISOWeek, getISOWeeksInYear, isoWeekRange } from '#lib/utils/date.js';
 
 	let {
 		currentYear: currentYearBindable,

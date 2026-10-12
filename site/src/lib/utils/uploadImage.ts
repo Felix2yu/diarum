@@ -1,8 +1,8 @@
-import { pb } from '$lib/api/client';
-import type { Media, UploadProgress } from '$lib/api/client';
+import { pb } from '#lib/api/client.js';
+import type { Media, UploadProgress } from '#lib/api/client.js';
 import { get } from 'svelte/store';
-import { imageUploadSettings, loadImageUploadSettings, isImageUploadLoaded } from '$lib/stores/imageUpload';
-import { uploadToChevereto } from '$lib/api/chevereto';
+import { imageUploadSettings, loadImageUploadSettings, isImageUploadLoaded } from '#lib/stores/imageUpload.js';
+import { uploadToChevereto } from '#lib/api/chevereto.js';
 
 /**
  * Get or create diary ID for a given date

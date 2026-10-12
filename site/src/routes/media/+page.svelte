@@ -1,10 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { isAuthenticated } from '$lib/api/client';
-	import { getAllMedia, getMediaFileUrl, deleteMediaById, type MediaWithDiary } from '$lib/api/media';
-	import PageHeader from '$lib/components/ui/PageHeader.svelte';
-	import { formatDisplayDate, formatTime } from '$lib/utils/date';
+	import { isAuthenticated } from '#lib/api/client.js';
+	import { getAllMedia, getMediaFileUrl, deleteMediaById, type MediaWithDiary } from '#lib/api/media.js';
+	import PageHeader from '#lib/components/ui/PageHeader.svelte';
+	import { formatDisplayDate, formatTime } from '#lib/utils/date.js';
 
 	let mediaList: MediaWithDiary[] = [];
 	let loading = true;

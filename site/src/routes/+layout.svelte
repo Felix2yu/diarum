@@ -2,14 +2,14 @@
 	import '../app.css';
 	import { onMount, type Snippet } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { installUnauthorizedApiHandler } from '$lib/api/client';
-	import { initTheme } from '$lib/stores/theme';
-	import { initPWA } from '$lib/utils/pwa';
-	import { ensureNotifyWorker } from '$lib/utils/notifications';
-	import { initDiaryCache } from '$lib/stores/diaryCache';
-	import PWAInstallPrompt from '$lib/components/PWAInstallPrompt.svelte';
-	import PWAUpdatePrompt from '$lib/components/PWAUpdatePrompt.svelte';
-	import OnlineStatusBanner from '$lib/components/OnlineStatusBanner.svelte';
+	import { installUnauthorizedApiHandler } from '#lib/api/client.js';
+	import { initTheme } from '#lib/stores/theme.js';
+	import { initPWA } from '#lib/utils/pwa.js';
+	import { ensureNotifyWorker } from '#lib/utils/notifications.js';
+	import { initDiaryCache } from '#lib/stores/diaryCache.js';
+	import PWAInstallPrompt from '#lib/components/PWAInstallPrompt.svelte';
+	import PWAUpdatePrompt from '#lib/components/PWAUpdatePrompt.svelte';
+	import OnlineStatusBanner from '#lib/components/OnlineStatusBanner.svelte';
 
 	let { children }: { children: Snippet } = $props();
 
