@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { marked } from 'marked';
-	import MediaPicker from '$lib/components/editor/MediaPicker.svelte';
-	import { uploadImage, isCheveretoResult, type UploadOptions } from '$lib/utils/uploadImage';
-	import { getMediaFileUrl } from '$lib/api/media';
-	import type { MediaWithDiary } from '$lib/api/media';
+	import MediaPicker from '#lib/components/editor/MediaPicker.svelte';
+	import { uploadImage, isCheveretoResult, type UploadOptions } from '#lib/utils/uploadImage.js';
+	import { getMediaFileUrl } from '#lib/api/media.js';
+	import type { MediaWithDiary } from '#lib/api/media.js';
 
 	let {
 		content = $bindable(''),

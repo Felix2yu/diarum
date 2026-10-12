@@ -5,8 +5,8 @@
 		restoreDiaryVersion,
 		type DiaryVersionSummary,
 		type DiaryVersionDetail
-	} from '$lib/api/diaries';
-	import type { Diary } from '$lib/api/client';
+	} from '#lib/api/diaries.js';
+	import type { Diary } from '#lib/api/client.js';
 
 	let {
 		open = $bindable(false),

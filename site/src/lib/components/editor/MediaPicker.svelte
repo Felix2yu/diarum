@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getAllMedia, getMediaFileUrl, type MediaWithDiary } from '$lib/api/media';
+	import { getAllMedia, getMediaFileUrl, type MediaWithDiary } from '#lib/api/media.js';
 
 	let {
 		onSelect = (media: MediaWithDiary) => {},

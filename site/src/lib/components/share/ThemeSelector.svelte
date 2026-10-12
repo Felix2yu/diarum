@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { themes, type ThemeId } from '$lib/utils/imageExport';
+	import { themes, type ThemeId } from '#lib/utils/imageExport.js';
 
 	export let selected: ThemeId = 'warm-paper';
 	export let onSelect: (theme: ThemeId) => void = () => {};

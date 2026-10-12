@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { pb } from '$lib/api/client';
-	import type { CityInfo } from '$lib/types/city';
+	import { pb } from '#lib/api/client.js';
+	import type { CityInfo } from '#lib/types/city.js';
 
 	interface Props {
 		selectedCity: string;

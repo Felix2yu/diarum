@@ -2,7 +2,7 @@ import { pb } from './client';
 import {
 	DEFAULT_WEATHER_OPTIONS,
 	sanitizeWeatherOptions
-} from '$lib/utils/diaryEmoji';
+} from '#lib/utils/diaryEmoji.js';
 
 export interface ApiTokenStatus {
 	exists: boolean;

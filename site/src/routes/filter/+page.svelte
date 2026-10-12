@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import PageHeader from '$lib/components/ui/PageHeader.svelte';
-	import WeatherDisplay from '$lib/components/WeatherDisplay.svelte';
-	import { filterDiaries } from '$lib/api/diaries';
-	import { isAuthenticated } from '$lib/api/client';
-	import { formatDisplayDate, getDayOfWeek } from '$lib/utils/date';
-	import { MOOD_SCALE, getMoodStatesForLevel, SCENARIO_OPTIONS } from '$lib/utils/diaryEmoji';
-	import MoodIcon from '$lib/components/ui/MoodIcon.svelte';
-	import { isWMOCode } from '$lib/utils/weatherCodes';
+	import PageHeader from '#lib/components/ui/PageHeader.svelte';
+	import WeatherDisplay from '#lib/components/WeatherDisplay.svelte';
+	import { filterDiaries } from '#lib/api/diaries.js';
+	import { isAuthenticated } from '#lib/api/client.js';
+	import { formatDisplayDate, getDayOfWeek } from '#lib/utils/date.js';
+	import { MOOD_SCALE, getMoodStatesForLevel, SCENARIO_OPTIONS } from '#lib/utils/diaryEmoji.js';
+	import MoodIcon from '#lib/components/ui/MoodIcon.svelte';
+	import { isWMOCode } from '#lib/utils/weatherCodes.js';
 
 	interface FilterResult {
 		id: string;

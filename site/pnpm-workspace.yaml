@@ -1,18 +1,20 @@
-# pnpm 的设置集中在本文件；package.json 顶层的 "overrides" 是 npm 的字段，pnpm 不读它
-# （那三条安全锁原先写在 package.json 里，pnpm 会整体无视，因此迁到这里）。
+# pnpm 的设置集中在本文件。注：这里的 overrides 优先于 package.json 顶层的同名字段，
+# 两处必须同步维护，否则改package.json 不生效（曾因此让 cookie 锁停在 0.7.x）。
 packages:
   - "."
 
-# 安全策略锁：这三条在 npm 时代就存在，是 package-lock.json 里的 resolved 版本，
-# 挪到这里让 pnpm 的 --frozen-lockfile 能对上同一份解析结果。
+# 安全策略锁：fast-uri / brace-expansion 在 npm 时代就存在，是 package-lock.json 里的
+# resolved 版本，挪到这里让 pnpm 的 --frozen-lockfile 能对上同一份解析结果。
+# cookie 例外：SvelteKit 3 需要具名 ESM 导出（parseCookie/serialize），0.7.x 是 CJS 且
+# 无该导出，prerender 阶段会报 "parseCookie is not a function"；2.x 同样是修好 CVE 的版本。
 overrides:
-  cookie: ^0.7.0
+  cookie: ^2.0.1
   fast-uri: ^3.1.7
   brace-expansion: ^5.0.9
 
-# typescript 已经跑到 7，而 @sveltejs/kit 与 svelte-check 的 peer 范围停在 ^5 || ^6。
-# npm 时代靠 --legacy-peer-deps 无差别压掉，这里只放行已知的一条，
-# 新的 peer 冲突仍会在安装日志里显形。
+# typescript 已回退到 6：TS7 为主入口仅暴露版本号的原生 tsgo 包，没有 ts.sys /
+# readConfigFile，kit 的 write_tsconfig 与 svelte-check 均不可用。
+# 其余依赖仍有把 peer 停在 ^5 || ^6 的，新冲突会照常在安装日志里显形。
 peerDependencyRules:
   allowedVersions:
-    typescript: "^5 || ^6 || ^7"
+    typescript: "^5 || ^6"

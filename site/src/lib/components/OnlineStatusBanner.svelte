@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
-	import { onlineState } from '$lib/stores/onlineStatus';
-	import { syncState, cacheStats, forceSyncNow } from '$lib/stores/diaryCache';
-	import { checkOnlineStatus } from '$lib/stores/onlineStatus';
+	import { onlineState } from '#lib/stores/onlineStatus.js';
+	import { syncState, cacheStats, forceSyncNow } from '#lib/stores/diaryCache.js';
+	import { checkOnlineStatus } from '#lib/stores/onlineStatus.js';
 
 	let visible = false;
 	let isSyncing = false;

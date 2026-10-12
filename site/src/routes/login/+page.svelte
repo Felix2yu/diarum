@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
-	import { login, register, type LoginCredentials, type RegisterData } from '$lib/api/auth';
+	import { login, register, type LoginCredentials, type RegisterData } from '#lib/api/auth.js';
 	import { onMount } from 'svelte';
-	import { isAuthenticated } from '$lib/api/client';
+	import { isAuthenticated } from '#lib/api/client.js';
 
 	let activeTab: 'login' | 'register' = 'login';
 	let loading = false;

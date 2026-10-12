@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import PageHeader from '$lib/components/ui/PageHeader.svelte';
-	import { searchDiaries } from '$lib/api/diaries';
-	import { isAuthenticated } from '$lib/api/client';
-	import { formatDisplayDate, formatShortDate, getDayOfWeek } from '$lib/utils/date';
-	import MoodIcon from '$lib/components/ui/MoodIcon.svelte';
+	import PageHeader from '#lib/components/ui/PageHeader.svelte';
+	import { searchDiaries } from '#lib/api/diaries.js';
+	import { isAuthenticated } from '#lib/api/client.js';
+	import { formatDisplayDate, formatShortDate, getDayOfWeek } from '#lib/utils/date.js';
+	import MoodIcon from '#lib/components/ui/MoodIcon.svelte';
 
 	interface SearchResult {
 		id: string;
@@ -81,7 +81,7 @@
 			goto('/login');
 			return;
 		}
-		const q = $page.url.searchParams.get('q');
+		const q = page.url.searchParams.get('q');
 		if (q) {
 			query = q;
 			performSearch();

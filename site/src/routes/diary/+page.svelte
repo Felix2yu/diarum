@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import Calendar from '$lib/components/calendar/Calendar.svelte';
-	import PageHeader from '$lib/components/ui/PageHeader.svelte';
-	import { getDatesWithDiaries, getRecentDiaries, getDiaryStats, type CalendarDiaryMeta } from '$lib/api/diaries';
-	import { isAuthenticated } from '$lib/api/client';
-	import { getMonthRange, formatDisplayDate, parseDate } from '$lib/utils/date';
+	import Calendar from '#lib/components/calendar/Calendar.svelte';
+	import PageHeader from '#lib/components/ui/PageHeader.svelte';
+	import { getDatesWithDiaries, getRecentDiaries, getDiaryStats, type CalendarDiaryMeta } from '#lib/api/diaries.js';
+	import { isAuthenticated } from '#lib/api/client.js';
+	import { getMonthRange, formatDisplayDate, parseDate } from '#lib/utils/date.js';
 
 	let currentYear = new Date().getFullYear();
 	let currentMonth = new Date().getMonth() + 1;
@@ -59,7 +59,7 @@
 			return;
 		}
 
-		const dateParam = $page.url.searchParams.get('date');
+		const dateParam = page.url.searchParams.get('date');
 		if (dateParam) {
 			try {
 				const parsed = parseDate(dateParam);

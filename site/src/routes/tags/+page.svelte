@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import PageHeader from '$lib/components/ui/PageHeader.svelte';
-	import WeatherDisplay from '$lib/components/WeatherDisplay.svelte';
-	import { isAuthenticated } from '$lib/api/client';
-	import { getTagCloud, getDiariesByTag } from '$lib/api/diaries';
-	import type { Diary } from '$lib/api/client';
-	import { formatDisplayDate } from '$lib/utils/date';
+	import PageHeader from '#lib/components/ui/PageHeader.svelte';
+	import WeatherDisplay from '#lib/components/WeatherDisplay.svelte';
+	import { isAuthenticated } from '#lib/api/client.js';
+	import { getTagCloud, getDiariesByTag } from '#lib/api/diaries.js';
+	import type { Diary } from '#lib/api/client.js';
+	import { formatDisplayDate } from '#lib/utils/date.js';
 	import { goto } from '$app/navigation';
-	import MoodIcon from '$lib/components/ui/MoodIcon.svelte';
-	import { isWMOCode } from '$lib/utils/weatherCodes';
+	import MoodIcon from '#lib/components/ui/MoodIcon.svelte';
+	import { isWMOCode } from '#lib/utils/weatherCodes.js';
 
 	interface TagCount {
 		tag: string;

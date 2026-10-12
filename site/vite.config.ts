@@ -1,11 +1,9 @@
 import { sveltekit } from '@sveltejs/kit/vite';
+import adapter from '@sveltejs/adapter-static';
+import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import { defineConfig } from 'vite';
-import { SvelteKitPWA } from '@vite-pwa/sveltekit';
+import { VitePWA } from 'vite-plugin-pwa';
 import tailwindcss from '@tailwindcss/vite';
-
-// 使用构建时间戳作为 index.html 的 revision，
-// 确保每次部署都会刷新 Service Worker 对离线入口页面的缓存。
-const BUILD_REVISION = Date.now().toString();
 
 export default defineConfig({
 	build: {
@@ -21,148 +19,28 @@ export default defineConfig({
 	},
 	plugins: [
 		tailwindcss(),
-		sveltekit(),
-		SvelteKitPWA({
-			srcDir: './src',
-			mode: 'production',
-			strategies: 'generateSW',
-			scope: '/',
-			base: '/',
-			selfDestroying: false,
-			// manifest 不由插件生成：手写的 static/manifest.webmanifest 才是真源
-			//（含 screenshots/shortcuts/dark_theme_color，且中文文案与站点一致）。
-			// 此前插件按默认配置另生成过一份 manifest.webmanifest，内容是英文占位，
-			// 与手写版并存且互不一致 —— 现关掉，页面链接的是 static/ 下那份。
-			manifest: false,
-
-			injectManifest: {
-				globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}']
-			},
-			workbox: {
-				globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff,woff2}'],
-				cleanupOutdatedCaches: true,
-				clientsClaim: true,
-				skipWaiting: false, // 不自动 skipWaiting：等用户点击"立即更新"后由 updateSW(true) 触发
-				// adapter-static produces a single `index.html` at the site root.
-				// @vite-pwa/sveltekit's default `globDirectory` is SvelteKit's
-				// `output/client/`, which does not contain it, so we inject
-				// it into the precache manifest here and point all offline
-				// navigation requests back at it. Without this, navigating
-				// while offline returns a browser error page ("空白页面").
-				// 使用构建时间戳作为 revision，确保每次部署都会刷新缓存。
-				additionalManifestEntries: [
-					{ url: '/index.html', revision: BUILD_REVISION }
-				],
-				navigateFallback: '/index.html',
-				// 严格控制离线回退：只对常规的内容/编辑路径使用入口 HTML，
-				// 排除 API、认证端点、SvelteKit 内部端点等非导航请求。
-				navigateFallbackAllowlist: [/^(?!\/(?:api|auth|collections|_)(?:\/|$))\/.*$/],
-				runtimeCaching: [
-					{
-						urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
-						handler: 'CacheFirst',
-						options: {
-							cacheName: 'google-fonts-cache',
-							expiration: {
-								maxEntries: 10,
-								maxAgeSeconds: 60 * 60 * 24 * 365 // 365 days
-							},
-							cacheableResponse: {
-								statuses: [0, 200]
-							}
-						}
-					},
-					{
-						urlPattern: /^https:\/\/fonts\.gstatic\.com\/.*/i,
-						handler: 'CacheFirst',
-						options: {
-							cacheName: 'gstatic-fonts-cache',
-							expiration: {
-								maxEntries: 10,
-								maxAgeSeconds: 60 * 60 * 24 * 365 // 365 days
-							},
-							cacheableResponse: {
-								statuses: [0, 200]
-							}
-						}
-					},
-					{
-						// 认证/登录端点必须走网络，绝不能被离线回退或缓存影响。
-						urlPattern: /\/(?:api\/auth|auth)\/.*/i,
-						handler: 'NetworkOnly',
-						options: {
-							cacheName: 'auth-endpoints'
-						}
-					},
-					{
-						// SvelteKit 内部端点（_app、collections 等）使用 NetworkFirst，
-						// 以确保数据新鲜，同时在离线时可以读取上次缓存。
-						urlPattern: /\/_(?:\/|$).*/i,
-						handler: 'NetworkFirst',
-						options: {
-							cacheName: 'internal-endpoints',
-							networkTimeoutSeconds: 5,
-							expiration: {
-								maxEntries: 20,
-								maxAgeSeconds: 60 * 60 * 24 // 1 day
-							},
-							cacheableResponse: {
-								statuses: [0, 200]
-							}
-						}
-					},
-					{
-						urlPattern: /\/api\/.*/i,
-						handler: 'NetworkFirst',
-						options: {
-							cacheName: 'api-cache',
-							networkTimeoutSeconds: 10,
-							expiration: {
-								maxEntries: 50,
-								maxAgeSeconds: 60 * 60 * 24 * 7 // 7 days
-							},
-							cacheableResponse: {
-								statuses: [0, 200]
-							}
-						}
-					},
-					{
-						// 同源构建产物（带 hash 的静态资源）：一旦缓存就长期不变。
-						urlPattern: /\/_app\/immutable\/.*/i,
-						handler: 'CacheFirst',
-						options: {
-							cacheName: 'immutable-assets',
-							expiration: {
-								maxEntries: 100,
-								maxAgeSeconds: 60 * 60 * 24 * 365 // 365 days
-							},
-							cacheableResponse: {
-								statuses: [0, 200]
-							}
-						}
-					},
-					{
-						// 用户上传内容与站点图片：后台刷新，不阻塞离线访问。
-						urlPattern: /\.(?:png|jpg|jpeg|webp|gif|svg|ico)(?:\?.*)?$/i,
-						handler: 'StaleWhileRevalidate',
-						options: {
-							cacheName: 'image-assets',
-							expiration: {
-								maxEntries: 80,
-								maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
-							},
-							cacheableResponse: {
-								statuses: [0, 200]
-							}
-						}
-					}
-				]
-			},
-			devOptions: {
-				enabled: process.env.VITE_ENABLE_SW === 'true',
-				suppressWarnings: true,
-				type: 'module'
-			}
+		// SvelteKit 3 起不再读取 svelte.config.js，全部配置内联在此。
+		sveltekit({
+			preprocess: vitePreprocess(),
+			adapter: adapter({
+				pages: 'build',
+				assets: 'build',
+				fallback: 'index.html',
+				// adapter-static 4 起precompress 从字符串枚举改为 boolean：
+				// true 同时产出 .br 与 .gz（原先 'brotli' 只出 .br）。
+				precompress: true,
+				strict: true
+			})
+		}),
+		// PWA：这里只借用插件提供 `virtual:pwa-register` 虚拟模块，因此用 `disable` 关掉它
+		// 自身的全部生成逻辑（sw、manifest、注入脚本）；实际 sw 由 scripts/build-sw.mjs 在
+		// vite build 之后生成。
+		// 原因：Kit 3 移除了 SSR 构建阶段，@vite-pwa/sveltekit 的 sw 生成挂不上；且
+		// adapter-static 收尾会 `rm -rf build` 再重写，把插件已生成的 sw 一并清掉，
+		// 预缓存清单还会因 build/ 当时为空而恒为 0 条。
+		VitePWA({
+			disable: true,
+			mode: 'production'
 		})
 	],
 	server: {

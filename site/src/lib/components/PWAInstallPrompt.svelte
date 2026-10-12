@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { canInstall, installPWA } from '$lib/utils/pwa';
+	import { canInstall, installPWA } from '#lib/utils/pwa.js';
 	import { onMount } from 'svelte';
 
 	let showPrompt = false;

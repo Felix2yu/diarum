@@ -1,22 +1,22 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import TiptapEditor from '$lib/components/editor/TiptapEditor.svelte';
-	import TableOfContents from '$lib/components/ui/TableOfContents.svelte';
-	import TextPolisher from '$lib/components/TextPolisher.svelte';
-	import CityPicker from '$lib/components/CityPicker.svelte';
-	import WeatherDisplay from '$lib/components/WeatherDisplay.svelte';
-	import { getAISettings, transcribeAudio, isSpeechConfigured, type AISettings } from '$lib/api/ai';
-	import PageHeader from '$lib/components/ui/PageHeader.svelte';
-	import DiaryShareModal from '$lib/components/share/DiaryShareModal.svelte';
-	import DiaryVersionHistoryModal from '$lib/components/DiaryVersionHistoryModal.svelte';
-	import { getDiaryByDate, getTagCloud } from '$lib/api/diaries';
-	import { isAuthenticated, type Diary } from '$lib/api/client';
-	import { getDiaryEmojiSettings } from '$lib/api/settings';
-	import { fetchWeather, fetchWeatherByCoords, type WeatherResult } from '$lib/api/weather';
-	import type { CityInfo } from '$lib/types/city';
-	import { WEATHER_CODES, manualWeatherToWMO } from '$lib/utils/weatherCodes';
+	import TiptapEditor from '#lib/components/editor/TiptapEditor.svelte';
+	import TableOfContents from '#lib/components/ui/TableOfContents.svelte';
+	import TextPolisher from '#lib/components/TextPolisher.svelte';
+	import CityPicker from '#lib/components/CityPicker.svelte';
+	import WeatherDisplay from '#lib/components/WeatherDisplay.svelte';
+	import { getAISettings, transcribeAudio, isSpeechConfigured, type AISettings } from '#lib/api/ai.js';
+	import PageHeader from '#lib/components/ui/PageHeader.svelte';
+	import DiaryShareModal from '#lib/components/share/DiaryShareModal.svelte';
+	import DiaryVersionHistoryModal from '#lib/components/DiaryVersionHistoryModal.svelte';
+	import { getDiaryByDate, getTagCloud } from '#lib/api/diaries.js';
+	import { isAuthenticated, type Diary } from '#lib/api/client.js';
+	import { getDiaryEmojiSettings } from '#lib/api/settings.js';
+	import { fetchWeather, fetchWeatherByCoords, type WeatherResult } from '#lib/api/weather.js';
+	import type { CityInfo } from '#lib/types/city.js';
+	import { WEATHER_CODES, manualWeatherToWMO } from '#lib/utils/weatherCodes.js';
 	import {
 		formatDisplayDate,
 		formatShortDate,
@@ -25,7 +25,7 @@
 		getNextDay,
 		getToday,
 		isToday
-	} from '$lib/utils/date';
+	} from '#lib/utils/date.js';
 	import {
 		diaryCache,
 		syncState,
@@ -38,10 +38,10 @@
 		cleanupDiaryCache,
 		beginDiaryEditSession,
 		clearCache
-	} from '$lib/stores/diaryCache';
-	import { onlineState } from '$lib/stores/onlineStatus';
-	import { MOOD_SCALE, getMoodStatesForLevel, SCENARIO_OPTIONS } from '$lib/utils/diaryEmoji';
-	import MoodIcon from '$lib/components/ui/MoodIcon.svelte';
+	} from '#lib/stores/diaryCache.js';
+	import { onlineState } from '#lib/stores/onlineStatus.js';
+	import { MOOD_SCALE, getMoodStatesForLevel, SCENARIO_OPTIONS } from '#lib/utils/diaryEmoji.js';
+	import MoodIcon from '#lib/components/ui/MoodIcon.svelte';
 
 	let weatherPresets: string[] = [];
 
@@ -235,7 +235,7 @@
 		}
 	}
 
-	$: date = $page.params.date ?? getToday();
+	$: date = page.params.date ?? getToday();
 	$: canGoNext = !isToday(date);
 	$: currentDateIsDirty = date ? $diaryCache[date]?.isDirty || false : false;
 	$: isAnySyncing = $syncState.isSyncing;

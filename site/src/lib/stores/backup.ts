@@ -8,7 +8,11 @@ import {
 	downloadBackup,
 	type Backup,
 	type BackupSettings
-} from '$lib/api/backup';
+} from '#lib/api/backup.js';
+
+// 对外转出类型：设置页等消费方从本模块取 Backup / BackupSettings，
+// 而不是直接依赖 api 层（Kit 3 的 #lib 子路径导入是严格的 Node 解析，不再有隐式兜底）。
+export type { Backup, BackupSettings };
 
 export const backups = writable<Backup[]>([]);
 export const backupTotal = writable(0);

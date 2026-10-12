@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { isUpdateAvailable, isApplyingUpdate, applyUpdate } from '$lib/utils/pwa';
+	import { isUpdateAvailable, isApplyingUpdate, applyUpdate } from '#lib/utils/pwa.js';
 	import { onMount } from 'svelte';
 
 	const DISMISS_KEY = 'pwa_update_dismissed_at';

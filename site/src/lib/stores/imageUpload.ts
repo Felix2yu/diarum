@@ -1,10 +1,10 @@
-import { browser } from '$app/environment';
+import { browser } from '$app/env';
 import { writable } from 'svelte/store';
 import {
     defaultImageUploadSettings,
     getImageUploadSettings,
     type ImageUploadSettings
-} from '$lib/api/imageUpload';
+} from '#lib/api/imageUpload.js';
 
 export const imageUploadSettings = writable<ImageUploadSettings>(structuredClone(defaultImageUploadSettings));
 

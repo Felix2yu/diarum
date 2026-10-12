@@ -1,8 +1,8 @@
 <script lang="ts">
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { searchDiaries } from '$lib/api/diaries';
-	import MoodIcon from '$lib/components/ui/MoodIcon.svelte';
+	import { searchDiaries } from '#lib/api/diaries.js';
+	import MoodIcon from '#lib/components/ui/MoodIcon.svelte';
 
 	export let title: string = '';
 	export let sticky: boolean = true;
@@ -165,7 +165,7 @@
 		<!-- 右侧：导航图标与操作 -->
 		<div class="ml-auto flex items-center justify-end gap-1 z-10 flex-shrink-0">
 			{#each navItems as item}
-				{@const active = item.match($page.url.pathname)}
+				{@const active = item.match(page.url.pathname)}
 				<a
 					href={item.href}
 					class="p-2 rounded-lg transition-colors duration-200
@@ -219,7 +219,7 @@
 						onclick={(e) => e.stopPropagation()}
 					>
 						{#each navItems.filter(it => it.priority === 'more-only') as item}
-							{@const active = item.match($page.url.pathname)}
+							{@const active = item.match(page.url.pathname)}
 							<a
 								role="menuitem"
 								href={item.href}
