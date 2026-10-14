@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { isAuthenticated } from '#lib/api/client.js';
 	import { getAISettings } from '#lib/api/ai.js';
@@ -145,11 +145,16 @@
 		await loadConversations();
 	}
 
-	// Reactive statement to handle URL changes
-	$: if (page.params.id && page.params.id !== selectedConversationId && !loading && aiEnabled) {
-		selectedConversationId = page.params.id;
-		loadMessages(page.params.id);
-	}
+	// `page`（$app/state）是 runes 响应式对象，legacy `$:` 中读取不会建立依赖，
+	// 原来的 `$: if (page.params.id ...)` 在会话之间切换时永远不会触发。
+	// 改为在导航完成后同步会话 id（首次进入由下面的 onMount 负责，此时 loading 仍为 true）。
+	afterNavigate(() => {
+		const id = page.params.id;
+		if (id && id !== selectedConversationId && !loading && aiEnabled) {
+			selectedConversationId = id;
+			loadMessages(id);
+		}
+	});
 
 	onMount(async () => {
 		if (!$isAuthenticated) {
@@ -179,8 +184,10 @@
 		// Check for message query parameter (from new chat redirect)
 		const messageParam = page.url.searchParams.get('message');
 		if (messageParam && convId) {
-			// Clear the URL parameter without triggering navigation
-			window.history.replaceState({}, '', `/assistant/${convId}`);
+			// 清掉 URL 上的 ?message=：Kit 3 中原生 history.replaceState 会覆盖 Kit 写入的
+			// history 元数据，导致前进/后退时内部索引跟踪错位（官方已弃用该写法）。
+			// 改用浅路由 goto —— 只改 URL、不重新渲染，语义与原「不触发导航」一致。
+			await goto(`/assistant/${convId}`, { replace: true, shallow: true, state: {} });
 			// Send the message
 			await handleSendMessage(messageParam);
 		}

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import PageHeader from '#lib/components/ui/PageHeader.svelte';
 	import { searchDiaries } from '#lib/api/diaries.js';
 	import { isAuthenticated } from '#lib/api/client.js';
@@ -87,6 +87,26 @@
 			performSearch();
 		} else {
 			inputElement?.focus();
+		}
+	});
+
+	// 同路由再搜一次（顶栏弹窗 goto('/search?q=…')）不会重建组件，onMount 不会重跑，
+	// 因此 URL 上的 q 变化必须在这里同步。初始进入（type: 'enter'）已由 onMount 处理；
+	// 跨路由进入本页时 onMount 已把 query 设为同一个值，相等判断可避免重复请求。
+	afterNavigate((nav) => {
+		if (nav.type === 'enter') return;
+
+		const q = page.url.searchParams.get('q') ?? '';
+		if (q === query) return;
+
+		clearTimeout(searchTimeout);
+		query = q;
+
+		if (q) {
+			performSearch();
+		} else {
+			results = [];
+			searched = false;
 		}
 	});
 </script>

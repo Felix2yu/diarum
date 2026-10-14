@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { goto } from '$app/navigation';
+	import { afterNavigate, goto } from '$app/navigation';
 	import { onMount } from 'svelte';
 	import TiptapEditor from '#lib/components/editor/TiptapEditor.svelte';
 	import TableOfContents from '#lib/components/ui/TableOfContents.svelte';
@@ -88,7 +88,8 @@
 	// Snapshot taken on mousedown (before blur clears selectedContent)
 	let shareSelectedContent = '';
 	let shareOpenedByMouse = false;
-	let date = getToday();
+	// 首次挂载时 Kit 已把当前路由的 params 写入 page，这里直接读取即可
+	let date = page.params.date ?? getToday();
 	let cacheReady = false;
 
 	function captureShareSelection() {
@@ -235,7 +236,14 @@
 		}
 	}
 
-	$: date = page.params.date ?? getToday();
+	// `page` 来自 $app/state，是 runes 响应式对象：在 legacy `$:` 中读取它不会建立依赖
+	// （编译器只把裸引用 `page` 放进依赖函数，不会触发属性 getter），语句仅在初始化时执行一次，
+	// 之后路由参数变化不再触发（Kit 文档：legacy 响应式语法不会反映 page 的变化）。
+	// 因此「前一天 / 后一天」这类同路由参数切换需在导航完成后显式同步。
+	afterNavigate(() => {
+		date = page.params.date ?? getToday();
+	});
+
 	$: canGoNext = !isToday(date);
 	$: currentDateIsDirty = date ? $diaryCache[date]?.isDirty || false : false;
 	$: isAnySyncing = $syncState.isSyncing;

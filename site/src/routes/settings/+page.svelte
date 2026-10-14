@@ -101,8 +101,16 @@
 		if (typeof window === 'undefined') return;
 
 		const url = new URL(window.location.href);
-		url.hash = tab;
-		history.replaceState(null, '', url);
+		// Kit 3 起，原生 history.replaceState 会把 Kit 写入的 history 元数据一并覆盖掉，
+		// 使前进/后退时 Kit 的内部索引跟踪错位（官方已弃用该写法）。
+		// 改用浅路由 goto：只改可见 URL、不重新渲染，history 元数据由 Kit 维护。
+		goto(`${url.pathname}${url.search}#${tab}`, {
+			replace: true,
+			shallow: true,
+			state: {}
+		}).catch(() => {
+			// URL 必然属于本应用，解析失败仅理论可能；失败时保持 URL 不变即可。
+		});
 	}
 
 	let loading = true;
