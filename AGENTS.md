@@ -4,7 +4,7 @@
 
 本项目前端统一使用 **pnpm 11.22.0**，不使用 npm / yarn：
 
-- `site/package.json` 已声明 `"packageManager": "pnpm@11.22.0"`，锁文件为 `site/pnpm-lock.yaml`
+- `web/package.json` 已声明 `"packageManager": "pnpm@11.22.0"`，锁文件为 `web/pnpm-lock.yaml`
 - 安装依赖：`pnpm install`
 - 添加 / 移除依赖：`pnpm add <pkg>` / `pnpm remove <pkg>`
 - 运行脚本：`pnpm run <script>`
@@ -37,8 +37,10 @@ Diarum（吾身）是一个自托管的 AI 日记应用，核心理念是"一天
 
 ```
 diarum/
-├── main.go                    # 应用入口 (serve, version 命令)
-├── diarum.go                  # 版本/名称全局变量
+├── cmd/diarum/                # 应用入口
+│   ├── main.go                # serve/version 命令、HTTP 装配
+│   ├── diarum.go              # 版本/名称全局变量
+│   └── main_test.go
 ├── go.mod / go.sum            # Go 依赖
 ├── Makefile                   # 构建自动化
 ├── internal/                  # Go 后端包
@@ -50,10 +52,10 @@ diarum/
 │   ├── embedding/             # 向量数据库 + 嵌入服务 (RAG)
 │   ├── logger/                # 自定义日志
 │   ├── mcp/                   # MCP 服务器
-│   ├── static/                # 嵌入的前端静态文件
+│   ├── static/                # 嵌入的前端静态文件（go:embed all:build）
 │   ├── store/                 # SQLite 数据存储
 │   └── weather/               # 天气服务 (Open-Meteo)
-├── site/                      # 前端 (SvelteKit)
+├── web/                       # 前端 (SvelteKit)
 │   ├── src/
 │   │   ├── lib/
 │   │   │   ├── api/           # API 客户端函数
@@ -63,6 +65,7 @@ diarum/
 │   │   │   └── utils/         # 工具函数
 │   │   └── routes/            # SvelteKit 页面 (文件路由)
 │   └── build/                 # 编译后的前端输出
+├── scripts/                   # docker-entrypoint.sh
 ├── docs/                      # 设计文档 (中文)
 └── .github/workflows/         # CI/CD
 ```
@@ -137,13 +140,13 @@ make version        # 显示当前版本
 
 - Svelte stores (`writable`, `readable`, `derived`)
 - 认证状态：`pb.authStore` (AuthStore 类)
-- API 客户端：`site/src/lib/api/` 目录
+- API 客户端：`web/src/lib/api/` 目录
 
 ### 组件规范
 
 - 组件文件：`*.svelte`
-- 工具函数：`site/src/lib/utils/`
-- API 调用：`site/src/lib/api/`
+- 工具函数：`web/src/lib/utils/`
+- API 调用：`web/src/lib/api/`
 
 ## Git 工作流
 
@@ -170,7 +173,7 @@ make version        # 显示当前版本
 
 ### 后端
 
-- 入口：`main.go`
+- 入口：`cmd/diarum/main.go`
 - API 路由：`internal/api/*.go`
 - 数据存储：`internal/store/store.go`
 - 配置：`internal/config/`
@@ -180,11 +183,11 @@ make version        # 显示当前版本
 
 ### 前端
 
-- 页面路由：`site/src/routes/`
-- API 客户端：`site/src/lib/api/`
-- 组件：`site/src/lib/components/`
-- 状态管理：`site/src/lib/stores/`
-- 类型定义：`site/src/lib/types/`
+- 页面路由：`web/src/routes/`
+- API 客户端：`web/src/lib/api/`
+- 组件：`web/src/lib/components/`
+- 状态管理：`web/src/lib/stores/`
+- 类型定义：`web/src/lib/types/`
 
 ## 注意事项
 
@@ -213,15 +216,15 @@ make version        # 显示当前版本
 
 1. 在 `internal/api/` 创建或编辑相关文件
 2. 使用 `RegisterXxxRoutes` 模式注册路由
-3. 在 `main.go` 中调用注册函数
+3. 在 `cmd/diarum/main.go` 中调用注册函数
 4. 添加相应的 store 方法 (如需要)
 5. 编写测试
 
 ### 添加新的前端页面
 
-1. 在 `site/src/routes/` 创建目录和 `+page.svelte`
-2. 如需 API 调用，在 `site/src/lib/api/` 添加客户端函数
-3. 如需新组件，在 `site/src/lib/components/` 创建
+1. 在 `web/src/routes/` 创建目录和 `+page.svelte`
+2. 如需 API 调用，在 `web/src/lib/api/` 添加客户端函数
+3. 如需新组件，在 `web/src/lib/components/` 创建
 
 ### 修改数据模型
 

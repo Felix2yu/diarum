@@ -13,9 +13,9 @@ build/
 .tmp/
 
 # Frontend deps & build (rebuilt in container)
-site/node_modules/
-site/build/
-site/.svelte-kit/
+web/node_modules/
+web/build/
+web/.svelte-kit/
 
 # IDE / Editor
 .vscode/

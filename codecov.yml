@@ -35,5 +35,5 @@ flags:
     carryforward: true
   frontend:
     paths:
-      - site/src/**
+      - web/src/**
     carryforward: true
