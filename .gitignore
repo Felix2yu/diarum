@@ -26,6 +26,7 @@ diaria_data/
 dist/
 build/
 .tmp/
+/bin/
 
 # IDE
 .vscode/
