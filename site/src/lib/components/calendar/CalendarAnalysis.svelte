@@ -88,7 +88,7 @@
 	type Filter = 'all' | 'week' | 'month' | 'year' | 'custom';
 	let filter: Filter = $state('all');
 	let savedList: SavedPeriodAnalysisResult[] = $state([]);
-	let selected: SavedPeriodAnalysisResult | null = $state(null);
+	let selected = $state<SavedPeriodAnalysisResult | null>(null);
 
 	let overlayEl: HTMLDivElement | null = $state(null);
 	let hostEl: HTMLDivElement | null = null;
