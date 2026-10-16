@@ -1,7 +1,7 @@
 # Diarum
 
 <p align="center">
-  <img src="site/static/logo.png" alt="Diarum Logo" width="120" />
+  <img src="web/static/logo.png" alt="Diarum Logo" width="120" />
 </p>
 
 <p align="center">
@@ -69,11 +69,11 @@
 
 | 桌面端浅色 | 桌面端深色 |
 |:---:|:---:|
-| ![桌面端浅色](site/static/screenshots/desktop-light.png) | ![桌面端深色](site/static/screenshots/desktop-dark.png) |
+| ![桌面端浅色](web/static/screenshots/desktop-light.png) | ![桌面端深色](web/static/screenshots/desktop-dark.png) |
 
 | 移动端浅色 | 移动端深色 |
 |:---:|:---:|
-| ![移动端浅色](site/static/screenshots/mobile-light.png) | ![移动端深色](site/static/screenshots/mobile-dark.png) |
+| ![移动端浅色](web/static/screenshots/mobile-light.png) | ![移动端深色](web/static/screenshots/mobile-dark.png) |
 
 ### 主要功能
 

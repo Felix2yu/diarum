@@ -33,15 +33,15 @@ build: frontend backend
 # Build frontend
 frontend:
 	@echo "Building frontend..."
-	cd site && pnpm install --frozen-lockfile && pnpm run build
+	cd web && pnpm install --frozen-lockfile && pnpm run build
 
 # Build backend
 backend: frontend
 	@echo "Copying frontend build to embed location..."
 	@mkdir -p internal/static/build
-	@cp -r site/build/* internal/static/build/
+	@cp -r web/build/* internal/static/build/
 	@echo "Building backend with version $(VERSION)..."
-	go build -ldflags "$(LDFLAGS)" -o diarum .
+	go build -ldflags "$(LDFLAGS)" -o diarum ./cmd/diarum
 
 # Development mode (requires running frontend and backend separately)
 dev:
@@ -50,9 +50,9 @@ dev:
 
 dev-frontend:
 	@echo "Installing frontend dependencies..."
-	@cd site && pnpm install --frozen-lockfile
+	@cd web && pnpm install --frozen-lockfile
 	@echo "Starting frontend dev server..."
-	cd site && pnpm run dev
+	cd web && pnpm run dev
 
 dev-backend:
 	@echo "Installing backend dependencies..."
@@ -78,7 +78,7 @@ clean:
 	@echo "Cleaning..."
 	rm -f diarum
 	rm -rf .tmp
-	rm -rf site/build site/node_modules site/.svelte-kit
+	rm -rf web/build web/node_modules web/.svelte-kit
 	rm -rf dist
 	rm -rf bin
 
@@ -110,4 +110,4 @@ docker:
 # Install dependencies
 deps:
 	go mod download
-	cd site && pnpm install --frozen-lockfile
+	cd web && pnpm install --frozen-lockfile

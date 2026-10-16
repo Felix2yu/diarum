@@ -6,18 +6,18 @@ Diarum 已经实现了完整的 PWA（Progressive Web App）功能，支持离�
 
 ## 实现状态
 
-本文档中的描述与实际代码实现高度一致。关键文件已在 `site/` 目录中部署：
+本文档中的描述与实际代码实现高度一致。关键文件已在 `web/` 目录中部署：
 
 | 功能 | 文件路径 | 实现状态 |
 | :--- | :--- | :--- |
-| 应用清单 | `site/static/site.webmanifest` | ✅ 已实现 |
-| Service Worker | `site/vite.config.ts`（Vite PWA 插件自动生成） | ✅ 已实现 |
-| 应用图标 | `site/static/android-chrome-192x192.png`、`-512x512.png`、`apple-touch-icon.png` | ✅ 已实现 |
-| PWA 工具函数 | `site/src/lib/utils/pwa.ts` | ✅ 已实现 |
-| 安装提示组件 | `site/src/lib/components/PWAInstallPrompt.svelte` | ✅ 已实现 |
-| 更新提示组件 | `site/src/lib/components/PWAUpdatePrompt.svelte` | ✅ 已实现 |
-| 集成到全局布局 | `site/src/routes/+layout.svelte` | ✅ 已实现 |
-| Vite PWA 插件 | `site/vite.config.ts` | ✅ 已实现 |
+| 应用清单 | `web/static/site.webmanifest` | ✅ 已实现 |
+| Service Worker | `web/vite.config.ts`（Vite PWA 插件自动生成） | ✅ 已实现 |
+| 应用图标 | `web/static/android-chrome-192x192.png`、`-512x512.png`、`apple-touch-icon.png` | ✅ 已实现 |
+| PWA 工具函数 | `web/src/lib/utils/pwa.ts` | ✅ 已实现 |
+| 安装提示组件 | `web/src/lib/components/PWAInstallPrompt.svelte` | ✅ 已实现 |
+| 更新提示组件 | `web/src/lib/components/PWAUpdatePrompt.svelte` | ✅ 已实现 |
+| 集成到全局布局 | `web/src/routes/+layout.svelte` | ✅ 已实现 |
+| Vite PWA 插件 | `web/vite.config.ts` | ✅ 已实现 |
 
 ### 主要差异点
 
@@ -64,7 +64,7 @@ Diarum 已经实现了完整的 PWA（Progressive Web App）功能，支持离�
 ## 文件结构
 
 ```
-site/
+web/
 ├── static/
 │   ├── site.webmanifest          # PWA 清单文件
 │   ├── android-chrome-192x192.png # 应用图标 192x192
@@ -88,7 +88,7 @@ site/
 
 1. **构建生产版本**
    ```bash
-   cd site
+   cd web
    pnpm install --frozen-lockfile
    pnpm run build
    ```
@@ -183,7 +183,7 @@ Service Worker 的作用域设置为根路径 `/`，确保整个应用都被缓�
 
 ### 修改缓存策略
 
-编辑 `site/vite.config.ts` 中的 `workbox.runtimeCaching` 配置：
+编辑 `web/vite.config.ts` 中的 `workbox.runtimeCaching` 配置：
 
 ```typescript
 {
@@ -202,11 +202,11 @@ Service Worker 的作用域设置为根路径 `/`，确保整个应用都被缓�
 
 ### 修改 Manifest
 
-编辑 `site/static/site.webmanifest` 或 `site/vite.config.ts` 中的 manifest 配置。
+编辑 `web/static/site.webmanifest` 或 `web/vite.config.ts` 中的 manifest 配置。
 
 ### 禁用安装提示
 
-在 `site/src/routes/+layout.svelte` 中移除或注释掉：
+在 `web/src/routes/+layout.svelte` 中移除或注释掉：
 
 ```svelte
 <PWAInstallPrompt />
@@ -214,7 +214,7 @@ Service Worker 的作用域设置为根路径 `/`，确保整个应用都被缓�
 
 ### 禁用更新提示
 
-在 `site/src/routes/+layout.svelte` 中移除或注释掉：
+在 `web/src/routes/+layout.svelte` 中移除或注释掉：
 
 ```svelte
 <PWAUpdatePrompt />

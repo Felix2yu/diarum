@@ -17,8 +17,7 @@ RUN apk add --no-cache ca-certificates tzdata su-exec && \
     chown -R diarum:diarum /app
 
 COPY bin/diarum /app/diarum
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /app/diarum /entrypoint.sh
+COPY --chmod=755 scripts/docker-entrypoint.sh /entrypoint.sh
 
 ENV TZ=Asia/Shanghai
 ENV DIARUM_DATA_PATH=/app/data
