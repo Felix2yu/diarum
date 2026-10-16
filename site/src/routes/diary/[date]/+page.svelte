@@ -12,7 +12,7 @@
 	import DiaryShareModal from '#lib/components/share/DiaryShareModal.svelte';
 	import DiaryVersionHistoryModal from '#lib/components/DiaryVersionHistoryModal.svelte';
 	import { getDiaryByDate, getTagCloud } from '#lib/api/diaries.js';
-	import { isAuthenticated, type Diary } from '#lib/api/client.js';
+	import { isAuthenticated, pb, type Diary } from '#lib/api/client.js';
 	import { getDiaryEmojiSettings } from '#lib/api/settings.js';
 	import { fetchWeather, fetchWeatherByCoords, type WeatherResult } from '#lib/api/weather.js';
 	import type { CityInfo } from '#lib/types/city.js';
@@ -445,9 +445,8 @@
 		});
 	}
 
-	function handleWeatherSelect(code: number) {
-		const codeStr = String(code);
-		selectedWeather = selectedWeather === codeStr ? '' : codeStr;
+	function handleWeatherSelect(code: string) {
+		selectedWeather = selectedWeather === code ? '' : code;
 		updateLocalCache(date, {
 			content,
 			mood: selectedMood,
@@ -899,7 +898,7 @@
 							placeholder="今天有什么想说的？"
 							emptyStatePrompt="✨ 回顾今天... 这一天你会记住什么？"
 							diaryDate={date}
-							onFocusChange={(focused) => {
+							onFocusChange={(focused: boolean) => {
 							editorFocused = focused;
 							if (focused) {
 								// 每次进入编辑框开启新的编辑会话，会话内只产生一个版本
