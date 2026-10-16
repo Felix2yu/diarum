@@ -49,6 +49,7 @@ jobs:
     uses: Felix2yu/.github/.github/workflows/reusable-image.yml@v1
     with:
       go-dir: .
+      main-package: ./cmd/diarum
       binary-name: diarum
       image-name: ghcr.io/felix2yu/diarum
       web-dir: web
@@ -68,6 +69,7 @@ jobs:
     uses: Felix2yu/.github/.github/workflows/reusable-release.yml@v1
     with:
       go-dir: .
+      main-package: ./cmd/diarum
       binary-name: diarum
       web-dir: web
       # build 脚本用系统 zstd 给产物打 .zst 预压缩，找不到 zstd 时它静默跳过 ——
