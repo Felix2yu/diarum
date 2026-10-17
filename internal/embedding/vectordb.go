@@ -16,10 +16,9 @@ const (
 
 // VectorDB manages the vector database for diary embeddings
 type VectorDB struct {
-	db         *chromem.DB
-	dataDir    string
-	mu         sync.RWMutex
-	collection *chromem.Collection
+	db      *chromem.DB
+	dataDir string
+	mu      sync.RWMutex
 }
 
 // NewVectorDB creates a new VectorDB instance

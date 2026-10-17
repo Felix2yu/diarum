@@ -196,8 +196,6 @@ func TestConversationPersistenceHelpers(t *testing.T) {
 func TestProcessStreamResponseWithTools(t *testing.T) {
 	service := &ChatService{}
 	writer := &mockStreamWriter{}
-
-	writer = &mockStreamWriter{}
 	fullResponse, toolCalls, err := service.processStreamResponseWithTools(strings.NewReader(strings.Join([]string{
 		"data: {\"choices\":[{\"delta\":{\"content\":\"Summary \",\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"type\":\"function\",\"function\":{\"name\":\"search_diaries\",\"arguments\":\"{\\\"start_date\\\":\\\"2024-01-01\\\"\"}}]}}]}",
 		"data: {\"choices\":[{\"delta\":{\"content\":\"done\",\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\",\\\"end_date\\\":\\\"2024-01-31\\\"}\"}}]}}]}",

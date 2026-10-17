@@ -229,7 +229,7 @@ func RegisterDiaryRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		scenario := c.QueryParam("scenario")
 		var mood int
 		if moodStr != "" {
-			fmt.Sscanf(moodStr, "%d", &mood)
+			_, _ = fmt.Sscanf(moodStr, "%d", &mood)
 		}
 		diaries, err := s.FilterDiaries(user.ID, mood, scenario, 100)
 		if err != nil {

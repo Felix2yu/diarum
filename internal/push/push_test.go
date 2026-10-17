@@ -18,8 +18,7 @@ import (
 	"github.com/songtianlun/diarum/internal/store"
 )
 
-func intPtr(v int) *int       { return &v }
-func strPtr(v string) *string { return &v }
+func intPtr(v int) *int { return &v }
 
 func newHarness(t *testing.T) (*store.Store, *store.User, *config.ConfigService, *Sender, *Scheduler) {
 	t.Helper()
