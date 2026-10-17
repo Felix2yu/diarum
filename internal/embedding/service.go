@@ -413,10 +413,10 @@ func parseStoreTime(value string) (time.Time, error) {
 type diaryVectorStatus int
 
 const (
-	vectorStatusMissing diaryVectorStatus = iota // chromem 里没有 → 需要完整构建
-	vectorStatusRebuildNeeded                    // content 变了 → 需要重新 embedding
-	vectorStatusMetadataSyncNeeded               // 只有 metadata 变了 → 只同步 metadata
-	vectorStatusUpToDate                         // 都没变 → 跳过
+	vectorStatusMissing            diaryVectorStatus = iota // chromem 里没有 → 需要完整构建
+	vectorStatusRebuildNeeded                               // content 变了 → 需要重新 embedding
+	vectorStatusMetadataSyncNeeded                          // 只有 metadata 变了 → 只同步 metadata
+	vectorStatusUpToDate                                    // 都没变 → 跳过
 )
 
 // classifyDiaryStatus 检查一条日记相对于 chromem 向量索引的状态。

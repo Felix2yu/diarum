@@ -209,7 +209,10 @@ func TestSchedulerNextBackupTime(t *testing.T) {
 }
 
 func TestParseTime(t *testing.T) {
-	cases := []struct{ in string; h, m int }{
+	cases := []struct {
+		in   string
+		h, m int
+	}{
 		{"00:00", 0, 0},
 		{"07:30", 7, 30},
 		{"23:59", 23, 59},

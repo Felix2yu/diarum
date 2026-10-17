@@ -253,7 +253,7 @@ func (s *Server) GetStreamableHTTPServer() *server.StreamableHTTPServer {
 			server.WithCORSAllowedHeaders("Content-Type", "Authorization", "Accept"),
 		),
 		server.WithProtectedResourceMetadata(server.ProtectedResourceMetadataConfig{
-			Resource:              "/mcp",
+			Resource:               "/mcp",
 			BearerMethodsSupported: []string{"header"},
 		}),
 	)
@@ -865,10 +865,10 @@ func (s *Server) registerWeatherTools() {
 		}
 
 		out, _ := json.Marshal(map[string]any{
-			"updated":  updated,
-			"skipped":  skipped,
-			"failed":   failed,
-			"total":    len(diaries),
+			"updated":   updated,
+			"skipped":   skipped,
+			"failed":    failed,
+			"total":     len(diaries),
 			"city_used": defaultCity,
 		})
 		return mcp.NewToolResultText(string(out)), nil
@@ -1468,10 +1468,10 @@ func (s *Server) registerCorrectionTools() {
 			return mcp.NewToolResultError("apply=true requires 'target_diary_id'"), nil
 		}
 		out := map[string]any{
-			"original": original,
+			"original":  original,
 			"corrected": corrected,
-			"applied":  false,
-			"note":     "语音转写 → 语音整理预设纠正 → 格式化",
+			"applied":   false,
+			"note":      "语音转写 → 语音整理预设纠正 → 格式化",
 		}
 		if apply {
 			cf := strings.ToLower(strings.TrimSpace(req.GetString("content_format", "html")))
@@ -1967,7 +1967,7 @@ func (w *bufferWriter) Write(b []byte) (int, error) {
 	return w.buf.Write(b)
 }
 
-func (w *bufferWriter) Flush() {}
+func (w *bufferWriter) Flush()       {}
 func (w *bufferWriter) Close() error { return nil }
 
 func (s *Server) registerChatTools() {
@@ -2144,8 +2144,8 @@ func (s *Server) registerChatTools() {
 			fullText = buf.buf.String()
 		}
 		out, _ := json.Marshal(map[string]any{
-			"conversation_id": convID,
-			"reply":           fullText,
+			"conversation_id":    convID,
+			"reply":              fullText,
 			"referenced_diaries": refs,
 		})
 		return mcp.NewToolResultText(string(out)), nil

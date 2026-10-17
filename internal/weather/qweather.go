@@ -30,16 +30,16 @@ func qweatherHost() string {
 }
 
 type qwDailyResponse struct {
-	Code    string `json:"code"`
-	Daily   []qwDaily `json:"daily"`
+	Code  string    `json:"code"`
+	Daily []qwDaily `json:"daily"`
 }
 
 type qwDaily struct {
-	FxDate   string `json:"fxDate"`
-	TempMax  string `json:"tempMax"`
-	TempMin  string `json:"tempMin"`
-	IconDay  string `json:"iconDay"`
-	TextDay  string `json:"textDay"`
+	FxDate  string `json:"fxDate"`
+	TempMax string `json:"tempMax"`
+	TempMin string `json:"tempMin"`
+	IconDay string `json:"iconDay"`
+	TextDay string `json:"textDay"`
 }
 
 func FetchFromQWeather(city string, lat, lon float64, date string) (*WeatherResult, error) {
