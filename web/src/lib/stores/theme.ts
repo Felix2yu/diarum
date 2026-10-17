@@ -4,17 +4,17 @@ import { browser } from '$app/env';
 export type Theme = 'light' | 'dark' | 'system';
 
 function getInitialTheme(): Theme {
-	if (!browser) return 'system';
-	const stored = localStorage.getItem('theme') as Theme;
-	if (stored && ['light', 'dark', 'system'].includes(stored)) {
-		return stored;
-	}
-	return 'system';
+  if (!browser) return 'system';
+  const stored = localStorage.getItem('theme') as Theme;
+  if (stored && ['light', 'dark', 'system'].includes(stored)) {
+    return stored;
+  }
+  return 'system';
 }
 
 function getSystemTheme(): 'light' | 'dark' {
-	if (!browser) return 'light';
-	return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  if (!browser) return 'light';
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 export const theme = writable<Theme>(getInitialTheme());
@@ -22,46 +22,46 @@ export const theme = writable<Theme>(getInitialTheme());
 export const effectiveTheme = writable<'light' | 'dark'>('light');
 
 export function initTheme() {
-	if (!browser) return;
+  if (!browser) return;
 
-	const updateEffectiveTheme = (t: Theme) => {
-		const effective = t === 'system' ? getSystemTheme() : t;
-		effectiveTheme.set(effective);
+  const updateEffectiveTheme = (t: Theme) => {
+    const effective = t === 'system' ? getSystemTheme() : t;
+    effectiveTheme.set(effective);
 
-		if (effective === 'dark') {
-			document.documentElement.classList.add('dark');
-		} else {
-			document.documentElement.classList.remove('dark');
-		}
+    if (effective === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
 
-		// 同步设置 PWA/状态栏 theme-color（iOS/macOS PWA 依赖此标签）
-		// 浅色：温暖米黄 #F7F3E8  |  深色：深棕 #1C1714
-		const meta = document.getElementById('meta-theme-color');
-		if (meta) {
-			meta.setAttribute('content', effective === 'dark' ? '#1C1714' : '#F7F3E8');
-		}
-	};
+    // 同步设置 PWA/状态栏 theme-color（iOS/macOS PWA 依赖此标签）
+    // 浅色：温暖米黄 #F7F3E8  |  深色：深棕 #1C1714
+    const meta = document.getElementById('meta-theme-color');
+    if (meta) {
+      meta.setAttribute('content', effective === 'dark' ? '#1C1714' : '#F7F3E8');
+    }
+  };
 
-	theme.subscribe((t) => {
-		localStorage.setItem('theme', t);
-		updateEffectiveTheme(t);
-	});
+  theme.subscribe((t) => {
+    localStorage.setItem('theme', t);
+    updateEffectiveTheme(t);
+  });
 
-	// Listen for system theme changes
-	const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-	mediaQuery.addEventListener('change', () => {
-		theme.update((t) => {
-			if (t === 'system') {
-				updateEffectiveTheme(t);
-			}
-			return t;
-		});
-	});
+  // Listen for system theme changes
+  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+  mediaQuery.addEventListener('change', () => {
+    theme.update((t) => {
+      if (t === 'system') {
+        updateEffectiveTheme(t);
+      }
+      return t;
+    });
+  });
 
-	// Initialize
-	updateEffectiveTheme(getInitialTheme());
+  // Initialize
+  updateEffectiveTheme(getInitialTheme());
 }
 
 export function setTheme(newTheme: Theme) {
-	theme.set(newTheme);
+  theme.set(newTheme);
 }

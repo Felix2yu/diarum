@@ -3,572 +3,600 @@ import { pb, type Diary } from './client';
 export type { Diary };
 
 export type DiaryByDateResult =
-	| { status: 'found'; diary: Diary }
-	| { status: 'not_found'; diary: null }
-	| { status: 'error'; diary: null };
+  | { status: 'found'; diary: Diary }
+  | { status: 'not_found'; diary: null }
+  | { status: 'error'; diary: null };
 
 export interface CalendarDiaryMeta {
-	date: string;
-	mood?: number;
-	weather?: string;
-	city?: string;
-	temp_min?: number;
-	temp_max?: number;
-	has_content?: boolean;
+  date: string;
+  mood?: number;
+  weather?: string;
+  city?: string;
+  temp_min?: number;
+  temp_max?: number;
+  has_content?: boolean;
 }
 
 /**
  * Get diary by ID
  */
 export async function getDiaryById(id: string): Promise<Diary | null> {
-	try {
-		const response = await fetch(`/api/v1/diaries/${encodeURIComponent(id)}`, {
-			headers: {
-				'Authorization': `Bearer ${pb.authStore.token}`
-			}
-		});
+  try {
+    const response = await fetch(`/api/v1/diaries/${encodeURIComponent(id)}`, {
+      headers: {
+        Authorization: `Bearer ${pb.authStore.token}`
+      }
+    });
 
-		if (!response.ok) {
-			return null;
-		}
+    if (!response.ok) {
+      return null;
+    }
 
-		return await response.json();
-	} catch (error) {
-		console.error('Error fetching diary by ID:', error);
-		return null;
-	}
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching diary by ID:', error);
+    return null;
+  }
 }
 
 /**
  * Get multiple diaries by IDs
  */
 export async function getDiariesByIds(ids: string[]): Promise<Diary[]> {
-	try {
-		if (ids.length === 0) return [];
-		const response = await fetch('/api/v1/diaries/by-ids', {
-			method: 'POST',
-			headers: {
-				'Authorization': `Bearer ${pb.authStore.token}`,
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({ ids })
-		});
+  try {
+    if (ids.length === 0) return [];
+    const response = await fetch('/api/v1/diaries/by-ids', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${pb.authStore.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ ids })
+    });
 
-		if (!response.ok) {
-			return [];
-		}
+    if (!response.ok) {
+      return [];
+    }
 
-		const data = await response.json();
-		return data.diaries || [];
-	} catch (error) {
-		console.error('Error fetching diaries by IDs:', error);
-		return [];
-	}
+    const data = await response.json();
+    return data.diaries || [];
+  } catch (error) {
+    console.error('Error fetching diaries by IDs:', error);
+    return [];
+  }
 }
 
 /**
  * Get diary by date with status (distinguishes not found vs request errors)
  */
 export async function getDiaryByDateResult(date: string): Promise<DiaryByDateResult> {
-	try {
-		const response = await fetch(`/api/v1/diaries/by-date/${date}`, {
-			headers: {
-				'Authorization': `Bearer ${pb.authStore.token}`
-			}
-		});
+  try {
+    const response = await fetch(`/api/v1/diaries/by-date/${date}`, {
+      headers: {
+        Authorization: `Bearer ${pb.authStore.token}`
+      }
+    });
 
-		if (response.status === 404) {
-			return { status: 'not_found', diary: null };
-		}
+    if (response.status === 404) {
+      return { status: 'not_found', diary: null };
+    }
 
-		if (!response.ok) {
-			console.error(`Error fetching diary: HTTP ${response.status}`);
-			return { status: 'error', diary: null };
-		}
+    if (!response.ok) {
+      console.error(`Error fetching diary: HTTP ${response.status}`);
+      return { status: 'error', diary: null };
+    }
 
-		const data = await response.json();
-		if (!data.exists) {
-			return { status: 'not_found', diary: null };
-		}
+    const data = await response.json();
+    if (!data.exists) {
+      return { status: 'not_found', diary: null };
+    }
 
-		return { status: 'found', diary: data as Diary };
-	} catch (error) {
-		console.error('Error fetching diary:', error);
-		return { status: 'error', diary: null };
-	}
+    return { status: 'found', diary: data as Diary };
+  } catch (error) {
+    console.error('Error fetching diary:', error);
+    return { status: 'error', diary: null };
+  }
 }
 
 /**
  * Get diary by date
  */
 export async function getDiaryByDate(date: string): Promise<Diary | null> {
-	const result = await getDiaryByDateResult(date);
-	return result.status === 'found' ? result.diary : null;
+  const result = await getDiaryByDateResult(date);
+  return result.status === 'found' ? result.diary : null;
 }
 
 /**
  * 获取往年今日：返回所有与指定日期月-日相同但年份不同的日记。
  * 不传日期则使用今天。
  */
-export async function getDiariesOnThisDay(date?: string): Promise<{ date: string; total: number; diaries: Diary[] }> {
-	try {
-		const query = date ? `?date=${encodeURIComponent(date)}` : '';
-		const response = await fetch(`/api/v1/diaries/on-this-day${query}`, {
-			headers: {
-				'Authorization': `Bearer ${pb.authStore.token}`
-			}
-		});
-		if (!response.ok) {
-			return { date: date ?? '', total: 0, diaries: [] };
-		}
-		const data = await response.json();
-		return {
-			date: data.date ?? date ?? '',
-			total: Number(data.total) ?? 0,
-			diaries: Array.isArray(data.diaries) ? (data.diaries as Diary[]) : []
-		};
-	} catch (error) {
-		console.error('Error fetching on-this-day diaries:', error);
-		return { date: date ?? '', total: 0, diaries: [] };
-	}
+export async function getDiariesOnThisDay(
+  date?: string
+): Promise<{ date: string; total: number; diaries: Diary[] }> {
+  try {
+    const query = date ? `?date=${encodeURIComponent(date)}` : '';
+    const response = await fetch(`/api/v1/diaries/on-this-day${query}`, {
+      headers: {
+        Authorization: `Bearer ${pb.authStore.token}`
+      }
+    });
+    if (!response.ok) {
+      return { date: date ?? '', total: 0, diaries: [] };
+    }
+    const data = await response.json();
+    return {
+      date: data.date ?? date ?? '',
+      total: Number(data.total) || 0,
+      diaries: Array.isArray(data.diaries) ? (data.diaries as Diary[]) : []
+    };
+  } catch (error) {
+    console.error('Error fetching on-this-day diaries:', error);
+    return { date: date ?? '', total: 0, diaries: [] };
+  }
 }
 
 /**
  * 随机穿越：从用户有内容的日记中随机挑选一条返回。
  * 返回值若 exists=false 则表示没有可用的日记。
  */
-export async function getRandomDiary(excludeDate?: string): Promise<{ exists: boolean; diary: Diary | null }> {
-	try {
-		const query = excludeDate ? `?exclude_date=${encodeURIComponent(excludeDate)}` : '';
-		const response = await fetch(`/api/v1/diaries/random${query}`, {
-			headers: {
-				'Authorization': `Bearer ${pb.authStore.token}`
-			}
-		});
-		if (!response.ok) {
-			return { exists: false, diary: null };
-		}
-		const data = await response.json();
-		if (data.exists === false) {
-			return { exists: false, diary: null };
-		}
-		return { exists: true, diary: data as Diary };
-	} catch (error) {
-		console.error('Error fetching random diary:', error);
-		return { exists: false, diary: null };
-	}
+export async function getRandomDiary(
+  excludeDate?: string
+): Promise<{ exists: boolean; diary: Diary | null }> {
+  try {
+    const query = excludeDate ? `?exclude_date=${encodeURIComponent(excludeDate)}` : '';
+    const response = await fetch(`/api/v1/diaries/random${query}`, {
+      headers: {
+        Authorization: `Bearer ${pb.authStore.token}`
+      }
+    });
+    if (!response.ok) {
+      return { exists: false, diary: null };
+    }
+    const data = await response.json();
+    if (data.exists === false) {
+      return { exists: false, diary: null };
+    }
+    return { exists: true, diary: data as Diary };
+  } catch (error) {
+    console.error('Error fetching random diary:', error);
+    return { exists: false, diary: null };
+  }
 }
 
 /**
  * Check if content is effectively empty (strips HTML tags and whitespace)
  */
 function isContentEmpty(content: string | undefined | null): boolean {
-	if (!content) return true;
+  if (!content) return true;
 
-	const normalized = content.replace(/&nbsp;|&#160;/gi, ' ').trim();
-	if (!normalized) return true;
+  const normalized = content.replace(/&nbsp;|&#160;/gi, ' ').trim();
+  if (!normalized) return true;
 
-	// Treat media/embedded elements as meaningful content even without plain text.
-	if (/<(img|video|audio|iframe|embed|object|svg|canvas)\b[^>]*>/i.test(normalized)) {
-		return false;
-	}
+  // Treat media/embedded elements as meaningful content even without plain text.
+  if (/<(img|video|audio|iframe|embed|object|svg|canvas)\b[^>]*>/i.test(normalized)) {
+    return false;
+  }
 
-	return normalized.replace(/<[^>]*>/g, '').trim().length === 0;
+  return normalized.replace(/<[^>]*>/g, '').trim().length === 0;
 }
 
 /**
  * Create or update diary. Deletes the entry if all fields are empty.
  */
 export async function saveDiary(diary: Partial<Diary>): Promise<boolean> {
-	try {
-		if (!pb.authStore.model?.id) {
-			throw new Error('Not authenticated');
-		}
+  try {
+    if (!pb.authStore.model?.id) {
+      throw new Error('Not authenticated');
+    }
 
-		// Use custom API to get diary by date first
-		const existingResult = await getDiaryByDateResult(diary.date!);
-		if (existingResult.status === 'error') {
-			// Fail closed when existence check fails to avoid false "saved" states.
-			return false;
-		}
-		const existing = existingResult.diary;
+    // Use custom API to get diary by date first
+    const existingResult = await getDiaryByDateResult(diary.date!);
+    if (existingResult.status === 'error') {
+      // Fail closed when existence check fails to avoid false "saved" states.
+      return false;
+    }
+    const existing = existingResult.diary;
 
-		// Use effective values: incoming value takes precedence, fall back to existing record.
-		// This prevents accidentally deleting an entry when only content is synced
-		// but mood/weather still have values on the server.
-		const effectiveContent = diary.content !== undefined ? diary.content : existing?.content;
-		const effectiveMood = diary.mood !== undefined ? diary.mood : existing?.mood;
-		const effectiveMoodStates = diary.mood_states !== undefined ? diary.mood_states : existing?.mood_states ?? [];
-		const effectiveScenarios = diary.scenarios !== undefined ? diary.scenarios : existing?.scenarios ?? [];
-		// Weather fields fall back to existing values when empty: an empty string
-		// (e.g. edited while offline) must not wipe out weather already on the server.
-		const effectiveWeather = diary.weather || existing?.weather || '';
-		const effectiveCity = effectiveWeather ? (diary.city || existing?.city || '') : (existing?.city || '');
-		const effectiveTempMin = effectiveWeather ? (diary.temp_min ?? existing?.temp_min ?? 0) : (existing?.temp_min ?? 0);
-		const effectiveTempMax = effectiveWeather ? (diary.temp_max ?? existing?.temp_max ?? 0) : (existing?.temp_max ?? 0);
-		const effectiveTags = diary.tags !== undefined ? diary.tags : existing?.tags ?? [];
+    // Use effective values: incoming value takes precedence, fall back to existing record.
+    // This prevents accidentally deleting an entry when only content is synced
+    // but mood/weather still have values on the server.
+    const effectiveContent = diary.content !== undefined ? diary.content : existing?.content;
+    const effectiveMood = diary.mood !== undefined ? diary.mood : existing?.mood;
+    const effectiveMoodStates =
+      diary.mood_states !== undefined ? diary.mood_states : (existing?.mood_states ?? []);
+    const effectiveScenarios =
+      diary.scenarios !== undefined ? diary.scenarios : (existing?.scenarios ?? []);
+    // Weather fields fall back to existing values when empty: an empty string
+    // (e.g. edited while offline) must not wipe out weather already on the server.
+    const effectiveWeather = diary.weather || existing?.weather || '';
+    const effectiveCity = effectiveWeather
+      ? diary.city || existing?.city || ''
+      : existing?.city || '';
+    const effectiveTempMin = effectiveWeather
+      ? (diary.temp_min ?? existing?.temp_min ?? 0)
+      : (existing?.temp_min ?? 0);
+    const effectiveTempMax = effectiveWeather
+      ? (diary.temp_max ?? existing?.temp_max ?? 0)
+      : (existing?.temp_max ?? 0);
+    const effectiveTags = diary.tags !== undefined ? diary.tags : (existing?.tags ?? []);
 
-	// 空内容判定基于用户本次实际提交的字段，而不是回退到服务器已有值。
-	// 这样离线清空日记（天气为空）时，不会被服务器自动抓取的天气"误判为非空"，
-	// 从而正确删除空记录；而正常编辑时天气字段仍通过 effectiveWeather 保护不被覆盖。
-	const allEmpty =
-		isContentEmpty(diary.content) &&
-		!diary.mood &&
-		!(diary.mood_states?.length ?? 0) &&
-		!(diary.scenarios?.length ?? 0) &&
-		!diary.weather?.trim() &&
-		!(diary.tags?.length ?? 0);
+    // 空内容判定基于用户本次实际提交的字段，而不是回退到服务器已有值。
+    // 这样离线清空日记（天气为空）时，不会被服务器自动抓取的天气"误判为非空"，
+    // 从而正确删除空记录；而正常编辑时天气字段仍通过 effectiveWeather 保护不被覆盖。
+    const allEmpty =
+      isContentEmpty(diary.content) &&
+      !diary.mood &&
+      !(diary.mood_states?.length ?? 0) &&
+      !(diary.scenarios?.length ?? 0) &&
+      !diary.weather?.trim() &&
+      !(diary.tags?.length ?? 0);
 
-		if (existing && existing.id) {
-			if (allEmpty) {
-				// All fields are empty — delete the entry instead of saving a blank record
-				return deleteDiary(existing.id);
-			}
-		} else {
-			if (allEmpty) {
-				// Nothing to save — skip creating an empty entry
-				return true;
-			}
-		}
+    if (existing && existing.id) {
+      if (allEmpty) {
+        // All fields are empty — delete the entry instead of saving a blank record
+        return deleteDiary(existing.id);
+      }
+    } else {
+      if (allEmpty) {
+        // Nothing to save — skip creating an empty entry
+        return true;
+      }
+    }
 
-		const response = await fetch('/api/v1/diaries/upsert', {
-			method: 'POST',
-			headers: {
-				'Authorization': `Bearer ${pb.authStore.token}`,
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				date: diary.date,
-				content: diary.content ?? existing?.content ?? '',
-				mood: diary.mood ?? existing?.mood ?? 0,
-				mood_states: effectiveMoodStates,
-				scenarios: effectiveScenarios,
-				weather: effectiveWeather,
-				city: effectiveCity,
-				temp_min: effectiveTempMin,
-				temp_max: effectiveTempMax,
-				tags: effectiveTags,
-				...(diary.edit_session_id ? { edit_session_id: diary.edit_session_id } : {})
-			})
-		});
+    const response = await fetch('/api/v1/diaries/upsert', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${pb.authStore.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        date: diary.date,
+        content: effectiveContent ?? '',
+        mood: effectiveMood ?? 0,
+        mood_states: effectiveMoodStates,
+        scenarios: effectiveScenarios,
+        weather: effectiveWeather,
+        city: effectiveCity,
+        temp_min: effectiveTempMin,
+        temp_max: effectiveTempMax,
+        tags: effectiveTags,
+        ...(diary.edit_session_id ? { edit_session_id: diary.edit_session_id } : {})
+      })
+    });
 
-		if (!response.ok) {
-			return false;
-		}
+    if (!response.ok) {
+      return false;
+    }
 
-		return true;
-	} catch (error) {
-		console.error('Error saving diary:', error);
-		return false;
-	}
+    return true;
+  } catch (error) {
+    console.error('Error saving diary:', error);
+    return false;
+  }
 }
 
 /** 日记版本摘要（列表接口不含完整正文） */
 export interface DiaryVersionSummary {
-	id: string;
-	diary_id: string;
-	date: string;
-	preview: string;
-	content_length: number;
-	created: string;
+  id: string;
+  diary_id: string;
+  date: string;
+  preview: string;
+  content_length: number;
+  created: string;
 }
 
 /** 日记版本完整内容（详情接口） */
 export interface DiaryVersionDetail extends DiaryVersionSummary {
-	content: string;
-	mood?: number;
-	mood_states?: string[];
-	scenarios?: string[];
-	weather?: string;
-	city?: string;
-	temp_min?: number;
-	temp_max?: number;
-	tags?: string[];
+  content: string;
+  mood?: number;
+  mood_states?: string[];
+  scenarios?: string[];
+  weather?: string;
+  city?: string;
+  temp_min?: number;
+  temp_max?: number;
+  tags?: string[];
 }
 
 function authHeaders(): Record<string, string> {
-	return { Authorization: `Bearer ${pb.authStore.token}` };
+  return { Authorization: `Bearer ${pb.authStore.token}` };
 }
 
 /**
  * 列出日记的历史版本（摘要，按时间倒序）
  */
 export async function listDiaryVersions(diaryId: string): Promise<DiaryVersionSummary[] | null> {
-	try {
-		const response = await fetch(`/api/v1/diaries/${encodeURIComponent(diaryId)}/versions`, {
-			headers: authHeaders()
-		});
-		if (!response.ok) {
-			return null;
-		}
-		const data = await response.json();
-		return (data.versions ?? []) as DiaryVersionSummary[];
-	} catch (error) {
-		console.error('Error listing diary versions:', error);
-		return null;
-	}
+  try {
+    const response = await fetch(`/api/v1/diaries/${encodeURIComponent(diaryId)}/versions`, {
+      headers: authHeaders()
+    });
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json();
+    return (data.versions ?? []) as DiaryVersionSummary[];
+  } catch (error) {
+    console.error('Error listing diary versions:', error);
+    return null;
+  }
 }
 
 /**
  * 获取单个版本的完整内容
  */
 export async function getDiaryVersion(
-	diaryId: string,
-	versionId: string
+  diaryId: string,
+  versionId: string
 ): Promise<DiaryVersionDetail | null> {
-	try {
-		const response = await fetch(
-			`/api/v1/diaries/${encodeURIComponent(diaryId)}/versions/${encodeURIComponent(versionId)}`,
-			{ headers: authHeaders() }
-		);
-		if (!response.ok) {
-			return null;
-		}
-		return (await response.json()) as DiaryVersionDetail;
-	} catch (error) {
-		console.error('Error fetching diary version:', error);
-		return null;
-	}
+  try {
+    const response = await fetch(
+      `/api/v1/diaries/${encodeURIComponent(diaryId)}/versions/${encodeURIComponent(versionId)}`,
+      { headers: authHeaders() }
+    );
+    if (!response.ok) {
+      return null;
+    }
+    return (await response.json()) as DiaryVersionDetail;
+  } catch (error) {
+    console.error('Error fetching diary version:', error);
+    return null;
+  }
 }
 
 /**
  * 恢复到指定版本（服务端会先把当前内容另存为版本，恢复可撤销）
  */
 export async function restoreDiaryVersion(
-	diaryId: string,
-	versionId: string
+  diaryId: string,
+  versionId: string
 ): Promise<Diary | null> {
-	try {
-		const response = await fetch(
-			`/api/v1/diaries/${encodeURIComponent(diaryId)}/versions/${encodeURIComponent(versionId)}/restore`,
-			{ method: 'POST', headers: authHeaders() }
-		);
-		if (!response.ok) {
-			return null;
-		}
-		return (await response.json()) as Diary;
-	} catch (error) {
-		console.error('Error restoring diary version:', error);
-		return null;
-	}
+  try {
+    const response = await fetch(
+      `/api/v1/diaries/${encodeURIComponent(diaryId)}/versions/${encodeURIComponent(versionId)}/restore`,
+      { method: 'POST', headers: authHeaders() }
+    );
+    if (!response.ok) {
+      return null;
+    }
+    return (await response.json()) as Diary;
+  } catch (error) {
+    console.error('Error restoring diary version:', error);
+    return null;
+  }
 }
 
 /**
  * Get dates with diaries in range
  */
-export async function getDatesWithDiaries(start: string, end: string): Promise<CalendarDiaryMeta[]> {
-	try {
-		const response = await fetch(`/api/v1/diaries/exists?start=${start}&end=${end}`, {
-			headers: {
-				'Authorization': `Bearer ${pb.authStore.token}`
-			}
-		});
+export async function getDatesWithDiaries(
+  start: string,
+  end: string
+): Promise<CalendarDiaryMeta[]> {
+  try {
+    const response = await fetch(`/api/v1/diaries/exists?start=${start}&end=${end}`, {
+      headers: {
+        Authorization: `Bearer ${pb.authStore.token}`
+      }
+    });
 
-		if (!response.ok) {
-			return [];
-		}
+    if (!response.ok) {
+      return [];
+    }
 
-		const data = await response.json();
-		if (Array.isArray(data.entries)) {
-			return data.entries.map((entry: any) => ({
-				date: entry.date,
-				mood: entry.mood || '',
-				weather: entry.weather || '',
-				city: entry.city || '',
-				temp_min: entry.temp_min || 0,
-				temp_max: entry.temp_max || 0,
-				has_content: entry.has_content ?? true
-			}));
-		}
+    const data = await response.json();
+    if (Array.isArray(data.entries)) {
+      return data.entries.map((entry: any) => ({
+        date: entry.date,
+        mood: entry.mood || '',
+        weather: entry.weather || '',
+        city: entry.city || '',
+        temp_min: entry.temp_min || 0,
+        temp_max: entry.temp_max || 0,
+        has_content: entry.has_content ?? true
+      }));
+    }
 
-		if (Array.isArray(data.dates)) {
-			return data.dates.map((date: string) => ({ date, mood: '', weather: '', city: '', temp_min: 0, temp_max: 0, has_content: true }));
-		}
+    if (Array.isArray(data.dates)) {
+      return data.dates.map((date: string) => ({
+        date,
+        mood: '',
+        weather: '',
+        city: '',
+        temp_min: 0,
+        temp_max: 0,
+        has_content: true
+      }));
+    }
 
-		return [];
-	} catch (error) {
-		console.error('Error fetching diary dates:', error);
-		return [];
-	}
+    return [];
+  } catch (error) {
+    console.error('Error fetching diary dates:', error);
+    return [];
+  }
 }
 
 /**
  * Get recent diaries
  */
-export async function getRecentDiaries(limit: number = 5): Promise<Array<{ date: string; content: string }>> {
-	try {
-		const response = await fetch(`/api/v1/diaries/recent?limit=${encodeURIComponent(String(limit))}`, {
-			headers: {
-				'Authorization': `Bearer ${pb.authStore.token}`
-			}
-		});
+export async function getRecentDiaries(
+  limit: number = 5
+): Promise<Array<{ date: string; content: string }>> {
+  try {
+    const response = await fetch(
+      `/api/v1/diaries/recent?limit=${encodeURIComponent(String(limit))}`,
+      {
+        headers: {
+          Authorization: `Bearer ${pb.authStore.token}`
+        }
+      }
+    );
 
-		if (!response.ok) {
-			return [];
-		}
+    if (!response.ok) {
+      return [];
+    }
 
-		const data = await response.json();
-		const records = data.diaries || [];
+    const data = await response.json();
+    const records = data.diaries || [];
 
-		return records.map((item: any) => ({
-			date: item.date,
-			content: item.content || ''
-		}));
-	} catch (error) {
-		console.error('Error fetching recent diaries:', error);
-		return [];
-	}
+    return records.map((item: any) => ({
+      date: item.date,
+      content: item.content || ''
+    }));
+  } catch (error) {
+    console.error('Error fetching recent diaries:', error);
+    return [];
+  }
 }
 
 /**
  * Search diaries
  */
 export async function searchDiaries(query: string, scenario?: string) {
-	try {
-		const params = new URLSearchParams();
-		if (query) params.set('q', query);
-		if (scenario) params.set('scenario', scenario);
-		const response = await fetch(`/api/v1/diaries/search?${params.toString()}`, {
-			headers: {
-				'Authorization': `Bearer ${pb.authStore.token}`
-			}
-		});
+  try {
+    const params = new URLSearchParams();
+    if (query) params.set('q', query);
+    if (scenario) params.set('scenario', scenario);
+    const response = await fetch(`/api/v1/diaries/search?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${pb.authStore.token}`
+      }
+    });
 
-		if (!response.ok) {
-			return [];
-		}
+    if (!response.ok) {
+      return [];
+    }
 
-		const data = await response.json();
-		return data.results || [];
-	} catch (error) {
-		console.error('Error searching diaries:', error);
-		return [];
-	}
+    const data = await response.json();
+    return data.results || [];
+  } catch (error) {
+    console.error('Error searching diaries:', error);
+    return [];
+  }
 }
 
 export async function filterDiaries(mood?: number, scenario?: string) {
-	try {
-		const params = new URLSearchParams();
-		if (mood) params.set('mood', String(mood));
-		if (scenario) params.set('scenario', scenario);
-		const response = await fetch(`/api/v1/diaries/filter?${params.toString()}`, {
-			headers: {
-				'Authorization': `Bearer ${pb.authStore.token}`
-			}
-		});
+  try {
+    const params = new URLSearchParams();
+    if (mood) params.set('mood', String(mood));
+    if (scenario) params.set('scenario', scenario);
+    const response = await fetch(`/api/v1/diaries/filter?${params.toString()}`, {
+      headers: {
+        Authorization: `Bearer ${pb.authStore.token}`
+      }
+    });
 
-		if (!response.ok) {
-			return [];
-		}
+    if (!response.ok) {
+      return [];
+    }
 
-		const data = await response.json();
-		return data.results || [];
-	} catch (error) {
-		console.error('Error filtering diaries:', error);
-		return [];
-	}
+    const data = await response.json();
+    return data.results || [];
+  } catch (error) {
+    console.error('Error filtering diaries:', error);
+    return [];
+  }
 }
 
 /**
  * Get diary stats (streak and total)
  */
 export async function getDiaryStats(): Promise<{ streak: number; total: number }> {
-	try {
-		// Get user's timezone
-		const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-		const url = `/api/v1/diaries/stats?tz=${encodeURIComponent(tz)}`;
+  try {
+    // Get user's timezone
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const url = `/api/v1/diaries/stats?tz=${encodeURIComponent(tz)}`;
 
-		const response = await fetch(url, {
-			headers: {
-				'Authorization': `Bearer ${pb.authStore.token}`
-			}
-		});
+    const response = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${pb.authStore.token}`
+      }
+    });
 
-		if (!response.ok) {
-			return { streak: 0, total: 0 };
-		}
+    if (!response.ok) {
+      return { streak: 0, total: 0 };
+    }
 
-		const data = await response.json();
-		return {
-			streak: data.streak || 0,
-			total: data.total || 0
-		};
-	} catch (error) {
-		console.error('Error fetching diary stats:', error);
-		return { streak: 0, total: 0 };
-	}
+    const data = await response.json();
+    return {
+      streak: data.streak || 0,
+      total: data.total || 0
+    };
+  } catch (error) {
+    console.error('Error fetching diary stats:', error);
+    return { streak: 0, total: 0 };
+  }
 }
 
 /**
  * Delete diary
  */
 export async function deleteDiary(id: string): Promise<boolean> {
-	try {
-		const response = await fetch(`/api/v1/diaries/${encodeURIComponent(id)}`, {
-			method: 'DELETE',
-			headers: {
-				'Authorization': `Bearer ${pb.authStore.token}`
-			}
-		});
+  try {
+    const response = await fetch(`/api/v1/diaries/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${pb.authStore.token}`
+      }
+    });
 
-		if (!response.ok) {
-			return false;
-		}
+    if (!response.ok) {
+      return false;
+    }
 
-		return true;
-	} catch (error) {
-		console.error('Error deleting diary:', error);
-		return false;
-	}
+    return true;
+  } catch (error) {
+    console.error('Error deleting diary:', error);
+    return false;
+  }
 }
 
 export interface TagCount {
-	tag: string;
-	count: number;
+  tag: string;
+  count: number;
 }
 
 /**
  * Get tag cloud (frequency of each tag across user's diaries)
  */
 export async function getTagCloud(): Promise<TagCount[]> {
-	try {
-		const response = await fetch('/api/v1/diaries/tags', {
-			headers: {
-				'Authorization': `Bearer ${pb.authStore.token}`
-			}
-		});
+  try {
+    const response = await fetch('/api/v1/diaries/tags', {
+      headers: {
+        Authorization: `Bearer ${pb.authStore.token}`
+      }
+    });
 
-		if (!response.ok) {
-			return [];
-		}
+    if (!response.ok) {
+      return [];
+    }
 
-		const data = await response.json();
-		return Array.isArray(data.tags) ? data.tags : [];
-	} catch (error) {
-		console.error('Error fetching tag cloud:', error);
-		return [];
-	}
+    const data = await response.json();
+    return Array.isArray(data.tags) ? data.tags : [];
+  } catch (error) {
+    console.error('Error fetching tag cloud:', error);
+    return [];
+  }
 }
 
 /**
  * Get all diaries tagged with a specific tag
  */
 export async function getDiariesByTag(tag: string): Promise<Diary[]> {
-	try {
-		const response = await fetch(`/api/v1/diaries/by-tag/${encodeURIComponent(tag)}`, {
-			headers: {
-				'Authorization': `Bearer ${pb.authStore.token}`
-			}
-		});
+  try {
+    const response = await fetch(`/api/v1/diaries/by-tag/${encodeURIComponent(tag)}`, {
+      headers: {
+        Authorization: `Bearer ${pb.authStore.token}`
+      }
+    });
 
-		if (!response.ok) {
-			return [];
-		}
+    if (!response.ok) {
+      return [];
+    }
 
-		const data = await response.json();
-		return Array.isArray(data.diaries) ? (data.diaries as Diary[]) : [];
-	} catch (error) {
-		console.error('Error fetching diaries by tag:', error);
-		return [];
-	}
+    const data = await response.json();
+    return Array.isArray(data.diaries) ? (data.diaries as Diary[]) : [];
+  } catch (error) {
+    console.error('Error fetching diaries by tag:', error);
+    return [];
+  }
 }

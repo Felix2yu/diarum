@@ -2,46 +2,46 @@ import { writable, get } from 'svelte/store';
 import { browser } from '$app/env';
 import type { Diary } from '#lib/api/client.js';
 import {
-	loadPersistedData,
-	persistEntries,
-	removePersistedEntry,
-	removePersistedEntries,
-	type PersistedEntry
+  loadPersistedData,
+  persistEntries,
+  removePersistedEntry,
+  removePersistedEntries,
+  type PersistedEntry
 } from './persistence';
 import { checkOnlineStatus, initOnlineStatus } from './onlineStatus';
 
 export interface CacheEntry {
-	content: string;
-	mood: number;
-	mood_states: string[];
-	scenarios: string[];
-	weather: string;
-	city: string;
-	temp_min: number;
-	temp_max: number;
-	tags: string[];
-	localUpdatedAt: number;
-	serverUpdatedAt: string | null;
-	isDirty: boolean;
-	/** 编辑会话标识：进入编辑框时生成，同步完成后清除；同一会话只产生一个版本 */
-	editSessionId?: string;
+  content: string;
+  mood: number;
+  mood_states: string[];
+  scenarios: string[];
+  weather: string;
+  city: string;
+  temp_min: number;
+  temp_max: number;
+  tags: string[];
+  localUpdatedAt: number;
+  serverUpdatedAt: string | null;
+  isDirty: boolean;
+  /** 编辑会话标识：进入编辑框时生成，同步完成后清除；同一会话只产生一个版本 */
+  editSessionId?: string;
 }
 
 interface DiaryCache {
-	[date: string]: CacheEntry;
+  [date: string]: CacheEntry;
 }
 
 interface SyncState {
-	isSyncing: boolean;
-	currentDate: string | null;
-	status: 'idle' | 'saving' | 'saved' | 'error';
-	message: string;
+  isSyncing: boolean;
+  currentDate: string | null;
+  status: 'idle' | 'saving' | 'saved' | 'error';
+  message: string;
 }
 
 export interface CacheStats {
-	totalCached: number;
-	pendingSync: number;
-	entries: { date: string; isDirty: boolean; localUpdatedAt: number }[];
+  totalCached: number;
+  pendingSync: number;
+  entries: { date: string; isDirty: boolean; localUpdatedAt: number }[];
 }
 
 // Cache store
@@ -49,17 +49,17 @@ export const diaryCache = writable<DiaryCache>({});
 
 // Global sync state
 export const syncState = writable<SyncState>({
-	isSyncing: false,
-	currentDate: null,
-	status: 'idle',
-	message: ''
+  isSyncing: false,
+  currentDate: null,
+  status: 'idle',
+  message: ''
 });
 
 // Cache statistics store
 export const cacheStats = writable<CacheStats>({
-	totalCached: 0,
-	pendingSync: 0,
-	entries: []
+  totalCached: 0,
+  pendingSync: 0,
+  entries: []
 });
 
 // Sync timer
@@ -77,7 +77,7 @@ const AUTO_SAVE_DEBOUNCE_INTERVAL = 1000; // Save 1s after user stops typing
 const MAX_RETRIES = 20; // 超过此次数后停止自动重试，改为手动
 
 // Pending persistence queue
-let pendingPersist: Map<string, PersistedEntry> = new Map();
+const pendingPersist: Map<string, PersistedEntry> = new Map();
 
 // 尚未创建缓存条目的日期的编辑会话 ID（首次写入缓存时附带）
 const pendingEditSessions: Record<string, string> = {};
@@ -89,144 +89,144 @@ const STORAGE_KEY = 'diarum_diary_cache';
  * Reload cache from localStorage (for cross-tab sync)
  */
 function reloadFromStorage(): void {
-	const persisted = loadPersistedData();
-	const cache: DiaryCache = {};
-	const legacySyncedDates: string[] = [];
+  const persisted = loadPersistedData();
+  const cache: DiaryCache = {};
+  const legacySyncedDates: string[] = [];
 
-	for (const [date, entry] of Object.entries(persisted.entries)) {
-		if (!entry.isDirty) {
-			legacySyncedDates.push(date);
-			continue;
-		}
+  for (const [date, entry] of Object.entries(persisted.entries)) {
+    if (!entry.isDirty) {
+      legacySyncedDates.push(date);
+      continue;
+    }
 
-		cache[date] = {
-			content: entry.content,
-			mood: entry.mood || 0,
-			mood_states: Array.isArray(entry.mood_states) ? entry.mood_states : [],
-			scenarios: Array.isArray(entry.scenarios) ? entry.scenarios : [],
-			weather: entry.weather || '',
-			city: entry.city || '',
-			temp_min: entry.temp_min || 0,
-			temp_max: entry.temp_max || 0,
-			tags: Array.isArray(entry.tags) ? entry.tags : [],
-			localUpdatedAt: entry.localUpdatedAt,
-			serverUpdatedAt: entry.serverUpdatedAt,
-			isDirty: entry.isDirty
-		};
-	}
+    cache[date] = {
+      content: entry.content,
+      mood: entry.mood || 0,
+      mood_states: Array.isArray(entry.mood_states) ? entry.mood_states : [],
+      scenarios: Array.isArray(entry.scenarios) ? entry.scenarios : [],
+      weather: entry.weather || '',
+      city: entry.city || '',
+      temp_min: entry.temp_min || 0,
+      temp_max: entry.temp_max || 0,
+      tags: Array.isArray(entry.tags) ? entry.tags : [],
+      localUpdatedAt: entry.localUpdatedAt,
+      serverUpdatedAt: entry.serverUpdatedAt,
+      isDirty: entry.isDirty
+    };
+  }
 
-	if (legacySyncedDates.length > 0) {
-		removePersistedEntries(legacySyncedDates);
-	}
+  if (legacySyncedDates.length > 0) {
+    removePersistedEntries(legacySyncedDates);
+  }
 
-	diaryCache.set(cache);
-	updateCacheStats();
+  diaryCache.set(cache);
+  updateCacheStats();
 }
 
 /**
  * Initialize the diary cache system
  */
 export function initDiaryCache(): void {
-	if (!browser || initialized) return;
-	initialized = true;
+  if (!browser || initialized) return;
+  initialized = true;
 
-	// Initialize dependencies
-	cleanupOnlineStatus = initOnlineStatus();
+  // Initialize dependencies
+  cleanupOnlineStatus = initOnlineStatus();
 
-	// Load persisted data
-	reloadFromStorage();
+  // Load persisted data
+  reloadFromStorage();
 
-	// Listen for storage changes from other tabs
-	storageEventHandler = (e: StorageEvent) => {
-		if (e.key === STORAGE_KEY) {
-			// Flush pending writes before reloading to avoid data loss
-			flushPendingPersist();
-			reloadFromStorage();
-		}
-	};
-	window.addEventListener('storage', storageEventHandler);
+  // Listen for storage changes from other tabs
+  storageEventHandler = (e: StorageEvent) => {
+    if (e.key === STORAGE_KEY) {
+      // Flush pending writes before reloading to avoid data loss
+      flushPendingPersist();
+      reloadFromStorage();
+    }
+  };
+  window.addEventListener('storage', storageEventHandler);
 }
 
 /**
  * Cleanup function for when app unmounts
  */
 export function cleanupDiaryCache(): void {
-	if (syncTimer) {
-		clearTimeout(syncTimer);
-		syncTimer = null;
-	}
-	if (persistTimer) {
-		clearTimeout(persistTimer);
-		persistTimer = null;
-	}
-	if (cleanupOnlineStatus) {
-		cleanupOnlineStatus();
-		cleanupOnlineStatus = null;
-	}
-	if (storageEventHandler) {
-		window.removeEventListener('storage', storageEventHandler);
-		storageEventHandler = null;
-	}
-	// Flush any pending persistence
-	flushPendingPersist();
-	retryCount = 0;
-	initialized = false;
+  if (syncTimer) {
+    clearTimeout(syncTimer);
+    syncTimer = null;
+  }
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+    persistTimer = null;
+  }
+  if (cleanupOnlineStatus) {
+    cleanupOnlineStatus();
+    cleanupOnlineStatus = null;
+  }
+  if (storageEventHandler) {
+    window.removeEventListener('storage', storageEventHandler);
+    storageEventHandler = null;
+  }
+  // Flush any pending persistence
+  flushPendingPersist();
+  retryCount = 0;
+  initialized = false;
 }
 
 /**
  * Flush pending persistence immediately
  */
 function flushPendingPersist(): void {
-	if (pendingPersist.size > 0) {
-		const entries = Array.from(pendingPersist.values());
-		persistEntries(entries);
-		pendingPersist.clear();
-	}
+  if (pendingPersist.size > 0) {
+    const entries = Array.from(pendingPersist.values());
+    persistEntries(entries);
+    pendingPersist.clear();
+  }
 }
 
 /**
  * Debounced persistence - batches writes to localStorage
  */
 function debouncedPersist(entry: PersistedEntry): void {
-	pendingPersist.set(entry.date, entry);
+  pendingPersist.set(entry.date, entry);
 
-	if (persistTimer) {
-		clearTimeout(persistTimer);
-	}
+  if (persistTimer) {
+    clearTimeout(persistTimer);
+  }
 
-	persistTimer = setTimeout(() => {
-		flushPendingPersist();
-		persistTimer = null;
-	}, 300); // 300ms debounce for persistence
+  persistTimer = setTimeout(() => {
+    flushPendingPersist();
+    persistTimer = null;
+  }, 300); // 300ms debounce for persistence
 }
 
 /**
  * Update cache statistics
  */
 function updateCacheStats(): void {
-	const cache = get(diaryCache);
-	const entries = Object.entries(cache).map(([date, entry]) => ({
-		date,
-		isDirty: entry.isDirty,
-		localUpdatedAt: entry.localUpdatedAt
-	}));
+  const cache = get(diaryCache);
+  const entries = Object.entries(cache).map(([date, entry]) => ({
+    date,
+    isDirty: entry.isDirty,
+    localUpdatedAt: entry.localUpdatedAt
+  }));
 
-	// Sort by date descending
-	entries.sort((a, b) => b.date.localeCompare(a.date));
+  // Sort by date descending
+  entries.sort((a, b) => b.date.localeCompare(a.date));
 
-	cacheStats.set({
-		totalCached: entries.length,
-		pendingSync: entries.filter(e => e.isDirty).length,
-		entries
-	});
+  cacheStats.set({
+    totalCached: entries.length,
+    pendingSync: entries.filter((e) => e.isDirty).length,
+    entries
+  });
 }
 
 /**
  * Get cached content for a date
  */
 export function getCachedContent(date: string): CacheEntry | null {
-	const cache = get(diaryCache);
-	return cache[date] || null;
+  const cache = get(diaryCache);
+  return cache[date] || null;
 }
 
 /**
@@ -237,170 +237,186 @@ export function getCachedContent(date: string): CacheEntry | null {
  * 带中间态快照的多个版本。
  */
 export function beginDiaryEditSession(date: string): void {
-	diaryCache.update((cache) => {
-		const entry = cache[date];
-		if (entry) {
-			if (entry.isDirty && entry.editSessionId) {
-				return cache;
-			}
-			return { ...cache, [date]: { ...entry, editSessionId: crypto.randomUUID() } };
-		}
-		// 条目尚不存在（新日记）：暂存会话 ID，首次写入缓存时附带
-		pendingEditSessions[date] = crypto.randomUUID();
-		return cache;
-	});
+  diaryCache.update((cache) => {
+    const entry = cache[date];
+    if (entry) {
+      if (entry.isDirty && entry.editSessionId) {
+        return cache;
+      }
+      return { ...cache, [date]: { ...entry, editSessionId: crypto.randomUUID() } };
+    }
+    // 条目尚不存在（新日记）：暂存会话 ID，首次写入缓存时附带
+    pendingEditSessions[date] = crypto.randomUUID();
+    return cache;
+  });
 }
 
 /**
  * Update local cache with edited content
  */
 export function updateLocalCache(
-	date: string,
-	updates: { content: string; mood?: number; mood_states?: string[]; scenarios?: string[]; weather?: string; city?: string; temp_min?: number; temp_max?: number; tags?: string[] }
+  date: string,
+  updates: {
+    content: string;
+    mood?: number;
+    mood_states?: string[];
+    scenarios?: string[];
+    weather?: string;
+    city?: string;
+    temp_min?: number;
+    temp_max?: number;
+    tags?: string[];
+  }
 ): void {
-	const existing = getCachedContent(date);
+  const existing = getCachedContent(date);
 
-	// Weather fields keep previously cached values when the incoming value is empty,
-	// so editing while offline does not wipe out weather already known locally.
-	const weather = updates.weather || existing?.weather || '';
-	const hasWeather = !!weather;
+  // Weather fields keep previously cached values when the incoming value is empty,
+  // so editing while offline does not wipe out weather already known locally.
+  const weather = updates.weather || existing?.weather || '';
+  const hasWeather = !!weather;
 
-	const editSessionId = existing?.editSessionId ?? pendingEditSessions[date];
-	if (pendingEditSessions[date]) {
-		delete pendingEditSessions[date];
-	}
+  const editSessionId = existing?.editSessionId ?? pendingEditSessions[date];
+  if (pendingEditSessions[date]) {
+    delete pendingEditSessions[date];
+  }
 
-	const entry: CacheEntry = {
-		content: updates.content,
-		mood: updates.mood ?? existing?.mood ?? 0,
-		mood_states: Array.isArray(updates.mood_states) ? updates.mood_states : existing?.mood_states ?? [],
-		scenarios: Array.isArray(updates.scenarios) ? updates.scenarios : existing?.scenarios ?? [],
-		weather: weather,
-		city: hasWeather ? (updates.city || existing?.city || '') : (existing?.city || ''),
-		temp_min: hasWeather ? (updates.temp_min ?? existing?.temp_min ?? 0) : (existing?.temp_min ?? 0),
-		temp_max: hasWeather ? (updates.temp_max ?? existing?.temp_max ?? 0) : (existing?.temp_max ?? 0),
-		tags: Array.isArray(updates.tags) ? updates.tags : existing?.tags ?? [],
-		localUpdatedAt: Date.now(),
-		serverUpdatedAt: existing?.serverUpdatedAt || null,
-		isDirty: true,
-		...(editSessionId ? { editSessionId } : {})
-	};
+  const entry: CacheEntry = {
+    content: updates.content,
+    mood: updates.mood ?? existing?.mood ?? 0,
+    mood_states: Array.isArray(updates.mood_states)
+      ? updates.mood_states
+      : (existing?.mood_states ?? []),
+    scenarios: Array.isArray(updates.scenarios) ? updates.scenarios : (existing?.scenarios ?? []),
+    weather: weather,
+    city: hasWeather ? updates.city || existing?.city || '' : existing?.city || '',
+    temp_min: hasWeather
+      ? (updates.temp_min ?? existing?.temp_min ?? 0)
+      : (existing?.temp_min ?? 0),
+    temp_max: hasWeather
+      ? (updates.temp_max ?? existing?.temp_max ?? 0)
+      : (existing?.temp_max ?? 0),
+    tags: Array.isArray(updates.tags) ? updates.tags : (existing?.tags ?? []),
+    localUpdatedAt: Date.now(),
+    serverUpdatedAt: existing?.serverUpdatedAt || null,
+    isDirty: true,
+    ...(editSessionId ? { editSessionId } : {})
+  };
 
-	diaryCache.update(cache => ({
-		...cache,
-		[date]: entry
-	}));
+  diaryCache.update((cache) => ({
+    ...cache,
+    [date]: entry
+  }));
 
-	// Debounced persist to localStorage
-	debouncedPersist({
-		date,
-		content: entry.content,
-		mood: entry.mood,
-		mood_states: entry.mood_states,
-		scenarios: entry.scenarios,
-		weather: entry.weather,
-		city: entry.city,
-		temp_min: entry.temp_min,
-		temp_max: entry.temp_max,
-		tags: entry.tags,
-		localUpdatedAt: entry.localUpdatedAt,
-		serverUpdatedAt: entry.serverUpdatedAt,
-		isDirty: true
-	});
+  // Debounced persist to localStorage
+  debouncedPersist({
+    date,
+    content: entry.content,
+    mood: entry.mood,
+    mood_states: entry.mood_states,
+    scenarios: entry.scenarios,
+    weather: entry.weather,
+    city: entry.city,
+    temp_min: entry.temp_min,
+    temp_max: entry.temp_max,
+    tags: entry.tags,
+    localUpdatedAt: entry.localUpdatedAt,
+    serverUpdatedAt: entry.serverUpdatedAt,
+    isDirty: true
+  });
 
-	updateCacheStats();
+  updateCacheStats();
 
-	// Schedule sync
-	scheduleSyncToServer();
+  // Schedule sync
+  scheduleSyncToServer();
 }
 
 /**
  * Update cache from server data
  */
 export function updateFromServer(date: string, diary: Diary | null): void {
-	const cache = get(diaryCache);
-	const existing = cache[date];
+  const cache = get(diaryCache);
+  const existing = cache[date];
 
-	// If local cache exists and is dirty, keep local changes
-	if (existing && existing.isDirty) {
-		return;
-	}
+  // If local cache exists and is dirty, keep local changes
+  if (existing && existing.isDirty) {
+    return;
+  }
 
-	if (!diary) {
-		if (existing && !existing.isDirty) {
-			clearCache(date);
-		}
-		removePersistedEntry(date);
-		updateCacheStats();
-		return;
-	}
+  if (!diary) {
+    if (existing && !existing.isDirty) {
+      clearCache(date);
+    }
+    removePersistedEntry(date);
+    updateCacheStats();
+    return;
+  }
 
-	// Populate cache with server data so subsequent edits preserve all fields
-	const entry: CacheEntry = {
-		content: diary.content || '',
-		mood: diary.mood || 0,
-		mood_states: diary.mood_states || [],
-		scenarios: diary.scenarios || [],
-		weather: diary.weather || '',
-		city: diary.city || '',
-		temp_min: diary.temp_min ?? 0,
-		temp_max: diary.temp_max ?? 0,
-		tags: diary.tags || [],
-		localUpdatedAt: Date.now(),
-		serverUpdatedAt: diary.updated || null,
-		isDirty: false,
-		// 保留已开启但尚未使用的编辑会话
-		...(existing?.editSessionId ? { editSessionId: existing.editSessionId } : {})
-	};
+  // Populate cache with server data so subsequent edits preserve all fields
+  const entry: CacheEntry = {
+    content: diary.content || '',
+    mood: diary.mood || 0,
+    mood_states: diary.mood_states || [],
+    scenarios: diary.scenarios || [],
+    weather: diary.weather || '',
+    city: diary.city || '',
+    temp_min: diary.temp_min ?? 0,
+    temp_max: diary.temp_max ?? 0,
+    tags: diary.tags || [],
+    localUpdatedAt: Date.now(),
+    serverUpdatedAt: diary.updated || null,
+    isDirty: false,
+    // 保留已开启但尚未使用的编辑会话
+    ...(existing?.editSessionId ? { editSessionId: existing.editSessionId } : {})
+  };
 
-	diaryCache.update(c => ({
-		...c,
-		[date]: entry
-	}));
+  diaryCache.update((c) => ({
+    ...c,
+    [date]: entry
+  }));
 
-	updateCacheStats();
+  updateCacheStats();
 }
 
 /**
  * Check if date has dirty cache
  */
 export function hasDirtyCache(date: string): boolean {
-	const cache = get(diaryCache);
-	return cache[date]?.isDirty || false;
+  const cache = get(diaryCache);
+  return cache[date]?.isDirty || false;
 }
 
 /**
  * Get all dirty entries
  */
 export function getDirtyEntries(): {
-	date: string;
-	content: string;
-	mood: number;
-	mood_states: string[];
-	scenarios: string[];
-	weather: string;
-	city: string;
-	temp_min: number;
-	temp_max: number;
-	tags: string[];
-	editSessionId?: string;
+  date: string;
+  content: string;
+  mood: number;
+  mood_states: string[];
+  scenarios: string[];
+  weather: string;
+  city: string;
+  temp_min: number;
+  temp_max: number;
+  tags: string[];
+  editSessionId?: string;
 }[] {
-	const cache = get(diaryCache);
-	return Object.entries(cache)
-		.filter(([_, entry]) => entry.isDirty)
-		.map(([date, entry]) => ({
-			date,
-			content: entry.content,
-			mood: entry.mood || 0,
-			mood_states: entry.mood_states || [],
-			scenarios: entry.scenarios || [],
-			weather: entry.weather || '',
-			city: entry.city || '',
-			temp_min: entry.temp_min || 0,
-			temp_max: entry.temp_max || 0,
-			tags: entry.tags || [],
-			editSessionId: entry.editSessionId
-		}));
+  const cache = get(diaryCache);
+  return Object.entries(cache)
+    .filter(([_, entry]) => entry.isDirty)
+    .map(([date, entry]) => ({
+      date,
+      content: entry.content,
+      mood: entry.mood || 0,
+      mood_states: entry.mood_states || [],
+      scenarios: entry.scenarios || [],
+      weather: entry.weather || '',
+      city: entry.city || '',
+      temp_min: entry.temp_min || 0,
+      temp_max: entry.temp_max || 0,
+      tags: entry.tags || [],
+      editSessionId: entry.editSessionId
+    }));
 }
 
 /**
@@ -410,20 +426,24 @@ export function getDirtyEntries(): {
  * 用户编辑（localUpdatedAt 已变化），则保留本地脏数据等待下次同步，避免把
  * 尚未上传的新内容随缓存一起清除。
  */
-export function markAsSynced(date: string, serverUpdatedAt: string, sinceLocalUpdatedAt?: number): void {
-	const entry = getCachedContent(date);
-	if (entry && sinceLocalUpdatedAt !== undefined && entry.localUpdatedAt !== sinceLocalUpdatedAt) {
-		entry.serverUpdatedAt = serverUpdatedAt;
-		entry.isDirty = true;
-		diaryCache.update(cache => ({ ...cache, [date]: entry }));
-		updateCacheStats();
-		return;
-	}
+export function markAsSynced(
+  date: string,
+  serverUpdatedAt: string,
+  sinceLocalUpdatedAt?: number
+): void {
+  const entry = getCachedContent(date);
+  if (entry && sinceLocalUpdatedAt !== undefined && entry.localUpdatedAt !== sinceLocalUpdatedAt) {
+    entry.serverUpdatedAt = serverUpdatedAt;
+    entry.isDirty = true;
+    diaryCache.update((cache) => ({ ...cache, [date]: entry }));
+    updateCacheStats();
+    return;
+  }
 
-	// Browser cache is disabled: once synced, remove local draft snapshot.
-	clearCache(date);
+  // Browser cache is disabled: once synced, remove local draft snapshot.
+  clearCache(date);
 
-	updateCacheStats();
+  updateCacheStats();
 }
 
 /**
@@ -431,32 +451,32 @@ export function markAsSynced(date: string, serverUpdatedAt: string, sinceLocalUp
  * 权限错误、4xx 客户端错误等不应该重试，避免无限循环写入失败。
  */
 function isRetryableError(error: unknown): boolean {
-	if (!error) return false;
+  if (!error) return false;
 
-	// 导航器离线 → 明显的网络问题
-	if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+  // 导航器离线 → 明显的网络问题
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
 
-	const message = error instanceof Error ? error.message : String(error);
+  const message = error instanceof Error ? error.message : String(error);
 
-	// 典型的网络/超时错误关键词
-	const retryablePatterns = [
-		'fetch',
-		'Failed to fetch',
-		'NetworkError',
-		'network',
-		'offline',
-		'timeout',
-		'Timeout',
-		'ETIMEDOUT',
-		'ECONNRESET',
-		'ECONNREFUSED',
-		'ENOTFOUND',
-		'EAI_AGAIN',
-		'502',
-		'503',
-		'504'
-	];
-	return retryablePatterns.some((p) => message.toLowerCase().includes(p.toLowerCase()));
+  // 典型的网络/超时错误关键词
+  const retryablePatterns = [
+    'fetch',
+    'Failed to fetch',
+    'NetworkError',
+    'network',
+    'offline',
+    'timeout',
+    'Timeout',
+    'ETIMEDOUT',
+    'ECONNRESET',
+    'ECONNREFUSED',
+    'ENOTFOUND',
+    'EAI_AGAIN',
+    '502',
+    '503',
+    '504'
+  ];
+  return retryablePatterns.some((p) => message.toLowerCase().includes(p.toLowerCase()));
 }
 
 /**
@@ -464,34 +484,34 @@ function isRetryableError(error: unknown): boolean {
  * 若已达最大重试次数，则停止自动重试，仅在用户下一次编辑时恢复。
  */
 function scheduleSyncToServer(isRetry: boolean = false): void {
-	if (syncTimer) {
-		clearTimeout(syncTimer);
-		syncTimer = null;
-	}
+  if (syncTimer) {
+    clearTimeout(syncTimer);
+    syncTimer = null;
+  }
 
-	// 超过最大重试次数后：停止自动重试，保持脏数据状态，由用户下次编辑触发。
-	if (isRetry && retryCount >= MAX_RETRIES) {
-		syncState.set({
-			isSyncing: false,
-			currentDate: null,
-			status: 'error',
-			message: '无法同步，请检查网络后手动重试'
-		});
-		return;
-	}
+  // 超过最大重试次数后：停止自动重试，保持脏数据状态，由用户下次编辑触发。
+  if (isRetry && retryCount >= MAX_RETRIES) {
+    syncState.set({
+      isSyncing: false,
+      currentDate: null,
+      status: 'error',
+      message: '无法同步，请检查网络后手动重试'
+    });
+    return;
+  }
 
-	let interval = AUTO_SAVE_DEBOUNCE_INTERVAL;
+  let interval = AUTO_SAVE_DEBOUNCE_INTERVAL;
 
-	if (isRetry) {
-		interval = Math.min(BASE_RETRY_INTERVAL * Math.pow(2, retryCount), MAX_RETRY_INTERVAL);
-		retryCount++;
-	} else {
-		retryCount = 0; // Reset retry count for new edits
-	}
+  if (isRetry) {
+    interval = Math.min(BASE_RETRY_INTERVAL * Math.pow(2, retryCount), MAX_RETRY_INTERVAL);
+    retryCount++;
+  } else {
+    retryCount = 0; // Reset retry count for new edits
+  }
 
-	syncTimer = setTimeout(() => {
-		syncDirtyEntries();
-	}, interval);
+  syncTimer = setTimeout(() => {
+    syncDirtyEntries();
+  }, interval);
 }
 
 /**
@@ -504,160 +524,164 @@ function scheduleSyncToServer(isRetry: boolean = false): void {
  *    - 权限/认证/服务器业务错误 → 停止自动重试（由用户手动触发）
  */
 async function syncDirtyEntries(): Promise<void> {
-	const dirtyEntries = getDirtyEntries();
+  const dirtyEntries = getDirtyEntries();
 
-	if (dirtyEntries.length === 0) {
-		syncState.set({
-			isSyncing: false,
-			currentDate: null,
-			status: 'idle',
-			message: ''
-		});
-		return;
-	}
+  if (dirtyEntries.length === 0) {
+    syncState.set({
+      isSyncing: false,
+      currentDate: null,
+      status: 'idle',
+      message: ''
+    });
+    return;
+  }
 
-	// Check online status first
-	const online = await checkOnlineStatus();
-	if (!online) {
-		syncState.set({
-			isSyncing: false,
-			currentDate: null,
-			status: 'error',
-			message: 'Offline'
-		});
-		// 明确的离线 → 总是可以重试
-		scheduleSyncToServer(true);
-		return;
-	}
+  // Check online status first
+  const online = await checkOnlineStatus();
+  if (!online) {
+    syncState.set({
+      isSyncing: false,
+      currentDate: null,
+      status: 'error',
+      message: 'Offline'
+    });
+    // 明确的离线 → 总是可以重试
+    scheduleSyncToServer(true);
+    return;
+  }
 
-	retryCount = 0;
+  retryCount = 0;
 
-	syncState.set({
-		isSyncing: true,
-		currentDate: dirtyEntries[0].date,
-		status: 'saving',
-		message: '正在保存...'
-	});
+  syncState.set({
+    isSyncing: true,
+    currentDate: dirtyEntries[0].date,
+    status: 'saving',
+    message: '正在保存...'
+  });
 
-	const { saveDiary, getDiaryByDateResult } = await import('#lib/api/diaries.js');
+  const { saveDiary, getDiaryByDateResult } = await import('#lib/api/diaries.js');
 
-	// 记录同步开始时的本地修改时间快照，用于检测同步期间的并发编辑
-	const snapshotTimes = new Map(dirtyEntries.map(e => [e.date, getCachedContent(e.date)?.localUpdatedAt ?? null]));
+  // 记录同步开始时的本地修改时间快照，用于检测同步期间的并发编辑
+  const snapshotTimes = new Map(
+    dirtyEntries.map((e) => [e.date, getCachedContent(e.date)?.localUpdatedAt ?? null])
+  );
 
-	// 记录本次同步结果，用于决定是否需要整体重试
-	let syncedCount = 0;
-	let failedDates: string[] = [];
-	let encounteredRetryable = false;
-	let encounteredNonRetryable = false;
-	let latestMessage = '已保存';
+  // 记录本次同步结果，用于决定是否需要整体重试
+  const failedDates: string[] = [];
+  let encounteredRetryable = false;
+  let encounteredNonRetryable = false;
+  let latestMessage = '已保存';
 
-	for (const entry of dirtyEntries) {
-		try {
-			const success = await saveDiary({
-				date: entry.date,
-				content: entry.content,
-				mood: entry.mood,
-				mood_states: entry.mood_states,
-				scenarios: entry.scenarios,
-				weather: entry.weather,
-				city: entry.city,
-				temp_min: entry.temp_min,
-				temp_max: entry.temp_max,
-				tags: entry.tags,
-				edit_session_id: entry.editSessionId
-			});
+  for (const entry of dirtyEntries) {
+    try {
+      const success = await saveDiary({
+        date: entry.date,
+        content: entry.content,
+        mood: entry.mood,
+        mood_states: entry.mood_states,
+        scenarios: entry.scenarios,
+        weather: entry.weather,
+        city: entry.city,
+        temp_min: entry.temp_min,
+        temp_max: entry.temp_max,
+        tags: entry.tags,
+        edit_session_id: entry.editSessionId
+      });
 
-			if (success) {
-				// 服务器校验数据
-				const serverState = await getDiaryByDateResult(entry.date);
-				if (serverState.status === 'error') {
-					// 保存成功但校验失败，保守处理为可重试
-					failedDates.push(entry.date);
-					encounteredRetryable = true;
-					latestMessage = '部分日记同步失败，稍后重试';
-					continue; // 继续同步其他条目
-				}
-				if (serverState.status === 'not_found') {
-					clearCache(entry.date);
-				} else {
-					markAsSynced(entry.date, serverState.diary.updated || new Date().toISOString(), snapshotTimes.get(entry.date) ?? undefined);
-				}
-				syncedCount++;
-			} else {
-				// saveDiary 返回 false：这一般是 4xx/5xx 类错误
-				failedDates.push(entry.date);
-				encounteredRetryable = true;
-				latestMessage = '部分日记同步失败，稍后重试';
-				// 继续同步其他条目
-			}
-		} catch (error) {
-			console.error(`Failed to sync diary for ${entry.date}:`, error);
-			failedDates.push(entry.date);
+      if (success) {
+        // 服务器校验数据
+        const serverState = await getDiaryByDateResult(entry.date);
+        if (serverState.status === 'error') {
+          // 保存成功但校验失败，保守处理为可重试
+          failedDates.push(entry.date);
+          encounteredRetryable = true;
+          latestMessage = '部分日记同步失败，稍后重试';
+          continue; // 继续同步其他条目
+        }
+        if (serverState.status === 'not_found') {
+          clearCache(entry.date);
+        } else {
+          markAsSynced(
+            entry.date,
+            serverState.diary.updated || new Date().toISOString(),
+            snapshotTimes.get(entry.date) ?? undefined
+          );
+        }
+      } else {
+        // saveDiary 返回 false：这一般是 4xx/5xx 类错误
+        failedDates.push(entry.date);
+        encounteredRetryable = true;
+        latestMessage = '部分日记同步失败，稍后重试';
+        // 继续同步其他条目
+      }
+    } catch (error) {
+      console.error(`Failed to sync diary for ${entry.date}:`, error);
+      failedDates.push(entry.date);
 
-			if (isRetryableError(error)) {
-				encounteredRetryable = true;
-				latestMessage = '网络不稳定，稍后重试';
-			} else {
-				// 认证/权限等非重试类错误
-				encounteredNonRetryable = true;
-				latestMessage = '同步失败，请检查账户后手动重试';
-			}
-			// 继续同步其他条目
-		}
-	}
+      if (isRetryableError(error)) {
+        encounteredRetryable = true;
+        latestMessage = '网络不稳定，稍后重试';
+      } else {
+        // 认证/权限等非重试类错误
+        encounteredNonRetryable = true;
+        latestMessage = '同步失败，请检查账户后手动重试';
+      }
+      // 继续同步其他条目
+    }
+  }
 
-	// 全部成功
-	if (failedDates.length === 0) {
-		syncState.set({
-			isSyncing: false,
-			currentDate: null,
-			status: 'saved',
-			message: '已保存'
-		});
+  // 全部成功
+  if (failedDates.length === 0) {
+    syncState.set({
+      isSyncing: false,
+      currentDate: null,
+      status: 'saved',
+      message: '已保存'
+    });
 
-		setTimeout(() => {
-			syncState.update(s => {
-				if (s.status === 'saved') {
-					return { ...s, status: 'idle', message: '' };
-				}
-				return s;
-			});
-		}, 2000);
-		return;
-	}
+    setTimeout(() => {
+      syncState.update((s) => {
+        if (s.status === 'saved') {
+          return { ...s, status: 'idle', message: '' };
+        }
+        return s;
+      });
+    }, 2000);
+    return;
+  }
 
-	// 部分失败：根据错误类型决定是否自动重试
-	if (encounteredNonRetryable) {
-		// 存在权限/业务错误，不自动重试，但保留脏数据
-		syncState.set({
-			isSyncing: false,
-			currentDate: null,
-			status: 'error',
-			message: `有 ${failedDates.length} 条日记需要手动同步`
-		});
-		return;
-	}
+  // 部分失败：根据错误类型决定是否自动重试
+  if (encounteredNonRetryable) {
+    // 存在权限/业务错误，不自动重试，但保留脏数据
+    syncState.set({
+      isSyncing: false,
+      currentDate: null,
+      status: 'error',
+      message: `有 ${failedDates.length} 条日记需要手动同步`
+    });
+    return;
+  }
 
-	if (encounteredRetryable) {
-		// 仅网络类错误，加入退避重试
-		syncState.set({
-			isSyncing: false,
-			currentDate: null,
-			status: 'error',
-			message: latestMessage
-		});
-		scheduleSyncToServer(true);
-		return;
-	}
+  if (encounteredRetryable) {
+    // 仅网络类错误，加入退避重试
+    syncState.set({
+      isSyncing: false,
+      currentDate: null,
+      status: 'error',
+      message: latestMessage
+    });
+    scheduleSyncToServer(true);
+    return;
+  }
 
-	// 兜底
-	syncState.set({
-		isSyncing: false,
-		currentDate: null,
-		status: 'error',
-		message: latestMessage
-	});
-	scheduleSyncToServer(true);
+  // 兜底
+  syncState.set({
+    isSyncing: false,
+    currentDate: null,
+    status: 'error',
+    message: latestMessage
+  });
+  scheduleSyncToServer(true);
 }
 
 /**
@@ -665,112 +689,115 @@ async function syncDirtyEntries(): Promise<void> {
  * 单条失败不会终止，会继续尝试其他条目；最后返回整体结果。
  */
 export async function forceSyncNow(): Promise<boolean> {
-	if (syncTimer) {
-		clearTimeout(syncTimer);
-		syncTimer = null;
-	}
+  if (syncTimer) {
+    clearTimeout(syncTimer);
+    syncTimer = null;
+  }
 
-	const dirtyEntries = getDirtyEntries();
-	if (dirtyEntries.length === 0) return true;
+  const dirtyEntries = getDirtyEntries();
+  if (dirtyEntries.length === 0) return true;
 
-	const online = await checkOnlineStatus();
-	if (!online) {
-		syncState.set({
-			isSyncing: false,
-			currentDate: null,
-			status: 'error',
-			message: 'Offline'
-		});
-		return false;
-	}
+  const online = await checkOnlineStatus();
+  if (!online) {
+    syncState.set({
+      isSyncing: false,
+      currentDate: null,
+      status: 'error',
+      message: 'Offline'
+    });
+    return false;
+  }
 
-	// 手动触发同步时，重置重试计数，给一次完整的尝试机会
-	retryCount = 0;
+  // 手动触发同步时，重置重试计数，给一次完整的尝试机会
+  retryCount = 0;
 
-	syncState.set({
-		isSyncing: true,
-		currentDate: dirtyEntries[0].date,
-		status: 'saving',
-		message: '正在保存...'
-	});
+  syncState.set({
+    isSyncing: true,
+    currentDate: dirtyEntries[0].date,
+    status: 'saving',
+    message: '正在保存...'
+  });
 
-	const { saveDiary, getDiaryByDateResult } = await import('#lib/api/diaries.js');
+  const { saveDiary, getDiaryByDateResult } = await import('#lib/api/diaries.js');
 
-	// 记录同步开始时的本地修改时间快照，用于检测同步期间的并发编辑
-	const snapshotTimes = new Map(dirtyEntries.map(e => [e.date, getCachedContent(e.date)?.localUpdatedAt ?? null]));
+  // 记录同步开始时的本地修改时间快照，用于检测同步期间的并发编辑
+  const snapshotTimes = new Map(
+    dirtyEntries.map((e) => [e.date, getCachedContent(e.date)?.localUpdatedAt ?? null])
+  );
 
-	let syncedCount = 0;
-	let failedCount = 0;
+  let syncedCount = 0;
+  let failedCount = 0;
 
-	for (const entry of dirtyEntries) {
-		try {
-			const success = await saveDiary({
-				date: entry.date,
-				content: entry.content,
-				mood: entry.mood,
-				mood_states: entry.mood_states,
-				scenarios: entry.scenarios,
-				weather: entry.weather,
-				city: entry.city,
-				temp_min: entry.temp_min,
-				temp_max: entry.temp_max,
-				tags: entry.tags,
-				edit_session_id: entry.editSessionId
-			});
+  for (const entry of dirtyEntries) {
+    try {
+      const success = await saveDiary({
+        date: entry.date,
+        content: entry.content,
+        mood: entry.mood,
+        mood_states: entry.mood_states,
+        scenarios: entry.scenarios,
+        weather: entry.weather,
+        city: entry.city,
+        temp_min: entry.temp_min,
+        temp_max: entry.temp_max,
+        tags: entry.tags,
+        edit_session_id: entry.editSessionId
+      });
 
-			if (success) {
-				const serverState = await getDiaryByDateResult(entry.date);
-				if (serverState.status === 'not_found') {
-					clearCache(entry.date);
-					syncedCount++;
-				} else if (serverState.status === 'error') {
-					failedCount++;
-					// 继续同步其他条目
-				} else {
-					markAsSynced(entry.date, serverState.diary.updated || new Date().toISOString(), snapshotTimes.get(entry.date) ?? undefined);
-					syncedCount++;
-				}
-			} else {
-				failedCount++;
-			}
-		} catch (error) {
-			console.error(`Failed to sync diary for ${entry.date}:`, error);
-			failedCount++;
-		}
-	}
+      if (success) {
+        const serverState = await getDiaryByDateResult(entry.date);
+        if (serverState.status === 'not_found') {
+          clearCache(entry.date);
+          syncedCount++;
+        } else if (serverState.status === 'error') {
+          failedCount++;
+          // 继续同步其他条目
+        } else {
+          markAsSynced(
+            entry.date,
+            serverState.diary.updated || new Date().toISOString(),
+            snapshotTimes.get(entry.date) ?? undefined
+          );
+          syncedCount++;
+        }
+      } else {
+        failedCount++;
+      }
+    } catch (error) {
+      console.error(`Failed to sync diary for ${entry.date}:`, error);
+      failedCount++;
+    }
+  }
 
-	const overallSuccess = failedCount === 0;
+  const overallSuccess = failedCount === 0;
 
-	syncState.set({
-		isSyncing: false,
-		currentDate: null,
-		status: overallSuccess ? 'saved' : 'error',
-		message: overallSuccess
-			? '已保存'
-			: `已同步 ${syncedCount} 条，${failedCount} 条失败`
-	});
+  syncState.set({
+    isSyncing: false,
+    currentDate: null,
+    status: overallSuccess ? 'saved' : 'error',
+    message: overallSuccess ? '已保存' : `已同步 ${syncedCount} 条，${failedCount} 条失败`
+  });
 
-	setTimeout(() => {
-		syncState.update(s => {
-			if (s.status === 'saved' || s.status === 'error') {
-				return { ...s, status: 'idle', message: '' };
-			}
-			return s;
-		});
-	}, 2000);
+  setTimeout(() => {
+    syncState.update((s) => {
+      if (s.status === 'saved' || s.status === 'error') {
+        return { ...s, status: 'idle', message: '' };
+      }
+      return s;
+    });
+  }, 2000);
 
-	return overallSuccess;
+  return overallSuccess;
 }
 
 /**
  * Clear cache for a specific date
  */
 export function clearCache(date: string): void {
-	diaryCache.update(cache => {
-		const { [date]: _, ...rest } = cache;
-		return rest;
-	});
-	removePersistedEntry(date);
-	updateCacheStats();
+  diaryCache.update((cache) => {
+    const { [date]: _, ...rest } = cache;
+    return rest;
+  });
+  removePersistedEntry(date);
+  updateCacheStats();
 }
-
