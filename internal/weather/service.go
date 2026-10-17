@@ -35,11 +35,11 @@ type geocodingResult struct {
 
 // CityInfo represents a city with coordinates
 type CityInfo struct {
-	Name      string  `json:"name"`
-	Lat       float64 `json:"lat"`
-	Lon       float64 `json:"lon"`
-	Province  string  `json:"province"`
-	Country   string  `json:"country"`
+	Name     string  `json:"name"`
+	Lat      float64 `json:"lat"`
+	Lon      float64 `json:"lon"`
+	Province string  `json:"province"`
+	Country  string  `json:"country"`
 }
 
 // SearchCities searches for cities by name.
@@ -196,11 +196,11 @@ func searchOpenMeteo(query string) ([]CityInfo, error) {
 
 // nominatimResponse represents the Nominatim reverse geocoding API response
 type nominatimResponse struct {
-	Address  nominatimAddress `json:"address"`
-	Lat      string           `json:"lat"`
-	Lon      string           `json:"lon"`
-	Name     string           `json:"name"`
-	DisplayName string         `json:"display_name"`
+	Address     nominatimAddress `json:"address"`
+	Lat         string           `json:"lat"`
+	Lon         string           `json:"lon"`
+	Name        string           `json:"name"`
+	DisplayName string           `json:"display_name"`
 }
 
 type nominatimAddress struct {

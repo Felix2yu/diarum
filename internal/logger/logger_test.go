@@ -117,4 +117,3 @@ func TestInitLogLevelFromEnv(t *testing.T) {
 		})
 	}
 }
-

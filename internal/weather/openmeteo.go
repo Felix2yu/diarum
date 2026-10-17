@@ -11,10 +11,10 @@ import (
 // OpenMeteoResponse represents the Open-Meteo API response
 type OpenMeteoResponse struct {
 	Daily struct {
-		WeatherCode    []int     `json:"weather_code"`
+		WeatherCode      []int     `json:"weather_code"`
 		Temperature2mMax []float64 `json:"temperature_2m_max"`
 		Temperature2mMin []float64 `json:"temperature_2m_min"`
-		Time           []string  `json:"time"`
+		Time             []string  `json:"time"`
 	} `json:"daily"`
 }
 

@@ -221,7 +221,7 @@ func TestQWToWMO(t *testing.T) {
 
 func TestMapPastWMO(t *testing.T) {
 	tests := []struct {
-		wmo int
+		wmo    int
 		simple int
 	}{
 		{20, WeatherRain},
@@ -475,7 +475,7 @@ func TestParseNominatimResult_CityFromDisplayName(t *testing.T) {
 func TestParseNominatimResult_FallbackToTown(t *testing.T) {
 	data := nominatimResponse{
 		Address: nominatimAddress{
-			Town: "某镇",
+			Town:  "某镇",
 			State: "某省",
 		},
 	}
@@ -519,7 +519,7 @@ func TestParseNominatimResult_NoCity(t *testing.T) {
 func TestParseNominatimResult_DistrictLevel(t *testing.T) {
 	data := nominatimResponse{
 		Address: nominatimAddress{
-			City: "海淀区",
+			City:  "海淀区",
 			State: "北京市",
 		},
 	}
@@ -535,7 +535,7 @@ func TestParseNominatimResult_DistrictLevel(t *testing.T) {
 func TestParseNominatimResult_CityEndsWithCounty(t *testing.T) {
 	data := nominatimResponse{
 		Address: nominatimAddress{
-			City: "密云县",
+			City:  "密云县",
 			State: "北京市",
 		},
 	}
@@ -548,7 +548,7 @@ func TestParseNominatimResult_CityEndsWithCounty(t *testing.T) {
 func TestParseNominatimResult_ChineseCommaInDisplayName(t *testing.T) {
 	data := nominatimResponse{
 		Address: nominatimAddress{
-			City: "姑苏区",
+			City:  "姑苏区",
 			State: "江苏省",
 		},
 		DisplayName: "姑苏区，苏州市，江苏省，中国",
@@ -1416,8 +1416,8 @@ func TestReverseGeocode_Success(t *testing.T) {
 				State: "江苏省",
 			},
 			DisplayName: "姑苏区, 苏州市, 江苏省, 中国",
-			Lat:  "31.2990",
-			Lon: "120.5853",
+			Lat:         "31.2990",
+			Lon:         "120.5853",
 		}
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)

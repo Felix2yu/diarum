@@ -316,3 +316,7 @@ If you encounter any issues or have questions, please [open an issue](https://gi
 ## Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=songtianlun/diarum&type=timeline&legend=top-left)](https://www.star-history.com/#songtianlun/diarum&type=timeline&legend=top-left)
+
+## 许可证
+
+本项目以 [Apache License 2.0](LICENSE) 发布。

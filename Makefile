@@ -1,4 +1,4 @@
-.PHONY: help build dev run clean test test-cover test-coverage frontend backend docker version install-air test-static
+.PHONY: help build dev run clean test test-cover test-coverage frontend backend docker version install-air test-static lint lint-strict fmt
 
 # Get version from git
 VERSION ?= $(shell git describe --dirty --always --tags --abbrev=7 2>/dev/null || echo "dev")
@@ -98,6 +98,18 @@ test-cover test-coverage: test-static
 	@coverage=$$(GOCACHE=$(GOCACHE) go tool cover -func=$(COVERAGE_FILE) | grep -v -E '\b(main|init)\b\s+[0-9]' | awk '$$1 != "total:" {gsub("%", "", $$NF); sum += $$NF; count++} END {if (count > 0) printf "%.1f", sum / count; else print "0.0"}'); \
 	echo "Average function coverage: $$coverage%"; \
 	awk "BEGIN { exit !($$coverage >= $(COVERAGE_THRESHOLD)) }" || (echo "Average function coverage $$coverage% is below $(COVERAGE_THRESHOLD)%" && exit 1)
+
+# 静态检查：gofmt 只列出未格式化文件（不写盘），再跑 go vet。
+lint:
+	@out=$$(gofmt -l .); if [ -n "$$out" ]; then echo "未格式化："; echo "$$out"; exit 1; fi
+	go vet ./...
+
+# 深度检查：在 lint 之上加 golangci-lint（存量告警未清零前会红，故不并入 lint）
+lint-strict: lint
+	@if command -v golangci-lint >/dev/null 2>&1; then golangci-lint run; else echo "  （未安装 golangci-lint，跳过）"; fi
+
+fmt:
+	gofmt -w $$(git ls-files '*.go')
 
 # Build Docker image (Dockerfile only assembles; binary is built locally first)
 docker:

@@ -525,21 +525,21 @@ func TestImportJSONFile(t *testing.T) {
 		Diaries: []exportDiary{
 			{ID: "json-diary", Date: "2024-02-05", Content: "JSON diary content", Mood: 5, Weather: "sunny"},
 		},
-		Media:      []exportMedia{},
+		Media:         []exportMedia{},
 		Conversations: []exportConversation{},
 	}
-	
+
 	jsonBytes, err := json.Marshal(jsonData)
 	if err != nil {
 		t.Fatalf("Marshal JSON: %v", err)
 	}
-	
+
 	body, contentType := multipartRequestBody(t, "file", "diarum_export.json", jsonBytes, nil)
 	rec := performRequest(t, importEcho, http.MethodPost, "/api/v1/import", body, map[string]string{"Content-Type": contentType})
 	if rec.Code != http.StatusOK {
 		t.Fatalf("POST /api/v1/import with .json file status = %d body=%s", rec.Code, rec.Body.String())
 	}
-	
+
 	payload := decodeJSONBody(t, rec)
 	if payload["diaries"].(map[string]any)["imported"] != float64(1) {
 		t.Fatalf("import payload diaries = %#v", payload)
@@ -547,7 +547,7 @@ func TestImportJSONFile(t *testing.T) {
 	if importStore.CountDiaries(importUser.ID) != 1 {
 		t.Fatalf("imported diary count = %d, want 1", importStore.CountDiaries(importUser.ID))
 	}
-	
+
 	// 测试上传不支持的文件类型
 	body, contentType = multipartRequestBody(t, "file", "unsupported.txt", []byte("text content"), nil)
 	rec = performRequest(t, importEcho, http.MethodPost, "/api/v1/import", body, map[string]string{"Content-Type": contentType})

@@ -19,19 +19,19 @@ var ConfigRegistry = map[string]ConfigMeta{
 	"memos.base_url":      {Type: "string", Default: "", Encrypted: false},
 
 	// AI settings (unified API key and base URL)
-	"ai.enabled":               {Type: "bool", Default: false, Encrypted: false},
-	"ai.api_key":               {Type: "string", Default: "", Encrypted: true},
-	"ai.base_url":              {Type: "string", Default: "", Encrypted: false},
-	"ai.chat_model":            {Type: "string", Default: "", Encrypted: false},
-	"ai.embedding_model":       {Type: "string", Default: "", Encrypted: false},
-	"ai.vectors_built_at":      {Type: "string", Default: "", Encrypted: false},
+	"ai.enabled":                {Type: "bool", Default: false, Encrypted: false},
+	"ai.api_key":                {Type: "string", Default: "", Encrypted: true},
+	"ai.base_url":               {Type: "string", Default: "", Encrypted: false},
+	"ai.chat_model":             {Type: "string", Default: "", Encrypted: false},
+	"ai.embedding_model":        {Type: "string", Default: "", Encrypted: false},
+	"ai.vectors_built_at":       {Type: "string", Default: "", Encrypted: false},
 	"ai.analysis_system_prompt": {Type: "string", Default: "", Encrypted: false},
-	"ai.analysis_user_prefix":  {Type: "string", Default: "", Encrypted: false},
-	"ai.speech.provider":       {Type: "string", Default: "none", Encrypted: false},
-	"ai.speech.base_url":       {Type: "string", Default: "", Encrypted: false},
-	"ai.speech.api_key":        {Type: "string", Default: "", Encrypted: true},
-	"ai.speech.model":          {Type: "string", Default: "whisper-1", Encrypted: false},
-	"ai.speech.language":       {Type: "string", Default: "zh", Encrypted: false},
+	"ai.analysis_user_prefix":   {Type: "string", Default: "", Encrypted: false},
+	"ai.speech.provider":        {Type: "string", Default: "none", Encrypted: false},
+	"ai.speech.base_url":        {Type: "string", Default: "", Encrypted: false},
+	"ai.speech.api_key":         {Type: "string", Default: "", Encrypted: true},
+	"ai.speech.model":           {Type: "string", Default: "whisper-1", Encrypted: false},
+	"ai.speech.language":        {Type: "string", Default: "zh", Encrypted: false},
 
 	// Chevereto image hosting settings
 	"chevereto.enabled":  {Type: "bool", Default: false, Encrypted: false},
@@ -53,22 +53,22 @@ var ConfigRegistry = map[string]ConfigMeta{
 	"diary.weather_options": {Type: "json", Default: []string{"☀️", "⛅", "☁️", "🌧️", "⛈️", "🌫️", "❄️", "🌬️"}, Encrypted: false},
 
 	// Weather service settings
-	"weather.enabled":        {Type: "bool", Default: false, Encrypted: false},
-	"weather.default_city":   {Type: "string", Default: "", Encrypted: false},
-	"weather.auto_fetch":     {Type: "bool", Default: false, Encrypted: false},
+	"weather.enabled":         {Type: "bool", Default: false, Encrypted: false},
+	"weather.default_city":    {Type: "string", Default: "", Encrypted: false},
+	"weather.auto_fetch":      {Type: "bool", Default: false, Encrypted: false},
 	"weather.auto_fetch_time": {Type: "string", Default: "20:00", Encrypted: false},
 
 	// App preferences
 	"app.default_view": {Type: "string", Default: "diary", Encrypted: false},
 
 	// Auto backup settings
-	"backup.enabled":          {Type: "bool", Default: false, Encrypted: false},
-	"backup.frequency":        {Type: "string", Default: "daily", Encrypted: false},
-	"backup.time":             {Type: "string", Default: "00:00", Encrypted: false},
-	"backup.day_of_week":      {Type: "int", Default: 1, Encrypted: false},
-	"backup.day_of_month":     {Type: "int", Default: 1, Encrypted: false},
-	"backup.retention_days":   {Type: "int", Default: 90, Encrypted: false},
-	"backup.upload_s3":        {Type: "bool", Default: false, Encrypted: false},
+	"backup.enabled":        {Type: "bool", Default: false, Encrypted: false},
+	"backup.frequency":      {Type: "string", Default: "daily", Encrypted: false},
+	"backup.time":           {Type: "string", Default: "00:00", Encrypted: false},
+	"backup.day_of_week":    {Type: "int", Default: 1, Encrypted: false},
+	"backup.day_of_month":   {Type: "int", Default: 1, Encrypted: false},
+	"backup.retention_days": {Type: "int", Default: 90, Encrypted: false},
+	"backup.upload_s3":      {Type: "bool", Default: false, Encrypted: false},
 
 	// 日记版本管理
 	"diary.version_retention_days": {Type: "int", Default: 30, Encrypted: false},
