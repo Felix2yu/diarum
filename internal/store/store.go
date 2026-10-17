@@ -725,7 +725,7 @@ func migrateLegacyData(db *sql.DB, oldPath string) error {
 	if _, err := db.Exec("ATTACH DATABASE '" + quotedPath + "' AS legacy"); err != nil {
 		return fmt.Errorf("attach legacy database: %w", err)
 	}
-	defer db.Exec("DETACH DATABASE legacy")
+	defer func() { _, _ = db.Exec("DETACH DATABASE legacy") }()
 
 	tx, err := db.Begin()
 	if err != nil {
@@ -2835,10 +2835,8 @@ func (s *Store) openMediaFromS3(client *awss3.Client, cfg *LegacyS3Config, media
 		if err == nil {
 			return result.Body, nil
 		}
+		// 单次失败就换下一个候选 key；NoSuchKey 也不例外，循环自然继续。
 		lastErr = err
-		if _, ok := errors.AsType[*awstypes.NoSuchKey](err); ok {
-			continue
-		}
 	}
 	if lastErr != nil {
 		if _, ok := errors.AsType[*awstypes.NoSuchKey](lastErr); ok {

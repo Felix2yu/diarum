@@ -80,29 +80,29 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	group := e.Group("/api/v1/ai", authMiddleware)
 
 	group.GET("/settings", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
-		apiKey, _ := configService.GetString(userId, "ai.api_key")
-		baseUrl, _ := configService.GetString(userId, "ai.base_url")
-		chatModel, _ := configService.GetString(userId, "ai.chat_model")
-		embeddingModel, _ := configService.GetString(userId, "ai.embedding_model")
-		analysisSystemPrompt, _ := configService.GetString(userId, "ai.analysis_system_prompt")
-		analysisUserPrefix, _ := configService.GetString(userId, "ai.analysis_user_prefix")
-		enabled, _ := configService.GetBool(userId, "ai.enabled")
-		speechProvider, _ := configService.GetString(userId, "ai.speech.provider")
-		speechBaseUrl, _ := configService.GetString(userId, "ai.speech.base_url")
-		speechAPIKey, _ := configService.GetString(userId, "ai.speech.api_key")
-		speechModel, _ := configService.GetString(userId, "ai.speech.model")
-		speechLanguage, _ := configService.GetString(userId, "ai.speech.language")
+		userID := auth.CurrentUser(c).ID
+		apiKey, _ := configService.GetString(userID, "ai.api_key")
+		baseURL, _ := configService.GetString(userID, "ai.base_url")
+		chatModel, _ := configService.GetString(userID, "ai.chat_model")
+		embeddingModel, _ := configService.GetString(userID, "ai.embedding_model")
+		analysisSystemPrompt, _ := configService.GetString(userID, "ai.analysis_system_prompt")
+		analysisUserPrefix, _ := configService.GetString(userID, "ai.analysis_user_prefix")
+		enabled, _ := configService.GetBool(userID, "ai.enabled")
+		speechProvider, _ := configService.GetString(userID, "ai.speech.provider")
+		speechBaseURL, _ := configService.GetString(userID, "ai.speech.base_url")
+		speechAPIKey, _ := configService.GetString(userID, "ai.speech.api_key")
+		speechModel, _ := configService.GetString(userID, "ai.speech.model")
+		speechLanguage, _ := configService.GetString(userID, "ai.speech.language")
 		return c.JSON(http.StatusOK, map[string]any{
 			"api_key":                maskSecret(apiKey),
-			"base_url":               baseUrl,
+			"base_url":               baseURL,
 			"chat_model":             chatModel,
 			"embedding_model":        embeddingModel,
 			"analysis_system_prompt": analysisSystemPrompt,
 			"analysis_user_prefix":   analysisUserPrefix,
 			"enabled":                enabled,
 			"speech_provider":        speechProvider,
-			"speech_base_url":        speechBaseUrl,
+			"speech_base_url":        speechBaseURL,
 			"speech_api_key":         maskSecret(speechAPIKey),
 			"speech_model":           speechModel,
 			"speech_language":        speechLanguage,
@@ -110,7 +110,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	})
 
 	group.PUT("/settings", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		var body struct {
 			APIKey               string `json:"api_key"`
 			BaseURL              string `json:"base_url"`
@@ -131,11 +131,11 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		// 密钥字段为空或掩码值时保留原值，避免前端提交掩码/空串覆盖真实密钥
 		apiKey := body.APIKey
 		if isSecretPlaceholder(apiKey) {
-			apiKey, _ = configService.GetString(userId, "ai.api_key")
+			apiKey, _ = configService.GetString(userID, "ai.api_key")
 		}
 		speechAPIKey := body.SpeechAPIKey
 		if isSecretPlaceholder(speechAPIKey) {
-			speechAPIKey, _ = configService.GetString(userId, "ai.speech.api_key")
+			speechAPIKey, _ = configService.GetString(userID, "ai.speech.api_key")
 		}
 		if body.Enabled && (apiKey == "" || body.BaseURL == "" || body.ChatModel == "" || body.EmbeddingModel == "") {
 			return badRequest("All AI settings must be configured before enabling AI features", nil)
@@ -154,14 +154,14 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			"ai.speech.model":           body.SpeechModel,
 			"ai.speech.language":        body.SpeechLanguage,
 		}
-		if err := configService.SetBatch(userId, settings); err != nil {
+		if err := configService.SetBatch(userID, settings); err != nil {
 			return badRequest("Failed to save AI settings", err)
 		}
 		return c.JSON(http.StatusOK, map[string]any{"success": true})
 	})
 
 	group.POST("/models", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		var body struct {
 			APIKey  string `json:"api_key"`
 			BaseURL string `json:"base_url"`
@@ -171,7 +171,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		}
 		// API key 为空或掩码时使用已保存的密钥
 		if isSecretPlaceholder(body.APIKey) {
-			body.APIKey, _ = configService.GetString(userId, "ai.api_key")
+			body.APIKey, _ = configService.GetString(userID, "ai.api_key")
 		}
 		if body.APIKey == "" || body.BaseURL == "" {
 			return badRequest("API key and base URL are required", nil)
@@ -189,23 +189,23 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	// configured speech credentials. Also supports the optional `prompt`,
 	// `language`, and `model` overrides in the request.
 	group.POST("/transcribe", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 
-		provider, _ := configService.GetString(userId, "ai.speech.provider")
+		provider, _ := configService.GetString(userID, "ai.speech.provider")
 		if provider == "" || provider == "none" {
 			return badRequest("Speech recognition is not enabled. Please configure it in Settings.", nil)
 		}
 
 		// Load speech settings; fall back to shared AI settings if the dedicated
 		// speech values are empty so users only have to fill in one API base.
-		baseURL, _ := configService.GetString(userId, "ai.speech.base_url")
-		apiKey, _ := configService.GetString(userId, "ai.speech.api_key")
-		model, _ := configService.GetString(userId, "ai.speech.model")
-		language, _ := configService.GetString(userId, "ai.speech.language")
+		baseURL, _ := configService.GetString(userID, "ai.speech.base_url")
+		apiKey, _ := configService.GetString(userID, "ai.speech.api_key")
+		model, _ := configService.GetString(userID, "ai.speech.model")
+		language, _ := configService.GetString(userID, "ai.speech.language")
 
 		if baseURL == "" || apiKey == "" {
-			fallbackBase, _ := configService.GetString(userId, "ai.base_url")
-			fallbackKey, _ := configService.GetString(userId, "ai.api_key")
+			fallbackBase, _ := configService.GetString(userID, "ai.base_url")
+			fallbackKey, _ := configService.GetString(userID, "ai.api_key")
 			if fallbackBase == "" || fallbackKey == "" {
 				return badRequest("Speech recognition requires a base URL and API key.", nil)
 			}
@@ -268,26 +268,26 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	})
 
 	group.POST("/vectors/build", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		if embeddingService == nil {
 			return badRequest("Embedding service not initialized", nil)
 		}
 		ctx, cancel := context.WithTimeout(c.Request().Context(), 10*time.Minute)
 		defer cancel()
-		result, err := embeddingService.BuildAllVectors(ctx, userId)
+		result, err := embeddingService.BuildAllVectors(ctx, userID)
 		if err != nil {
 			return badRequest("Failed to build vectors: "+err.Error(), nil)
 		}
 		return c.JSON(http.StatusOK, result)
 	})
 	group.POST("/vectors/build-incremental", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		if embeddingService == nil {
 			return badRequest("Embedding service not initialized", nil)
 		}
 		ctx, cancel := context.WithTimeout(c.Request().Context(), 10*time.Minute)
 		defer cancel()
-		result, err := embeddingService.BuildIncrementalVectors(ctx, userId)
+		result, err := embeddingService.BuildIncrementalVectors(ctx, userID)
 		if err != nil {
 			return badRequest("Failed to build vectors: "+err.Error(), nil)
 		}
@@ -295,11 +295,11 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	})
 
 	group.GET("/vectors/stats", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		if embeddingService == nil {
 			return badRequest("Embedding service not initialized", nil)
 		}
-		stats, err := embeddingService.GetVectorStats(c.Request().Context(), userId)
+		stats, err := embeddingService.GetVectorStats(c.Request().Context(), userID)
 		if err != nil {
 			return badRequest("Failed to get vector stats: "+err.Error(), nil)
 		}
@@ -307,8 +307,8 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	})
 
 	group.GET("/conversations", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
-		conversations, err := s.ListConversations(userId, 100)
+		userID := auth.CurrentUser(c).ID
+		conversations, err := s.ListConversations(userID, 100)
 		if err != nil {
 			return badRequest("Failed to fetch conversations", err)
 		}
@@ -321,12 +321,12 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	})
 
 	group.POST("/conversations", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		var body struct {
 			Title string `json:"title"`
 		}
 		_ = c.Bind(&body)
-		conv, err := s.CreateConversation(userId, body.Title)
+		conv, err := s.CreateConversation(userID, body.Title)
 		if err != nil {
 			return badRequest("Failed to create conversation", err)
 		}
@@ -334,8 +334,8 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	})
 
 	group.GET("/conversations/:id", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
-		conv, err := s.GetConversation(c.Param("id"), userId)
+		userID := auth.CurrentUser(c).ID
+		conv, err := s.GetConversation(c.Param("id"), userID)
 		if err != nil {
 			return notFound("Conversation not found")
 		}
@@ -351,22 +351,22 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	})
 
 	group.DELETE("/conversations/:id", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
-		if err := s.DeleteConversation(c.Param("id"), userId); err != nil {
+		userID := auth.CurrentUser(c).ID
+		if err := s.DeleteConversation(c.Param("id"), userID); err != nil {
 			return notFound("Conversation not found")
 		}
 		return c.JSON(http.StatusOK, map[string]any{"success": true})
 	})
 
 	group.PUT("/conversations/:id", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		var body struct {
 			Title string `json:"title"`
 		}
 		if err := c.Bind(&body); err != nil {
 			return badRequest("Invalid request body", err)
 		}
-		conv, err := s.UpdateConversationTitle(c.Param("id"), userId, body.Title)
+		conv, err := s.UpdateConversationTitle(c.Param("id"), userID, body.Title)
 		if err != nil {
 			return notFound("Conversation not found")
 		}
@@ -374,7 +374,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	})
 
 	group.POST("/chat", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		var body struct {
 			ConversationID string `json:"conversation_id"`
 			Content        string `json:"content"`
@@ -385,14 +385,14 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		if body.ConversationID == "" || body.Content == "" {
 			return badRequest("conversation_id and content are required", nil)
 		}
-		conv, err := s.GetConversation(body.ConversationID, userId)
+		conv, err := s.GetConversation(body.ConversationID, userID)
 		if err != nil {
 			return notFound("Conversation not found")
 		}
 		messageCount, _ := chatService.GetConversationMessageCount(body.ConversationID)
 		isFirstMessage := messageCount == 0
 		currentTitle := conv.Title
-		userMsg, err := chatService.SaveMessage(userId, body.ConversationID, "user", body.Content, nil)
+		userMsg, err := chatService.SaveMessage(userID, body.ConversationID, "user", body.Content, nil)
 		if err != nil {
 			logger.Error("[POST /api/v1/ai/chat] failed to save user message: %v", err)
 		} else {
@@ -409,40 +409,40 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 
 		var newTitle string
 		if isFirstMessage && currentTitle == "" {
-			title, err := chatService.GenerateTitleFromUserMessage(ctx, userId, body.Content)
+			title, err := chatService.GenerateTitleFromUserMessage(ctx, userID, body.Content)
 			if err == nil {
 				newTitle = title
 				if err := chatService.UpdateConversationTitle(body.ConversationID, title); err == nil {
 					titleData, _ := json.Marshal(map[string]any{"title": newTitle})
-					writer.Write([]byte("data: " + string(titleData) + "\n\n"))
+					_, _ = writer.Write([]byte("data: " + string(titleData) + "\n\n"))
 					writer.Flush()
 				}
 			}
 		}
 
-		fullResponse, referencedDiaries, err := chatService.StreamChat(ctx, userId, body.ConversationID, body.Content, writer)
+		fullResponse, referencedDiaries, err := chatService.StreamChat(ctx, userID, body.ConversationID, body.Content, writer)
 		if err != nil {
 			logger.Error("[POST /api/v1/ai/chat] stream chat error: %v", err)
 			errData, _ := json.Marshal(map[string]string{"error": err.Error()})
-			writer.Write([]byte("data: " + string(errData) + "\n\n"))
+			_, _ = writer.Write([]byte("data: " + string(errData) + "\n\n"))
 			writer.Flush()
 			return nil
 		}
-		assistantMsg, err := chatService.SaveMessage(userId, body.ConversationID, "assistant", fullResponse, referencedDiaries)
+		assistantMsg, err := chatService.SaveMessage(userID, body.ConversationID, "assistant", fullResponse, referencedDiaries)
 		if err != nil {
 			logger.Error("[POST /api/v1/ai/chat] failed to save assistant message: %v", err)
 		} else {
 			logger.Info("[POST /api/v1/ai/chat] saved assistant message: %s", assistantMsg.ID)
 		}
 		doneData, _ := json.Marshal(map[string]any{"done": true, "referenced_diaries": referencedDiaries, "title": newTitle})
-		writer.Write([]byte("data: " + string(doneData) + "\n\n"))
+		_, _ = writer.Write([]byte("data: " + string(doneData) + "\n\n"))
 		writer.Flush()
 		return nil
 	})
 
 	// Analysis - retrieve saved result (week / month / year by period key, or custom by date range)
 	group.GET("/analysis", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		period := strings.ToLower(strings.TrimSpace(c.QueryParam("period")))
 		key := strings.TrimSpace(c.QueryParam("key"))
 		start := strings.TrimSpace(c.QueryParam("start"))
@@ -458,7 +458,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			if err != nil {
 				return badRequest(err.Error(), nil)
 			}
-			saved, err := s.GetPeriodAnalysis(userId, period, key, startDate, endDate, "")
+			saved, err := s.GetPeriodAnalysis(userID, period, key, startDate, endDate, "")
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					return c.JSON(http.StatusOK, map[string]any{"found": false})
@@ -470,7 +470,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 			if start == "" || end == "" {
 				return badRequest("start and end are required for custom analyses", nil)
 			}
-			saved, err := s.GetPeriodAnalysis(userId, period, "", start, end, keywords)
+			saved, err := s.GetPeriodAnalysis(userID, period, "", start, end, keywords)
 			if err != nil {
 				if errors.Is(err, sql.ErrNoRows) {
 					return c.JSON(http.StatusOK, map[string]any{"found": false})
@@ -500,7 +500,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 
 	// Analysis - list all saved analyses (optionally filtered by period)
 	group.GET("/analyses", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		period := strings.ToLower(strings.TrimSpace(c.QueryParam("period")))
 		if period != "" && period != "week" && period != "month" && period != "year" && period != "custom" && period != "all" {
 			return badRequest("period must be 'week', 'month', 'year', 'custom' or 'all'", nil)
@@ -509,7 +509,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		if period == "all" {
 			filter = ""
 		}
-		items, err := s.ListSavedAnalyses(userId, filter, 200)
+		items, err := s.ListSavedAnalyses(userID, filter, 200)
 		if err != nil {
 			return serverError("Failed to list period analyses", err)
 		}
@@ -538,7 +538,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	// server-side; custom analyses keep explicit date ranges and keyword filtering
 	// so users can analyze only matching diary entries.
 	group.POST("/analysis", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		var body struct {
 			Period       string `json:"period"`
 			Key          string `json:"key"`
@@ -586,7 +586,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		}
 
 		// Fetch diaries in range
-		diaries, err := s.ListDiaries(userId, start+" 00:00:00.000Z", end+" 23:59:59.999Z", "-date", 0)
+		diaries, err := s.ListDiaries(userID, start+" 00:00:00.000Z", end+" 23:59:59.999Z", "-date", 0)
 		if err != nil {
 			return serverError("Failed to fetch diaries for analysis", err)
 		}
@@ -643,17 +643,17 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		}
 
 		// Load AI config
-		apiKey, _ := configService.GetString(userId, "ai.api_key")
-		baseURL, _ := configService.GetString(userId, "ai.base_url")
-		model, _ := configService.GetString(userId, "ai.chat_model")
-		enabled, _ := configService.GetBool(userId, "ai.enabled")
+		apiKey, _ := configService.GetString(userID, "ai.api_key")
+		baseURL, _ := configService.GetString(userID, "ai.base_url")
+		model, _ := configService.GetString(userID, "ai.chat_model")
+		enabled, _ := configService.GetBool(userID, "ai.enabled")
 		if !enabled || apiKey == "" || baseURL == "" || model == "" {
 			return serviceUnavailable("AI service is not configured", nil)
 		}
 
 		// Resolve prompts: request override → saved config → default
-		savedSystemPrompt, _ := configService.GetString(userId, "ai.analysis_system_prompt")
-		savedUserPrefix, _ := configService.GetString(userId, "ai.analysis_user_prefix")
+		savedSystemPrompt, _ := configService.GetString(userID, "ai.analysis_system_prompt")
+		savedUserPrefix, _ := configService.GetString(userID, "ai.analysis_user_prefix")
 		defaultSystemPrompt := "你是一个贴心的日记分析助手，基于用户提供的日记内容进行深入分析。你需要：\n1) 归纳总结日记的主要内容；\n2) 留意每篇日记的日期，分析情绪变化、生活模式在时间线上的演变；\n3) 找出亮点和值得改进的地方；\n4) 给出具体、可操作的建议。\n请用温暖、鼓励且理性的语气，分段输出，便于阅读。使用中文回答。"
 
 		defaultUserPrefix := ""
@@ -764,7 +764,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		}
 
 		// Persist the analysis for later retrieval
-		saved, saveErr := s.SavePeriodAnalysis(userId, period, key, start, end, len(diaries), summary, systemPrompt, userPrefix, keywords)
+		saved, saveErr := s.SavePeriodAnalysis(userID, period, key, start, end, len(diaries), summary, systemPrompt, userPrefix, keywords)
 
 		response := map[string]any{
 			"start":         start,
@@ -792,7 +792,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 	// the report content ("周日记分析 / 月日记分析 / 年日记分析") and it is persisted
 	// for later retrieval under the same period key.
 	group.PUT("/analysis", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		var body struct {
 			Period  string `json:"period"`
 			Key     string `json:"key"`
@@ -817,11 +817,11 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		if summary == "" {
 			return badRequest("summary is required", nil)
 		}
-		diaries, err := s.ListDiaries(userId, start+" 00:00:00.000Z", end+" 23:59:59.999Z", "-date", 0)
+		diaries, err := s.ListDiaries(userID, start+" 00:00:00.000Z", end+" 23:59:59.999Z", "-date", 0)
 		if err != nil {
 			return serverError("Failed to fetch diaries for analysis", err)
 		}
-		saved, err := s.SavePeriodAnalysis(userId, period, key, start, end, len(diaries), summary, "", "", "")
+		saved, err := s.SavePeriodAnalysis(userID, period, key, start, end, len(diaries), summary, "", "", "")
 		if err != nil {
 			return serverError("Failed to save period analysis", err)
 		}
@@ -840,7 +840,7 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 
 	// Text polishing endpoint - three built-in modes plus custom prompt
 	group.POST("/polish", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		var body struct {
 			Content string `json:"content"`
 			Mode    string `json:"mode"` // "medium" | "strong" | "custom"
@@ -862,10 +862,10 @@ func RegisterAIRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middlewa
 		}
 
 		// Load AI config
-		apiKey, _ := configService.GetString(userId, "ai.api_key")
-		baseURL, _ := configService.GetString(userId, "ai.base_url")
-		model, _ := configService.GetString(userId, "ai.chat_model")
-		enabled, _ := configService.GetBool(userId, "ai.enabled")
+		apiKey, _ := configService.GetString(userID, "ai.api_key")
+		baseURL, _ := configService.GetString(userID, "ai.base_url")
+		model, _ := configService.GetString(userID, "ai.chat_model")
+		enabled, _ := configService.GetBool(userID, "ai.enabled")
 		if !enabled || apiKey == "" || baseURL == "" || model == "" {
 			return serviceUnavailable("AI service is not configured", nil)
 		}

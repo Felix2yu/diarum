@@ -17,7 +17,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 
 	// Reads
 	e.GET("/api/v1/diaries", func(c *echo.Context) error {
-		userId, err := authenticatePublicRequest(configService, s, c)
+		userID, err := authenticatePublicRequest(configService, s, c)
 		if err != nil {
 			return err
 		}
@@ -27,7 +27,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 		end := c.QueryParam("end")
 
 		if date != "" {
-			diary, err := s.GetDiaryByDate(userId, date+" 00:00:00.000Z", date+" 23:59:59.999Z")
+			diary, err := s.GetDiaryByDate(userID, date+" 00:00:00.000Z", date+" 23:59:59.999Z")
 			if err != nil {
 				return c.JSON(http.StatusOK, map[string]any{"date": date, "content": "", "exists": false})
 			}
@@ -35,7 +35,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 		}
 
 		if start != "" && end != "" {
-			diaries, err := s.ListDiaries(userId, start+" 00:00:00.000Z", end+" 23:59:59.999Z", "-date", 0)
+			diaries, err := s.ListDiaries(userID, start+" 00:00:00.000Z", end+" 23:59:59.999Z", "-date", 0)
 			if err != nil {
 				return serverError("Failed to query diaries", err)
 			}
@@ -51,7 +51,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 
 	// Create or update a diary by date
 	e.POST("/api/v1/diaries", func(c *echo.Context) error {
-		userId, err := authenticatePublicRequest(configService, s, c)
+		userID, err := authenticatePublicRequest(configService, s, c)
 		if err != nil {
 			return err
 		}
@@ -91,7 +91,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			tags = &v
 		}
 
-		diary, created, err := s.UpsertDiary(userId, body.Date, body.Content, body.Mood, moodStates, scenarios, tags, body.Weather, body.City, body.TempMin, body.TempMax)
+		diary, created, err := s.UpsertDiary(userID, body.Date, body.Content, body.Mood, moodStates, scenarios, tags, body.Weather, body.City, body.TempMin, body.TempMax)
 		if err != nil {
 			return serverError("Failed to save diary", err)
 		}
@@ -104,14 +104,14 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 
 	// Update a diary by ID
 	e.PUT("/api/v1/diaries/:id", func(c *echo.Context) error {
-		userId, err := authenticatePublicRequest(configService, s, c)
+		userID, err := authenticatePublicRequest(configService, s, c)
 		if err != nil {
 			return err
 		}
 
 		id := c.Param("id")
 		existing, err := s.GetDiaryByID(id)
-		if err != nil || existing.Owner != userId {
+		if err != nil || existing.Owner != userID {
 			return notFound("Diary not found")
 		}
 
@@ -167,7 +167,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			tags = existing.Tags
 		}
 
-		diary, _, err := s.UpsertDiary(userId, store.DateOnly(existing.Date), content, &mood, &moodStates, &scenarios, &tags, &weather, &city, &tempMin, &tempMax)
+		diary, _, err := s.UpsertDiary(userID, store.DateOnly(existing.Date), content, &mood, &moodStates, &scenarios, &tags, &weather, &city, &tempMin, &tempMax)
 		if err != nil {
 			return serverError("Failed to update diary", err)
 		}
@@ -176,7 +176,7 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 
 	// Delete a diary by date
 	e.DELETE("/api/v1/diaries", func(c *echo.Context) error {
-		userId, err := authenticatePublicRequest(configService, s, c)
+		userID, err := authenticatePublicRequest(configService, s, c)
 		if err != nil {
 			return err
 		}
@@ -186,11 +186,11 @@ func RegisterPublicRoutes(e *echo.Echo, s *store.Store) {
 			return badRequest("date query parameter is required", nil)
 		}
 
-		existing, err := s.GetDiaryByDate(userId, date+" 00:00:00.000Z", date+" 23:59:59.999Z")
+		existing, err := s.GetDiaryByDate(userID, date+" 00:00:00.000Z", date+" 23:59:59.999Z")
 		if err != nil {
 			return notFound("Diary not found")
 		}
-		if err := s.DeleteDiary(existing.ID, userId); err != nil {
+		if err := s.DeleteDiary(existing.ID, userID); err != nil {
 			return serverError("Failed to delete diary", err)
 		}
 		return c.JSON(http.StatusOK, map[string]any{"success": true, "date": date})
@@ -220,12 +220,12 @@ func authenticatePublicRequest(configService *config.ConfigService, s *store.Sto
 	}
 
 	// First, validate as an API token (?token= or API consumers using the header).
-	userId, err := configService.ValidateTokenAndGetUser(token)
+	userID, err := configService.ValidateTokenAndGetUser(token)
 	if err == config.ErrAPIDisabled {
 		return "", unauthorized("API is disabled for this user")
 	}
-	if err == nil && userId != "" {
-		return userId, nil
+	if err == nil && userID != "" {
+		return userID, nil
 	}
 
 	// Fall back to a JWT session token sent by the logged-in web app.

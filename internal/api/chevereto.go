@@ -23,16 +23,16 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 	group := e.Group("/api/v1/chevereto", authMiddleware)
 
 	group.GET("/settings", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
-		enabled, _ := configService.GetBool(userId, "chevereto.enabled")
-		domain, _ := configService.GetString(userId, "chevereto.domain")
-		apiKey, _ := configService.GetString(userId, "chevereto.api_key")
-		albumId, _ := configService.GetString(userId, "chevereto.album_id")
-		return c.JSON(http.StatusOK, map[string]any{"enabled": enabled, "domain": domain, "api_key": maskSecret(apiKey), "album_id": albumId})
+		userID := auth.CurrentUser(c).ID
+		enabled, _ := configService.GetBool(userID, "chevereto.enabled")
+		domain, _ := configService.GetString(userID, "chevereto.domain")
+		apiKey, _ := configService.GetString(userID, "chevereto.api_key")
+		albumID, _ := configService.GetString(userID, "chevereto.album_id")
+		return c.JSON(http.StatusOK, map[string]any{"enabled": enabled, "domain": domain, "api_key": maskSecret(apiKey), "album_id": albumID})
 	})
 
 	group.PUT("/settings", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		var body struct {
 			Enabled bool   `json:"enabled"`
 			Domain  string `json:"domain"`
@@ -44,21 +44,21 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 		}
 		// API key 为空或掩码时保留原值
 		if isSecretPlaceholder(body.APIKey) {
-			body.APIKey, _ = configService.GetString(userId, "chevereto.api_key")
+			body.APIKey, _ = configService.GetString(userID, "chevereto.api_key")
 		}
 		if body.Enabled && (strings.TrimSpace(body.Domain) == "" || strings.TrimSpace(body.APIKey) == "") {
 			return badRequest("Domain and API Key are required to enable Chevereto", nil)
 		}
 		body.Domain = strings.TrimRight(strings.TrimSpace(body.Domain), "/")
 		settings := map[string]any{"chevereto.enabled": body.Enabled, "chevereto.domain": body.Domain, "chevereto.api_key": body.APIKey, "chevereto.album_id": body.AlbumID}
-		if err := configService.SetBatch(userId, settings); err != nil {
+		if err := configService.SetBatch(userID, settings); err != nil {
 			return badRequest("Failed to save Chevereto settings", err)
 		}
 		return c.JSON(http.StatusOK, map[string]any{"success": true})
 	})
 
 	group.POST("/test", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		var body struct {
 			Domain string `json:"domain"`
 			APIKey string `json:"api_key"`
@@ -68,7 +68,7 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 		}
 		// API key 为空或掩码时使用已保存的密钥
 		if isSecretPlaceholder(body.APIKey) {
-			body.APIKey, _ = configService.GetString(userId, "chevereto.api_key")
+			body.APIKey, _ = configService.GetString(userID, "chevereto.api_key")
 		}
 		if strings.TrimSpace(body.Domain) == "" || strings.TrimSpace(body.APIKey) == "" {
 			return badRequest("Domain and API Key are required", nil)
@@ -112,14 +112,14 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 	})
 
 	group.POST("/upload", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
-		enabled, _ := configService.GetBool(userId, "chevereto.enabled")
+		userID := auth.CurrentUser(c).ID
+		enabled, _ := configService.GetBool(userID, "chevereto.enabled")
 		if !enabled {
 			return badRequest("Chevereto is not enabled", nil)
 		}
-		domain, _ := configService.GetString(userId, "chevereto.domain")
-		apiKey, _ := configService.GetString(userId, "chevereto.api_key")
-		albumId, _ := configService.GetString(userId, "chevereto.album_id")
+		domain, _ := configService.GetString(userID, "chevereto.domain")
+		apiKey, _ := configService.GetString(userID, "chevereto.api_key")
+		albumID, _ := configService.GetString(userID, "chevereto.album_id")
 		if domain == "" || apiKey == "" {
 			return badRequest("Chevereto domain and API key are not configured", nil)
 		}
@@ -138,10 +138,10 @@ func RegisterCheveretoRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.M
 		if _, err := io.Copy(part, file); err != nil {
 			return badRequest("Failed to read file", err)
 		}
-		if albumId != "" {
-			writer.WriteField("album_id", albumId)
+		if albumID != "" {
+			_ = writer.WriteField("album_id", albumID)
 		}
-		writer.WriteField("title", header.Filename)
+		_ = writer.WriteField("title", header.Filename)
 		writer.Close()
 
 		req, err := http.NewRequestWithContext(context.Background(), "POST", fmt.Sprintf("%s/api/1/upload", domain), &buf)

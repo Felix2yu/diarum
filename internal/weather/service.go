@@ -133,8 +133,8 @@ func parseQwSearchResponse(resp *http.Response) ([]CityInfo, error) {
 	cities := make([]CityInfo, 0, len(data.Location))
 	for _, loc := range data.Location {
 		var clat, clon float64
-		fmt.Sscanf(loc.Lat, "%f", &clat)
-		fmt.Sscanf(loc.Lon, "%f", &clon)
+		_, _ = fmt.Sscanf(loc.Lat, "%f", &clat)
+		_, _ = fmt.Sscanf(loc.Lon, "%f", &clon)
 		cities = append(cities, CityInfo{
 			Name:     loc.Name,
 			Lat:      clat,
@@ -612,7 +612,7 @@ func geocodeWithNominatim(city string) (lat, lon float64, err error) {
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			lastErr = fmt.Errorf("Nominatim search API returned status %d", resp.StatusCode)
+			lastErr = fmt.Errorf("nominatim search API returned status %d", resp.StatusCode)
 			continue
 		}
 

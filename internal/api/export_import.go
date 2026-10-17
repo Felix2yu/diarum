@@ -673,7 +673,7 @@ func parseAnalysisMarkdown(content []byte) *exportAnalysis {
 		} else if strings.HasPrefix(trimmed, "**Period Key:**") {
 			a.PeriodKey = strings.TrimSpace(strings.TrimPrefix(trimmed, "**Period Key:**"))
 		} else if strings.HasPrefix(trimmed, "**Diary Count:**") {
-			fmt.Sscanf(strings.TrimSpace(strings.TrimPrefix(trimmed, "**Diary Count:**")), "%d", &a.DiaryCount)
+			_, _ = fmt.Sscanf(strings.TrimSpace(strings.TrimPrefix(trimmed, "**Diary Count:**")), "%d", &a.DiaryCount)
 		} else if strings.HasPrefix(trimmed, "**Keywords:**") {
 			a.Keywords = strings.TrimSpace(strings.TrimPrefix(trimmed, "**Keywords:**"))
 		} else if strings.HasPrefix(trimmed, "**Created:**") {
@@ -819,7 +819,7 @@ func parseMarkdownFile(name string, content []byte) *exportDiary {
 				}
 			}
 			if val != "" {
-				fmt.Sscanf(val, "%f-%f", &tempMin, &tempMax)
+				_, _ = fmt.Sscanf(val, "%f-%f", &tempMin, &tempMax)
 			}
 			continue
 		}

@@ -27,10 +27,10 @@ func NewConfigService(store *store.Store) *ConfigService {
 }
 
 // Get retrieves a single configuration value for a user
-func (s *ConfigService) Get(userId, key string) (any, error) {
-	logger.Debug("[ConfigService.Get] userId=%s, key=%s", userId, key)
+func (s *ConfigService) Get(userID, key string) (any, error) {
+	logger.Debug("[ConfigService.Get] userID=%s, key=%s", userID, key)
 
-	value, err := s.store.GetSetting(userId, key)
+	value, err := s.store.GetSetting(userID, key)
 
 	if err != nil {
 		logger.Debug("[ConfigService.Get] Error finding record: %v", err)
@@ -47,8 +47,8 @@ func (s *ConfigService) Get(userId, key string) (any, error) {
 }
 
 // GetString retrieves a string configuration value
-func (s *ConfigService) GetString(userId, key string) (string, error) {
-	value, err := s.Get(userId, key)
+func (s *ConfigService) GetString(userID, key string) (string, error) {
+	value, err := s.Get(userID, key)
 	if err != nil {
 		return "", err
 	}
@@ -63,8 +63,8 @@ func (s *ConfigService) GetString(userId, key string) (string, error) {
 }
 
 // GetBool retrieves a boolean configuration value
-func (s *ConfigService) GetBool(userId, key string) (bool, error) {
-	value, err := s.Get(userId, key)
+func (s *ConfigService) GetBool(userID, key string) (bool, error) {
+	value, err := s.Get(userID, key)
 	if err != nil {
 		return false, err
 	}
@@ -85,8 +85,8 @@ func (s *ConfigService) GetBool(userId, key string) (bool, error) {
 }
 
 // GetInt retrieves an integer configuration value for a user
-func (s *ConfigService) GetInt(userId, key string) (int, error) {
-	value, err := s.Get(userId, key)
+func (s *ConfigService) GetInt(userID, key string) (int, error) {
+	value, err := s.Get(userID, key)
 	if err != nil {
 		return 0, err
 	}
@@ -107,29 +107,29 @@ func (s *ConfigService) GetInt(userId, key string) (int, error) {
 }
 
 // Set stores a configuration value for a user
-func (s *ConfigService) Set(userId, key string, value any) error {
+func (s *ConfigService) Set(userID, key string, value any) error {
 	// Validate key against registry
 	if _, ok := GetConfigMeta(key); !ok {
 		return ErrUnknownKey
 	}
 
-	return s.store.SetSetting(userId, key, value, IsEncrypted(key))
+	return s.store.SetSetting(userID, key, value, IsEncrypted(key))
 }
 
 // GetBatch retrieves all configuration values for a user
-func (s *ConfigService) GetBatch(userId string) (map[string]any, error) {
-	return s.store.GetSettings(userId)
+func (s *ConfigService) GetBatch(userID string) (map[string]any, error) {
+	return s.store.GetSettings(userID)
 }
 
 // SetBatch stores multiple configuration values for a user atomically
-func (s *ConfigService) SetBatch(userId string, settings map[string]any) error {
+func (s *ConfigService) SetBatch(userID string, settings map[string]any) error {
 	for key, value := range settings {
 		// Skip unknown keys with warning log
 		if _, ok := GetConfigMeta(key); !ok {
 			logger.Warn("[ConfigService.SetBatch] unknown key: %s, skipping", key)
 			continue
 		}
-		if err := s.store.SetSetting(userId, key, value, IsEncrypted(key)); err != nil {
+		if err := s.store.SetSetting(userID, key, value, IsEncrypted(key)); err != nil {
 			return err
 		}
 	}
@@ -137,8 +137,8 @@ func (s *ConfigService) SetBatch(userId string, settings map[string]any) error {
 }
 
 // Delete removes a configuration value for a user
-func (s *ConfigService) Delete(userId, key string) error {
-	return s.store.DeleteSetting(userId, key)
+func (s *ConfigService) Delete(userID, key string) error {
+	return s.store.DeleteSetting(userID, key)
 }
 
 // maskSensitiveValue returns a masked version of sensitive values for safe logging
@@ -158,16 +158,16 @@ func isSensitiveKey(key string) bool {
 func (s *ConfigService) ValidateTokenAndGetUser(token string) (string, error) {
 	logger.Debug("[ValidateTokenAndGetUser] validating token: %s", maskSensitiveValue(token))
 
-	userId, err := s.store.ValidateAPIToken(token)
+	userID, err := s.store.ValidateAPIToken(token)
 	if err != nil && errors.Is(err, store.ErrAPIDisabled) {
 		return "", ErrAPIDisabled
 	}
-	if err != nil || userId == "" {
+	if err != nil || userID == "" {
 		logger.Debug("[ValidateTokenAndGetUser] no matching token found: %v", err)
 		return "", nil
 	}
 
-	storedToken, _ := s.GetString(userId, "api.token")
+	storedToken, _ := s.GetString(userID, "api.token")
 
 	// Use constant-time comparison to prevent timing attacks
 	if subtle.ConstantTimeCompare([]byte(storedToken), []byte(token)) != 1 {
@@ -176,18 +176,18 @@ func (s *ConfigService) ValidateTokenAndGetUser(token string) (string, error) {
 	}
 
 	// Check if API is enabled for this user
-	enabled, err := s.GetBool(userId, "api.enabled")
+	enabled, err := s.GetBool(userID, "api.enabled")
 	if err != nil {
 		logger.Debug("[ValidateTokenAndGetUser] error checking API enabled: %v", err)
 		return "", err
 	}
 	if !enabled {
-		logger.Debug("[ValidateTokenAndGetUser] API disabled for user: %s", userId)
+		logger.Debug("[ValidateTokenAndGetUser] API disabled for user: %s", userID)
 		return "", ErrAPIDisabled
 	}
 
-	logger.Debug("[ValidateTokenAndGetUser] token validated for user: %s", userId)
-	return userId, nil
+	logger.Debug("[ValidateTokenAndGetUser] token validated for user: %s", userID)
+	return userID, nil
 }
 
 // parseStringValue extracts a string from various value types

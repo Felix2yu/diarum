@@ -534,7 +534,7 @@ func (s *EmbeddingService) QuerySimilar(ctx context.Context, userID, query strin
 	searchResults := make([]DiarySearchResult, 0, len(results))
 	for _, result := range results {
 		moodInt := 0
-		fmt.Sscanf(result.Metadata["mood"], "%d", &moodInt)
+		_, _ = fmt.Sscanf(result.Metadata["mood"], "%d", &moodInt)
 		var moodStates []string
 		_ = json.Unmarshal([]byte(result.Metadata["mood_states"]), &moodStates)
 		var scenarios []string

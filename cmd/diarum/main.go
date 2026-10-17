@@ -346,7 +346,7 @@ func run(args []string, stdout io.Writer) error {
 				defaultHandler(c, err)
 				return
 			}
-			serveSPA(c, staticFS)
+			_ = serveSPA(c, staticFS)
 		}
 	}
 

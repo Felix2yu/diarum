@@ -85,12 +85,12 @@ func FetchFromQWeather(city string, lat, lon float64, date string) (*WeatherResu
 	for _, d := range data.Daily {
 		if d.FxDate == targetDate {
 			iconCode := 0
-			fmt.Sscanf(d.IconDay, "%d", &iconCode)
+			_, _ = fmt.Sscanf(d.IconDay, "%d", &iconCode)
 
 			tempMax := 0.0
 			tempMin := 0.0
-			fmt.Sscanf(d.TempMax, "%f", &tempMax)
-			fmt.Sscanf(d.TempMin, "%f", &tempMin)
+			_, _ = fmt.Sscanf(d.TempMax, "%f", &tempMax)
+			_, _ = fmt.Sscanf(d.TempMin, "%f", &tempMin)
 
 			return &WeatherResult{
 				City:     city,

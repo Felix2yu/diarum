@@ -1162,7 +1162,7 @@ func TestBufferWriter(t *testing.T) {
 	if n != len("你好") {
 		t.Fatalf("n = %d", n)
 	}
-	w.Write([]byte("world"))
+	_, _ = w.Write([]byte("world"))
 	w.Flush()
 	if err := w.Close(); err != nil {
 		t.Fatalf("Close: %v", err)

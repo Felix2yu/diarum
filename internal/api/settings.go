@@ -56,14 +56,14 @@ func generateToken() (string, error) {
 
 func getSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		key := c.Param("key")
 
 		if _, ok := config.GetConfigMeta(key); !ok {
 			return badRequest("Unknown setting key: "+key, nil)
 		}
 
-		value, err := configService.Get(userId, key)
+		value, err := configService.Get(userID, key)
 		if err != nil {
 			return badRequest("Failed to get setting", err)
 		}
@@ -82,7 +82,7 @@ func getSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
 
 func putSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		key := c.Param("key")
 
 		if _, ok := config.GetConfigMeta(key); !ok {
@@ -96,7 +96,7 @@ func putSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
 			return badRequest("Invalid request body", err)
 		}
 
-		if err := configService.Set(userId, key, body.Value); err != nil {
+		if err := configService.Set(userID, key, body.Value); err != nil {
 			return badRequest("Failed to save setting", err)
 		}
 
@@ -106,14 +106,14 @@ func putSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
 
 func deleteSettingHandler(configService *config.ConfigService) echo.HandlerFunc {
 	return func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		key := c.Param("key")
 
 		if _, ok := config.GetConfigMeta(key); !ok {
 			return badRequest("Unknown setting key: "+key, nil)
 		}
 
-		if err := configService.Delete(userId, key); err != nil {
+		if err := configService.Delete(userID, key); err != nil {
 			return badRequest("Failed to delete setting", err)
 		}
 
@@ -128,13 +128,13 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 
 	// Get API token status and value
 	group.GET("/api-token", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 
-		token, err := configService.GetString(userId, "api.token")
+		token, err := configService.GetString(userID, "api.token")
 		if err != nil {
 			logger.Debug("[GET /api/v1/settings/api-token] error getting token: %v", err)
 		}
-		enabled, err := configService.GetBool(userId, "api.enabled")
+		enabled, err := configService.GetBool(userID, "api.enabled")
 		if err != nil {
 			logger.Debug("[GET /api/v1/settings/api-token] error getting enabled: %v", err)
 		}
@@ -149,13 +149,13 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 
 	// Toggle API token enabled/disabled
 	group.POST("/api-token/toggle", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 
-		token, err := configService.GetString(userId, "api.token")
+		token, err := configService.GetString(userID, "api.token")
 		if err != nil {
 			logger.Debug("[POST /api/v1/settings/api-token/toggle] error getting token: %v", err)
 		}
-		enabled, err := configService.GetBool(userId, "api.enabled")
+		enabled, err := configService.GetBool(userID, "api.enabled")
 		if err != nil {
 			logger.Debug("[POST /api/v1/settings/api-token/toggle] error getting enabled: %v", err)
 		}
@@ -167,10 +167,10 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 				return badRequest("Failed to generate token", err)
 			}
 
-			if err := configService.Set(userId, "api.token", newToken); err != nil {
+			if err := configService.Set(userID, "api.token", newToken); err != nil {
 				return badRequest("Failed to save token", err)
 			}
-			if err := configService.Set(userId, "api.enabled", true); err != nil {
+			if err := configService.Set(userID, "api.enabled", true); err != nil {
 				return badRequest("Failed to save enabled status", err)
 			}
 
@@ -182,7 +182,7 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 
 		// Toggle existing token
 		newEnabled := !enabled
-		if err := configService.Set(userId, "api.enabled", newEnabled); err != nil {
+		if err := configService.Set(userID, "api.enabled", newEnabled); err != nil {
 			return badRequest("Failed to update token", err)
 		}
 
@@ -195,7 +195,7 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 
 	// Reset API token (generate new one)
 	group.POST("/api-token/reset", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 
 		// Generate new token
 		newToken, err := generateToken()
@@ -204,17 +204,17 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 		}
 
 		// Save new token
-		if err := configService.Set(userId, "api.token", newToken); err != nil {
+		if err := configService.Set(userID, "api.token", newToken); err != nil {
 			return badRequest("Failed to save token", err)
 		}
 
 		// Ensure enabled is set (default to true for reset)
-		enabled, err := configService.GetBool(userId, "api.enabled")
+		enabled, err := configService.GetBool(userID, "api.enabled")
 		if err != nil {
 			logger.Debug("[POST /api/v1/settings/api-token/reset] error getting enabled: %v", err)
 		}
 		if !enabled {
-			if err := configService.Set(userId, "api.enabled", true); err != nil {
+			if err := configService.Set(userID, "api.enabled", true); err != nil {
 				logger.Debug("[POST /api/v1/settings/api-token/reset] error setting enabled: %v", err)
 			}
 			enabled = true
@@ -228,9 +228,9 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 
 	// Get all settings (new v1 API)
 	group.GET("", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 
-		settings, err := configService.GetBatch(userId)
+		settings, err := configService.GetBatch(userID)
 		if err != nil {
 			return badRequest("Failed to get settings", err)
 		}
@@ -251,7 +251,7 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 
 	// Batch update settings (new v1 API)
 	group.PUT("/batch", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 
 		var body struct {
 			Settings map[string]any `json:"settings"`
@@ -267,14 +267,14 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 			}
 		}
 
-		if err := configService.SetBatch(userId, body.Settings); err != nil {
+		if err := configService.SetBatch(userID, body.Settings); err != nil {
 			return badRequest("Failed to save settings", err)
 		}
 
 		// Notify weather scheduler when weather-related settings change
 		for key := range body.Settings {
 			if weatherSettingsKeys[key] {
-				weatherScheduler.Refresh(userId)
+				weatherScheduler.Refresh(userID)
 				break
 			}
 		}
@@ -287,7 +287,7 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 
 	// Update single setting by key
 	group.PUT("/:key", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		key := c.Param("key")
 
 		if _, ok := config.GetConfigMeta(key); !ok {
@@ -301,12 +301,12 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 			return badRequest("Invalid request body", err)
 		}
 
-		if err := configService.Set(userId, key, body.Value); err != nil {
+		if err := configService.Set(userID, key, body.Value); err != nil {
 			return badRequest("Failed to save setting", err)
 		}
 
 		if weatherSettingsKeys[key] {
-			weatherScheduler.Refresh(userId)
+			weatherScheduler.Refresh(userID)
 		}
 
 		return c.JSON(http.StatusOK, successResponse{Success: true})
@@ -314,19 +314,19 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 
 	// Delete single setting by key
 	group.DELETE("/:key", func(c *echo.Context) error {
-		userId := auth.CurrentUser(c).ID
+		userID := auth.CurrentUser(c).ID
 		key := c.Param("key")
 
 		if _, ok := config.GetConfigMeta(key); !ok {
 			return badRequest("Unknown setting key: "+key, nil)
 		}
 
-		if err := configService.Delete(userId, key); err != nil {
+		if err := configService.Delete(userID, key); err != nil {
 			return badRequest("Failed to delete setting", err)
 		}
 
 		if weatherSettingsKeys[key] {
-			weatherScheduler.Refresh(userId)
+			weatherScheduler.Refresh(userID)
 		}
 
 		return c.JSON(http.StatusOK, successResponse{Success: true})

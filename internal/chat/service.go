@@ -461,7 +461,7 @@ func (s *ChatService) processStreamResponseWithTools(body io.Reader, writer Stre
 				fullResponse.WriteString(choice.Delta.Content)
 				sseData := map[string]string{"content": choice.Delta.Content}
 				jsonData, _ := json.Marshal(sseData)
-				writer.Write([]byte("data: " + string(jsonData) + "\n\n"))
+				_, _ = writer.Write([]byte("data: " + string(jsonData) + "\n\n"))
 				writer.Flush()
 			}
 
