@@ -1,45 +1,58 @@
 {
-	"name": "diarum-site",
-	"packageManager": "pnpm@11.22.0",
-	"version": "0.1.0",
-	"private": true,
-	"imports": {
-		"#lib": "./src/lib/index.js",
-		"#lib/*": "./src/lib/*"
-	},
-	"scripts": {
-		"prepare": "svelte-kit sync",
-		"icloud-ignore": "sh scripts/ignore-icloud.sh",
-		"dev": "vite dev --host 127.0.0.1 --port 5173 --strictPort",
-		"build": "vite build && node scripts/build-sw.mjs && node -e \"const{execSync:e}=require('child_process'),f=require('fs'),p=require('path');function r(d){for(const n of f.readdirSync(d)){const t=p.join(d,n);if(f.statSync(t).isDirectory())r(t);else if(/\\.(js|css|html|svg|json|woff2?)$/.test(n)){try{e('zstd -19 '+JSON.stringify(t)+' -o '+JSON.stringify(t+'.zst'),{stdio:'ignore'})}catch{}}}}r('build')\"",
-		"preview": "vite preview",
-		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
-	},
-	"devDependencies": {
-		"@sveltejs/adapter-static": "^4.0.0",
-		"@sveltejs/kit": "^3.0.1",
-		"@sveltejs/vite-plugin-svelte": "^7.3.1",
-		"@types/node": "^26.6.4",
-		"autoprefixer": "^10.6.1",
-		"postcss": "^8.5.30",
-		"svelte": "^5.57.2",
-		"svelte-check": "^4.7.6",
-		"tailwindcss": "^4.3.3",
-		"typescript": "^6.0.3",
-		"vite": "^8.3.3",
-		"vite-plugin-pwa": "^2.0.0",
-		"workbox-build": "^7.4.1",
-		"workbox-window": "^7.4.1"
-	},
-	"dependencies": {
-		"@tailwindcss/postcss": "^4.3.3",
-		"@tailwindcss/vite": "^4.3.3",
-		"html-to-image": "^1.11.13",
-		"marked": "^18.1.1"
-	},
-	"overrides": {
-		"cookie": "^2.0.1"
-	},
-	"type": "module"
+  "name": "diarum-site",
+  "packageManager": "pnpm@11.22.0",
+  "version": "0.1.0",
+  "private": true,
+  "imports": {
+    "#lib": "./src/lib/index.js",
+    "#lib/*": "./src/lib/*"
+  },
+  "scripts": {
+    "prepare": "svelte-kit sync",
+    "icloud-ignore": "sh scripts/ignore-icloud.sh",
+    "dev": "vite dev --host 127.0.0.1 --port 5173 --strictPort",
+    "build": "vite build && node scripts/build-sw.mjs && node -e \"const{execSync:e}=require('child_process'),f=require('fs'),p=require('path');function r(d){for(const n of f.readdirSync(d)){const t=p.join(d,n);if(f.statSync(t).isDirectory())r(t);else if(/\\.(js|css|html|svg|json|woff2?)$/.test(n)){try{e('zstd -19 '+JSON.stringify(t)+' -o '+JSON.stringify(t+'.zst'),{stdio:'ignore'})}catch{}}}}r('build')\"",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "lint": "prettier --check . && eslint .",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@sveltejs/adapter-static": "^4.0.0",
+    "@sveltejs/kit": "^3.0.1",
+    "@sveltejs/vite-plugin-svelte": "^7.3.1",
+    "@types/node": "^26.6.4",
+    "autoprefixer": "^10.6.1",
+    "eslint": "^10.12.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-svelte": "^3.23.1",
+    "globals": "^17.13.0",
+    "postcss": "^8.5.30",
+    "prettier": "^3.9.10",
+    "prettier-plugin-svelte": "^4.1.1",
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "svelte": "^5.57.2",
+    "svelte-check": "^4.7.6",
+    "svelte-eslint-parser": "^1.9.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.2",
+    "vite": "^8.3.3",
+    "vite-plugin-pwa": "^2.0.0",
+    "workbox-build": "^7.4.1",
+    "workbox-window": "^7.4.1"
+  },
+  "dependencies": {
+    "@tailwindcss/postcss": "^4.3.3",
+    "@tailwindcss/vite": "^4.3.3",
+    "dompurify": "^3.4.17",
+    "html-to-image": "^1.11.13",
+    "marked": "^18.1.1"
+  },
+  "overrides": {
+    "cookie": "^2.0.1"
+  },
+  "type": "module"
 }

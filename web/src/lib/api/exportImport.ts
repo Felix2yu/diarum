@@ -2,67 +2,67 @@ import { pb } from './client';
 
 // Export request options
 export interface ExportOptions {
-	date_range: '1m' | '3m' | '6m' | '1y' | 'all' | 'custom';
-	start_date?: string;
-	end_date?: string;
-	include_diaries: boolean;
-	include_media: boolean;
-	include_conversations: boolean;
-	include_analysis: boolean;
+  date_range: '1m' | '3m' | '6m' | '1y' | 'all' | 'custom';
+  start_date?: string;
+  end_date?: string;
+  include_diaries: boolean;
+  include_media: boolean;
+  include_conversations: boolean;
+  include_analysis: boolean;
 }
 
 // Export count detail for each data type
 export interface ExportCountDetail {
-	total_in_system: number;
-	should_export: number;
-	actual_exported: number;
+  total_in_system: number;
+  should_export: number;
+  actual_exported: number;
 }
 
 // Failed export item
 export interface ExportFailedItem {
-	type: string;
-	id: string;
-	reason: string;
+  type: string;
+  id: string;
+  reason: string;
 }
 
 export interface ExportStats {
-	date_range_type: string;
-	start_date: string;
-	end_date: string;
-	diaries: ExportCountDetail;
-	media: ExportCountDetail;
-	conversations: ExportCountDetail;
-	messages: number;
-	failed_items?: ExportFailedItem[];
+  date_range_type: string;
+  start_date: string;
+  end_date: string;
+  diaries: ExportCountDetail;
+  media: ExportCountDetail;
+  conversations: ExportCountDetail;
+  messages: number;
+  failed_items?: ExportFailedItem[];
 }
 
 export interface ImportCounters {
-	total: number;
-	imported: number;
-	skipped: number;
-	failed: number;
-	conflict: number;
+  total: number;
+  imported: number;
+  skipped: number;
+  failed: number;
+  conflict: number;
 }
 
 export interface ImportDiaryDetail {
-	date: string;
-	status: string;
-	reason?: string;
-	new_content?: string;
-	new_mood?: number;
-	new_weather?: string;
-	old_id?: string;
-	old_content?: string;
-	old_mood?: number;
-	old_weather?: string;
+  date: string;
+  status: string;
+  reason?: string;
+  new_content?: string;
+  new_mood?: number;
+  new_weather?: string;
+  old_id?: string;
+  old_content?: string;
+  old_mood?: number;
+  old_weather?: string;
 }
 
 export interface ImportStats {
-	diaries: ImportCounters;
-	diary_details?: ImportDiaryDetail[];
-	media: ImportCounters;
-	conversations: ImportCounters;
-	analyses?: ImportCounters;
+  diaries: ImportCounters;
+  diary_details?: ImportDiaryDetail[];
+  media: ImportCounters;
+  conversations: ImportCounters;
+  analyses?: ImportCounters;
 }
 
 /**
@@ -70,137 +70,144 @@ export interface ImportStats {
  * Triggers a browser download and returns export stats from the response header.
  */
 export async function exportDiaries(options?: ExportOptions): Promise<ExportStats> {
-	// Default options
-	const exportOptions: ExportOptions = options || {
-		date_range: '3m',
-		include_diaries: true,
-		include_media: true,
-		include_conversations: true,
-		include_analysis: false
-	};
+  // Default options
+  const exportOptions: ExportOptions = options || {
+    date_range: '3m',
+    include_diaries: true,
+    include_media: true,
+    include_conversations: true,
+    include_analysis: false
+  };
 
-	const response = await fetch('/api/v1/export', {
-		method: 'POST',
-		headers: {
-			'Authorization': `Bearer ${pb.authStore.token}`,
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify(exportOptions)
-	});
+  const response = await fetch('/api/v1/export', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${pb.authStore.token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(exportOptions)
+  });
 
-	if (!response.ok) {
-		const text = await response.text();
-		throw new Error(text || 'Export failed');
-	}
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || 'Export failed');
+  }
 
-	// Parse stats header
-	const statsRaw = response.headers.get('X-Export-Stats');
-	const defaultStats: ExportStats = {
-		date_range_type: exportOptions.date_range,
-		start_date: '',
-		end_date: '',
-		diaries: { total_in_system: 0, should_export: 0, actual_exported: 0 },
-		media: { total_in_system: 0, should_export: 0, actual_exported: 0 },
-		conversations: { total_in_system: 0, should_export: 0, actual_exported: 0 },
-		messages: 0
-	};
-	const stats: ExportStats = statsRaw ? JSON.parse(statsRaw) : defaultStats;
+  // Parse stats header
+  const statsRaw = response.headers.get('X-Export-Stats');
+  const defaultStats: ExportStats = {
+    date_range_type: exportOptions.date_range,
+    start_date: '',
+    end_date: '',
+    diaries: { total_in_system: 0, should_export: 0, actual_exported: 0 },
+    media: { total_in_system: 0, should_export: 0, actual_exported: 0 },
+    conversations: { total_in_system: 0, should_export: 0, actual_exported: 0 },
+    messages: 0
+  };
+  const stats: ExportStats = statsRaw ? JSON.parse(statsRaw) : defaultStats;
 
-	// Trigger browser download
-	const blob = await response.blob();
-	const url = URL.createObjectURL(blob);
-	const a = document.createElement('a');
-	a.href = url;
+  // Trigger browser download
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
 
-	// Generate filename with timestamp suffix
-	const now = new Date();
-	const timestamp = now.getFullYear().toString() +
-		(now.getMonth() + 1).toString().padStart(2, '0') +
-		now.getDate().toString().padStart(2, '0') +
-		now.getHours().toString().padStart(2, '0') +
-		now.getMinutes().toString().padStart(2, '0') +
-		now.getSeconds().toString().padStart(2, '0');
-	a.download = `diarum_export_${timestamp}.zip`;
+  // Generate filename with timestamp suffix
+  const now = new Date();
+  const timestamp =
+    now.getFullYear().toString() +
+    (now.getMonth() + 1).toString().padStart(2, '0') +
+    now.getDate().toString().padStart(2, '0') +
+    now.getHours().toString().padStart(2, '0') +
+    now.getMinutes().toString().padStart(2, '0') +
+    now.getSeconds().toString().padStart(2, '0');
+  a.download = `diarum_export_${timestamp}.zip`;
 
-	document.body.appendChild(a);
-	a.click();
-	document.body.removeChild(a);
-	URL.revokeObjectURL(url);
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 
-	return stats;
+  return stats;
 }
 
 /**
  * Import diary data from a previously exported JSON or ZIP file.
  */
 export async function importDiaries(file: File): Promise<ImportStats> {
-	const formData = new FormData();
-	formData.append('file', file);
+  const formData = new FormData();
+  formData.append('file', file);
 
-	const response = await fetch('/api/v1/import', {
-		method: 'POST',
-		headers: {
-			'Authorization': `Bearer ${pb.authStore.token}`
-		},
-		body: formData
-	});
+  const response = await fetch('/api/v1/import', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${pb.authStore.token}`
+    },
+    body: formData
+  });
 
-	if (!response.ok) {
-		const data = await response.json().catch(() => ({}));
-		throw new Error((data as any).message || 'Import failed');
-	}
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error((data as any).message || 'Import failed');
+  }
 
-	return await response.json();
+  return await response.json();
 }
 
 /**
  * Resolve an import conflict for a specific date.
  */
-export async function resolveConflict(date: string, action: 'keep_old' | 'replace', content?: string, mood?: number, weather?: string): Promise<{ status: string; id?: string }> {
-	const response = await fetch('/api/v1/import/resolve', {
-		method: 'POST',
-		headers: {
-			'Authorization': `Bearer ${pb.authStore.token}`,
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ date, action, content, mood, weather })
-	});
+export async function resolveConflict(
+  date: string,
+  action: 'keep_old' | 'replace',
+  content?: string,
+  mood?: number,
+  weather?: string
+): Promise<{ status: string; id?: string }> {
+  const response = await fetch('/api/v1/import/resolve', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${pb.authStore.token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ date, action, content, mood, weather })
+  });
 
-	if (!response.ok) {
-		const data = await response.json().catch(() => ({}));
-		throw new Error((data as any).message || 'Resolve failed');
-	}
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error((data as any).message || 'Resolve failed');
+  }
 
-	return await response.json();
+  return await response.json();
 }
 
 /**
  * Batch resolve import conflicts for multiple dates.
  */
 export async function resolveConflictBatch(
-	conflicts: ImportDiaryDetail[],
-	action: 'keep_old' | 'replace'
+  conflicts: ImportDiaryDetail[],
+  action: 'keep_old' | 'replace'
 ): Promise<{ resolved: number; failed: number }> {
-	const items = conflicts.map(c => ({
-		date: c.date,
-		content: c.new_content,
-		mood: c.new_mood,
-		weather: c.new_weather
-	}));
+  const items = conflicts.map((c) => ({
+    date: c.date,
+    content: c.new_content,
+    mood: c.new_mood,
+    weather: c.new_weather
+  }));
 
-	const response = await fetch('/api/v1/import/resolve-batch', {
-		method: 'POST',
-		headers: {
-			'Authorization': `Bearer ${pb.authStore.token}`,
-			'Content-Type': 'application/json'
-		},
-		body: JSON.stringify({ items, action })
-	});
+  const response = await fetch('/api/v1/import/resolve-batch', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${pb.authStore.token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ items, action })
+  });
 
-	if (!response.ok) {
-		const data = await response.json().catch(() => ({}));
-		throw new Error((data as any).message || 'Batch resolve failed');
-	}
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error((data as any).message || 'Batch resolve failed');
+  }
 
-	return await response.json();
+  return await response.json();
 }

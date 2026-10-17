@@ -11,10 +11,7 @@
   "dark_theme_color": "#1C1714",
   "dark_background_color": "#1C1714",
   "lang": "zh-CN",
-  "categories": [
-    "productivity",
-    "lifestyle"
-  ],
+  "categories": ["productivity", "lifestyle"],
   "icons": [
     {
       "src": "/favicon.svg",
@@ -94,9 +91,5 @@
   ],
   "id": "/",
   "dir": "ltr",
-  "display_override": [
-    "standalone",
-    "minimal-ui",
-    "browser"
-  ]
+  "display_override": ["standalone", "minimal-ui", "browser"]
 }

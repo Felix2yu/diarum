@@ -1,87 +1,127 @@
 <script lang="ts">
-	import { theme, type Theme } from '#lib/stores/theme.js';
+  import { theme, type Theme } from '#lib/stores/theme.js';
 
-	const themes: { value: Theme; label: string; icon: string }[] = [
-		{ value: 'light', label: '浅色', icon: 'sun' },
-		{ value: 'dark', label: '深色', icon: 'moon' },
-		{ value: 'system', label: '自适应', icon: 'auto' }
-	];
+  const themes: { value: Theme; label: string; icon: string }[] = [
+    { value: 'light', label: '浅色', icon: 'sun' },
+    { value: 'dark', label: '深色', icon: 'moon' },
+    { value: 'system', label: '自适应', icon: 'auto' }
+  ];
 
-	let isOpen = false;
+  let isOpen = false;
 
-	function selectTheme(t: Theme) {
-		theme.set(t);
-		isOpen = false;
-	}
+  function selectTheme(t: Theme) {
+    theme.set(t);
+    isOpen = false;
+  }
 
-	function handleClickOutside(event: MouseEvent) {
-		const target = event.target as HTMLElement;
-		if (!target.closest('.theme-toggle')) {
-			isOpen = false;
-		}
-	}
+  function handleClickOutside(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (!target.closest('.theme-toggle')) {
+      isOpen = false;
+    }
+  }
 </script>
 
 <svelte:window onclick={handleClickOutside} />
 
 <div class="theme-toggle relative">
-	<button
-		onclick={(e) => { e.stopPropagation(); isOpen = !isOpen; }}
-		class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm
-			   text-muted-foreground hover:text-foreground hover:bg-muted/50
-			   transition-all duration-200"
-		aria-label="切换主题"
-	>
-		{#if $theme === 'light'}
-			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-					d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-			</svg>
-		{:else if $theme === 'dark'}
-			<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-				<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-					d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-			</svg>
-		{:else}
-			<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-				<path d="M12 3a9 9 0 010 18" fill="currentColor" />
-				<path d="M12 3a9 9 0 010 18" fill="none" />
-				<circle cx="12" cy="12" r="9" />
-			</svg>
-		{/if}
-		<span class="hidden sm:inline">{themes.find(t => t.value === $theme)?.label}</span>
-	</button>
+  <button
+    onclick={(e) => {
+      e.stopPropagation();
+      isOpen = !isOpen;
+    }}
+    class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm
+			   text-muted-foreground transition-all duration-200
+			   hover:bg-muted/50 hover:text-foreground"
+    aria-label="切换主题"
+  >
+    {#if $theme === 'light'}
+      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+        />
+      </svg>
+    {:else if $theme === 'dark'}
+      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+        />
+      </svg>
+    {:else}
+      <svg
+        class="h-4 w-4"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <path d="M12 3a9 9 0 010 18" fill="currentColor" />
+        <path d="M12 3a9 9 0 010 18" fill="none" />
+        <circle cx="12" cy="12" r="9" />
+      </svg>
+    {/if}
+    <span class="hidden sm:inline">{themes.find((t) => t.value === $theme)?.label}</span>
+  </button>
 
-	{#if isOpen}
-		<div class="absolute bottom-full right-0 mb-2 py-1 min-w-[120px]
-					bg-card border border-border rounded-lg shadow-lg
-					animate-slide-in-down z-50">
-			{#each themes as t}
-				<button
-					onclick={(e) => { e.stopPropagation(); selectTheme(t.value); }}
-					class="w-full flex items-center gap-2 px-3 py-1.5 text-sm
-						   hover:bg-muted/50 transition-colors
-						   {$theme === t.value ? 'text-primary font-medium' : 'text-muted-foreground'}"
-				>
-					{#if t.value === 'light'}
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-								d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-						</svg>
-					{:else if t.value === 'dark'}
-						<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-								d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-						</svg>
-					{:else}
-						<svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M12 3a9 9 0 010 18" fill="currentColor" />
-							<circle cx="12" cy="12" r="9" />
-						</svg>
-					{/if}
-					{t.label}
-				</button>
-			{/each}
-		</div>
-	{/if}
+  {#if isOpen}
+    <div
+      class="animate-slide-in-down absolute right-0 bottom-full z-50 mb-2
+					min-w-[120px] rounded-lg border border-border bg-card
+					py-1 shadow-lg"
+    >
+      {#each themes as t (t.value)}
+        <button
+          onclick={(e) => {
+            e.stopPropagation();
+            selectTheme(t.value);
+          }}
+          class="flex w-full items-center gap-2 px-3 py-1.5 text-sm
+						   transition-colors hover:bg-muted/50
+						   {$theme === t.value ? 'font-medium text-primary' : 'text-muted-foreground'}"
+        >
+          {#if t.value === 'light'}
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
+              />
+            </svg>
+          {:else if t.value === 'dark'}
+            <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+              />
+            </svg>
+          {:else}
+            <svg
+              class="h-4 w-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 3a9 9 0 010 18" fill="currentColor" />
+              <circle cx="12" cy="12" r="9" />
+            </svg>
+          {/if}
+          {t.label}
+        </button>
+      {/each}
+    </div>
+  {/if}
 </div>

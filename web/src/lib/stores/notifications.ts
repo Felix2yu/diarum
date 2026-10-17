@@ -5,44 +5,44 @@ import type { ReminderSettings } from '#lib/api/notifications.js';
 const STORAGE_KEY = 'diarum_reminder_settings';
 
 export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
-	enabled: false,
-	time: '21:00',
-	timezone: '',
-	message: '该写今天的日记啦 ✍️'
+  enabled: false,
+  time: '21:00',
+  timezone: '',
+  message: '该写今天的日记啦 ✍️'
 };
 
 function detectTimezone(): string {
-	if (!browser) return '';
-	try {
-		return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-	} catch {
-		return '';
-	}
+  if (!browser) return '';
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+  } catch {
+    return '';
+  }
 }
 
 function loadSettings(): ReminderSettings {
-	const defaults: ReminderSettings = {
-		...DEFAULT_REMINDER_SETTINGS,
-		timezone: detectTimezone()
-	};
-	if (!browser) return defaults;
-	try {
-		const raw = localStorage.getItem(STORAGE_KEY);
-		if (!raw) return defaults;
-		const parsed = JSON.parse(raw) as Partial<ReminderSettings>;
-		return { ...defaults, ...parsed };
-	} catch {
-		return defaults;
-	}
+  const defaults: ReminderSettings = {
+    ...DEFAULT_REMINDER_SETTINGS,
+    timezone: detectTimezone()
+  };
+  if (!browser) return defaults;
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw) as Partial<ReminderSettings>;
+    return { ...defaults, ...parsed };
+  } catch {
+    return defaults;
+  }
 }
 
 function persist(settings: ReminderSettings) {
-	if (!browser) return;
-	try {
-		localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
-	} catch {
-		// ignore storage errors
-	}
+  if (!browser) return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    // ignore storage errors
+  }
 }
 
 /**
@@ -53,36 +53,36 @@ function persist(settings: ReminderSettings) {
  * persisted and reverted on the next page load ("保存后丢失").
  */
 function createReminderSettingsStore() {
-	const { subscribe, set, update } = writable<ReminderSettings>(loadSettings());
+  const { subscribe, set, update } = writable<ReminderSettings>(loadSettings());
 
-	function emit(next: ReminderSettings) {
-		set(next);
-		persist(next);
-	}
+  function emit(next: ReminderSettings) {
+    set(next);
+    persist(next);
+  }
 
-	return {
-		subscribe,
-		set(value: ReminderSettings) {
-			emit(value);
-		},
-		update(fn: (value: ReminderSettings) => ReminderSettings) {
-			update((v) => {
-				const next = fn(v);
-				persist(next);
-				return next;
-			});
-		}
-	};
+  return {
+    subscribe,
+    set(value: ReminderSettings) {
+      emit(value);
+    },
+    update(fn: (value: ReminderSettings) => ReminderSettings) {
+      update((v) => {
+        const next = fn(v);
+        persist(next);
+        return next;
+      });
+    }
+  };
 }
 
 export const reminderSettings = createReminderSettingsStore();
 
 export function getReminderSettings(): ReminderSettings {
-	return get(reminderSettings);
+  return get(reminderSettings);
 }
 
 export function updateReminderSettings(partial: Partial<ReminderSettings>): ReminderSettings {
-	const next = { ...get(reminderSettings), ...partial };
-	reminderSettings.set(next);
-	return next;
+  const next = { ...get(reminderSettings), ...partial };
+  reminderSettings.set(next);
+  return next;
 }
