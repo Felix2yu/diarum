@@ -1,7 +1,9 @@
 # Binaries
-diarum
-diaria
-journitalia
+# 锚到仓库根：这三个名字同时是 `make build` 的产物（-o diarum ./cmd/diarum）和源码
+# 目录名，裸写会连 cmd/diarum 一起忽略——已跟踪文件还能提交，但新文件加不进去且没有提示。
+/diarum
+/diaria
+/journitalia
 *.exe
 *.exe~
 *.dll
