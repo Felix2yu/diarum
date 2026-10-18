@@ -221,6 +221,48 @@ func main() {
 	}
 }
 
+// runBackup 实现 `diarum backup`：把一份备份写到 stdout（main 传入的就是进程真实
+// stdout，供外部备份工具 docker exec 捕获）。必须走 run 里最早的分发：不初始化存储、
+// 不跑迁移与种子、不起调度器与 HTTP 服务，只做导出这一件事。
+//
+// db（默认）是 SQLite 自身的一致性快照（VACUUM INTO），恢复即把文件放回数据目录；
+// zip 在快照之外再带上库外的 storage/ 媒体与 vectors/ 向量库，一份产物还原全部，
+// 配合外部工具时需声明 BACKUP_SQLITE_EXT=zip。
+//
+// 日志一律走 stderr（标准库 log）：本仓库的 internal/logger 写的是 stdout，
+// 导出路径碰它等于把日志字节混进备份产物。
+func runBackup(args []string, stdout io.Writer) error {
+	backupFlags := flag.NewFlagSet("diarum backup", flag.ContinueOnError)
+	dataDir := backupFlags.String("data-dir", getDataDir(), "the directory to store application data")
+	format := backupFlags.String("format", "db", "export format: db（SQLite 一致性快照）或 zip（库 + storage/ + vectors/）")
+	if err := backupFlags.Parse(args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
+		return err
+	}
+
+	appStore, err := store.OpenForExport(*dataDir)
+	if err != nil {
+		return err
+	}
+	defer appStore.Close()
+
+	switch strings.ToLower(strings.TrimSpace(*format)) {
+	case "db":
+		return appStore.WriteSQLiteSnapshot(stdout)
+	case "zip":
+		count, err := appStore.WriteZIP(stdout)
+		if err != nil {
+			return err
+		}
+		log.Printf("[backup] zip 完成：库快照 + %d 个库外文件", count)
+		return nil
+	default:
+		return fmt.Errorf("未知格式 %q（可选 db / zip）", *format)
+	}
+}
+
 func run(args []string, stdout io.Writer) error {
 	command := "serve"
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
@@ -230,6 +272,9 @@ func run(args []string, stdout io.Writer) error {
 	if command == "version" {
 		_, err := fmt.Fprintf(stdout, "%s version %s\n", Name, Version)
 		return err
+	}
+	if command == "backup" {
+		return runBackup(args, stdout)
 	}
 	if command != "serve" {
 		return fmt.Errorf("unknown command: %s", command)
