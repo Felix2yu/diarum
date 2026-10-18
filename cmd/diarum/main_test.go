@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
 	"errors"
 	"io"
@@ -424,6 +425,142 @@ func TestServeSPAStatErrorOnDirIndex(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "stat boom") {
 		t.Fatalf("serveSPA dir index stat error = %v, want stat boom", err)
 	}
+}
+
+// ---- `diarum backup`：外部备份工具经 docker exec 调用的导出子命令 ----
+
+const backupMagic = "SQLite format 3\x00"
+
+func TestRunBackupDefaultIsDBSnapshot(t *testing.T) {
+	dataDir := t.TempDir()
+	seedBackupStore(t, dataDir)
+
+	var out bytes.Buffer
+	if err := run([]string{"backup", "-data-dir", dataDir}, &out); err != nil {
+		t.Fatalf("run backup: %v", err)
+	}
+	got := out.Bytes()
+	if len(got) < 16 || string(got[:16]) != backupMagic {
+		t.Fatalf("default backup header = %q, want SQLite magic（默认必须是 db 形态）", got[:min(len(got), 16)])
+	}
+}
+
+func TestRunBackupZipIncludesExternalDirs(t *testing.T) {
+	dataDir := t.TempDir()
+	seedBackupStore(t, dataDir)
+
+	mediaPath := filepath.Join(dataDir, "storage", "media", "m1", "pic.png")
+	if err := os.MkdirAll(filepath.Dir(mediaPath), 0o755); err != nil {
+		t.Fatalf("mkdir media: %v", err)
+	}
+	if err := os.WriteFile(mediaPath, []byte("png-bytes"), 0o600); err != nil {
+		t.Fatalf("write media: %v", err)
+	}
+	vectorPath := filepath.Join(dataDir, "vectors", "collection.jsonl")
+	if err := os.MkdirAll(filepath.Dir(vectorPath), 0o755); err != nil {
+		t.Fatalf("mkdir vectors: %v", err)
+	}
+	if err := os.WriteFile(vectorPath, []byte(`{"id":"v1"}`), 0o600); err != nil {
+		t.Fatalf("write vector file: %v", err)
+	}
+	// 派生物不该进包：backups/ 是应用自己的按用户导出，备份自己的备份只会膨胀。
+	derivedPath := filepath.Join(dataDir, "backups", "u1", "diarum_backup_x.zip")
+	if err := os.MkdirAll(filepath.Dir(derivedPath), 0o755); err != nil {
+		t.Fatalf("mkdir derived backups: %v", err)
+	}
+	if err := os.WriteFile(derivedPath, []byte("derived"), 0o600); err != nil {
+		t.Fatalf("write derived backup: %v", err)
+	}
+
+	var out bytes.Buffer
+	if err := run([]string{"backup", "-data-dir", dataDir, "-format", "zip"}, &out); err != nil {
+		t.Fatalf("run backup zip: %v", err)
+	}
+	zr, err := zip.NewReader(bytes.NewReader(out.Bytes()), int64(out.Len()))
+	if err != nil {
+		t.Fatalf("read backup zip: %v", err)
+	}
+	contents := map[string]string{}
+	for _, zf := range zr.File {
+		rc, err := zf.Open()
+		if err != nil {
+			t.Fatalf("open zip entry %s: %v", zf.Name, err)
+		}
+		data, err := io.ReadAll(rc)
+		rc.Close()
+		if err != nil {
+			t.Fatalf("read zip entry %s: %v", zf.Name, err)
+		}
+		contents[zf.Name] = string(data)
+	}
+	if db, ok := contents["diarum.db"]; !ok {
+		t.Fatalf("zip entries = %v, want diarum.db", backupEntryNames(contents))
+	} else if len(db) < 16 || db[:16] != backupMagic {
+		t.Fatal("zip entry diarum.db is not a SQLite snapshot")
+	}
+	if got := contents["storage/media/m1/pic.png"]; got != "png-bytes" {
+		t.Fatalf("storage entry = %q, want png-bytes", got)
+	}
+	if got := contents["vectors/collection.jsonl"]; got != `{"id":"v1"}` {
+		t.Fatalf("vectors entry = %q, want vector file payload", got)
+	}
+	for name := range contents {
+		if strings.HasPrefix(name, "backups/") {
+			t.Fatalf("zip must not contain derived backups/ entries, got %s", name)
+		}
+	}
+}
+
+func TestRunBackupRejectsUnknownFormat(t *testing.T) {
+	dataDir := t.TempDir()
+	seedBackupStore(t, dataDir)
+
+	var out bytes.Buffer
+	err := run([]string{"backup", "-data-dir", dataDir, "-format", "tar"}, &out)
+	if err == nil || !strings.Contains(err.Error(), "tar") {
+		t.Fatalf("run backup unknown format error = %v, want mention of tar", err)
+	}
+	if out.Len() != 0 {
+		t.Fatalf("failed backup wrote %d bytes to stdout, want 0", out.Len())
+	}
+}
+
+func TestRunBackupMissingDatabaseFailsClean(t *testing.T) {
+	dataDir := t.TempDir()
+	var out bytes.Buffer
+	if err := run([]string{"backup", "-data-dir", dataDir}, &out); err == nil {
+		t.Fatal("run backup on missing database should fail")
+	}
+	if out.Len() != 0 {
+		t.Fatalf("failed backup wrote %d bytes to stdout, want 0", out.Len())
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, "diarum.db")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("backup created diarum.db despite failing: %v", err)
+	}
+}
+
+func seedBackupStore(t *testing.T, dataDir string) {
+	t.Helper()
+	s, err := store.Open(dataDir)
+	if err != nil {
+		t.Fatalf("seed store open: %v", err)
+	}
+	defer s.Close()
+	u, err := s.CreateUser("backupuser", "bu@example.com", "hash")
+	if err != nil {
+		t.Fatalf("seed create user: %v", err)
+	}
+	if _, _, err := s.UpsertDiary(u.ID, "2026-10-02", "seeded entry", nil, nil, nil, nil, nil, nil, nil, nil); err != nil {
+		t.Fatalf("seed upsert diary: %v", err)
+	}
+}
+
+func backupEntryNames(m map[string]string) []string {
+	names := make([]string, 0, len(m))
+	for k := range m {
+		names = append(names, k)
+	}
+	return names
 }
 
 func TestMCPAuthMiddleware(t *testing.T) {
