@@ -65,7 +65,6 @@ diarum/
 │   │   │   └── utils/         # 工具函数
 │   │   └── routes/            # SvelteKit 页面 (文件路由)
 │   └── build/                 # 编译后的前端输出
-├── scripts/                   # docker-entrypoint.sh
 ├── docs/                      # 设计文档 (中文)
 └── .github/workflows/         # CI/CD
 ```
