@@ -14,7 +14,10 @@ WORKDIR /app
 
 RUN mkdir -p /app/data
 
-COPY bin/diarum /app/diarum
+# 二进制装到 /usr/local/bin 并以裸名启动（基镜契约，见 Felix2yu/.github docs/docker.md）：
+# 外部备份工具在容器里跑 `docker exec <容器> sh -c "diarum backup"`，装在 /app 不在
+# PATH 上，裸名命令与工具的镜像名推导都解析不到，备份就接不上。
+COPY --chmod=755 bin/diarum /usr/local/bin/diarum
 
 ENV TZ=Asia/Shanghai \
     DIARUM_DATA_PATH=/app/data \
@@ -25,5 +28,5 @@ EXPOSE 8090
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD wget -q -O /dev/null http://127.0.0.1:8090/healthz || exit 1
 
-# ENTRYPOINT 由基镜提供（PUID/PGID 降权），这里只给服务命令
-CMD ["/app/diarum", "serve", "--http=0.0.0.0:8090"]
+# ENTRYPOINT 由基镜提供（PUID/PGID 降权），这里只给服务命令；裸名即可，二进制已在 PATH 上
+CMD ["diarum", "serve", "--http=0.0.0.0:8090"]
