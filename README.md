@@ -121,14 +121,14 @@ docker run -d \
   --name diarum \
   -p 8090:8090 \
   -v /path/to/your/data:/app/data \
-  -e BACKUP_SQLITE_CMD="diarum backup" \
+  -e BACKUP_SQLITE_CMD="/app/diarum backup" \
   ghcr.io/felix2yu/diarum:latest
 ```
 
 > `BACKUP_SQLITE_CMD` 是给外部备份工具（docker-db-auto-backup）的自导出声明：
-> 工具在容器里跑 `docker exec <容器> sh -c "diarum backup"`，把 stdout 收作一致性快照。
-> 二进制在 `/usr/local/bin`（PATH 上），裸名即可；exec 身份由基镜烘入的 `PUID`/`PGID`
-> 自动派生，无需额外配置。
+> 工具在容器里跑 `docker exec <容器> sh -c "/app/diarum backup"`，把 stdout 收作一致性快照。
+> 命令写绝对路径：镜像把二进制放在 `/app`，而 `/app` 不在容器 PATH 上。
+> exec 身份由基镜烘入的 `PUID`/`PGID` 自动派生，无需额外配置。
 
 #### 使用 Docker Compose
 
@@ -146,7 +146,7 @@ services:
     environment:
       - DIARUM_DATA_PATH=/app/data
       # 供外部备份工具（docker-db-auto-backup）在容器内自导出 SQLite 一致性快照
-      - BACKUP_SQLITE_CMD=diarum backup
+      - BACKUP_SQLITE_CMD=/app/diarum backup
     restart: unless-stopped
 ```
 
@@ -185,12 +185,12 @@ docker compose up -d
 可在应用正常运行时执行，不迁移、不改动数据文件。手动备份一条命令即可：
 
 ```bash
-docker exec <容器名> diarum backup > diarum-$(date +%F).db
+docker exec <容器名> /app/diarum backup > diarum-$(date +%F).db
 ```
 
 - **db（默认）**：单个 `.db` 快照。本地媒体（`storage/`）与向量库（`vectors/`）在库外，
   不在此形态内；数据目录整体挂卷的部署按卷备份即可覆盖。
-- **zip**：`docker exec <容器名> diarum backup --format zip > diarum-$(date +%F).zip`，
+- **zip**：`docker exec <容器名> /app/diarum backup --format zip > diarum-$(date +%F).zip`，
   产物为「库快照 + `storage/` + `vectors/`」，一份还原全部。配合外部备份工具时需
   同时声明 `BACKUP_SQLITE_EXT=zip`（否则工具按 `.db` 魔数校验会判失败）。
 - 应用界面上的「自动备份」是按用户导出的 ZIP（落在 `data/backups/`），与本命令的
