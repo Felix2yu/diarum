@@ -4,6 +4,7 @@
   import { goto } from '$app/navigation';
   import { isAuthenticated } from '#lib/api/client.js';
   import { theme, setTheme, type Theme } from '#lib/stores/theme.js';
+  import { copyText } from '#lib/utils/clipboard.js';
   import {
     getApiToken,
     toggleApiToken,
@@ -534,8 +535,11 @@
   }
 
   async function copyToken() {
-    if (tokenStatus.token) {
-      await navigator.clipboard.writeText(tokenStatus.token);
+    if (!tokenStatus.token) {
+      return;
+    }
+    const ok = await copyText(tokenStatus.token);
+    if (ok) {
       copied = true;
       setTimeout(() => (copied = false), 2000);
     }
@@ -582,8 +586,11 @@
   }
 
   async function copyMemosWebhookURL() {
-    if (memosSettings.webhook_url) {
-      await navigator.clipboard.writeText(memosSettings.webhook_url);
+    if (!memosSettings.webhook_url) {
+      return;
+    }
+    const ok = await copyText(memosSettings.webhook_url);
+    if (ok) {
       memosCopied = true;
       setTimeout(() => (memosCopied = false), 2000);
     }
@@ -1401,13 +1408,7 @@
                       </button>
                     </div>
                     <p class="mt-2 text-xs text-muted-foreground">
-                      {#if tokenStatus.token}
-                        请妥善保管此 token。任何持有此 token
-                        的人都可以读取、修改或删除您的日记内容。
-                      {:else}
-                        为安全起见，token 仅在创建或重置时显示一次。如需查看 token，请点击下方"重置
-                        Token"。
-                      {/if}
+                      请妥善保管此 token。任何持有此 token 的人都可以读取、修改或删除您的日记内容。
                     </p>
                   </div>
 

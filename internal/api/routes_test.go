@@ -317,7 +317,8 @@ func TestAuthAndSettingsRoutes(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET api-token after create status = %d", rec.Code)
 	}
-	if payload := decodeJSONBody(t, rec); payload["exists"] != true {
+	// GET 返回明文 token，便于用户随时复制
+	if payload := decodeJSONBody(t, rec); payload["exists"] != true || payload["token"] != firstToken {
 		t.Fatalf("GET api-token after create payload = %#v", payload)
 	}
 
@@ -348,15 +349,15 @@ func TestAuthAndSettingsRoutes(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("toggle existing api-token status = %d", rec.Code)
 	}
-	if payload := decodeJSONBody(t, rec); payload["enabled"] != false || payload["token"] != "" {
+	if payload := decodeJSONBody(t, rec); payload["enabled"] != false || payload["token"] != secondToken {
 		t.Fatalf("toggle existing api-token payload = %#v", payload)
 	}
 	rec = performRequest(t, e, http.MethodGet, "/api/v1/settings/api-token", nil, nil)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET disabled api-token status = %d", rec.Code)
 	}
-	// 已存在的 token 不回读明文（掩码/空串），仅返回状态
-	if payload := decodeJSONBody(t, rec); payload["exists"] != true || payload["enabled"] != false || payload["token"] != "" {
+	// 禁用状态下仍返回明文 token，重新启用后可直接复制
+	if payload := decodeJSONBody(t, rec); payload["exists"] != true || payload["enabled"] != false || payload["token"] != secondToken {
 		t.Fatalf("GET disabled api-token payload = %#v", payload)
 	}
 

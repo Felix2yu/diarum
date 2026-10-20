@@ -337,8 +337,8 @@ API 遵循 RESTful 风格，所有路由以 `/api/v1/` 为前缀，使用 **Echo
 | :--- | :--- | :--- |
 | `GET` | `/api/v1/settings` | 获取当前用户的所有配置（以 JSON 对象返回）。 |
 | `POST` | `/api/v1/settings` | 批量更新多项配置（前端设置页面常用）。 |
-| `GET` | `/api/v1/settings/api-token` | 获取当前用户的 API Token（若未启用则返回空）。 |
-| `POST` | `/api/v1/settings/api-token/toggle` | 开关外部 API 访问（`api.enabled`）。 |
+| `GET` | `/api/v1/settings/api-token` | 获取当前用户的 API Token 与启用状态（token 以便于随时复制；仅登录用户本人可访问）。 |
+| `POST` | `/api/v1/settings/api-token/toggle` | 开关外部 API 访问（`api.enabled`），首次开启时自动生成 token。 |
 | `POST` | `/api/v1/settings/api-token/reset` | 重置 API Token。 |
 
 #### AI 助手 / RAG

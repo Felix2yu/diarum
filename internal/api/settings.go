@@ -139,11 +139,11 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 			logger.Debug("[GET /api/v1/settings/api-token] error getting enabled: %v", err)
 		}
 
-		// 不返回明文 token，只返回状态；token 仅在创建/重置时返回一次
+		// 返回明文 token，便于用户随时复制；该接口仅登录用户本人可访问
 		return c.JSON(http.StatusOK, apiTokenStatusResponse{
 			Exists:  token != "",
 			Enabled: enabled && token != "",
-			Token:   "",
+			Token:   token,
 		})
 	})
 
@@ -186,10 +186,10 @@ func RegisterSettingsRoutes(e *echo.Echo, store *store.Store, authMiddleware ech
 			return badRequest("Failed to update token", err)
 		}
 
-		// 已存在的 token 不再回读明文
+		// 已存在的 token 同样回读明文，避免切换开关后无法复制
 		return c.JSON(http.StatusOK, apiTokenToggleResponse{
 			Enabled: newEnabled,
-			Token:   "",
+			Token:   token,
 		})
 	})
 
