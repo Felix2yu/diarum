@@ -9,7 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.10
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.114.5
 	github.com/golang-jwt/jwt/v5 v5.3.1
-	github.com/labstack/echo/v5 v5.4.2
+	github.com/labstack/echo/v5 v5.4.4
 	github.com/mark3labs/mcp-go v1.4.0
 	github.com/philippgille/chromem-go v0.7.0
 	golang.org/x/crypto v0.58.0
