@@ -36,6 +36,7 @@ export interface Media {
   owner: string;
   created?: string;
   updated?: string;
+  deleted_at?: string;
 }
 
 export interface UploadProgress {

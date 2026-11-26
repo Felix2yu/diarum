@@ -60,6 +60,7 @@ export interface UploadOptions {
   diaryDate?: string; // Date string (YYYY-MM-DD) to auto-link diary
   alt?: string;
   onProgress?: (progress: UploadProgress) => void;
+  signal?: AbortSignal;
 }
 
 export interface CheveretoUploadResult {
@@ -82,9 +83,7 @@ export async function uploadImage(
   file: File,
   options: UploadOptions = {}
 ): Promise<Media | CheveretoUploadResult> {
-  // onProgress 保留在 UploadOptions 里作为对外契约，但上传走 fetch 实现，
-  // 没有可挂进度的 XHR 事件源，故此处不解构。
-  const { diaryId, diaryDate, alt } = options;
+  const { diaryId, diaryDate, alt, signal, onProgress } = options;
 
   // Validate file type
   const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
@@ -108,7 +107,9 @@ export async function uploadImage(
 
   if (settings.provider === 'chevereto') {
     try {
+      onProgress?.({ loaded: 0, total: file.size, percentage: 0 });
       const result = await uploadToChevereto(file);
+      onProgress?.({ loaded: file.size, total: file.size, percentage: 100 });
       return { cheveretoUrl: result.url };
     } catch (error) {
       console.error('Chevereto upload failed:', error);
@@ -136,21 +137,70 @@ export async function uploadImage(
   }
 
   try {
-    const response = await fetch('/api/v1/media', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${pb.authStore.token}`
-      },
-      body: formData
-    });
-    if (!response.ok) {
-      throw new Error(await response.text());
+    return await uploadMediaWithProgress(formData, signal, onProgress);
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw error;
     }
-    return await response.json();
-  } catch (error: any) {
     console.error('Upload failed:', error);
     throw new Error('Failed to upload image. Please try again.', { cause: error });
   }
+}
+
+function uploadMediaWithProgress(
+  formData: FormData,
+  signal: AbortSignal | undefined,
+  onProgress: ((progress: UploadProgress) => void) | undefined
+): Promise<Media> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException('Aborted', 'AbortError'));
+      return;
+    }
+
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/v1/media');
+    xhr.setRequestHeader('Authorization', `Bearer ${pb.authStore.token}`);
+    xhr.responseType = 'text';
+
+    const handleAbort = () => xhr.abort();
+    signal?.addEventListener('abort', handleAbort, { once: true });
+
+    xhr.upload.onprogress = (event) => {
+      if (!event.lengthComputable) return;
+      const total = event.total || 1;
+      onProgress?.({
+        loaded: event.loaded,
+        total,
+        percentage: Math.min(100, Math.round((event.loaded / total) * 100))
+      });
+    };
+
+    xhr.onload = () => {
+      signal?.removeEventListener('abort', handleAbort);
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText) as Media);
+        } catch {
+          reject(new Error('Invalid upload response'));
+        }
+        return;
+      }
+      reject(new Error(xhr.responseText || `Upload failed with status ${xhr.status}`));
+    };
+
+    xhr.onerror = () => {
+      signal?.removeEventListener('abort', handleAbort);
+      reject(new Error('Network error while uploading'));
+    };
+
+    xhr.onabort = () => {
+      signal?.removeEventListener('abort', handleAbort);
+      reject(new DOMException('Aborted', 'AbortError'));
+    };
+
+    xhr.send(formData);
+  });
 }
 
 /**

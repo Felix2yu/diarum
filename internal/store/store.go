@@ -190,14 +190,15 @@ func MoodToEmoji(mood int) string {
 }
 
 type Media struct {
-	ID      string   `json:"id"`
-	File    string   `json:"file"`
-	Name    string   `json:"name"`
-	Alt     string   `json:"alt"`
-	Diary   []string `json:"diary"`
-	Owner   string   `json:"owner"`
-	Created string   `json:"created"`
-	Updated string   `json:"updated"`
+	ID        string   `json:"id"`
+	File      string   `json:"file"`
+	Name      string   `json:"name"`
+	Alt       string   `json:"alt"`
+	Diary     []string `json:"diary"`
+	Owner     string   `json:"owner"`
+	Created   string   `json:"created"`
+	Updated   string   `json:"updated"`
+	DeletedAt string   `json:"deleted_at"`
 }
 
 type Conversation struct {
@@ -389,6 +390,7 @@ func createSchema(db *sql.DB) error {
 			owner TEXT DEFAULT '' NOT NULL,
 			updated TEXT NOT NULL,
 			diary JSON DEFAULT '[]' NOT NULL,
+			deleted_at TEXT DEFAULT '' NOT NULL,
 			FOREIGN KEY(owner) REFERENCES users(id) ON DELETE CASCADE
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_media_owner_created ON media(owner, created)`,
@@ -664,6 +666,23 @@ func createSchema(db *sql.DB) error {
 			_, _ = db.Exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_diary_versions_session ON diary_versions(diary_id, edit_session_id)`)
 			_, _ = db.Exec(`INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(7, datetime('now'))`)
 			logger.Info("[Store] migration v7 completed: added diary_versions table")
+		}
+	}
+
+	// ---- Migration v8: media soft delete ----
+	// 媒体删除改为软删除，deleted_at 非空表示已移入回收站。
+	{
+		var currentVersion int
+		_ = db.QueryRow(`SELECT COALESCE(MAX(version), 0) FROM schema_migrations`).Scan(&currentVersion)
+		if currentVersion < 8 {
+			var hasDeletedAt bool
+			_ = db.QueryRow(`SELECT 1 FROM pragma_table_info('media') WHERE name = 'deleted_at'`).Scan(&hasDeletedAt)
+			if !hasDeletedAt {
+				_, _ = db.Exec(`ALTER TABLE media ADD COLUMN deleted_at TEXT DEFAULT '' NOT NULL`)
+			}
+			_, _ = db.Exec(`CREATE INDEX IF NOT EXISTS idx_media_owner_deleted_created ON media(owner, deleted_at, created)`)
+			_, _ = db.Exec(`INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(8, datetime('now'))`)
+			logger.Info("[Store] migration v8 completed: added media deleted_at column")
 		}
 	}
 
@@ -2252,15 +2271,29 @@ func (s *Store) ValidateAPIToken(token string) (string, error) {
 }
 
 func (s *Store) ListMedia(owner string, page, perPage int) ([]MediaWithExpand, int, error) {
+	return s.listMedia(owner, page, perPage, false)
+}
+
+func (s *Store) ListTrashedMedia(owner string, page, perPage int) ([]MediaWithExpand, int, error) {
+	return s.listMedia(owner, page, perPage, true)
+}
+
+func (s *Store) listMedia(owner string, page, perPage int, trashed bool) ([]MediaWithExpand, int, error) {
 	page = max(page, 1)
 	if perPage <= 0 {
 		perPage = 50
 	}
+	filter := `owner = ? AND deleted_at = ''`
+	order := `created DESC`
+	if trashed {
+		filter = `owner = ? AND deleted_at != ''`
+		order = `deleted_at DESC`
+	}
 	var total int
-	if err := s.DB.QueryRow(`SELECT COUNT(*) FROM media WHERE owner = ?`, owner).Scan(&total); err != nil {
+	if err := s.DB.QueryRow(`SELECT COUNT(*) FROM media WHERE `+filter, owner).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	rows, err := s.DB.Query(`SELECT alt, created, file, id, name, owner, updated, diary FROM media WHERE owner = ? ORDER BY created DESC LIMIT ? OFFSET ?`, owner, perPage, (page-1)*perPage)
+	rows, err := s.DB.Query(`SELECT alt, created, file, id, name, owner, updated, diary, deleted_at FROM media WHERE `+filter+` ORDER BY `+order+` LIMIT ? OFFSET ?`, owner, perPage, (page-1)*perPage)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -2326,7 +2359,7 @@ func (s *Store) ListMedia(owner string, page, perPage int) ([]MediaWithExpand, i
 }
 
 func (s *Store) GetMedia(id, owner string) (*Media, error) {
-	media, err := scanMedia(s.DB.QueryRow(`SELECT alt, created, file, id, name, owner, updated, diary FROM media WHERE id = ?`, id))
+	media, err := scanMedia(s.DB.QueryRow(`SELECT alt, created, file, id, name, owner, updated, diary, deleted_at FROM media WHERE id = ?`, id))
 	if err != nil {
 		return nil, err
 	}
@@ -2376,10 +2409,55 @@ func (s *Store) DeleteMedia(id, owner string) error {
 	return nil
 }
 
+// SoftDeleteMedia 将媒体移入回收站，保留文件以便恢复。
+func (s *Store) SoftDeleteMedia(id, owner string) error {
+	now := nowString()
+	result, err := s.DB.Exec(`UPDATE media SET deleted_at = ?, updated = ? WHERE id = ? AND owner = ? AND deleted_at = ''`, now, now, id, owner)
+	if err != nil {
+		return err
+	}
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// RestoreMedia 从回收站恢复媒体。
+func (s *Store) RestoreMedia(id, owner string) error {
+	result, err := s.DB.Exec(`UPDATE media SET deleted_at = '', updated = ? WHERE id = ? AND owner = ? AND deleted_at != ''`, nowString(), id, owner)
+	if err != nil {
+		return err
+	}
+	affected, _ := result.RowsAffected()
+	if affected == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+// ListAllTrashedMedia 返回回收站中的全部媒体，用于清空回收站。
+func (s *Store) ListAllTrashedMedia(owner string) ([]Media, error) {
+	rows, err := s.DB.Query(`SELECT alt, created, file, id, name, owner, updated, diary, deleted_at FROM media WHERE owner = ? AND deleted_at != '' ORDER BY deleted_at DESC`, owner)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := make([]Media, 0)
+	for rows.Next() {
+		media, err := scanMedia(rows)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, *media)
+	}
+	return items, rows.Err()
+}
+
 func scanMedia(row interface{ Scan(dest ...any) error }) (*Media, error) {
 	var diaryRaw string
 	media := &Media{}
-	err := row.Scan(&media.Alt, &media.Created, &media.File, &media.ID, &media.Name, &media.Owner, &media.Updated, &diaryRaw)
+	err := row.Scan(&media.Alt, &media.Created, &media.File, &media.ID, &media.Name, &media.Owner, &media.Updated, &diaryRaw, &media.DeletedAt)
 	if err != nil {
 		return nil, err
 	}

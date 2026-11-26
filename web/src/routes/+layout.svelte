@@ -11,6 +11,7 @@
   import PWAInstallPrompt from '#lib/components/PWAInstallPrompt.svelte';
   import PWAUpdatePrompt from '#lib/components/PWAUpdatePrompt.svelte';
   import OnlineStatusBanner from '#lib/components/OnlineStatusBanner.svelte';
+  import Lightbox from '#lib/components/ui/Lightbox.svelte';
 
   let { children }: { children: Snippet } = $props();
 
@@ -43,5 +44,6 @@
 >
 <OnlineStatusBanner />
 {@render children()}
+<Lightbox />
 <PWAInstallPrompt />
 <PWAUpdatePrompt />

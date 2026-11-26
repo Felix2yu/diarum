@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getAllMedia, getMediaFileUrl, type MediaWithDiary } from '#lib/api/media.js';
+  import { getAllMedia, getMediaDisplayUrl, type MediaWithDiary } from '#lib/api/media.js';
 
   let {
     onSelect = (media: MediaWithDiary) => {},
@@ -123,7 +123,7 @@
               title={media.name || '选择图片'}
             >
               <img
-                src={getMediaFileUrl(media, '200x200')}
+                src={getMediaDisplayUrl(media, '200x200')}
                 alt={media.alt || media.name || '媒体'}
                 loading="lazy"
               />

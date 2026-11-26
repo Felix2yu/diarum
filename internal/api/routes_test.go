@@ -505,13 +505,37 @@ func TestDiaryMediaAndPublicRoutes(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("DELETE /media status = %d", rec.Code)
 	}
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/media/trash", nil, nil)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), mediaID) {
+		t.Fatalf("GET /media/trash status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = performRequest(t, e, http.MethodPost, "/api/v1/media/"+mediaID+"/restore", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("POST /media/:id/restore status = %d", rec.Code)
+	}
+	rec = performRequest(t, e, http.MethodDelete, "/api/v1/media/"+mediaID, nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("DELETE /media after restore status = %d", rec.Code)
+	}
 	rec = performRequest(t, e, http.MethodDelete, "/api/v1/media/"+mediaID, nil, nil)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("DELETE /media missing status = %d", rec.Code)
 	}
 	rec = performRequest(t, e, http.MethodGet, "/api/v1/files/media/"+mediaID+"/photo.png", nil, mediaHeaders)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET trashed media file status = %d", rec.Code)
+	}
+	rec = performRequest(t, e, http.MethodDelete, "/api/v1/media/"+mediaID+"/permanent", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("DELETE /media permanent status = %d", rec.Code)
+	}
+	rec = performRequest(t, e, http.MethodGet, "/api/v1/files/media/"+mediaID+"/photo.png", nil, mediaHeaders)
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf("GET deleted media file status = %d", rec.Code)
+		t.Fatalf("GET permanently deleted media file status = %d", rec.Code)
+	}
+	rec = performRequest(t, e, http.MethodDelete, "/api/v1/media/trash", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("DELETE /media/trash status = %d", rec.Code)
 	}
 
 	rec = performRequest(t, e, http.MethodDelete, "/api/v1/diaries/"+diaryID, nil, nil)

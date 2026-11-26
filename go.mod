@@ -13,6 +13,7 @@ require (
 	github.com/mark3labs/mcp-go v1.5.0
 	github.com/philippgille/chromem-go v0.7.0
 	golang.org/x/crypto v0.59.0
+	golang.org/x/image v0.48.0
 	modernc.org/sqlite v1.62.0
 )
 

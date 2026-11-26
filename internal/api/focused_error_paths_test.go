@@ -352,8 +352,12 @@ func TestFocusedMediaRouteErrors(t *testing.T) {
 		t.Fatalf("MkdirAll blocked media path: %v", err)
 	}
 	rec = performRequest(t, e, http.MethodDelete, "/api/v1/media/"+deleteMedia.ID, nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("DELETE /media soft delete status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	rec = performRequest(t, e, http.MethodDelete, "/api/v1/media/"+deleteMedia.ID+"/permanent", nil, nil)
 	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("DELETE /media file delete error status = %d body=%s", rec.Code, rec.Body.String())
+		t.Fatalf("DELETE /media permanent file error status = %d body=%s", rec.Code, rec.Body.String())
 	}
 }
 

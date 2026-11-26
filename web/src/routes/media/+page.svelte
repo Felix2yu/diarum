@@ -1,48 +1,110 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
-  import { onMount } from 'svelte';
+  import { onDestroy, onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { isAuthenticated } from '#lib/api/client.js';
   import {
     getAllMedia,
-    getMediaFileUrl,
+    getTrashMedia,
+    getMediaDisplayUrl,
     deleteMediaById,
+    restoreMediaById,
+    permanentlyDeleteMediaById,
+    emptyMediaTrash,
     type MediaWithDiary
   } from '#lib/api/media.js';
   import PageHeader from '#lib/components/ui/PageHeader.svelte';
   import { formatDisplayDate, formatTime } from '#lib/utils/date.js';
+  import { openLightbox } from '#lib/stores/lightbox.js';
 
   let mediaList: MediaWithDiary[] = [];
   let loading = true;
   let currentPage = 1;
   let totalPages = 1;
   let totalItems = 0;
+  let viewMode: 'active' | 'trash' = 'active';
 
   // Modal state
   let selectedMedia: MediaWithDiary | null = null;
   let showModal = false;
   let deleting = false;
+  let restoring = false;
   let showDeleteConfirm = false;
+  let showPermanentConfirm = false;
+  let showEmptyConfirm = false;
+  let emptying = false;
+
+  let toastMessage = '';
+  let toastTimer: ReturnType<typeof setTimeout> | undefined;
+  let undeletableMedia: MediaWithDiary | null = null;
+  let loadRequestId = 0;
 
   async function loadMedia() {
+    const requestId = ++loadRequestId;
     loading = true;
-    const result = await getAllMedia(currentPage, 30);
+    const result =
+      viewMode === 'trash'
+        ? await getTrashMedia(currentPage, 30)
+        : await getAllMedia(currentPage, 30);
+    if (requestId !== loadRequestId) return;
     mediaList = result.items;
     totalPages = result.totalPages;
     totalItems = result.totalItems;
     loading = false;
   }
 
+  function switchView(mode: 'active' | 'trash') {
+    if (viewMode === mode) return;
+    viewMode = mode;
+    currentPage = 1;
+    closeModal();
+    showEmptyConfirm = false;
+    clearToast();
+    loadMedia();
+  }
+
+  function showToast(message: string, undoMedia: MediaWithDiary | null = null) {
+    clearToast();
+    toastMessage = message;
+    undeletableMedia = undoMedia;
+    toastTimer = setTimeout(() => {
+      toastMessage = '';
+      undeletableMedia = null;
+    }, 5000);
+  }
+
+  function clearToast() {
+    if (toastTimer) {
+      clearTimeout(toastTimer);
+      toastTimer = undefined;
+    }
+    toastMessage = '';
+    undeletableMedia = null;
+  }
+
+  async function undoDelete() {
+    const mediaId = undeletableMedia?.id;
+    if (!mediaId) return;
+    clearToast();
+    const success = await restoreMediaById(mediaId);
+    if (success) {
+      await loadMedia();
+      showToast('已恢复到媒体库');
+    }
+  }
+
   function openModal(media: MediaWithDiary) {
     selectedMedia = media;
     showModal = true;
     showDeleteConfirm = false;
+    showPermanentConfirm = false;
   }
 
   function closeModal() {
     showModal = false;
     selectedMedia = null;
     showDeleteConfirm = false;
+    showPermanentConfirm = false;
   }
 
   function handleModalBackdropClick(e: MouseEvent) {
@@ -51,10 +113,13 @@
     }
   }
 
-  function groupByDate(items: MediaWithDiary[]): Map<string, MediaWithDiary[]> {
+  function groupByDate(
+    items: MediaWithDiary[],
+    field: 'created' | 'deleted_at' = 'created'
+  ): Map<string, MediaWithDiary[]> {
     const groups = new Map<string, MediaWithDiary[]>();
     for (const item of items) {
-      const dateKey = item.created?.split(' ')[0] || '';
+      const dateKey = item[field]?.split(' ')[0] || '';
       if (!groups.has(dateKey)) {
         groups.set(dateKey, []);
       }
@@ -67,19 +132,70 @@
     if (!selectedMedia) return;
 
     deleting = true;
-    const success = await deleteMediaById(selectedMedia.id!);
+    const media = selectedMedia;
+    const success = await deleteMediaById(media.id!);
     deleting = false;
 
     if (success) {
-      mediaList = mediaList.filter((m) => m.id !== selectedMedia!.id);
-      totalItems--;
+      mediaList = mediaList.filter((m) => m.id !== media.id);
+      totalItems = Math.max(0, totalItems - 1);
       closeModal();
+      showToast('已移入回收站', media);
+    }
+  }
+
+  async function handleRestore() {
+    if (!selectedMedia?.id) return;
+    restoring = true;
+    const success = await restoreMediaById(selectedMedia.id);
+    restoring = false;
+    if (success) {
+      mediaList = mediaList.filter((m) => m.id !== selectedMedia!.id);
+      totalItems = Math.max(0, totalItems - 1);
+      closeModal();
+      showToast('已恢复到媒体库');
+    }
+  }
+
+  async function handlePermanentDelete() {
+    if (!selectedMedia?.id) return;
+    deleting = true;
+    const success = await permanentlyDeleteMediaById(selectedMedia.id);
+    deleting = false;
+    if (success) {
+      mediaList = mediaList.filter((m) => m.id !== selectedMedia!.id);
+      totalItems = Math.max(0, totalItems - 1);
+      closeModal();
+      showToast('已永久删除');
+    }
+  }
+
+  async function handleEmptyTrash() {
+    emptying = true;
+    const result = await emptyMediaTrash();
+    emptying = false;
+    showEmptyConfirm = false;
+    if (result) {
+      currentPage = 1;
+      await loadMedia();
+      showToast(
+        result.failed > 0
+          ? `已删除 ${result.deleted} 项，${result.failed} 项删除失败`
+          : `已清空回收站（${result.deleted} 项）`
+      );
     }
   }
 
   function goToDiary(date: string) {
     closeModal();
     goto(resolve('/diary/[date]', { date: date }));
+  }
+
+  function openMediaLightbox(media: MediaWithDiary) {
+    openLightbox({
+      src: getMediaDisplayUrl(media),
+      alt: media.alt || media.name || '媒体'
+    });
   }
 
   onMount(() => {
@@ -90,7 +206,11 @@
     loadMedia();
   });
 
-  $: groupedMedia = groupByDate(mediaList);
+  onDestroy(() => {
+    if (toastTimer) clearTimeout(toastTimer);
+  });
+
+  $: groupedMedia = groupByDate(mediaList, viewMode === 'trash' ? 'deleted_at' : 'created');
 </script>
 
 <svelte:head>
@@ -108,6 +228,66 @@
   <main id="main-content" tabindex="-1" class="container-responsive flex-1 py-8">
     <!-- 页面标题 - 视觉隐藏，用于屏幕阅读器的文档结构 -->
     <h1 class="sr-only">媒体库 — 管理日记中上传的图片与文件</h1>
+
+    <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div class="inline-flex rounded-lg bg-muted/50 p-1">
+        <button
+          type="button"
+          class="rounded-md px-4 py-1.5 text-sm font-medium transition-colors {viewMode === 'active'
+            ? 'bg-card text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground'}"
+          onclick={() => switchView('active')}
+        >
+          媒体库
+        </button>
+        <button
+          type="button"
+          class="rounded-md px-4 py-1.5 text-sm font-medium transition-colors {viewMode === 'trash'
+            ? 'bg-card text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground'}"
+          onclick={() => switchView('trash')}
+        >
+          回收站{viewMode === 'trash' && totalItems > 0 ? ` (${totalItems})` : ''}
+        </button>
+      </div>
+
+      {#if viewMode === 'trash' && totalItems > 0}
+        <button
+          type="button"
+          class="rounded-lg border border-red-500/60 px-3 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 dark:hover:bg-red-950/30"
+          onclick={() => (showEmptyConfirm = true)}
+        >
+          清空回收站
+        </button>
+      {/if}
+    </div>
+
+    {#if showEmptyConfirm}
+      <div
+        class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-red-500/40 bg-red-50/60 p-4 text-sm dark:bg-red-950/20"
+      >
+        <span class="text-red-700 dark:text-red-300">
+          清空回收站会永久删除全部 {totalItems} 项媒体及其文件，无法恢复。
+        </span>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            onclick={handleEmptyTrash}
+            disabled={emptying}
+            class="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:opacity-50"
+          >
+            {emptying ? '清空中...' : '确认清空'}
+          </button>
+          <button
+            type="button"
+            onclick={() => (showEmptyConfirm = false)}
+            class="rounded-lg border border-border px-3 py-1.5 text-sm transition-colors hover:bg-muted/50"
+          >
+            取消
+          </button>
+        </div>
+      </div>
+    {/if}
     {#if loading}
       <div class="flex flex-col items-center justify-center gap-3 py-20">
         <svg class="h-6 w-6 animate-spin text-primary" fill="none" viewBox="0 0 24 24">
@@ -137,8 +317,13 @@
           />
         </svg>
         <div class="text-center text-muted-foreground">
-          <p class="text-lg font-medium">暂无媒体</p>
-          <p class="mt-1 text-sm">在你的日记条目中上传图片</p>
+          {#if viewMode === 'trash'}
+            <p class="text-lg font-medium">回收站为空</p>
+            <p class="mt-1 text-sm">删除的图片会先进入这里，可随时恢复</p>
+          {:else}
+            <p class="text-lg font-medium">暂无媒体</p>
+            <p class="mt-1 text-sm">在你的日记条目中上传图片</p>
+          {/if}
         </div>
       </div>
     {:else}
@@ -161,7 +346,7 @@
                   onclick={() => openModal(media)}
                 >
                   <img
-                    src={getMediaFileUrl(media, '300x300')}
+                    src={getMediaDisplayUrl(media, '300x300')}
                     alt={media.alt || media.name || '媒体'}
                     class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                     loading="lazy"
@@ -170,6 +355,13 @@
                   <div
                     class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100"
                   ></div>
+                  {#if viewMode === 'trash'}
+                    <div
+                      class="absolute top-2 right-2 rounded bg-red-600/85 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm"
+                    >
+                      回收站
+                    </div>
+                  {/if}
                   <!-- Diary indicator -->
                   {#if media.expand?.diary && media.expand.diary.length > 0}
                     <div
@@ -256,13 +448,20 @@
       <!-- Modal Content -->
       <div class="max-h-[calc(90vh-8rem)] overflow-y-auto p-4">
         <!-- Image -->
-        <div class="mb-4 overflow-hidden rounded-lg bg-muted/30">
+        <button
+          type="button"
+          class="mb-4 block w-full cursor-zoom-in overflow-hidden rounded-lg bg-muted/30"
+          aria-label="查看大图"
+          onclick={() => {
+            if (selectedMedia) openMediaLightbox(selectedMedia);
+          }}
+        >
           <img
-            src={getMediaFileUrl(selectedMedia)}
+            src={getMediaDisplayUrl(selectedMedia)}
             alt={selectedMedia.alt || selectedMedia.name || '媒体'}
             class="h-auto max-h-[50vh] w-full object-contain"
           />
-        </div>
+        </button>
 
         <!-- Info -->
         <div class="space-y-3 text-sm">
@@ -273,6 +472,16 @@
               {formatTime(selectedMedia.created || '')}
             </span>
           </div>
+
+          {#if viewMode === 'trash' && selectedMedia.deleted_at}
+            <div class="flex items-center justify-between border-b border-border/30 py-2">
+              <span class="text-muted-foreground">删除时间</span>
+              <span class="text-foreground">
+                {formatDisplayDate(selectedMedia.deleted_at)}
+                {formatTime(selectedMedia.deleted_at)}
+              </span>
+            </div>
+          {/if}
 
           {#if selectedMedia.expand?.diary && selectedMedia.expand.diary.length > 0}
             <div class="border-b border-border/30 py-2">
@@ -298,29 +507,60 @@
       </div>
 
       <!-- Modal Footer -->
-      <div class="flex items-center justify-between border-t border-border/50 bg-muted/20 p-4">
-        {#if !showDeleteConfirm}
-          <button
-            onclick={() => (showDeleteConfirm = true)}
-            class="rounded-lg border border-red-500 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
-          >
-            删除
-          </button>
-        {:else}
-          <div class="flex items-center gap-3">
-            {#if selectedMedia.expand?.diary && selectedMedia.expand.diary.length > 0}
-              <span class="text-sm font-medium text-red-600"
-                >此媒体关联了 {selectedMedia.expand.diary.length} 篇日记。确定删除吗？</span
+      <div
+        class="flex flex-wrap items-center justify-between gap-3 border-t border-border/50 bg-muted/20 p-4"
+      >
+        <div class="flex flex-wrap items-center gap-3">
+          {#if viewMode === 'trash'}
+            <button
+              onclick={handleRestore}
+              disabled={restoring || deleting}
+              class="rounded-lg border border-primary/60 bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+            >
+              {restoring ? '恢复中...' : '恢复'}
+            </button>
+            {#if !showPermanentConfirm}
+              <button
+                onclick={() => (showPermanentConfirm = true)}
+                class="rounded-lg border border-red-500 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
               >
+                永久删除
+              </button>
             {:else}
-              <span class="text-sm font-medium text-red-600">确定删除吗？</span>
+              <span class="text-sm font-medium text-red-600">
+                永久删除后无法恢复{selectedMedia.expand?.diary?.length
+                  ? `，且仍被 ${selectedMedia.expand.diary.length} 篇日记引用`
+                  : ''}，确定吗？
+              </span>
+              <button
+                onclick={handlePermanentDelete}
+                disabled={deleting}
+                class="rounded-lg border border-red-500 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+              >
+                {deleting ? '删除中...' : '确认永久删除'}
+              </button>
+              <button
+                onclick={() => (showPermanentConfirm = false)}
+                class="rounded-lg border border-border px-4 py-2 text-sm font-medium transition-colors hover:bg-muted/50"
+              >
+                取消
+              </button>
             {/if}
+          {:else if !showDeleteConfirm}
+            <button
+              onclick={() => (showDeleteConfirm = true)}
+              class="rounded-lg border border-red-500 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+            >
+              移到回收站
+            </button>
+          {:else}
+            <span class="text-sm font-medium text-red-600"> 移入回收站后可随时恢复，确定吗？ </span>
             <button
               onclick={handleDelete}
               disabled={deleting}
               class="rounded-lg border border-red-500 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
             >
-              {deleting ? '删除中...' : '确认'}
+              {deleting ? '处理中...' : '确认'}
             </button>
             <button
               onclick={() => (showDeleteConfirm = false)}
@@ -328,8 +568,8 @@
             >
               取消
             </button>
-          </div>
-        {/if}
+          {/if}
+        </div>
         <button
           onclick={closeModal}
           class="rounded-lg border border-border/50 bg-muted px-4 py-2 text-sm transition-colors hover:bg-muted/80"
@@ -338,6 +578,24 @@
         </button>
       </div>
     </div>
+  </div>
+{/if}
+
+{#if toastMessage}
+  <div
+    class="animate-fade-in fixed bottom-6 left-1/2 z-[120] flex -translate-x-1/2 items-center gap-4 rounded-xl bg-foreground px-4 py-2.5 text-sm text-background shadow-xl"
+    role="status"
+  >
+    <span>{toastMessage}</span>
+    {#if undeletableMedia}
+      <button
+        type="button"
+        class="font-medium underline underline-offset-2 transition-opacity hover:opacity-80"
+        onclick={undoDelete}
+      >
+        撤销
+      </button>
+    {/if}
   </div>
 {/if}
 

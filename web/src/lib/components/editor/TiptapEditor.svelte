@@ -1,9 +1,15 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
+  import { SvelteMap } from 'svelte/reactivity';
   import { renderMarkdown } from '#lib/utils/renderMarkdown.js';
   import MediaPicker from '#lib/components/editor/MediaPicker.svelte';
-  import { uploadImage, isCheveretoResult, type UploadOptions } from '#lib/utils/uploadImage.js';
+  import UploadQueuePanel from '#lib/components/editor/UploadQueuePanel.svelte';
+  import { isCheveretoResult } from '#lib/utils/uploadImage.js';
   import { getMediaFileUrl } from '#lib/api/media.js';
   import type { MediaWithDiary } from '#lib/api/media.js';
+  import { UploadQueue, createUploadJobId, type UploadJob } from '#lib/utils/uploadQueue.js';
+  import { openLightbox } from '#lib/stores/lightbox.js';
+  import { mediaAuth } from '#lib/utils/mediaAuth.js';
 
   let {
     content = $bindable(''),
@@ -17,11 +23,21 @@
 
   let textareaEl = $state<HTMLTextAreaElement | null>(null);
   let isFocused = $state(false);
-  let isUploading = $state(false);
   let uploadError = $state('');
+  let uploadJobs = $state<UploadJob[]>([]);
   let showMediaPicker = $state(false);
 
   let fileInput = $state<HTMLInputElement | null>(null);
+
+  const uploadQueue = new UploadQueue({
+    concurrency: 3,
+    onUpdate: (jobs) => {
+      uploadJobs = jobs;
+    }
+  });
+  const placeholders = new SvelteMap<string, string>();
+
+  onDestroy(() => uploadQueue.destroy());
 
   function handleInput(e: Event) {
     const ta = e.target as HTMLTextAreaElement;
@@ -54,7 +70,14 @@
     selectedContent = textareaEl.value.substring(start, end);
   }
 
-  function handlePreviewClick() {
+  function handlePreviewClick(event: MouseEvent) {
+    const image = (event.target as HTMLElement).closest('img');
+    if (image) {
+      event.preventDefault();
+      event.stopPropagation();
+      openLightbox({ src: image.currentSrc || image.src, alt: image.alt });
+      return;
+    }
     if (!textareaEl) return;
     textareaEl.focus();
     const len = textareaEl.value.length;
@@ -110,45 +133,164 @@
 
   async function handleFileSelect(e: Event) {
     const input = e.target as HTMLInputElement;
-    const files = input.files;
-    if (!files || files.length === 0) return;
+    const files = Array.from(input.files ?? []);
+    if (files.length === 0) return;
 
-    const file = files[0];
-    await handleUpload(file);
+    uploadError = '';
+    const validFiles: File[] = [];
+    const errors: string[] = [];
+    for (const file of files) {
+      const error = validateUploadFile(file);
+      if (error) {
+        errors.push(`${file.name}：${error}`);
+      } else {
+        validFiles.push(file);
+      }
+    }
+    if (errors.length > 0) {
+      uploadError = errors.slice(0, 2).join('；');
+    }
+    if (validFiles.length === 0) {
+      input.value = '';
+      return;
+    }
+
+    const prepared = validFiles.map((file) => {
+      const id = createUploadJobId();
+      const token = `![上传中：${file.name}](uploading:${id})`;
+      placeholders.set(id, token);
+      return { file, id, token };
+    });
+
+    insertTextAtCursor(`\n${prepared.map((item) => item.token).join('\n')}\n`);
+
+    for (const item of prepared) {
+      uploadQueue.enqueue(
+        item.file,
+        { diaryDate },
+        {
+          onSuccess: handleUploadSuccess,
+          onError: handleUploadError,
+          onCancel: handleUploadCancel
+        },
+        item.id
+      );
+    }
+
+    input.value = '';
   }
 
-  async function handleUpload(file: File) {
-    isUploading = true;
-    uploadError = '';
-
-    try {
-      const options: UploadOptions = {};
-      if (diaryDate) {
-        options.diaryDate = diaryDate;
-      }
-
-      const result = await uploadImage(file, options);
-
-      let imageUrl: string;
-      let altText: string = file.name.replace(/\.[^/.]+$/, '');
-
-      if (isCheveretoResult(result)) {
-        imageUrl = result.cheveretoUrl;
-      } else {
-        imageUrl = getMediaFileUrl(result);
-        if (result.name) {
-          altText = result.name.replace(/\.[^/.]+$/, '');
-        }
-      }
-
-      const markdown = `\n![${altText}](${imageUrl})\n`;
-      insertTextAtCursor(markdown);
-    } catch (error: any) {
-      console.error('Image upload failed:', error);
-      uploadError = error.message || '上传失败，请重试';
-    } finally {
-      isUploading = false;
+  function validateUploadFile(file: File): string | null {
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
+    if (!allowedTypes.includes(file.type)) {
+      return '不支持的图片格式';
     }
+    if (file.size > 50 * 1024 * 1024) {
+      return '文件超过 50MB';
+    }
+    return null;
+  }
+
+  function fileNameWithoutExtension(name: string): string {
+    return name.replace(/\.[^/.]+$/, '');
+  }
+
+  function replaceToken(token: string, replacement: string) {
+    const current = textareaEl?.value ?? content ?? '';
+    const index = current.indexOf(token);
+    if (index === -1) {
+      if (replacement) {
+        insertTextAtCursor(`\n${replacement}\n`);
+      }
+      return;
+    }
+
+    const newValue = current.slice(0, index) + replacement + current.slice(index + token.length);
+    const cursor = textareaEl?.selectionStart ?? newValue.length;
+    const delta = replacement.length - token.length;
+
+    if (textareaEl) {
+      textareaEl.value = newValue;
+    }
+    content = newValue;
+    onChange(newValue);
+
+    requestAnimationFrame(() => {
+      if (!textareaEl) return;
+      const next = cursor > index ? Math.max(0, cursor + delta) : cursor;
+      try {
+        textareaEl.setSelectionRange(next, next);
+      } catch {
+        // ignore
+      }
+    });
+  }
+
+  function handleUploadSuccess(job: UploadJob) {
+    const token = placeholders.get(job.id);
+    if (!token || !job.result) return;
+
+    let imageUrl = '';
+    let altText = fileNameWithoutExtension(job.file.name);
+
+    if (isCheveretoResult(job.result)) {
+      imageUrl = job.result.cheveretoUrl;
+    } else {
+      imageUrl = getMediaFileUrl(job.result);
+      if (job.result.name) {
+        altText = fileNameWithoutExtension(job.result.name);
+      }
+    }
+
+    if (!imageUrl) return;
+    replaceToken(token, `![${altText}](${imageUrl})`);
+    placeholders.delete(job.id);
+    setTimeout(() => uploadQueue.remove(job.id), 1800);
+  }
+
+  function handleUploadError(job: UploadJob) {
+    const token = placeholders.get(job.id);
+    if (!token) return;
+    const failedToken = `![上传失败：${job.file.name}](uploading:${job.id})`;
+    replaceToken(token, failedToken);
+    placeholders.set(job.id, failedToken);
+  }
+
+  function handleUploadCancel(job: UploadJob) {
+    const token = placeholders.get(job.id);
+    if (token) {
+      replaceToken(token, '');
+    }
+    placeholders.delete(job.id);
+  }
+
+  function cancelUpload(id: string) {
+    uploadQueue.cancel(id);
+  }
+
+  function retryUpload(id: string) {
+    uploadQueue.retry(id);
+  }
+
+  function removeUpload(id: string) {
+    const token = placeholders.get(id);
+    if (token) {
+      replaceToken(token, '');
+    }
+    placeholders.delete(id);
+    uploadQueue.remove(id);
+  }
+
+  function clearFinishedUploads() {
+    for (const job of uploadJobs) {
+      if (job.status === 'uploading' || job.status === 'queued') continue;
+      const token = placeholders.get(job.id);
+      if (token) {
+        replaceToken(token, '');
+      }
+      placeholders.delete(job.id);
+    }
+    uploadQueue.clearFinished();
   }
 
   function handleMediaSelect(media: MediaWithDiary) {
@@ -193,6 +335,7 @@
     type="file"
     bind:this={fileInput}
     accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+    multiple
     onchange={handleFileSelect}
     class="hidden-file-input"
   />
@@ -209,7 +352,7 @@
     spellcheck="false"></textarea>
 
   {#if !isFocused && content}
-    <div class="markdown-preview" onclick={handlePreviewClick}>
+    <div class="markdown-preview" use:mediaAuth onclick={handlePreviewClick}>
       {@html renderMarkdown(content)}
     </div>
   {:else if !isFocused && !content && emptyStatePrompt}
@@ -234,78 +377,47 @@
         {uploadError}
       </div>
     {/if}
-    {#if isUploading}
-      <button
-        type="button"
-        disabled
-        class="inline-flex items-center gap-2 rounded-full bg-muted/80 px-3 py-2 text-sm font-medium text-muted-foreground shadow-lg transition-all"
-      >
-        <svg class="h-4 w-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <circle
-            class="opacity-25"
-            cx="12"
-            cy="12"
-            r="10"
-            stroke-width="4"
-            stroke="currentColor"
-          />
-          <path
-            class="opacity-75"
-            fill="currentColor"
-            stroke="currentColor"
-            stroke-width="4"
-            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-          />
-        </svg>
-        <span class="hidden sm:inline">上传中...</span>
-      </button>
-    {:else}
-      <button
-        type="button"
-        onclick={triggerFileSelect}
-        title="上传图片"
-        class="inline-flex items-center gap-2 rounded-full bg-primary/90 px-3 py-2 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary"
-      >
-        <svg
-          class="h-4 w-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-          />
-        </svg>
-        <span class="hidden sm:inline">上传图片</span>
-      </button>
-      <button
-        type="button"
-        onclick={triggerMediaPicker}
-        title="从媒体库选择"
-        class="inline-flex items-center gap-2 rounded-full bg-muted/80 px-3 py-2 text-sm font-medium text-foreground shadow-lg transition-all hover:bg-muted"
-      >
-        <svg
-          class="h-4 w-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="2"
-            d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-          />
-        </svg>
-        <span class="hidden sm:inline">媒体库</span>
-      </button>
-    {/if}
+    <button
+      type="button"
+      onclick={triggerFileSelect}
+      title="上传图片（可多选）"
+      class="inline-flex items-center gap-2 rounded-full bg-primary/90 px-3 py-2 text-sm font-medium text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:bg-primary"
+    >
+      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+        />
+      </svg>
+      <span class="hidden sm:inline">上传图片</span>
+    </button>
+    <button
+      type="button"
+      onclick={triggerMediaPicker}
+      title="从媒体库选择"
+      class="inline-flex items-center gap-2 rounded-full bg-muted/80 px-3 py-2 text-sm font-medium text-foreground shadow-lg transition-all hover:bg-muted"
+    >
+      <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="2"
+          d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+        />
+      </svg>
+      <span class="hidden sm:inline">媒体库</span>
+    </button>
   </div>
+
+  <UploadQueuePanel
+    jobs={uploadJobs}
+    onCancel={cancelUpload}
+    onRetry={retryUpload}
+    onRemove={removeUpload}
+    onClear={clearFinishedUploads}
+  />
 
   {#if showMediaPicker}
     <MediaPicker onSelect={handleMediaSelect} onClose={handleMediaPickerClose} />
