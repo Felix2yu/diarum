@@ -712,6 +712,14 @@ func createSchema(db *sql.DB) error {
 		}
 	}
 
+	// 实例级设置与节假日缓存（幂等迁移）
+	if err := migrateSystemSettingsSchema(db); err != nil {
+		return err
+	}
+	if err := migrateHolidaySchema(db); err != nil {
+		return err
+	}
+
 	return nil
 }
 

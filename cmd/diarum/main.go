@@ -24,6 +24,7 @@ import (
 	"github.com/songtianlun/diarum/internal/chat"
 	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/embedding"
+	"github.com/songtianlun/diarum/internal/holidays"
 	"github.com/songtianlun/diarum/internal/logger"
 	mcpserver "github.com/songtianlun/diarum/internal/mcp"
 	"github.com/songtianlun/diarum/internal/push"
@@ -336,6 +337,10 @@ func run(args []string, stdout io.Writer) error {
 	api.RegisterHealthRoutes(e, appStore)
 	api.RegisterMetricsRoutes(e)
 
+	// 中国法定节假日/调休数据服务（内嵌基线 + SQLite 缓存 + 官方同步）
+	holidayService := holidays.NewService(appStore)
+	api.RegisterHolidayRoutes(e, holidayService, authMiddleware)
+
 	// Debug 模式下注册 OpenAPI 文档路由
 	if logger.GetLevel() <= logger.LevelDebug {
 		api.RegisterOpenAPIRoutes(e, Version, Name)
@@ -380,6 +385,11 @@ func run(args []string, stdout io.Writer) error {
 	api.RegisterPushRoutes(e, appStore, authMiddleware, pushScheduler)
 	pushScheduler.Start()
 	defer pushScheduler.Stop()
+
+	// Start holiday policy background sync (only active after the feature is enabled)
+	holidayCtx, holidayCancel := context.WithCancel(context.Background())
+	defer holidayCancel()
+	holidayService.StartScheduler(holidayCtx)
 
 	staticFS, err := static.GetFS()
 	if err != nil {

@@ -60,12 +60,14 @@
   } from '#lib/utils/notifications.js';
   import PageHeader from '#lib/components/ui/PageHeader.svelte';
   import MoodIcon from '#lib/components/ui/MoodIcon.svelte';
+  import HolidaySettings from '#lib/components/holidays/HolidaySettings.svelte';
 
   type SettingsTab =
     | 'general'
     | 'notifications'
     | 'api-access'
     | 'weather'
+    | 'holidays'
     | 'ai-assistant'
     | 'ai-vectors'
     | 'ai-speech'
@@ -80,6 +82,7 @@
     { id: 'notifications', label: '通知提醒' },
     { id: 'ai-assistant', label: 'AI 助手' },
     { id: 'weather', label: '天气设置' },
+    { id: 'holidays', label: '节假日' },
     { id: 'backup', label: '自动备份' },
     { id: 'api-access', label: 'API 访问' },
     { id: 'memos-sync', label: 'Memos 同步' },
@@ -1942,6 +1945,13 @@
                     </div>
                   {/if}
                 </div>
+              </div>
+            {/if}
+
+            {#if activeTab === 'holidays'}
+              <!-- Holidays Section -->
+              <div id="holidays" class="animate-fade-in scroll-mt-16">
+                <HolidaySettings />
               </div>
             {/if}
 

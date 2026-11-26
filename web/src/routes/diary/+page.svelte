@@ -13,6 +13,13 @@
   } from '#lib/api/diaries.js';
   import { isAuthenticated } from '#lib/api/client.js';
   import { getMonthRange, formatDisplayDate, parseDate } from '#lib/utils/date.js';
+  import {
+    cnHolidaysEnabled,
+    holidayDaysByDate,
+    ensureHolidayYears,
+    getCNDayStatus,
+    initHolidaySettings
+  } from '#lib/stores/holidays.js';
 
   let currentYear = new Date().getFullYear();
   let currentMonth = new Date().getMonth() + 1;
@@ -38,6 +45,11 @@
     .filter((item) => item.has_content !== false)
     .map((item) => item.date);
   $: yearDiaryCount = yearDiaryMeta.filter((item) => item.has_content !== false).length;
+  $: if ($cnHolidaysEnabled && recentDiaries.length > 0) {
+    void ensureHolidayYears([
+      ...new Set(recentDiaries.map((item) => Number(item.date.slice(0, 4))).filter(Boolean))
+    ]);
+  }
 
   async function loadRecentDiaries() {
     recentLoading = true;
@@ -84,6 +96,7 @@
     loadDatesWithDiaries();
     loadRecentDiaries();
     loadStats();
+    void initHolidaySettings(true);
     mounted = true;
   });
 
@@ -234,6 +247,9 @@
           {:else if recentDiaries.length > 0}
             <div class="animate-fade-in-only flex-1 space-y-2 overflow-y-auto">
               {#each recentDiaries as diary (diary.date)}
+                {@const holidayStatus = $cnHolidaysEnabled
+                  ? getCNDayStatus(diary.date, $holidayDaysByDate)
+                  : null}
                 <a
                   href={resolve('/diary/[date]', { date: diary.date })}
                   class="group block rounded-lg border border-border/30 p-3 transition-all duration-200 hover:border-border/60 hover:bg-muted/60 hover:shadow-sm"
@@ -242,6 +258,17 @@
                     class="mb-1 text-xs text-muted-foreground transition-colors group-hover:text-foreground/70"
                   >
                     {formatDisplayDate(diary.date)}
+                    {#if holidayStatus?.badge}
+                      <span
+                        class="ml-1 rounded px-1 py-px text-[10px] font-semibold {holidayStatus.kind ===
+                        'holiday'
+                          ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                          : 'bg-slate-500/15 text-slate-600 dark:text-slate-300'}"
+                        title={holidayStatus.name ?? ''}
+                      >
+                        {holidayStatus.badge}
+                      </span>
+                    {/if}
                   </div>
                   <div class="line-clamp-2 text-sm text-foreground">
                     {getPreview(diary.content)}

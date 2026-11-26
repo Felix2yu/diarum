@@ -1,6 +1,7 @@
 <script lang="ts">
   import { resolve } from '$app/paths';
   import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
   import {
     formatDate,
     getCalendarDays,
@@ -23,6 +24,14 @@
   import { moodToLabel } from '#lib/utils/diaryEmoji.js';
   import MoodIcon from '#lib/components/ui/MoodIcon.svelte';
   import { isWMOCode, getWeatherInfo } from '#lib/utils/weatherCodes.js';
+  import {
+    cnHolidaysEnabled,
+    holidayDaysByDate,
+    ensureHolidayYears,
+    getCNDayStatus,
+    initHolidaySettings,
+    type CNDayStatus
+  } from '#lib/stores/holidays.js';
 
   let {
     currentYear = $bindable(new Date().getFullYear()),
@@ -305,6 +314,31 @@
   const todayStr = $derived(getToday());
   const metaByDate = $derived(new Map(diaryMeta.map((item) => [item.date, item])));
   const yearMetaByDate = $derived(new Map(yearDiaryMeta.map((item) => [item.date, item])));
+
+  // 节假日数据：挂载时读取实例开关，月份/年份变化时按需拉取对应年份
+  onMount(() => {
+    void initHolidaySettings(true);
+  });
+
+  $effect(() => {
+    if (!$cnHolidaysEnabled) return;
+    const years = new Set<number>([currentYear]);
+    for (const d of calendarDays) {
+      years.add(d.getFullYear());
+    }
+    void ensureHolidayYears(Array.from(years));
+  });
+
+  function getDayTooltip(dateStr: string, status: CNDayStatus | null): string {
+    if (!status || !status.name) return dateStr;
+    if (status.kind === 'holiday') {
+      return `${dateStr} · ${status.name}（休）`;
+    }
+    if (status.kind === 'workday_override') {
+      return `${dateStr} · ${status.name}（调休补班）`;
+    }
+    return dateStr;
+  }
 
   function isCurrentMonth(date: Date): boolean {
     return date.getMonth() === currentMonth - 1;
@@ -603,11 +637,19 @@
             {#each weekDays as date, di (di)}
               {@const meta = getDateMeta(date)}
               {@const dayIndex = wi * 7 + di}
+              {@const dateStr = formatDate(date)}
+              {@const holiday = $cnHolidaysEnabled
+                ? getCNDayStatus(dateStr, $holidayDaysByDate)
+                : null}
+              {@const hasBadge = !!holiday?.badge}
+              {@const showHolidayName =
+                holiday?.kind === 'holiday' && holiday.isFirstHolidayDay && !!holiday.shortName}
               <button
                 onclick={(e) => {
                   e.stopPropagation();
                   handleDateClick(date);
                 }}
+                title={getDayTooltip(dateStr, holiday)}
                 class="day relative flex flex-col items-center justify-center transition-all duration-200
 									   {isCurrentMonth(date) ? 'text-foreground' : 'text-muted-foreground/40'}
 									   {isToday(date) ? 'bg-primary/10 font-semibold shadow-sm ring-2 ring-primary' : ''}
@@ -618,11 +660,30 @@
                   : ''}"
                 style="animation-delay: {dayIndex * 10}ms"
               >
+                {#if hasBadge}
+                  <span
+                    class="holiday-badge {holiday?.kind === 'holiday'
+                      ? 'holiday-badge-off'
+                      : 'holiday-badge-work'}"
+                    class:opacity-50={!isCurrentMonth(date)}
+                  >
+                    {holiday?.badge}
+                  </span>
+                {/if}
+
                 <span class="text-sm">{date.getDate()}</span>
+
+                {#if showHolidayName}
+                  <span class="holiday-name" class:opacity-50={!isCurrentMonth(date)}>
+                    {holiday?.shortName}
+                  </span>
+                {/if}
 
                 {#if (meta?.weather && isWMOCode(meta.weather)) || meta?.mood}
                   <div
-                    class="absolute inset-x-0 top-1 flex items-center justify-center gap-0.5 text-[11px] leading-none"
+                    class="absolute top-1 flex items-center gap-0.5 text-[11px] leading-none {hasBadge
+                      ? 'left-1 justify-start'
+                      : 'inset-x-0 justify-center'}"
                   >
                     {#if meta?.weather && isWMOCode(meta.weather)}
                       {@const weatherInfo = getWeatherInfo(parseInt(meta.weather))}
@@ -641,7 +702,10 @@
                     {/if}
                   </div>
                 {:else if hasDiary(date)}
-                  <span class="absolute bottom-1.5 h-1 w-1 rounded-full bg-amber-500 opacity-70"
+                  <span
+                    class="absolute bottom-1 h-1 w-1 rounded-full bg-amber-500 opacity-70 {showHolidayName
+                      ? 'left-1.5'
+                      : ''}"
                   ></span>
                 {/if}
               </button>
@@ -864,11 +928,21 @@
                     {#if day === null}
                       <div class="mini-day-empty"></div>
                     {:else}
+                      {@const miniDateStr = `${currentYear}-${String(monthIdx + 1).padStart(
+                        2,
+                        '0'
+                      )}-${String(day).padStart(2, '0')}`}
+                      {@const miniHoliday = $cnHolidaysEnabled
+                        ? getCNDayStatus(miniDateStr, $holidayDaysByDate)
+                        : null}
                       <!-- svelte-ignore a11y-click-events-have-key-events -->
                       <div
                         class="mini-day"
                         class:mini-day-today={isTodayMini(monthIdx, day)}
                         class:mini-day-has-diary={yearHasDiary(monthIdx, day)}
+                        class:mini-day-holiday={miniHoliday?.kind === 'holiday'}
+                        class:mini-day-workday-override={miniHoliday?.kind === 'workday_override'}
+                        title={getDayTooltip(miniDateStr, miniHoliday)}
                         onclick={(e) => handleMiniDayClick(e, monthIdx, day)}
                         role="button"
                         tabindex="-1"
@@ -963,9 +1037,24 @@
             </div>
             <div class="analysis-list">
               {#each onThisDay.diaries as diary (diary.id)}
+                {@const holidayStatus = $cnHolidaysEnabled
+                  ? getCNDayStatus(diary.date, $holidayDaysByDate)
+                  : null}
                 <a href={resolve('/diary/[date]', { date: diary.date })} class="analysis-list-item">
                   <div class="analysis-list-head">
-                    <span class="analysis-list-date">{formatDisplayDate(diary.date)}</span>
+                    <span class="analysis-list-date">
+                      {formatDisplayDate(diary.date)}
+                      {#if holidayStatus?.badge}
+                        <span
+                          class="holiday-pill {holidayStatus.kind === 'holiday'
+                            ? 'holiday-pill-off'
+                            : 'holiday-pill-work'}"
+                          title={holidayStatus.name ?? ''}
+                        >
+                          {holidayStatus.badge}
+                        </span>
+                      {/if}
+                    </span>
                     <div class="flex items-center gap-2 text-xs text-muted-foreground">
                       {#if diary.mood}<span title="心情"
                           ><MoodIcon mood={diary.mood} size={14} /></span
@@ -1065,8 +1154,21 @@
               </p>
             </div>
           {:else}
+            {@const randomHoliday = $cnHolidaysEnabled
+              ? getCNDayStatus(randomState.diary.date, $holidayDaysByDate)
+              : null}
             <div class="analysis-idle-sub" style="margin-bottom:0.75rem">
               {formatDisplayDate(randomState.diary.date)}
+              {#if randomHoliday?.badge}
+                <span
+                  class="holiday-pill {randomHoliday.kind === 'holiday'
+                    ? 'holiday-pill-off'
+                    : 'holiday-pill-work'}"
+                  title={randomHoliday.name ?? ''}
+                >
+                  {randomHoliday.badge}
+                </span>
+              {/if}
             </div>
             <div class="analysis-list">
               <div class="analysis-list-item">
@@ -1522,6 +1624,7 @@
 
   .mini-day {
     aspect-ratio: 1;
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1552,6 +1655,102 @@
 
   .mini-day-empty {
     aspect-ratio: 1;
+  }
+
+  /* 节假日：年视图中的红色日期与调休补班下划线 */
+  .mini-day-holiday .mini-day-number {
+    color: hsl(347 77% 50%);
+    font-weight: 600;
+  }
+
+  .mini-day-holiday:not(.mini-day-today):not(.mini-day-has-diary) {
+    background: hsl(347 77% 50% / 0.08);
+  }
+
+  .mini-day-workday-override::after {
+    content: '';
+    position: absolute;
+    bottom: 1px;
+    left: 28%;
+    right: 28%;
+    height: 1.5px;
+    border-radius: 9999px;
+    background: hsl(215 20% 45% / 0.75);
+  }
+
+  /* 月视图：右上角休/班徽标与首日节日名 */
+  .holiday-badge {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    font-size: 0.5625rem;
+    font-weight: 600;
+    line-height: 1;
+    padding: 0.125rem 0.2rem;
+    border-radius: 0.25rem;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .holiday-badge-off {
+    color: hsl(347 77% 45%);
+    background: hsl(347 77% 50% / 0.12);
+  }
+
+  .holiday-badge-work {
+    color: hsl(215 20% 40%);
+    background: hsl(215 20% 50% / 0.14);
+  }
+
+  .holiday-name {
+    position: absolute;
+    bottom: 0.2rem;
+    left: 0.15rem;
+    right: 0.15rem;
+    text-align: center;
+    font-size: 0.625rem;
+    line-height: 1.1;
+    color: hsl(347 77% 45% / 0.85);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  @media (max-width: 640px) {
+    .holiday-badge {
+      top: 0.125rem;
+      right: 0.125rem;
+      font-size: 0.5rem;
+      padding: 0.08rem 0.14rem;
+    }
+
+    .holiday-name {
+      display: none;
+    }
+  }
+
+  /* 往昔今朝 / 时空穿越中的日期徽标 */
+  .holiday-pill {
+    display: inline-block;
+    margin-left: 0.3rem;
+    padding: 0 0.3rem;
+    border-radius: 0.25rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+    line-height: 1.35;
+    vertical-align: middle;
+  }
+
+  .holiday-pill-off {
+    color: hsl(347 77% 45%);
+    background: hsl(347 77% 50% / 0.12);
+  }
+
+  .holiday-pill-work {
+    color: hsl(215 20% 40%);
+    background: hsl(215 20% 50% / 0.14);
   }
 
   /* 分析弹窗 / 往昔今朝 / 时空穿越 — 复用 CalendarAnalysis 样式 */
