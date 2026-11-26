@@ -44,44 +44,6 @@ export async function getMediaById(id: string): Promise<MediaWithDiary | null> {
   }
 }
 
-export async function addMediaDiary(mediaId: string, diaryId: string): Promise<boolean> {
-  try {
-    const media = await getMediaById(mediaId);
-    if (!media) return false;
-    const currentDiaries = Array.isArray(media.diary) ? media.diary : [];
-    if (currentDiaries.includes(diaryId)) return true;
-    const response = await fetch(`/api/v1/media/${encodeURIComponent(mediaId)}`, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${pb.authStore.token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ diary: [...currentDiaries, diaryId] })
-    });
-    return response.ok;
-  } catch (error) {
-    console.error('Error adding diary to media:', error);
-    return false;
-  }
-}
-
-export async function updateMediaDiary(mediaId: string, diaryId: string): Promise<boolean> {
-  try {
-    const response = await fetch(`/api/v1/media/${encodeURIComponent(mediaId)}`, {
-      method: 'PATCH',
-      headers: {
-        Authorization: `Bearer ${pb.authStore.token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ diary: [diaryId] })
-    });
-    return response.ok;
-  } catch (error) {
-    console.error('Error updating media:', error);
-    return false;
-  }
-}
-
 export async function deleteMediaById(id: string): Promise<boolean> {
   try {
     const response = await fetch(`/api/v1/media/${encodeURIComponent(id)}`, {
@@ -116,6 +78,31 @@ export async function getTrashMedia(
     };
   } catch (error) {
     console.error('Error fetching trashed media:', error);
+    return { items: [], totalPages: 0, totalItems: 0 };
+  }
+}
+
+export async function getUnreferencedMedia(
+  page: number = 1,
+  perPage: number = 50
+): Promise<{
+  items: MediaWithDiary[];
+  totalPages: number;
+  totalItems: number;
+}> {
+  try {
+    const response = await fetch(`/api/v1/media/unreferenced?page=${page}&perPage=${perPage}`, {
+      headers: { Authorization: `Bearer ${pb.authStore.token}` }
+    });
+    if (!response.ok) return { items: [], totalPages: 0, totalItems: 0 };
+    const result = await response.json();
+    return {
+      items: result.items || [],
+      totalPages: result.totalPages || 0,
+      totalItems: result.totalItems || 0
+    };
+  } catch (error) {
+    console.error('Error fetching unreferenced media:', error);
     return { items: [], totalPages: 0, totalItems: 0 };
   }
 }

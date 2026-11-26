@@ -216,6 +216,44 @@ func startDiaryVersionPurge(appStore *store.Store, cfg *config.ConfigService) fu
 	return func() { close(stop) }
 }
 
+// startMediaTrashPurge 启动回收站媒体过期清理：回收站保留 30 天，
+// 启动时执行一次，之后每 24 小时执行一次。返回停止函数供 defer 调用。
+func startMediaTrashPurge(appStore *store.Store) func() {
+	purge := func() {
+		users, err := appStore.ListUsers()
+		if err != nil {
+			logger.Warn("[MediaTrash] failed to list users for purge: %v", err)
+			return
+		}
+		cutoff := time.Now().UTC().Add(-store.MediaTrashRetention)
+		for _, u := range users {
+			deleted, err := api.PurgeExpiredTrashedMedia(appStore, u.ID, cutoff)
+			if err != nil {
+				logger.Warn("[MediaTrash] purge failed for user %s: %v", u.ID, err)
+				continue
+			}
+			if deleted > 0 {
+				logger.Info("[MediaTrash] purged %d expired media for user %s", deleted, u.ID)
+			}
+		}
+	}
+	purge()
+	stop := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(24 * time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				purge()
+			case <-stop:
+				return
+			}
+		}
+	}()
+	return func() { close(stop) }
+}
+
 func main() {
 	if err := run(os.Args[1:], os.Stdout); err != nil {
 		log.Fatal(err)
@@ -371,6 +409,10 @@ func run(args []string, stdout io.Writer) error {
 	// 日记版本过期清理（启动时一次 + 每日一次；列表查询另有惰性清理）
 	stopDiaryVersionPurge := startDiaryVersionPurge(appStore, configService)
 	defer stopDiaryVersionPurge()
+
+	// 回收站媒体过期清理（30 天保留期，启动时一次 + 每日一次）
+	stopMediaTrashPurge := startMediaTrashPurge(appStore)
+	defer stopMediaTrashPurge()
 
 	// Start weather auto-fetch scheduler
 	weatherScheduler.Start()

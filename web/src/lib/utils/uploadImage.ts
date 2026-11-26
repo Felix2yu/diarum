@@ -8,56 +8,7 @@ import {
 } from '#lib/stores/imageUpload.js';
 import { uploadToChevereto } from '#lib/api/chevereto.js';
 
-/**
- * Get or create diary ID for a given date
- */
-export async function getOrCreateDiaryId(date: string): Promise<string | undefined> {
-  try {
-    // Try to find existing diary
-    const response = await fetch(`/api/v1/diaries/by-date/${date}`, {
-      headers: {
-        Authorization: `Bearer ${pb.authStore.token}`
-      }
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data.exists && data.id) {
-        return data.id;
-      }
-    }
-
-    // Create new diary if not exists via business API
-    const createResponse = await fetch('/api/v1/diaries/upsert', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${pb.authStore.token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        date,
-        content: '',
-        mood: '',
-        weather: ''
-      })
-    });
-
-    if (!createResponse.ok) {
-      return undefined;
-    }
-
-    const newDiary = await createResponse.json();
-
-    return newDiary.id;
-  } catch (error) {
-    console.error('Failed to get/create diary:', error);
-    return undefined;
-  }
-}
-
 export interface UploadOptions {
-  diaryId?: string;
-  diaryDate?: string; // Date string (YYYY-MM-DD) to auto-link diary
   alt?: string;
   onProgress?: (progress: UploadProgress) => void;
   signal?: AbortSignal;
@@ -83,7 +34,7 @@ export async function uploadImage(
   file: File,
   options: UploadOptions = {}
 ): Promise<Media | CheveretoUploadResult> {
-  const { diaryId, diaryDate, alt, signal, onProgress } = options;
+  const { alt, signal, onProgress } = options;
 
   // Validate file type
   const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
@@ -118,11 +69,7 @@ export async function uploadImage(
   }
 
   // Fallback to local Diarum upload
-  let resolvedDiaryId = diaryId;
-  if (!resolvedDiaryId && diaryDate) {
-    resolvedDiaryId = await getOrCreateDiaryId(diaryDate);
-  }
-
+  // 不在上传阶段创建日记或写入关联：媒体与日记的关联由保存日记时解析正文 URL 建立
   const formData = new FormData();
   formData.append('file', file);
   formData.append('name', file.name);
@@ -130,10 +77,6 @@ export async function uploadImage(
 
   if (alt) {
     formData.append('alt', alt);
-  }
-
-  if (resolvedDiaryId) {
-    formData.append('diary', resolvedDiaryId);
   }
 
   try {

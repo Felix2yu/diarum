@@ -6,6 +6,7 @@
   import {
     getAllMedia,
     getTrashMedia,
+    getUnreferencedMedia,
     getMediaDisplayUrl,
     deleteMediaById,
     restoreMediaById,
@@ -22,7 +23,7 @@
   let currentPage = 1;
   let totalPages = 1;
   let totalItems = 0;
-  let viewMode: 'active' | 'trash' = 'active';
+  let viewMode: 'active' | 'trash' | 'unreferenced' = 'active';
 
   // Modal state
   let selectedMedia: MediaWithDiary | null = null;
@@ -33,6 +34,8 @@
   let showPermanentConfirm = false;
   let showEmptyConfirm = false;
   let emptying = false;
+  let showTrashAllConfirm = false;
+  let trashingAll = false;
 
   let toastMessage = '';
   let toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -45,7 +48,9 @@
     const result =
       viewMode === 'trash'
         ? await getTrashMedia(currentPage, 30)
-        : await getAllMedia(currentPage, 30);
+        : viewMode === 'unreferenced'
+          ? await getUnreferencedMedia(currentPage, 30)
+          : await getAllMedia(currentPage, 30);
     if (requestId !== loadRequestId) return;
     mediaList = result.items;
     totalPages = result.totalPages;
@@ -53,12 +58,13 @@
     loading = false;
   }
 
-  function switchView(mode: 'active' | 'trash') {
+  function switchView(mode: 'active' | 'trash' | 'unreferenced') {
     if (viewMode === mode) return;
     viewMode = mode;
     currentPage = 1;
     closeModal();
     showEmptyConfirm = false;
+    showTrashAllConfirm = false;
     clearToast();
     loadMedia();
   }
@@ -186,6 +192,20 @@
     }
   }
 
+  async function handleTrashAllUnreferenced() {
+    trashingAll = true;
+    let moved = 0;
+    for (const media of [...mediaList]) {
+      if (!media.id) continue;
+      if (await deleteMediaById(media.id)) moved++;
+    }
+    trashingAll = false;
+    showTrashAllConfirm = false;
+    currentPage = 1;
+    await loadMedia();
+    showToast(`已移入回收站 ${moved} 项`);
+  }
+
   function goToDiary(date: string) {
     closeModal();
     goto(resolve('/diary/[date]', { date: date }));
@@ -249,6 +269,16 @@
         >
           回收站{viewMode === 'trash' && totalItems > 0 ? ` (${totalItems})` : ''}
         </button>
+        <button
+          type="button"
+          class="rounded-md px-4 py-1.5 text-sm font-medium transition-colors {viewMode ===
+          'unreferenced'
+            ? 'bg-card text-foreground shadow-sm'
+            : 'text-muted-foreground hover:text-foreground'}"
+          onclick={() => switchView('unreferenced')}
+        >
+          未引用
+        </button>
       </div>
 
       {#if viewMode === 'trash' && totalItems > 0}
@@ -259,8 +289,51 @@
         >
           清空回收站
         </button>
+      {:else if viewMode === 'unreferenced' && totalItems > 0 && !showTrashAllConfirm}
+        <button
+          type="button"
+          class="rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted/50"
+          onclick={() => (showTrashAllConfirm = true)}
+        >
+          本页全部移入回收站
+        </button>
       {/if}
     </div>
+
+    {#if viewMode === 'trash'}
+      <p class="mb-6 text-xs text-muted-foreground">回收站内的媒体会在 30 天后自动永久删除。</p>
+    {:else if viewMode === 'unreferenced'}
+      <p class="mb-6 text-xs text-muted-foreground">
+        以下媒体没有被任何日记正文引用（例如上传后未保存正文），可移入回收站清理。
+      </p>
+    {/if}
+
+    {#if showTrashAllConfirm}
+      <div
+        class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-4 text-sm"
+      >
+        <span class="text-foreground">
+          会把当前页的 {mediaList.length} 项未引用媒体移入回收站，可在回收站恢复。
+        </span>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            onclick={handleTrashAllUnreferenced}
+            disabled={trashingAll}
+            class="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+          >
+            {trashingAll ? '处理中...' : '确认移入'}
+          </button>
+          <button
+            type="button"
+            onclick={() => (showTrashAllConfirm = false)}
+            class="rounded-lg border border-border px-3 py-1.5 text-sm transition-colors hover:bg-muted/50"
+          >
+            取消
+          </button>
+        </div>
+      </div>
+    {/if}
 
     {#if showEmptyConfirm}
       <div
@@ -320,6 +393,9 @@
           {#if viewMode === 'trash'}
             <p class="text-lg font-medium">回收站为空</p>
             <p class="mt-1 text-sm">删除的图片会先进入这里，可随时恢复</p>
+          {:else if viewMode === 'unreferenced'}
+            <p class="text-lg font-medium">没有未引用的媒体</p>
+            <p class="mt-1 text-sm">媒体库里所有图片都已被日记正文引用</p>
           {:else}
             <p class="text-lg font-medium">暂无媒体</p>
             <p class="mt-1 text-sm">在你的日记条目中上传图片</p>
@@ -360,6 +436,12 @@
                       class="absolute top-2 right-2 rounded bg-red-600/85 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm"
                     >
                       回收站
+                    </div>
+                  {:else if viewMode === 'unreferenced'}
+                    <div
+                      class="absolute top-2 right-2 rounded bg-amber-600/85 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm"
+                    >
+                      未引用
                     </div>
                   {/if}
                   <!-- Diary indicator -->

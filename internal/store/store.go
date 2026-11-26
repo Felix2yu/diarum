@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"time"
@@ -394,6 +395,16 @@ func createSchema(db *sql.DB) error {
 			FOREIGN KEY(owner) REFERENCES users(id) ON DELETE CASCADE
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_media_owner_created ON media(owner, created)`,
+		// diary_images: 日记正文中实际引用的媒体，保存日记时按正文 URL 同步重建。
+		`CREATE TABLE IF NOT EXISTS diary_images (
+			diary_id TEXT NOT NULL,
+			media_id TEXT NOT NULL,
+			created TEXT NOT NULL,
+			PRIMARY KEY (diary_id, media_id),
+			FOREIGN KEY(diary_id) REFERENCES diaries(id) ON DELETE CASCADE,
+			FOREIGN KEY(media_id) REFERENCES media(id) ON DELETE CASCADE
+		)`,
+		`CREATE INDEX IF NOT EXISTS idx_diary_images_media ON diary_images(media_id)`,
 		`CREATE TABLE IF NOT EXISTS user_settings (
 			created TEXT NOT NULL,
 			encrypted BOOLEAN DEFAULT FALSE NOT NULL,
@@ -686,7 +697,21 @@ func createSchema(db *sql.DB) error {
 		}
 	}
 
-	// ---- 字段补齐（旧数据库升级）----
+	// ---- Migration v9: diary_images 关联表 ----
+	// 媒体与日记的关联不再依赖 media.diary JSON，改由正文中的媒体 URL 推导。
+	// 老数据从 media.diary 与日记正文两处回填，保证升级后已有关联不丢。
+	{
+		var currentVersion int
+		_ = db.QueryRow(`SELECT COALESCE(MAX(version), 0) FROM schema_migrations`).Scan(&currentVersion)
+		if currentVersion < 9 {
+			if err := backfillDiaryImages(db); err != nil {
+				logger.Warn("[Store] diary_images backfill failed: %v", err)
+			}
+			_, _ = db.Exec(`INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES(9, datetime('now'))`)
+			logger.Info("[Store] migration v9 completed: added diary_images table")
+		}
+	}
+
 	// period_analyses：v2 起改为按周期键（period_key，如 2026-W36 / 2026-09 / 2026）存储，
 	// 与旧的"时间区间"存储不兼容，检测到旧表时直接重建（旧周期总结数据不迁移）。
 	{
@@ -829,6 +854,10 @@ func migrateLegacyData(db *sql.DB, oldPath string) error {
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit legacy migration: %w", err)
 	}
+	// 老库在 createSchema 阶段已记录 v9（此时还没有数据），复制完成后再回填一次关联。
+	if err := backfillDiaryImages(db); err != nil {
+		logger.Warn("[Store] failed to backfill diary_images after legacy migration: %v", err)
+	}
 	logger.Info("[Store] legacy migration committed: rows=%d mediaCollectionID=%s", totalCopied, mediaCollectionID)
 	return nil
 }
@@ -842,6 +871,100 @@ func lookupLegacyCollectionID(tx *sql.Tx, name string) string {
 func isMissingLegacyTableError(err error) bool {
 	msg := strings.ToLower(err.Error())
 	return strings.Contains(msg, "no such table") || strings.Contains(msg, "no such column")
+}
+
+// mediaURLPattern 匹配媒体文件访问 URL（/api/v1/files/media/<id>/<file>），
+// 用于从日记正文推导出媒体关联。
+var mediaURLPattern = regexp.MustCompile(`/api/v1/files/media/([A-Za-z0-9]+)/`)
+
+// extractMediaIDs 返回正文中出现的媒体 ID（去重，保持首次出现顺序）。
+func extractMediaIDs(content string) []string {
+	if !strings.Contains(content, "/api/v1/files/media/") {
+		return nil
+	}
+	matches := mediaURLPattern.FindAllStringSubmatch(content, -1)
+	ids := make([]string, 0, len(matches))
+	seen := make(map[string]struct{}, len(matches))
+	for _, match := range matches {
+		id := match[1]
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+// backfillDiaryImages 把旧的 media.diary JSON 关系与日记正文中的媒体 URL
+// 回填进 diary_images（幂等，可重复执行）。
+func backfillDiaryImages(db *sql.DB) error {
+	type mediaRef struct {
+		mediaID string
+		diaryID string
+		owner   string
+		created string
+	}
+	refs := make([]mediaRef, 0)
+
+	rows, err := db.Query(`SELECT id, owner, created, diary FROM media WHERE diary != '' AND diary != '[]' AND diary != 'null'`)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var mediaID, owner, created, raw string
+		if err := rows.Scan(&mediaID, &owner, &created, &raw); err != nil {
+			rows.Close()
+			return err
+		}
+		for _, diaryID := range decodeStringSlice(raw) {
+			refs = append(refs, mediaRef{mediaID: mediaID, diaryID: diaryID, owner: owner, created: created})
+		}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+
+	rows, err = db.Query(`SELECT id, owner, created, content FROM diaries`)
+	if err != nil {
+		return err
+	}
+	for rows.Next() {
+		var diaryID, owner, created, content string
+		if err := rows.Scan(&diaryID, &owner, &created, &content); err != nil {
+			rows.Close()
+			return err
+		}
+		for _, mediaID := range extractMediaIDs(content) {
+			refs = append(refs, mediaRef{mediaID: mediaID, diaryID: diaryID, owner: owner, created: created})
+		}
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+
+	if len(refs) == 0 {
+		return nil
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	const insertRef = `INSERT OR IGNORE INTO diary_images(diary_id, media_id, created)
+		SELECT d.id, m.id, ? FROM diaries d JOIN media m ON m.id = ?
+		WHERE d.id = ? AND d.owner = ? AND m.owner = d.owner`
+	for _, ref := range refs {
+		if _, err := tx.Exec(insertRef, ref.created, ref.mediaID, ref.diaryID, ref.owner); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
 }
 
 func ensureRuntimeMetadata(db *sql.DB, dataDir, oldPath string) error {
@@ -1315,6 +1438,12 @@ func (s *Store) UpsertDiaryWithSession(owner, date, content string, mood *int, m
 		if err != nil {
 			return nil, false, err
 		}
+		// 正文变化时同步媒体关联；失败只记录，不阻断保存
+		if content != existing.Content {
+			if serr := s.SyncDiaryImages(owner, existing.ID, content); serr != nil {
+				logger.Warn("[Store] failed to sync diary images: %v", serr)
+			}
+		}
 		diary, err := s.GetDiaryByID(existing.ID)
 		return diary, false, err
 	}
@@ -1360,6 +1489,9 @@ func (s *Store) UpsertDiaryWithSession(owner, date, content string, mood *int, m
 	_, err = s.DB.Exec(`INSERT INTO diaries(content, content_updated, created, date, id, mood, mood_states, scenarios, owner, updated, weather, city, temp_min, temp_max, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, content, now, now, date+" 00:00:00.000Z", id, m, encodeJSON(ms), encodeJSON(sc), owner, now, w, c, tmin, tmax, encodeJSON(normalizeTags(tg)))
 	if err != nil {
 		return nil, true, err
+	}
+	if serr := s.SyncDiaryImages(owner, id, content); serr != nil {
+		logger.Warn("[Store] failed to sync diary images: %v", serr)
 	}
 	diary, err := s.GetDiaryByID(id)
 	return diary, true, err
@@ -1571,6 +1703,11 @@ func (s *Store) UpdateDiaryByID(id, owner string, p DiaryPatch) (*Diary, error) 
 		updated.Content, updated.ContentUpdated, updated.Mood, encodeJSON(updated.MoodStates), encodeJSON(updated.Scenarios), updated.Weather, updated.City, updated.TempMin, updated.TempMax, encodeJSON(normalizeTags(updated.Tags)), now, id, owner); err != nil {
 		return nil, err
 	}
+	if updated.Content != existing.Content {
+		if serr := s.SyncDiaryImages(owner, id, updated.Content); serr != nil {
+			logger.Warn("[Store] failed to sync diary images: %v", serr)
+		}
+	}
 	return s.GetDiaryByID(id)
 }
 
@@ -1693,6 +1830,16 @@ func (s *Store) BatchUpdateDiaries(owner string, t BatchTargets, p DiaryPatch, o
 			}
 			results = append(results, BatchResult{ID: id, Status: "error", Error: err.Error()})
 			continue
+		}
+		if updated.Content != existing.Content {
+			if serr := syncDiaryImagesTx(tx, owner, id, updated.Content); serr != nil {
+				if !o.ContinueOnError {
+					firstErr = serr
+					break
+				}
+				results = append(results, BatchResult{ID: id, Status: "error", Error: serr.Error()})
+				continue
+			}
 		}
 		results = append(results, BatchResult{ID: id, Status: "ok"})
 	}
@@ -2270,49 +2417,85 @@ func (s *Store) ValidateAPIToken(token string) (string, error) {
 	return userID, nil
 }
 
+type mediaListMode int
+
+const (
+	mediaListActive mediaListMode = iota
+	mediaListTrashed
+	mediaListUnreferenced
+)
+
+// MediaTrashRetention 是回收站媒体的保留时长，超时后由后台任务永久删除。
+const MediaTrashRetention = 30 * 24 * time.Hour
+
 func (s *Store) ListMedia(owner string, page, perPage int) ([]MediaWithExpand, int, error) {
-	return s.listMedia(owner, page, perPage, false)
+	return s.listMedia(owner, page, perPage, mediaListActive)
 }
 
 func (s *Store) ListTrashedMedia(owner string, page, perPage int) ([]MediaWithExpand, int, error) {
-	return s.listMedia(owner, page, perPage, true)
+	return s.listMedia(owner, page, perPage, mediaListTrashed)
 }
 
-func (s *Store) listMedia(owner string, page, perPage int, trashed bool) ([]MediaWithExpand, int, error) {
+// ListUnreferencedMedia 返回媒体库中没有任何日记正文引用的媒体，供清理使用。
+func (s *Store) ListUnreferencedMedia(owner string, page, perPage int) ([]MediaWithExpand, int, error) {
+	return s.listMedia(owner, page, perPage, mediaListUnreferenced)
+}
+
+func (s *Store) listMedia(owner string, page, perPage int, mode mediaListMode) ([]MediaWithExpand, int, error) {
 	page = max(page, 1)
 	if perPage <= 0 {
 		perPage = 50
 	}
-	filter := `owner = ? AND deleted_at = ''`
-	order := `created DESC`
-	if trashed {
-		filter = `owner = ? AND deleted_at != ''`
-		order = `deleted_at DESC`
+	filter := `m.owner = ? AND m.deleted_at = ''`
+	order := `m.created DESC`
+	switch mode {
+	case mediaListTrashed:
+		filter = `m.owner = ? AND m.deleted_at != ''`
+		order = `m.deleted_at DESC`
+	case mediaListUnreferenced:
+		filter = `m.owner = ? AND m.deleted_at = '' AND NOT EXISTS (SELECT 1 FROM diary_images di WHERE di.media_id = m.id)`
 	}
 	var total int
-	if err := s.DB.QueryRow(`SELECT COUNT(*) FROM media WHERE `+filter, owner).Scan(&total); err != nil {
+	if err := s.DB.QueryRow(`SELECT COUNT(*) FROM media m WHERE `+filter, owner).Scan(&total); err != nil {
 		return nil, 0, err
 	}
-	rows, err := s.DB.Query(`SELECT alt, created, file, id, name, owner, updated, diary, deleted_at FROM media WHERE `+filter+` ORDER BY `+order+` LIMIT ? OFFSET ?`, owner, perPage, (page-1)*perPage)
+	rows, err := s.DB.Query(`SELECT m.alt, m.created, m.file, m.id, m.name, m.owner, m.updated, m.deleted_at FROM media m WHERE `+filter+` ORDER BY `+order+` LIMIT ? OFFSET ?`, owner, perPage, (page-1)*perPage)
 	if err != nil {
 		return nil, 0, err
 	}
-	defer rows.Close()
 	items := make([]MediaWithExpand, 0)
-	diaryIDs := make(map[string]struct{})
+	mediaIDs := make([]string, 0)
 	for rows.Next() {
 		media, err := scanMedia(rows)
 		if err != nil {
+			rows.Close()
 			return nil, 0, err
 		}
-		item := MediaWithExpand{Media: *media}
-		for _, diaryID := range media.Diary {
-			diaryIDs[diaryID] = struct{}{}
-		}
-		items = append(items, item)
+		items = append(items, MediaWithExpand{Media: *media})
+		mediaIDs = append(mediaIDs, media.ID)
 	}
 	if err := rows.Err(); err != nil {
+		rows.Close()
 		return nil, 0, err
+	}
+	rows.Close()
+
+	// 未引用模式下关联必然为空，跳过查询
+	if mode != mediaListUnreferenced {
+		diaryIDsByMedia, err := s.mediaDiaryIDs(owner, mediaIDs)
+		if err != nil {
+			return nil, 0, err
+		}
+		for i := range items {
+			items[i].Diary = diaryIDsByMedia[items[i].ID]
+		}
+	}
+
+	diaryIDs := make(map[string]struct{})
+	for i := range items {
+		for _, diaryID := range items[i].Diary {
+			diaryIDs[diaryID] = struct{}{}
+		}
 	}
 
 	diariesByID := make(map[string]Diary, len(diaryIDs))
@@ -2358,13 +2541,52 @@ func (s *Store) listMedia(owner string, page, perPage int, trashed bool) ([]Medi
 	return items, total, nil
 }
 
+// mediaDiaryIDs 批量查询媒体被哪些日记引用（仅返回同一 owner 的关联）。
+func (s *Store) mediaDiaryIDs(owner string, mediaIDs []string) (map[string][]string, error) {
+	result := make(map[string][]string, len(mediaIDs))
+	if len(mediaIDs) == 0 {
+		return result, nil
+	}
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(mediaIDs)), ",")
+	args := make([]any, 0, len(mediaIDs)+1)
+	args = append(args, owner)
+	for _, id := range mediaIDs {
+		args = append(args, id)
+	}
+	rows, err := s.DB.Query(`SELECT di.media_id, di.diary_id FROM diary_images di
+		JOIN diaries d ON d.id = di.diary_id
+		WHERE d.owner = ? AND di.media_id IN (`+placeholders+`)
+		ORDER BY di.created`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var mediaID, diaryID string
+		if err := rows.Scan(&mediaID, &diaryID); err != nil {
+			return nil, err
+		}
+		result[mediaID] = append(result[mediaID], diaryID)
+	}
+	return result, rows.Err()
+}
+
 func (s *Store) GetMedia(id, owner string) (*Media, error) {
-	media, err := scanMedia(s.DB.QueryRow(`SELECT alt, created, file, id, name, owner, updated, diary, deleted_at FROM media WHERE id = ?`, id))
+	media, err := scanMedia(s.DB.QueryRow(`SELECT alt, created, file, id, name, owner, updated, deleted_at FROM media WHERE id = ?`, id))
 	if err != nil {
 		return nil, err
 	}
 	if owner != "" && media.Owner != owner {
 		return nil, sql.ErrNoRows
+	}
+	diaryIDs, err := s.mediaDiaryIDs(media.Owner, []string{media.ID})
+	if err != nil {
+		return nil, err
+	}
+	if ids := diaryIDs[media.ID]; len(ids) > 0 {
+		media.Diary = ids
+	} else {
+		media.Diary = []string{}
 	}
 	return media, nil
 }
@@ -2377,34 +2599,122 @@ func (s *Store) CreateMedia(owner, file, name, alt string, diary []string) (*Med
 	return s.InsertImportedMedia(owner, id, file, name, alt, diary)
 }
 
+const insertMediaDiaryLink = `INSERT OR IGNORE INTO diary_images(diary_id, media_id, created)
+	SELECT d.id, ?, ? FROM diaries d WHERE d.id = ? AND d.owner = ?`
+
+func insertMediaDiaryLinks(tx *sql.Tx, owner, mediaID string, diaryIDs []string, created string) error {
+	for _, diaryID := range diaryIDs {
+		if _, err := tx.Exec(insertMediaDiaryLink, mediaID, created, diaryID, owner); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Store) InsertImportedMedia(owner, id, file, name, alt string, diary []string) (*Media, error) {
 	if id == "" {
 		return nil, fmt.Errorf("media id is required")
 	}
 	now := nowString()
-	_, err := s.DB.Exec(`INSERT INTO media(alt, created, file, id, name, owner, updated, diary) VALUES(?, ?, ?, ?, ?, ?, ?, ?)`, alt, now, file, id, name, owner, now, encodeJSON(diary))
+	tx, err := s.DB.Begin()
 	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec(`INSERT INTO media(alt, created, file, id, name, owner, updated, diary) VALUES(?, ?, ?, ?, ?, ?, ?, '[]')`, alt, now, file, id, name, owner, now); err != nil {
+		return nil, err
+	}
+	if err := insertMediaDiaryLinks(tx, owner, id, diary, now); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return s.GetMedia(id, owner)
 }
 
+// UpdateMediaDiary 覆盖式设置媒体关联的日记（仅保留同一 owner 的日记）。
 func (s *Store) UpdateMediaDiary(id, owner string, diary []string) (*Media, error) {
-	_, err := s.DB.Exec(`UPDATE media SET diary = ?, updated = ? WHERE id = ? AND owner = ?`, encodeJSON(diary), nowString(), id, owner)
+	tx, err := s.DB.Begin()
 	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	var exists int
+	if err := tx.QueryRow(`SELECT 1 FROM media WHERE id = ? AND owner = ?`, id, owner).Scan(&exists); err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(`DELETE FROM diary_images WHERE media_id = ?`, id); err != nil {
+		return nil, err
+	}
+	now := nowString()
+	if err := insertMediaDiaryLinks(tx, owner, id, diary, now); err != nil {
+		return nil, err
+	}
+	if _, err := tx.Exec(`UPDATE media SET updated = ? WHERE id = ? AND owner = ?`, now, id, owner); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
 		return nil, err
 	}
 	return s.GetMedia(id, owner)
 }
 
 func (s *Store) DeleteMedia(id, owner string) error {
-	result, err := s.DB.Exec(`DELETE FROM media WHERE id = ? AND owner = ?`, id, owner)
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	result, err := tx.Exec(`DELETE FROM media WHERE id = ? AND owner = ?`, id, owner)
 	if err != nil {
 		return err
 	}
 	affected, _ := result.RowsAffected()
 	if affected == 0 {
 		return sql.ErrNoRows
+	}
+	// 外键级联已删除关联，这里兜底外键未生效的旧库
+	if _, err := tx.Exec(`DELETE FROM diary_images WHERE media_id = ?`, id); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// SyncDiaryImages 按日记正文中的媒体 URL 重建 diary_images 关联。
+func (s *Store) SyncDiaryImages(owner, diaryID, content string) error {
+	tx, err := s.DB.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := syncDiaryImagesTx(tx, owner, diaryID, content); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// syncDiaryImagesTx 在给定事务内按正文重建关联：多余的删除、新出现的补齐。
+func syncDiaryImagesTx(tx *sql.Tx, owner, diaryID, content string) error {
+	mediaIDs := extractMediaIDs(content)
+	if len(mediaIDs) == 0 {
+		_, err := tx.Exec(`DELETE FROM diary_images WHERE diary_id = ?`, diaryID)
+		return err
+	}
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(mediaIDs)), ",")
+	args := make([]any, 0, len(mediaIDs)+1)
+	args = append(args, diaryID)
+	for _, mediaID := range mediaIDs {
+		args = append(args, mediaID)
+	}
+	if _, err := tx.Exec(`DELETE FROM diary_images WHERE diary_id = ? AND media_id NOT IN (`+placeholders+`)`, args...); err != nil {
+		return err
+	}
+	now := nowString()
+	for _, mediaID := range mediaIDs {
+		if _, err := tx.Exec(insertMediaDiaryLink, mediaID, now, diaryID, owner); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -2438,7 +2748,39 @@ func (s *Store) RestoreMedia(id, owner string) error {
 
 // ListAllTrashedMedia 返回回收站中的全部媒体，用于清空回收站。
 func (s *Store) ListAllTrashedMedia(owner string) ([]Media, error) {
-	rows, err := s.DB.Query(`SELECT alt, created, file, id, name, owner, updated, diary, deleted_at FROM media WHERE owner = ? AND deleted_at != '' ORDER BY deleted_at DESC`, owner)
+	rows, err := s.DB.Query(`SELECT alt, created, file, id, name, owner, updated, deleted_at FROM media WHERE owner = ? AND deleted_at != '' ORDER BY deleted_at DESC`, owner)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]Media, 0)
+	mediaIDs := make([]string, 0)
+	for rows.Next() {
+		media, err := scanMedia(rows)
+		if err != nil {
+			rows.Close()
+			return nil, err
+		}
+		items = append(items, *media)
+		mediaIDs = append(mediaIDs, media.ID)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+	diaryIDsByMedia, err := s.mediaDiaryIDs(owner, mediaIDs)
+	if err != nil {
+		return nil, err
+	}
+	for i := range items {
+		items[i].Diary = diaryIDsByMedia[items[i].ID]
+	}
+	return items, nil
+}
+
+// ListTrashedMediaBefore 返回回收站中删除时间不晚于 before 的媒体，用于过期清理。
+func (s *Store) ListTrashedMediaBefore(owner, before string) ([]Media, error) {
+	rows, err := s.DB.Query(`SELECT alt, created, file, id, name, owner, updated, deleted_at FROM media WHERE owner = ? AND deleted_at != '' AND deleted_at <= ? ORDER BY deleted_at`, owner, before)
 	if err != nil {
 		return nil, err
 	}
@@ -2455,13 +2797,12 @@ func (s *Store) ListAllTrashedMedia(owner string) ([]Media, error) {
 }
 
 func scanMedia(row interface{ Scan(dest ...any) error }) (*Media, error) {
-	var diaryRaw string
 	media := &Media{}
-	err := row.Scan(&media.Alt, &media.Created, &media.File, &media.ID, &media.Name, &media.Owner, &media.Updated, &diaryRaw, &media.DeletedAt)
+	err := row.Scan(&media.Alt, &media.Created, &media.File, &media.ID, &media.Name, &media.Owner, &media.Updated, &media.DeletedAt)
 	if err != nil {
 		return nil, err
 	}
-	media.Diary = decodeStringSlice(diaryRaw)
+	media.Diary = []string{}
 	return media, nil
 }
 
@@ -2761,6 +3102,9 @@ func (s *Store) InsertImportedDiary(owner, id, date, content string, mood int, m
 	_, err := s.DB.Exec(`INSERT INTO diaries(content, content_updated, created, date, id, mood, mood_states, scenarios, owner, updated, weather, city, temp_min, temp_max, tags) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, content, now, now, date+" 00:00:00.000Z", id, mood, encodeJSON(moodStates), encodeJSON(scenarios), owner, now, weather, city, tempMin, tempMax, encodeJSON(normalizeTags(tags)))
 	if err != nil {
 		return nil, err
+	}
+	if serr := s.SyncDiaryImages(owner, id, content); serr != nil {
+		logger.Warn("[Store] failed to sync diary images: %v", serr)
 	}
 	return s.GetDiaryByID(id)
 }

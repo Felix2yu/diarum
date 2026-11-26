@@ -138,6 +138,11 @@ func (s *Store) RestoreDiaryVersion(owner, versionID string) (*Diary, error) {
 	if err != nil {
 		return nil, err
 	}
+	if contentChanged {
+		if serr := s.SyncDiaryImages(owner, version.DiaryID, version.Content); serr != nil {
+			logger.Warn("[Store] failed to sync diary images: %v", serr)
+		}
+	}
 	return s.GetDiaryByID(version.DiaryID)
 }
 

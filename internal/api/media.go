@@ -8,12 +8,14 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/labstack/echo/v5"
 
 	"github.com/songtianlun/diarum/internal/auth"
 	"github.com/songtianlun/diarum/internal/config"
 	"github.com/songtianlun/diarum/internal/imaging"
+	"github.com/songtianlun/diarum/internal/logger"
 	"github.com/songtianlun/diarum/internal/store"
 )
 
@@ -67,6 +69,24 @@ func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		items, total, err := s.ListTrashedMedia(user.ID, page, perPage)
 		if err != nil {
 			return serverError("Failed to fetch trashed media", err)
+		}
+		return c.JSON(http.StatusOK, map[string]any{
+			"page":       page,
+			"perPage":    perPage,
+			"totalItems": total,
+			"totalPages": store.TotalPages(total, perPage),
+			"items":      items,
+		})
+	})
+
+	// 未引用：媒体库中没有被任何日记正文引用的媒体，供用户清理
+	group.GET("/unreferenced", func(c *echo.Context) error {
+		user := auth.CurrentUser(c)
+		page := parsePositiveInt(c.QueryParam("page"), 1)
+		perPage := parsePositiveInt(c.QueryParam("perPage"), 50)
+		items, total, err := s.ListUnreferencedMedia(user.ID, page, perPage)
+		if err != nil {
+			return serverError("Failed to fetch unreferenced media", err)
 		}
 		return c.JSON(http.StatusOK, map[string]any{
 			"page":       page,
@@ -221,6 +241,24 @@ func permanentlyDeleteMedia(s *store.Store, owner string, media *store.Media) er
 	}
 	_ = os.RemoveAll(mediaVariantCacheDir(s, media.ID))
 	return nil
+}
+
+// PurgeExpiredTrashedMedia 永久删除回收站中删除时间早于 before 的媒体，
+// 返回实际删除数量；单个失败只记录日志，不影响其余条目。
+func PurgeExpiredTrashedMedia(s *store.Store, owner string, before time.Time) (int, error) {
+	items, err := s.ListTrashedMediaBefore(owner, before.UTC().Format("2006-01-02 15:04:05.000Z"))
+	if err != nil {
+		return 0, err
+	}
+	deleted := 0
+	for i := range items {
+		if err := permanentlyDeleteMedia(s, owner, &items[i]); err != nil {
+			logger.Warn("[MediaTrash] failed to purge expired media %s: %v", items[i].ID, err)
+			continue
+		}
+		deleted++
+	}
+	return deleted, nil
 }
 
 func mediaVariantFromRequest(c *echo.Context) (imaging.Variant, bool) {

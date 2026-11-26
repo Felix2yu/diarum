@@ -978,7 +978,6 @@
               onChange={handleContentChange}
               placeholder="今天有什么想说的？"
               emptyStatePrompt="✨ 回顾今天... 这一天你会记住什么？"
-              diaryDate={date}
               onFocusChange={(focused: boolean) => {
                 editorFocused = focused;
                 if (focused) {

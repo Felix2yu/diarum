@@ -17,7 +17,6 @@
     placeholder = '开始书写...',
     selectedContent = $bindable(''),
     emptyStatePrompt = '',
-    diaryDate = $bindable(undefined as string | undefined),
     onFocusChange = (focused: boolean) => {}
   } = $props();
 
@@ -167,7 +166,7 @@
     for (const item of prepared) {
       uploadQueue.enqueue(
         item.file,
-        { diaryDate },
+        {},
         {
           onSuccess: handleUploadSuccess,
           onError: handleUploadError,
