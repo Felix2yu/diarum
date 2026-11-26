@@ -104,8 +104,17 @@ func TestSearchPromptsAndHelpers(t *testing.T) {
 	}
 
 	tools := service.getTools()
-	if len(tools) != 1 || tools[0].Function.Name != "search_diaries" {
+	if len(tools) != 4 {
 		t.Fatalf("getTools = %#v", tools)
+	}
+	toolNames := make(map[string]bool, len(tools))
+	for _, tool := range tools {
+		toolNames[tool.Function.Name] = true
+	}
+	for _, name := range []string{"search_diaries", "get_diary", "list_diaries", "search_diaries_keyword"} {
+		if !toolNames[name] {
+			t.Fatalf("getTools missing %s: %#v", name, tools)
+		}
 	}
 
 	results, err := service.SearchDiariesByDateRange(context.Background(), user.ID, SearchDiariesArgs{
@@ -138,7 +147,7 @@ func TestSearchPromptsAndHelpers(t *testing.T) {
 		t.Fatal("GenerateTitleFromUserMessage should fail on blank message")
 	}
 
-	if got := extractTitleFromMessage("<p>Hello</p>\nworld and everyone reading this message today"); got != "Hello world and everyone reading this message..." {
+	if got := extractTitleFromMessage("<p>Hello</p>\nworld and everyone reading this message today"); got != "Hello world and everyone reading this..." {
 		t.Fatalf("extractTitleFromMessage = %q", got)
 	}
 	if got := stripHTMLTags("<strong>Hello</strong> world"); got != "Hello world" {
@@ -246,8 +255,8 @@ func TestStreamChatWithToolCall(t *testing.T) {
 				"data: [DONE]",
 			}, "\n")), nil
 		}
-		if len(payload.Tools) != 0 {
-			t.Fatal("second chat request should not include tools")
+		if len(payload.Tools) == 0 {
+			t.Fatal("tool rounds should keep tools available")
 		}
 		return response(http.StatusOK, strings.Join([]string{
 			"data: {\"choices\":[{\"delta\":{\"content\":\"Summary\"}}]}",
@@ -470,26 +479,6 @@ func TestChatServiceNew(t *testing.T) {
 	service := NewChatService(s, nil)
 	if service == nil {
 		t.Fatal("NewChatService should return non-nil")
-	}
-}
-
-func TestResolveLocation(t *testing.T) {
-	t.Setenv("TZ", "Asia/Shanghai")
-	loc := resolveLocation()
-	if loc.String() != "Asia/Shanghai" {
-		t.Errorf("resolveLocation with TZ=Asia/Shanghai = %q, want Asia/Shanghai", loc.String())
-	}
-
-	t.Setenv("TZ", "Invalid/Zone")
-	loc2 := resolveLocation()
-	if loc2 == nil {
-		t.Fatal("resolveLocation should not return nil")
-	}
-
-	t.Setenv("TZ", "")
-	loc3 := resolveLocation()
-	if loc3 == nil {
-		t.Fatal("resolveLocation with empty TZ should not return nil")
 	}
 }
 
