@@ -97,6 +97,16 @@ func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 		})
 	})
 
+	// 批量把全部未引用媒体移入回收站
+	group.DELETE("/unreferenced", func(c *echo.Context) error {
+		user := auth.CurrentUser(c)
+		deleted, err := s.SoftDeleteUnreferencedMedia(user.ID)
+		if err != nil {
+			return serverError("Failed to move unreferenced media to trash", err)
+		}
+		return c.JSON(http.StatusOK, map[string]any{"success": true, "deleted": deleted})
+	})
+
 	group.DELETE("/trash", func(c *echo.Context) error {
 		user := auth.CurrentUser(c)
 		items, err := s.ListAllTrashedMedia(user.ID)
@@ -156,29 +166,14 @@ func RegisterMediaRoutes(e *echo.Echo, s *store.Store, authMiddleware echo.Middl
 			name = filename
 		}
 		alt := c.FormValue("alt")
-		diary := c.Request().Form["diary"]
-		media, err := s.CreateMedia(user.ID, filename, name, alt, diary)
+		// 媒体与日记的关联由保存日记时解析正文 URL 建立，上传阶段不再写入关联。
+		media, err := s.CreateMedia(user.ID, filename, name, alt, nil)
 		if err != nil {
 			return badRequest("Failed to create media", err)
 		}
 		if err := s.SaveUploadedMedia(media, file); err != nil {
 			_ = s.DeleteMedia(media.ID, user.ID)
 			return serverError("Failed to save media file", err)
-		}
-		return c.JSON(http.StatusOK, media)
-	})
-
-	group.PATCH("/:id", func(c *echo.Context) error {
-		user := auth.CurrentUser(c)
-		var body struct {
-			Diary []string `json:"diary"`
-		}
-		if err := c.Bind(&body); err != nil {
-			return badRequest("Invalid request body", err)
-		}
-		media, err := s.UpdateMediaDiary(c.Param("id"), user.ID, body.Diary)
-		if err != nil {
-			return notFound("Media not found")
 		}
 		return c.JSON(http.StatusOK, media)
 	})

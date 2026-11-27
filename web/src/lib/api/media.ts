@@ -31,19 +31,6 @@ export async function getAllMedia(
   }
 }
 
-export async function getMediaById(id: string): Promise<MediaWithDiary | null> {
-  try {
-    const response = await fetch(`/api/v1/media/${encodeURIComponent(id)}`, {
-      headers: { Authorization: `Bearer ${pb.authStore.token}` }
-    });
-    if (!response.ok) return null;
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching media:', error);
-    return null;
-  }
-}
-
 export async function deleteMediaById(id: string): Promise<boolean> {
   try {
     const response = await fetch(`/api/v1/media/${encodeURIComponent(id)}`, {
@@ -104,6 +91,23 @@ export async function getUnreferencedMedia(
   } catch (error) {
     console.error('Error fetching unreferenced media:', error);
     return { items: [], totalPages: 0, totalItems: 0 };
+  }
+}
+
+/**
+ * 把全部未被日记正文引用的媒体一次性移入回收站。
+ */
+export async function trashAllUnreferencedMedia(): Promise<{ deleted: number } | null> {
+  try {
+    const response = await fetch('/api/v1/media/unreferenced', {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${pb.authStore.token}` }
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.error('Error trashing unreferenced media:', error);
+    return null;
   }
 }
 

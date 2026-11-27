@@ -451,9 +451,8 @@ func TestDiaryMediaAndPublicRoutes(t *testing.T) {
 	}
 
 	body, contentType := multipartRequestBody(t, "file", "photo.png", pngBytes(), map[string][]string{
-		"name":  {"Uploaded"},
-		"alt":   {"Alt"},
-		"diary": {diaryID},
+		"name": {"Uploaded"},
+		"alt":  {"Alt"},
 	})
 	rec = performRequest(t, e, http.MethodPost, "/api/v1/media", body, map[string]string{"Content-Type": contentType})
 	if rec.Code != http.StatusOK {
@@ -474,10 +473,6 @@ func TestDiaryMediaAndPublicRoutes(t *testing.T) {
 	rec = performRequest(t, e, http.MethodPost, "/api/v1/media", strings.NewReader(""), map[string]string{"Content-Type": "multipart/form-data; boundary=missing"})
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("POST /media missing file status = %d", rec.Code)
-	}
-	rec = performRequest(t, e, http.MethodPatch, "/api/v1/media/"+mediaID, strings.NewReader(`{"diary":[]}`), map[string]string{"Content-Type": "application/json"})
-	if rec.Code != http.StatusOK {
-		t.Fatalf("PATCH /media status = %d", rec.Code)
 	}
 	rec = performRequest(t, e, http.MethodGet, "/api/v1/media/missing", nil, nil)
 	if rec.Code != http.StatusNotFound {

@@ -12,6 +12,7 @@
     restoreMediaById,
     permanentlyDeleteMediaById,
     emptyMediaTrash,
+    trashAllUnreferencedMedia,
     type MediaWithDiary
   } from '#lib/api/media.js';
   import PageHeader from '#lib/components/ui/PageHeader.svelte';
@@ -23,6 +24,9 @@
   let currentPage = 1;
   let totalPages = 1;
   let totalItems = 0;
+  // 各分区的总数，用于 tab 角标（与当前列表页无关）
+  let trashTotal = 0;
+  let unreferencedTotal = 0;
   let viewMode: 'active' | 'trash' | 'unreferenced' = 'active';
 
   // Modal state
@@ -55,7 +59,16 @@
     mediaList = result.items;
     totalPages = result.totalPages;
     totalItems = result.totalItems;
+    if (viewMode === 'trash') trashTotal = result.totalItems;
+    if (viewMode === 'unreferenced') unreferencedTotal = result.totalItems;
     loading = false;
+  }
+
+  // 只取 totalItems（perPage=1），用于 tab 角标；与当前列表分页互不影响
+  async function refreshCounts() {
+    const [trash, unreferenced] = await Promise.all([getTrashMedia(1, 1), getUnreferencedMedia(1, 1)]);
+    trashTotal = trash.totalItems;
+    unreferencedTotal = unreferenced.totalItems;
   }
 
   function switchView(mode: 'active' | 'trash' | 'unreferenced') {
@@ -95,6 +108,7 @@
     const success = await restoreMediaById(mediaId);
     if (success) {
       await loadMedia();
+      await refreshCounts();
       showToast('已恢复到媒体库');
     }
   }
@@ -145,8 +159,10 @@
     if (success) {
       mediaList = mediaList.filter((m) => m.id !== media.id);
       totalItems = Math.max(0, totalItems - 1);
+      if (viewMode === 'unreferenced') unreferencedTotal = Math.max(0, unreferencedTotal - 1);
       closeModal();
       showToast('已移入回收站', media);
+      refreshCounts();
     }
   }
 
@@ -160,6 +176,7 @@
       totalItems = Math.max(0, totalItems - 1);
       closeModal();
       showToast('已恢复到媒体库');
+      refreshCounts();
     }
   }
 
@@ -173,6 +190,7 @@
       totalItems = Math.max(0, totalItems - 1);
       closeModal();
       showToast('已永久删除');
+      refreshCounts();
     }
   }
 
@@ -184,6 +202,7 @@
     if (result) {
       currentPage = 1;
       await loadMedia();
+      await refreshCounts();
       showToast(
         result.failed > 0
           ? `已删除 ${result.deleted} 项，${result.failed} 项删除失败`
@@ -194,16 +213,17 @@
 
   async function handleTrashAllUnreferenced() {
     trashingAll = true;
-    let moved = 0;
-    for (const media of [...mediaList]) {
-      if (!media.id) continue;
-      if (await deleteMediaById(media.id)) moved++;
-    }
+    const result = await trashAllUnreferencedMedia();
     trashingAll = false;
     showTrashAllConfirm = false;
+    if (!result) {
+      showToast('移入回收站失败，请重试');
+      return;
+    }
     currentPage = 1;
     await loadMedia();
-    showToast(`已移入回收站 ${moved} 项`);
+    await refreshCounts();
+    showToast(`已移入回收站 ${result.deleted} 项`);
   }
 
   function goToDiary(date: string) {
@@ -224,6 +244,7 @@
       return;
     }
     loadMedia();
+    refreshCounts();
   });
 
   onDestroy(() => {
@@ -267,7 +288,7 @@
             : 'text-muted-foreground hover:text-foreground'}"
           onclick={() => switchView('trash')}
         >
-          回收站{viewMode === 'trash' && totalItems > 0 ? ` (${totalItems})` : ''}
+          回收站{trashTotal > 0 ? ` (${trashTotal})` : ''}
         </button>
         <button
           type="button"
@@ -277,7 +298,7 @@
             : 'text-muted-foreground hover:text-foreground'}"
           onclick={() => switchView('unreferenced')}
         >
-          未引用
+          未引用{unreferencedTotal > 0 ? ` (${unreferencedTotal})` : ''}
         </button>
       </div>
 
@@ -289,13 +310,13 @@
         >
           清空回收站
         </button>
-      {:else if viewMode === 'unreferenced' && totalItems > 0 && !showTrashAllConfirm}
+      {:else if viewMode === 'unreferenced' && unreferencedTotal > 0 && !showTrashAllConfirm}
         <button
           type="button"
           class="rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted/50"
           onclick={() => (showTrashAllConfirm = true)}
         >
-          本页全部移入回收站
+          全部移入回收站
         </button>
       {/if}
     </div>
@@ -313,7 +334,7 @@
         class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-4 text-sm"
       >
         <span class="text-foreground">
-          会把当前页的 {mediaList.length} 项未引用媒体移入回收站，可在回收站恢复。
+          会把全部 {unreferencedTotal} 项未引用媒体移入回收站，可在回收站恢复。
         </span>
         <div class="flex items-center gap-2">
           <button

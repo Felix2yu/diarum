@@ -397,12 +397,12 @@ func TestStoreMediaAndFileHelpers(t *testing.T) {
 		t.Fatalf("GetMedia wrong owner error = %v, want sql.ErrNoRows", err)
 	}
 
-	updatedMedia, err := s.UpdateMediaDiary(media.ID, user.ID, nil)
+	updatedMedia, err := s.GetMedia(media.ID, user.ID)
 	if err != nil {
-		t.Fatalf("UpdateMediaDiary: %v", err)
+		t.Fatalf("GetMedia after save: %v", err)
 	}
-	if len(updatedMedia.Diary) != 0 {
-		t.Fatalf("UpdateMediaDiary diary = %#v, want empty", updatedMedia.Diary)
+	if len(updatedMedia.Diary) != 1 || updatedMedia.Diary[0] != diary.ID {
+		t.Fatalf("media diary = %#v, want [%s]", updatedMedia.Diary, diary.ID)
 	}
 
 	if err := s.DeleteMediaFile(media); err != nil {
@@ -633,7 +633,7 @@ func TestStoreClosedDatabaseErrorBranches(t *testing.T) {
 		{"GetMedia", func() error { _, err := s.GetMedia(media.ID, user.ID); return err }},
 		{"CreateMedia", func() error { _, err := s.CreateMedia(user.ID, "x.png", "x", "", nil); return err }},
 		{"InsertImportedMedia", func() error { _, err := s.InsertImportedMedia(user.ID, "x", "x.png", "x", "", nil); return err }},
-		{"UpdateMediaDiary", func() error { _, err := s.UpdateMediaDiary(media.ID, user.ID, nil); return err }},
+		{"SoftDeleteUnreferencedMedia", func() error { _, err := s.SoftDeleteUnreferencedMedia(user.ID); return err }},
 		{"DeleteMedia", func() error { return s.DeleteMedia(media.ID, user.ID) }},
 		{"ListConversations", func() error { _, err := s.ListConversations(user.ID, 10); return err }},
 		{"GetConversation", func() error { _, err := s.GetConversation(conv.ID, user.ID); return err }},

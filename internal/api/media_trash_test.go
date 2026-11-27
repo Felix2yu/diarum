@@ -44,6 +44,36 @@ func TestMediaUnreferencedRoute(t *testing.T) {
 	}
 }
 
+func TestMediaUnreferencedBulkTrashRoute(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	e := echo.New()
+	RegisterMediaRoutes(e, s, authMiddlewareFor(user), iauth.NewService(s))
+
+	for _, name := range []string{"a.png", "b.png"} {
+		if _, err := s.CreateMedia(user.ID, name, name, "", nil); err != nil {
+			t.Fatalf("CreateMedia: %v", err)
+		}
+	}
+
+	rec := performRequest(t, e, http.MethodDelete, "/api/v1/media/unreferenced", nil, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("DELETE /media/unreferenced status = %d body=%s", rec.Code, rec.Body.String())
+	}
+	payload := decodeJSONBody(t, rec)
+	if deleted, _ := payload["deleted"].(float64); deleted != 2 {
+		t.Fatalf("deleted = %v, want 2", payload["deleted"])
+	}
+
+	items, total, err := s.ListTrashedMedia(user.ID, 1, 10)
+	if err != nil {
+		t.Fatalf("ListTrashedMedia: %v", err)
+	}
+	if total != 2 || len(items) != 2 {
+		t.Fatalf("trash total/items = %d/%d, want 2/2", total, len(items))
+	}
+}
+
 func TestPurgeExpiredTrashedMedia(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)

@@ -279,14 +279,6 @@ func TestFocusedMediaRouteErrors(t *testing.T) {
 		t.Fatalf("invalid pagination payload = %#v", payload)
 	}
 
-	rec = performRequest(t, e, http.MethodPatch, "/api/v1/media/missing", strings.NewReader(`{"diary":[]}`), map[string]string{"Content-Type": "application/json"})
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("PATCH /media/missing status = %d body=%s", rec.Code, rec.Body.String())
-	}
-	rec = performRequest(t, e, http.MethodPatch, "/api/v1/media/missing", strings.NewReader(`{`), map[string]string{"Content-Type": "application/json"})
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("PATCH /media invalid JSON status = %d body=%s", rec.Code, rec.Body.String())
-	}
 	rec = performRequest(t, e, http.MethodGet, "/api/v1/files/media/missing/photo.png", nil, authHeaders)
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("GET missing media file status = %d body=%s", rec.Code, rec.Body.String())

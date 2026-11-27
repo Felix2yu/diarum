@@ -2633,33 +2633,6 @@ func (s *Store) InsertImportedMedia(owner, id, file, name, alt string, diary []s
 	return s.GetMedia(id, owner)
 }
 
-// UpdateMediaDiary 覆盖式设置媒体关联的日记（仅保留同一 owner 的日记）。
-func (s *Store) UpdateMediaDiary(id, owner string, diary []string) (*Media, error) {
-	tx, err := s.DB.Begin()
-	if err != nil {
-		return nil, err
-	}
-	defer tx.Rollback()
-	var exists int
-	if err := tx.QueryRow(`SELECT 1 FROM media WHERE id = ? AND owner = ?`, id, owner).Scan(&exists); err != nil {
-		return nil, err
-	}
-	if _, err := tx.Exec(`DELETE FROM diary_images WHERE media_id = ?`, id); err != nil {
-		return nil, err
-	}
-	now := nowString()
-	if err := insertMediaDiaryLinks(tx, owner, id, diary, now); err != nil {
-		return nil, err
-	}
-	if _, err := tx.Exec(`UPDATE media SET updated = ? WHERE id = ? AND owner = ?`, now, id, owner); err != nil {
-		return nil, err
-	}
-	if err := tx.Commit(); err != nil {
-		return nil, err
-	}
-	return s.GetMedia(id, owner)
-}
-
 func (s *Store) DeleteMedia(id, owner string) error {
 	tx, err := s.DB.Begin()
 	if err != nil {
@@ -2744,6 +2717,19 @@ func (s *Store) RestoreMedia(id, owner string) error {
 		return sql.ErrNoRows
 	}
 	return nil
+}
+
+// SoftDeleteUnreferencedMedia 把所有未被任何日记正文引用的媒体移入回收站，返回数量。
+func (s *Store) SoftDeleteUnreferencedMedia(owner string) (int, error) {
+	now := nowString()
+	result, err := s.DB.Exec(`UPDATE media SET deleted_at = ?, updated = ?
+		WHERE owner = ? AND deleted_at = ''
+		AND NOT EXISTS (SELECT 1 FROM diary_images di WHERE di.media_id = media.id)`, now, now, owner)
+	if err != nil {
+		return 0, err
+	}
+	affected, _ := result.RowsAffected()
+	return int(affected), nil
 }
 
 // ListAllTrashedMedia 返回回收站中的全部媒体，用于清空回收站。

@@ -25,6 +25,7 @@
   let uploadError = $state('');
   let uploadJobs = $state<UploadJob[]>([]);
   let showMediaPicker = $state(false);
+  let isDraggingFiles = $state(false);
 
   let fileInput = $state<HTMLInputElement | null>(null);
 
@@ -132,7 +133,15 @@
 
   async function handleFileSelect(e: Event) {
     const input = e.target as HTMLInputElement;
-    const files = Array.from(input.files ?? []);
+    enqueueFiles(Array.from(input.files ?? []));
+    input.value = '';
+  }
+
+  /**
+   * 把图片加入上传队列：先插入占位符，再按队列并发上传。
+   * 供文件选择、拖拽与粘贴三条入口复用。
+   */
+  function enqueueFiles(files: File[]) {
     if (files.length === 0) return;
 
     uploadError = '';
@@ -149,10 +158,7 @@
     if (errors.length > 0) {
       uploadError = errors.slice(0, 2).join('；');
     }
-    if (validFiles.length === 0) {
-      input.value = '';
-      return;
-    }
+    if (validFiles.length === 0) return;
 
     const prepared = validFiles.map((file) => {
       const id = createUploadJobId();
@@ -175,8 +181,42 @@
         item.id
       );
     }
+  }
 
-    input.value = '';
+  // 粘贴截图：直接进入上传队列，避免粘贴成文件名或 base64
+  function handlePaste(event: ClipboardEvent) {
+    const clipboard = event.clipboardData;
+    if (!clipboard) return;
+    const files = Array.from(clipboard.items)
+      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .map((item) => item.getAsFile())
+      .filter((file): file is File => file !== null);
+    if (files.length === 0) return;
+    event.preventDefault();
+    enqueueFiles(files);
+  }
+
+  function handleDragOver(event: DragEvent) {
+    if (!event.dataTransfer) return;
+    const hasFiles = Array.from(event.dataTransfer.types ?? []).includes('Files');
+    if (!hasFiles) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    isDraggingFiles = true;
+  }
+
+  function handleDragLeave(event: DragEvent) {
+    const current = event.currentTarget as HTMLElement | null;
+    const related = event.relatedTarget as Node | null;
+    if (current && related && current.contains(related)) return;
+    isDraggingFiles = false;
+  }
+
+  function handleDrop(event: DragEvent) {
+    event.preventDefault();
+    isDraggingFiles = false;
+    const files = Array.from(event.dataTransfer?.files ?? []);
+    enqueueFiles(files);
   }
 
   function validateUploadFile(file: File): string | null {
@@ -329,7 +369,13 @@
 <!-- eslint-disable svelte/no-at-html-tags -->
 <!-- 本文件所有 {@html} 出口均已过 DOMPurify 净化 -->
 
-<div class="markdown-editor">
+<div
+  class="markdown-editor"
+  role="presentation"
+  ondragover={handleDragOver}
+  ondragleave={handleDragLeave}
+  ondrop={handleDrop}
+>
   <input
     type="file"
     bind:this={fileInput}
@@ -344,11 +390,22 @@
     class="markdown-textarea {isFocused ? 'is-focused' : 'is-blurred'}"
     {placeholder}
     oninput={handleInput}
+    onpaste={handlePaste}
     onfocus={handleFocus}
     onblur={handleBlur}
     onselect={updateSelectedText}
     onclick={updateSelectedText}
     spellcheck="false"></textarea>
+
+  {#if isDraggingFiles}
+    <div
+      class="pointer-events-none absolute inset-0 z-30 flex items-center justify-center rounded-xl border-2 border-dashed border-primary/70 bg-primary/10 backdrop-blur-[1px]"
+    >
+      <span class="rounded-lg bg-card/95 px-3 py-2 text-sm font-medium text-foreground shadow">
+        松开以上传图片
+      </span>
+    </div>
+  {/if}
 
   {#if !isFocused && content}
     <div class="markdown-preview" use:mediaAuth onclick={handlePreviewClick}>

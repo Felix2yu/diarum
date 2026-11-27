@@ -93,6 +93,49 @@ func TestDiarySaveSyncsMediaImages(t *testing.T) {
 	}
 }
 
+func TestSoftDeleteUnreferencedMedia(t *testing.T) {
+	s := newTestStore(t)
+	user := newTestUser(t, s)
+	other := newTestUser(t, s)
+
+	referenced := mustCreateMedia(t, s, user.ID, "referenced")
+	freeA := mustCreateMedia(t, s, user.ID, "free-a")
+	freeB := mustCreateMedia(t, s, user.ID, "free-b")
+	foreign := mustCreateMedia(t, s, other.ID, "foreign")
+
+	content := "![](" + mediaFileURL(referenced.ID) + ")"
+	if _, _, err := s.UpsertDiary(user.ID, "2026-04-01", content, nil, nil, nil, nil, nil, nil, nil, nil); err != nil {
+		t.Fatalf("UpsertDiary: %v", err)
+	}
+
+	deleted, err := s.SoftDeleteUnreferencedMedia(user.ID)
+	if err != nil {
+		t.Fatalf("SoftDeleteUnreferencedMedia: %v", err)
+	}
+	if deleted != 2 {
+		t.Fatalf("deleted = %d, want 2", deleted)
+	}
+	if got := mustGetMedia(t, s, referenced.ID, user.ID); got.DeletedAt != "" {
+		t.Fatalf("referenced media deleted_at = %q, want empty", got.DeletedAt)
+	}
+	for _, media := range []*Media{freeA, freeB} {
+		if got := mustGetMedia(t, s, media.ID, user.ID); got.DeletedAt == "" {
+			t.Fatalf("unreferenced media %s not moved to trash", media.ID)
+		}
+	}
+	if got := mustGetMedia(t, s, foreign.ID, other.ID); got.DeletedAt != "" {
+		t.Fatalf("foreign media deleted_at = %q, want empty", got.DeletedAt)
+	}
+
+	again, err := s.SoftDeleteUnreferencedMedia(user.ID)
+	if err != nil {
+		t.Fatalf("SoftDeleteUnreferencedMedia second run: %v", err)
+	}
+	if again != 0 {
+		t.Fatalf("second run deleted = %d, want 0", again)
+	}
+}
+
 func TestListTrashedMediaBefore(t *testing.T) {
 	s := newTestStore(t)
 	user := newTestUser(t, s)
